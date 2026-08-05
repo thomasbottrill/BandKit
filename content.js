@@ -285,7 +285,12 @@
   const headerShortcuts = document.createElement("nav");
   headerShortcuts.className = "hub-header-shortcuts";
   headerShortcuts.setAttribute("aria-label", "BandKit shortcuts");
-  shadow.append(launcher, headerShortcuts, panel, player);
+  const playerSections = document.createElement("div");
+  playerSections.className = "hub-player-sections";
+  playerSections.setAttribute("aria-label", "BandKit player and sections");
+  playerSections.append(player.querySelector(".hub-now-playing-button"), headerShortcuts);
+  player.append(playerSections);
+  shadow.append(launcher, panel, player);
 
   const tabs = [
     { id: "playlist", label: "Playlists", icon: "icon-queue.svg" },
@@ -5758,30 +5763,6 @@
     document.head.append(modernReleaseStyle);
     let shadowHeaderObserver = null;
     let observedHeaderShadow = null;
-    let panelAnchorFrame = 0;
-    function syncPanelAnchor(nav) {
-      window.cancelAnimationFrame(panelAnchorFrame);
-      panelAnchorFrame = requestAnimationFrame(() => {
-        panelAnchorFrame = 0;
-        const candidates = nav
-          ? [...nav.children]
-          : [headerShortcuts];
-        const rects = candidates
-          .filter((element) => element instanceof Element && !element.hidden)
-          .map((element) => element.getBoundingClientRect())
-          .filter((rect) => rect.width > 0 && rect.height > 0);
-        if (!rects.length) {
-          host.style.removeProperty("--hub-panel-anchor-x");
-          host.style.removeProperty("--hub-panel-anchor-top");
-          return;
-        }
-        const left = Math.min(...rects.map((rect) => rect.left));
-        const right = Math.max(...rects.map((rect) => rect.right));
-        const bottom = Math.max(...rects.map((rect) => rect.bottom));
-        host.style.setProperty("--hub-panel-anchor-x", `${Math.round((left + right) / 2)}px`);
-        host.style.setProperty("--hub-panel-anchor-top", `${Math.round(bottom + 8)}px`);
-      });
-    }
     function syncNativeHeaderCart(nav) {
       const cartShortcut = headerShortcuts.querySelector('[data-tab="cart"]');
       const nativeCart = [...(nav?.querySelectorAll([
@@ -5793,10 +5774,10 @@
         "#cart-link",
         "#cart-control"
       ].join(",")) || [])].find((control) => !root.contains(control));
-      cartShortcut.hidden = Boolean(nativeCart);
+      cartShortcut.hidden = false;
       if (!nativeCart) return;
-      nativeCart.hidden = false;
-      nativeCart.closest("li")?.removeAttribute("hidden");
+      nativeCart.hidden = true;
+      nativeCart.closest("li")?.setAttribute("hidden", "");
       nativeCart.setAttribute("data-bandkit-native-cart", "");
       if (nativeCart.dataset.bandkitCartBound) return;
       nativeCart.dataset.bandkitCartBound = "true";
@@ -5827,16 +5808,13 @@
         if (feedItem.nextElementSibling !== root) feedItem.after(root);
         launcher.classList.remove("is-floating");
         launcher.classList.add("is-header", "is-modern-header");
-        headerShortcuts.classList.add("is-modern-header");
         const nativeIcon = feedControl.querySelector("svg");
         const nativeIconStyle = nativeIcon ? getComputedStyle(nativeIcon) : null;
         const nativeColor = nativeIconStyle?.fill && nativeIconStyle.fill !== "none"
           ? nativeIconStyle.fill
           : nativeIconStyle?.stroke || getComputedStyle(feedControl).color;
         launcher.style.color = nativeColor;
-        headerShortcuts.style.color = nativeColor;
         syncNativeHeaderCart(modernNav);
-        syncPanelAnchor(modernNav);
         return true;
       }
       if (legacyNav) {
@@ -5847,10 +5825,7 @@
         launcher.style.removeProperty("color");
         launcher.classList.remove("is-floating", "is-modern-header");
         launcher.classList.add("is-header");
-        headerShortcuts.style.removeProperty("color");
-        headerShortcuts.classList.remove("is-modern-header");
         syncNativeHeaderCart(legacyNav);
-        syncPanelAnchor(legacyNav);
         return true;
       }
       if (allowFloating) {
@@ -5858,10 +5833,7 @@
         launcher.style.removeProperty("color");
         launcher.classList.remove("is-header", "is-modern-header");
         launcher.classList.add("is-floating");
-        headerShortcuts.style.removeProperty("color");
-        headerShortcuts.classList.remove("is-modern-header");
         syncNativeHeaderCart(null);
-        syncPanelAnchor(null);
       }
       return false;
     }

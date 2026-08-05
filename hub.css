@@ -285,18 +285,18 @@ button {
 .hub-panel.is-contextual {
   bottom: 96px;
   height: auto;
-  left: clamp(218px, var(--hub-panel-anchor-x, 50vw), calc(100vw - 218px));
+  left: auto;
   max-height: none;
   min-height: min(420px, calc(100vh - 160px));
-  right: auto;
-  top: var(--hub-panel-anchor-top, 64px);
-  transform: translateX(-50%);
+  right: 16px;
+  top: 64px;
+  transform: none;
   width: min(420px, calc(100vw - 32px));
   z-index: 2147483647;
 }
 
 .hub-panel.is-contextual.is-hidden {
-  transform: translate(-50%, 12px) scale(0.985);
+  transform: translateY(12px) scale(0.985);
 }
 
 .hub-panel.is-contextual.is-now-playing-panel {
@@ -305,7 +305,13 @@ button {
   left: clamp(218px, var(--hub-now-playing-anchor-x, 50vw), calc(100vw - 218px));
   max-height: calc(100vh - var(--hub-now-playing-bottom, 96px) - 16px);
   min-height: min(220px, calc(100vh - var(--hub-now-playing-bottom, 96px) - 16px));
+  right: auto;
   top: auto;
+  transform: translateX(-50%);
+}
+
+.hub-panel.is-contextual.is-now-playing-panel.is-hidden {
+  transform: translate(-50%, 12px) scale(0.985);
 }
 
 .hub-panel.is-contextual .hub-reset,
@@ -3225,7 +3231,49 @@ button {
   height: 100%;
   margin: 0 auto;
   max-width: 800px;
-  width: calc(100% - 48px);
+  width: min(calc(100% - 48px), calc(100% - 440px));
+}
+
+.hub-player-sections {
+  align-items: center;
+  color: var(--hub-ink);
+  display: flex;
+  gap: 4px;
+  position: absolute;
+  right: 16px;
+  top: 14px;
+}
+
+.hub-player-sections .hub-header-shortcuts {
+  color: inherit;
+  height: 40px;
+}
+
+.hub-player-sections .hub-header-shortcut:hover,
+.hub-player-sections .hub-header-shortcut:focus-visible,
+.hub-player-sections .hub-header-shortcut.is-active {
+  background: var(--hub-accent-soft);
+  color: var(--hub-accent);
+}
+
+.hub-player-sections .hub-now-playing-button {
+  justify-content: center;
+  padding: 0;
+  position: relative;
+  width: 40px;
+}
+
+.hub-player-sections .hub-now-playing-label {
+  display: none;
+}
+
+.hub-player-sections .hub-now-playing-count {
+  height: 17px;
+  min-width: 17px;
+  padding: 0 4px;
+  position: absolute;
+  right: -3px;
+  top: -5px;
 }
 
 .hub-player-main {
@@ -3644,13 +3692,14 @@ button {
 
 @media (max-width: 1120px) {
   .hub-player-content {
-    width: calc(100% - 24px);
+    width: min(calc(100% - 24px), calc(100% - 440px));
   }
 }
 
 @media (max-width: 900px) {
   .hub-player-content {
-    width: 100%;
+    margin-left: 0;
+    width: calc(100% - 220px);
   }
 
   .hub-panel {
@@ -3671,10 +3720,10 @@ button {
   .hub-panel.is-contextual {
     bottom: 92px;
     height: auto;
-    left: clamp(218px, var(--hub-panel-anchor-x, 50vw), calc(100vw - 218px));
+    left: auto;
     max-height: none;
-    right: auto;
-    top: var(--hub-panel-anchor-top, 64px);
+    right: 12px;
+    top: 64px;
     width: min(420px, calc(100vw - 24px));
   }
 }
@@ -3703,6 +3752,11 @@ button {
 
   .hub-panel.is-contextual.is-hidden {
     transform: translateY(12px) scale(0.985);
+  }
+
+  .hub-player-sections {
+    gap: 1px;
+    right: 6px;
   }
 
   .hub-panel.is-contextual.is-now-playing-panel {
