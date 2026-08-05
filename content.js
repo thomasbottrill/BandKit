@@ -62,6 +62,7 @@
     savedPlaylists: [],
     playlistView: "current",
     selectedSavedPlaylistId: null,
+    nowPlayingHeight: 340,
     wishlistTrackKeys: [],
     activity: []
   };
@@ -2160,6 +2161,11 @@
       settings: "Settings",
       nowPlaying: "Now Playing"
     };
+    const nowPlayingPanel = state.activeTab === "nowPlaying";
+    const nowPlayingHeight = Math.max(220, Math.min(520, Number(state.nowPlayingHeight) || 340));
+    state.nowPlayingHeight = nowPlayingHeight;
+    panel.classList.toggle("is-now-playing-panel", nowPlayingPanel);
+    panel.style.setProperty("--hub-now-playing-height", `${nowPlayingHeight}px`);
     panelTitle.textContent = labels[state.activeTab] || "BandKit";
     panel.setAttribute("aria-label", `${panelTitle.textContent} panel`);
     panelHeader.setAttribute("aria-label", `${panelTitle.textContent} panel header`);
@@ -4094,6 +4100,10 @@
     nowPlayingCount.textContent = String(queuedTracks);
     nowPlayingButton.classList.toggle("is-active", state.open && state.activeTab === "nowPlaying");
     nowPlayingButton.setAttribute("aria-expanded", String(state.open && state.activeTab === "nowPlaying"));
+    const nowPlayingButtonRect = nowPlayingButton.getBoundingClientRect();
+    const playerRect = player.getBoundingClientRect();
+    host.style.setProperty("--hub-now-playing-anchor-x", `${Math.round(nowPlayingButtonRect.left + nowPlayingButtonRect.width / 2)}px`);
+    host.style.setProperty("--hub-now-playing-bottom", `${Math.round(window.innerHeight - playerRect.top + 10)}px`);
     renderPlayerMoreActions();
   }
 
@@ -5306,7 +5316,8 @@
   for (const handle of panel.querySelectorAll(".hub-resize-handle")) {
     let resizing = null;
     handle.addEventListener("pointerdown", (event) => {
-      if (panel.classList.contains("is-contextual")) return;
+      const pinnedNowPlayingResize = panel.classList.contains("is-now-playing-panel") && handle.dataset.edge === "top";
+      if (panel.classList.contains("is-contextual") && !pinnedNowPlayingResize) return;
       const dockedEdge = state.dockSide === "left" ? "right" : "left";
       if (event.button !== 0 || (state.layoutMode === "docked" && handle.dataset.edge !== dockedEdge)) return;
       const rect = panel.getBoundingClientRect();
@@ -5319,16 +5330,17 @@
         top: rect.top,
         bottom: rect.bottom,
         width: rect.width,
-        height: rect.height
+        height: rect.height,
+        pinnedNowPlaying: pinnedNowPlayingResize
       };
-      if (state.layoutMode !== "docked") {
+      if (state.layoutMode !== "docked" && !pinnedNowPlayingResize) {
         panel.style.left = `${rect.left}px`;
         panel.style.right = "auto";
         panel.style.top = `${rect.top}px`;
         panel.style.bottom = "auto";
         panel.style.height = `${rect.height}px`;
       }
-      panel.style.width = `${rect.width}px`;
+      if (!pinnedNowPlayingResize) panel.style.width = `${rect.width}px`;
       setResizeCursor(["top", "bottom"].includes(handle.dataset.edge) ? "ns-resize" : "ew-resize", handle);
       handle.setPointerCapture(event.pointerId);
       event.preventDefault();
@@ -5337,6 +5349,14 @@
       if (!resizing || event.pointerId !== resizing.pointerId) return;
       const minWidth = 320;
       const minHeight = 520;
+      if (resizing.pinnedNowPlaying) {
+        const requestedHeight = resizing.height - (event.clientY - resizing.startY);
+        const availableHeight = Math.max(220, resizing.bottom - 16);
+        const height = Math.max(220, Math.min(520, availableHeight, requestedHeight));
+        state.nowPlayingHeight = Math.round(height);
+        panel.style.setProperty("--hub-now-playing-height", `${height}px`);
+        return;
+      }
       if (state.layoutMode === "docked") {
         const deltaX = event.clientX - resizing.startX;
         const requestedWidth = state.dockSide === "left" ? resizing.width + deltaX : resizing.width - deltaX;
@@ -5369,6 +5389,7 @@
         saveState();
         saveLayoutState();
       }
+      else if (state.activeTab === "nowPlaying") saveState();
       else capturePanelLayout();
     };
     handle.addEventListener("pointerup", finishResize);
@@ -5381,6 +5402,7 @@
         saveState();
         saveLayoutState();
       }
+      else if (state.activeTab === "nowPlaying") saveState();
       else capturePanelLayout();
     });
   }
