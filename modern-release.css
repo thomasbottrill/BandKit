@@ -1064,9 +1064,9 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #band-
 }
 
 html[data-bandkit-modern-release="true"][data-bandkit-page-theme="true"] body.tralbum-page #bio-container .follow-unfollow {
-  background: var(--bandkit-release-surface) !important;
-  border: 1px solid var(--bandkit-release-line) !important;
-  color: var(--bandkit-release-ink) !important;
+  background: var(--bandkit-release-accent) !important;
+  border: 0 !important;
+  color: var(--bandkit-release-on-accent) !important;
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .location,

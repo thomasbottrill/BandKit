@@ -1211,7 +1211,7 @@
       html[data-bandkit-page-theme="true"] :is(button.selected, button.is-selected, button.active, button[aria-pressed="true"]):not(.bandcamp-hub-page-playlist):not(.bandcamp-hub-page-dj) { background-color: var(--bandkit-page-accent) !important; color: var(--bandkit-page-on-accent) !important; }
       html[data-bandkit-page-theme="true"] :is(.band-navbar-wrapper, #band-navbar) { background-color: var(--bandkit-page-navbar) !important; }
       html[data-bandkit-page-theme="true"] #band-navbar a { color: var(--bandkit-page-navbar-text) !important; }
-      html[data-bandkit-page-theme="true"] .follow-unfollow { background-color: var(--bandkit-page-surface) !important; border-color: var(--bandkit-page-border) !important; color: var(--bandkit-page-text) !important; }
+      html[data-bandkit-page-theme="true"] .follow-unfollow { background-color: var(--bandkit-page-accent) !important; border: 0 !important; color: var(--bandkit-page-on-accent) !important; }
       html[data-bandkit-page-theme="true"] :is(hr, .track_row_view, .collection-item-container, section.floating-player) { border-color: var(--bandkit-page-border) !important; }
       html[data-bandkit-page-theme="true"] ::selection { background: var(--bandkit-page-accent); color: var(--bandkit-page-on-accent); }
     `;

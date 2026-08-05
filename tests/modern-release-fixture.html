@@ -170,8 +170,9 @@
         && getComputedStyle(document.querySelector(".inline_player")).backgroundColor === "rgb(49, 46, 73)"
         && getComputedStyle(document.querySelector(".inline_player .play_cell > a")).backgroundColor === "rgb(49, 46, 73)"
         && getComputedStyle(document.querySelector(".inline_player .play_cell > a")).borderColor === "rgb(97, 95, 116)"
-        && getComputedStyle(document.querySelector(".follow-unfollow")).backgroundColor === "rgb(49, 46, 73)"
-        && getComputedStyle(document.querySelector(".follow-unfollow")).color === "rgb(248, 250, 252)"
+        && getComputedStyle(document.querySelector(".follow-unfollow")).backgroundColor === "rgb(145, 90, 240)"
+        && getComputedStyle(document.querySelector(".follow-unfollow")).color === "rgb(255, 255, 255)"
+        && getComputedStyle(document.querySelector(".follow-unfollow")).borderTopWidth === "0px"
       ) : !fixtureArtistTheme || (
           getComputedStyle(document.body).backgroundColor === "rgb(13, 16, 21)"
           && getComputedStyle(document.querySelector("#pgBd")).backgroundColor === "rgb(13, 16, 21)"
@@ -184,7 +185,7 @@
         && getComputedStyle(document.querySelector("#sidecart")).display === "none"
       );
       const followStyled = fixtureCustomTheme
-        ? getComputedStyle(document.querySelector(".follow-unfollow")).color === "rgb(248, 250, 252)"
+        ? getComputedStyle(document.querySelector(".follow-unfollow")).color === "rgb(255, 255, 255)"
         : getComputedStyle(document.querySelector(".follow-unfollow")).backgroundColor === "rgb(105, 169, 186)";
       const nativeHeaderCartSuppressed = getComputedStyle(document.querySelector("#fixture-album-header-cart")).display === "none";
       const customHeaderRect = document.querySelector("#customHeader").getBoundingClientRect();
