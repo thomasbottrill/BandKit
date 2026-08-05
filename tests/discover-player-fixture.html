@@ -127,6 +127,7 @@
       document.title = title?.textContent === "Discover Fixture Track"
         && title.href.includes("fixture-artist.bandcamp.com/album/fixture-album")
         && artist?.textContent === "Fixture Artist"
+        && getComputedStyle(document.querySelector(".discover-player")).display === "none"
         && root?.querySelector(".hub-duration")?.textContent === "3:00"
         && activity[0]?.title === "Discover Fixture Track"
         && root?.querySelector(".hub-dj-waveform")?.disabled === false
