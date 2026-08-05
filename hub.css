@@ -307,9 +307,7 @@ button {
 }
 
 .hub-panel.is-contextual .hub-header {
-  cursor: default;
-  flex-basis: 54px;
-  touch-action: auto;
+  display: none;
 }
 
 .hub-panel.is-docked {
@@ -1680,6 +1678,19 @@ button {
   margin-left: auto;
 }
 
+.hub-panel-content-header > .hub-close {
+  flex: 0 0 32px;
+  margin-left: auto;
+}
+
+.hub-panel-content-header > .hub-section-heading-meta + .hub-close {
+  margin-left: 8px;
+}
+
+.hub-cart-view-header.hub-panel-content-header {
+  grid-template-columns: minmax(0, 1fr) auto 32px;
+}
+
 .hub-cart-view-header {
   align-items: center;
   display: grid;
@@ -2716,6 +2727,10 @@ button {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .hub-cart-view-header.hub-panel-content-header {
+    grid-template-columns: minmax(0, 1fr) 32px;
+  }
+
   .hub-cart-view-meta {
     display: none;
   }
@@ -2811,12 +2826,12 @@ button {
   border-radius: 0;
   box-shadow: none;
   margin: 0;
-  padding: 0 0 16px;
+  padding: 0 0 18px;
 }
 
 .hub-settings-card + .hub-settings-card {
-  border-top: 1px solid var(--hub-line);
-  padding-top: 16px;
+  border-top: 0;
+  padding-top: 2px;
 }
 
 .hub-settings-heading {
@@ -2834,7 +2849,7 @@ button {
   display: flex;
   gap: 12px;
   justify-content: space-between;
-  min-height: 38px;
+  min-height: 42px;
 }
 
 .hub-settings-layout-grid {
@@ -2855,9 +2870,9 @@ button {
 }
 
 .hub-settings-subrow {
-  border-top: 1px solid var(--hub-line);
-  margin-top: 12px;
-  padding-top: 8px;
+  border-top: 0;
+  margin-top: 10px;
+  padding-top: 0;
 }
 
 .hub-settings-select {
@@ -3047,13 +3062,14 @@ button {
 
 .hub-theme-accessibility {
   align-items: center;
-  border-top: 1px solid var(--hub-line);
+  background: var(--hub-card-footer);
+  border-radius: 5px;
   color: var(--hub-ink);
   display: flex;
   gap: 7px;
   justify-content: space-between;
-  margin-top: 10px;
-  padding: 8px 0 0;
+  margin-top: 14px;
+  padding: 8px 10px;
 }
 
 .hub-theme-accessibility strong {
@@ -3079,9 +3095,9 @@ button {
 }
 
 .hub-custom-theme-panel {
-  border-top: 1px solid var(--hub-line);
-  margin-top: 10px;
-  padding-top: 8px;
+  border-top: 0;
+  margin-top: 14px;
+  padding-top: 0;
 }
 
 .hub-save-theme-row {
@@ -3115,13 +3131,13 @@ button {
   align-items: center;
   background: transparent;
   border: 0;
-  border-bottom: 1px solid var(--hub-line);
+  border-bottom: 0;
   border-radius: 0;
   color: var(--hub-muted);
   display: flex;
   font-size: 12px;
   justify-content: space-between;
-  padding: 4px 1px;
+  padding: 5px 2px;
 }
 
 .hub-colour-field input {

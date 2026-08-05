@@ -349,6 +349,7 @@
   const nowPlayingButton = player.querySelector(".hub-now-playing-button");
   const nowPlayingCount = player.querySelector(".hub-now-playing-count");
   const djPlayerButton = player.querySelector(".hub-dj-player-button");
+  const headerCloseButton = panel.querySelector(".hub-close");
   const headerResetButton = panel.querySelector(".hub-reset");
   const layoutToggleButton = panel.querySelector(".hub-layout-toggle");
   const djDrawer = player.querySelector(".hub-dj-drawer");
@@ -2305,8 +2306,22 @@
     if (state.activeTab === "activity") renderActivity();
     if (state.activeTab === "settings") renderSettings();
     if (state.activeTab === "nowPlaying") renderCurrentPlaylist();
+    mountPanelClose();
     renderDjTools();
     renderPlayer();
+  }
+
+  function mountPanelClose() {
+    const anchor = state.activeTab === "cart"
+      ? content.querySelector(".hub-cart-view-header")
+      : state.activeTab === "playlist"
+        ? content.querySelector(".hub-saved-cart-detail-toolbar, .hub-section-heading")
+        : state.activeTab === "nowPlaying"
+          ? content.querySelector(".hub-playlist-toolbar")
+          : content.querySelector(".hub-section-heading");
+    if (!anchor) return;
+    anchor.classList.add("hub-panel-content-header");
+    anchor.append(headerCloseButton);
   }
 
   function renderPlaying() {
@@ -3882,7 +3897,10 @@
     const selected = state.savedPlaylists.find((entry) => entry.id === state.selectedSavedPlaylistId);
     if (!selected) state.selectedSavedPlaylistId = null;
     if (selected) renderSavedPlaylistDetail(selected);
-    else renderSavedPlaylists();
+    else {
+      content.append(createSectionHeading("Playlists", `${state.savedPlaylists.length} saved`));
+      renderSavedPlaylists();
+    }
   }
 
   function renderActivity() {
@@ -3936,12 +3954,11 @@
     content.append(createSectionHeading("Settings"));
 
     const playback = createElement("section", "hub-card hub-settings-card");
-    playback.append(createElement("h2", "hub-settings-heading", "Playback"));
     const knobRow = createElement("div", "hub-settings-row");
     const knobCopy = createElement("div", "hub-settings-copy");
     knobCopy.append(
       createElement("strong", "", "Knob gesture"),
-      createElement("span", "", "How the DJ knobs respond.")
+      createElement("span", "", "Choose how DJ knobs respond.")
     );
     const knobMode = createElement("select", "hub-settings-select");
     knobMode.setAttribute("aria-label", "Knob gesture");
@@ -3968,7 +3985,7 @@
     appearance.append(createElement("h2", "hub-settings-heading", "Appearance"));
     const themeRow = createElement("div", "hub-settings-row");
     const themeCopy = createElement("div", "hub-settings-copy");
-    themeCopy.append(createElement("strong", "", "Match Bandcamp"), createElement("span", "", "Use the artist page colours."));
+    themeCopy.append(createElement("strong", "", "Match Bandcamp"), createElement("span", "", "Use this page’s colours."));
     const pageAware = createElement("button", `hub-settings-toggle${state.appearance.pageAware ? " is-active" : ""}`);
     pageAware.type = "button";
     pageAware.setAttribute("role", "switch");
@@ -4101,7 +4118,7 @@
     const pageThemeCopy = createElement("div", "hub-settings-copy");
     pageThemeCopy.append(
       createElement("strong", "", "Theme Bandcamp pages"),
-      createElement("span", "", "Override Bandcamp with this theme.")
+      createElement("span", "", "Apply this palette across Bandcamp.")
     );
     const pageThemeToggle = createElement("button", `hub-settings-toggle hub-page-theme-toggle${state.appearance.applyToPage ? " is-active" : ""}`);
     pageThemeToggle.type = "button";
@@ -4124,7 +4141,7 @@
     const modernReleaseCopy = createElement("div", "hub-settings-copy");
     modernReleaseCopy.append(
       createElement("strong", "", "Modern album & track pages"),
-      createElement("span", "", "A wider, cleaner release layout with every native control intact.")
+      createElement("span", "", "Use the wider release layout.")
     );
     const modernReleaseToggle = createElement("button", `hub-settings-toggle hub-modern-release-toggle${state.appearance.modernReleasePages ? " is-active" : ""}`);
     modernReleaseToggle.type = "button";
@@ -4143,8 +4160,8 @@
     appearance.append(modernReleaseRow);
 
     for (const [key, label, description] of [
-      ["hidePageCart", "Hide page shopping cart", "Use BandKit’s Cart panel instead of Bandcamp’s page cart."],
-      ["hideHeaderCart", "Hide header shopping cart", "Remove Bandcamp’s cart from the album and track page header."]
+      ["hidePageCart", "Hide page shopping cart", "Use BandKit’s Cart panel."],
+      ["hideHeaderCart", "Hide header shopping cart", "Remove Bandcamp’s header cart."]
     ]) {
       const row = createElement("div", "hub-settings-row hub-settings-subrow");
       const copy = createElement("div", "hub-settings-copy");
@@ -4170,7 +4187,7 @@
     const nativePlayerCopy = createElement("div", "hub-settings-copy");
     nativePlayerCopy.append(
       createElement("strong", "", "Hide Bandcamp music player"),
-      createElement("span", "", "Use BandKit’s music bar and Now Playing panel on the main Bandcamp pages.")
+      createElement("span", "", "Use only BandKit’s music player.")
     );
     const hideBandcampPlayer = state.appearance.hideBandcampPlayer !== false;
     const nativePlayerToggle = createElement("button", `hub-settings-toggle${hideBandcampPlayer ? " is-active" : ""}`);
@@ -5558,7 +5575,7 @@
     }
     setOpen(!state.open);
   });
-  panel.querySelector(".hub-close").addEventListener("click", () => setOpen(false));
+  headerCloseButton.addEventListener("click", () => setOpen(false));
   headerResetButton.addEventListener("click", () => {
     if (state.layoutMode === "docked") setOpen(false);
     else resetPanelLayout();
