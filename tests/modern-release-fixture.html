@@ -124,7 +124,7 @@
       runtime: {
         lastError: null,
         getURL: (path) => new URL(`/${path}`, location.href).href,
-        getManifest: () => ({ version: "0.7.5" }),
+        getManifest: () => ({ version: "0.7.5-header-height" }),
         sendMessage(_message, callback) { callback?.({ ok: true, state: { enabled: false, status: "idle" } }); },
         onMessage: { addListener(listener) { window.fixtureRuntimeListener = listener; } }
       },
@@ -157,6 +157,11 @@
       );
       const nativeFollowPreserved = getComputedStyle(document.querySelector(".follow-unfollow")).backgroundColor === "rgb(105, 169, 186)";
       const nativeHeaderCartSuppressed = getComputedStyle(document.querySelector("#fixture-album-header-cart")).display === "none";
+      const customHeaderRect = document.querySelector("#customHeader").getBoundingClientRect();
+      const customHeaderImageRect = document.querySelector("#customHeader img").getBoundingClientRect();
+      const fullCustomHeaderVisible = Math.abs(customHeaderRect.height - customHeaderRect.width * 180 / 975) <= 2
+        && Math.abs(customHeaderImageRect.height - customHeaderRect.height) <= 2
+        && getComputedStyle(document.querySelector("#customHeader img")).objectFit === "contain";
       const pageRect = document.querySelector("#pgBd").getBoundingClientRect();
       const pageStyle = getComputedStyle(document.querySelector("#pgBd"));
       const recommendationsRect = document.querySelector("#recommendations_container").getBoundingClientRect();
@@ -215,6 +220,7 @@
         && palettePreserved
         && cartHidden
         && nativeHeaderCartSuppressed
+        && fullCustomHeaderVisible
         && nativeFollowPreserved;
       buy?.click();
       document.querySelector(".more-thumbs")?.click();

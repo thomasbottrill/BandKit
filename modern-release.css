@@ -61,12 +61,20 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #customHeaderWrapper 
   width: calc(100% + 48px) !important;
 }
 
-html[data-bandkit-modern-release="true"] body.tralbum-page #customHeader,
+html[data-bandkit-modern-release="true"] body.tralbum-page #customHeader {
+  aspect-ratio: 975 / 180;
+  display: block;
+  height: auto;
+  max-width: none !important;
+  overflow: hidden;
+  width: 100% !important;
+}
+
 html[data-bandkit-modern-release="true"] body.tralbum-page #customHeader .desktop-header,
 html[data-bandkit-modern-release="true"] body.tralbum-page #customHeader .desktop-header > a,
 html[data-bandkit-modern-release="true"] body.tralbum-page #customHeader picture {
   display: block;
-  height: clamp(150px, 16vw, 220px);
+  height: 100%;
   max-width: none !important;
   overflow: hidden;
   width: 100% !important;
@@ -76,7 +84,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #customHeader img {
   display: block;
   height: 100% !important;
   max-width: none !important;
-  object-fit: cover;
+  object-fit: contain;
   width: 100% !important;
 }
 
@@ -1368,13 +1376,6 @@ html[data-bandkit-modern-release="true"] body.tralbum-page :focus-visible {
   html[data-bandkit-modern-release="true"] body.tralbum-page #customHeaderWrapper {
     margin-inline: -16px;
     width: calc(100% + 32px) !important;
-  }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page #customHeader,
-  html[data-bandkit-modern-release="true"] body.tralbum-page #customHeader .desktop-header,
-  html[data-bandkit-modern-release="true"] body.tralbum-page #customHeader .desktop-header > a,
-  html[data-bandkit-modern-release="true"] body.tralbum-page #customHeader picture {
-    height: 124px;
   }
 
   html[data-bandkit-modern-release="true"] body.tralbum-page .band-navbar-wrapper {
