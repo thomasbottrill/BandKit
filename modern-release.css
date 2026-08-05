@@ -1063,6 +1063,12 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #band-
   font-weight: 600;
 }
 
+html[data-bandkit-modern-release="true"][data-bandkit-page-theme="true"] body.tralbum-page #bio-container .follow-unfollow {
+  background: var(--bandkit-release-surface) !important;
+  border: 1px solid var(--bandkit-release-line) !important;
+  color: var(--bandkit-release-ink) !important;
+}
+
 html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .location,
 html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #bio-text {
   color: var(--bandkit-release-muted) !important;

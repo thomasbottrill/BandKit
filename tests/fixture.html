@@ -107,6 +107,7 @@
           customCard: "#191919",
           customPageBackground: "#f7f7f7",
           customPageSurface: "#111111",
+          customNavbar: "#272044",
           customText: "#222222",
           customSecondaryText: "#b0b0b0",
           savedThemes: []
@@ -416,8 +417,9 @@
           && ratio(linkStyles.color, pageStyles.backgroundColor) >= 3
           && pageThemeToggle?.getAttribute("aria-checked") === "true"
           && secondaryStyles.color === "rgb(176, 176, 176)"
-          && colourFields?.length === 7
+          && colourFields?.length === 8
           && root?.querySelector('input[aria-label="BandKit content colour"]')
+          && root?.querySelector('input[aria-label="Artist navigation colour"]')
           && root?.querySelector('input[aria-label="Secondary text colour"]')
           && !root?.textContent.includes("Reset panel and launcher positions")
           && !root?.textContent.includes("Local data")

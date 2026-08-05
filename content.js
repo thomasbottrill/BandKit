@@ -35,6 +35,7 @@
       customCard: "#ffffff",
       customPageBackground: "#eef2f4",
       customPageSurface: "#ffffff",
+      customNavbar: "#ffffff",
       customText: "#111827",
       customSecondaryText: "#6b7280",
       savedThemes: []
@@ -1124,6 +1125,7 @@
         card: state.appearance.customCard,
         background: state.appearance.customPageBackground,
         pageSurface: state.appearance.customPageSurface,
+        navbar: state.appearance.customNavbar,
         text: state.appearance.customText,
         secondaryText: state.appearance.customSecondaryText
       };
@@ -1139,10 +1141,12 @@
     const card = hexColor(theme.card, panelIsDark ? mixColor(panel, white, 0.07) : mixColor(panel, white, 0.4));
     const background = hexColor(theme.background, luminance(panel) < 0.34 ? mixColor(panel, black, 0.38) : mixColor(panel, white, 0.28));
     const pageSurface = hexColor(theme.pageSurface, panel);
+    const navbar = hexColor(theme.navbar, pageSurface);
     const preferredText = hexColor(theme.text, luminance(pageSurface) < 0.34 ? white : black);
     const panelTextResult = readableColor(preferredText, [panel, card], 4.5);
     const textResult = readableColor(preferredText, [pageSurface], 4.5);
     const backgroundTextResult = readableColor(preferredText, [background], 4.5);
+    const navbarTextResult = readableColor(preferredText, [navbar], 4.5);
     const preferredSecondaryText = hexColor(theme.secondaryText, mixColor(preferredText, pageSurface, luminance(pageSurface) < 0.34 ? 0.35 : 0.42));
     const mutedResult = readableColor(preferredSecondaryText, [pageSurface], 4.5);
     const panelMutedResult = readableColor(preferredSecondaryText, [panel, card], 4.5);
@@ -1157,10 +1161,10 @@
     const onAccent = contrast(accent, white) >= contrast(accent, black) ? white : black;
     const panelOnAccent = contrast(panelAccent, white) >= contrast(panelAccent, black) ? white : black;
     return {
-      panel, card, background, pageSurface, text, panelText: panelTextResult.color, panelMuted: panelMutedResult.color, backgroundText: backgroundTextResult.color,
+      panel, card, background, pageSurface, navbar, text, panelText: panelTextResult.color, panelMuted: panelMutedResult.color, backgroundText: backgroundTextResult.color, navbarText: navbarTextResult.color,
       accent, panelAccent, muted, border, onAccent, panelOnAccent,
-      adjusted: panelTextResult.adjusted || textResult.adjusted || backgroundTextResult.adjusted || mutedResult.adjusted || panelMutedResult.adjusted || panelAccentResult.adjusted || accentResult.adjusted,
-      textContrast: Math.min(contrast(panelTextResult.color, panel), contrast(panelTextResult.color, card), contrast(text, pageSurface), contrast(backgroundTextResult.color, background)),
+      adjusted: panelTextResult.adjusted || textResult.adjusted || backgroundTextResult.adjusted || navbarTextResult.adjusted || mutedResult.adjusted || panelMutedResult.adjusted || panelAccentResult.adjusted || accentResult.adjusted,
+      textContrast: Math.min(contrast(panelTextResult.color, panel), contrast(panelTextResult.color, card), contrast(text, pageSurface), contrast(backgroundTextResult.color, background), contrast(navbarTextResult.color, navbar)),
       accentContrast: Math.min(contrast(panelAccent, panel), contrast(panelAccent, card), contrast(accent, pageSurface))
     };
   }
@@ -1180,6 +1184,9 @@
       html[data-bandkit-page-theme="true"] :is(input, select, textarea, .popupmenu, .menu) { background-color: var(--bandkit-page-surface) !important; color: var(--bandkit-page-text) !important; }
       html[data-bandkit-page-theme="true"] button:not(.bandcamp-hub-page-playlist):not(.bandcamp-hub-page-cart):not(.bandcamp-hub-page-dj):not(.bandcamp-hub-page-buy):not(.bandcamp-hub-page-playlist-menu button) { background-color: var(--bandkit-page-surface) !important; border-color: var(--bandkit-page-border) !important; }
       html[data-bandkit-page-theme="true"] :is(button.selected, button.is-selected, button.active, button[aria-pressed="true"]):not(.bandcamp-hub-page-playlist):not(.bandcamp-hub-page-dj) { background-color: var(--bandkit-page-accent) !important; color: var(--bandkit-page-on-accent) !important; }
+      html[data-bandkit-page-theme="true"] :is(.band-navbar-wrapper, #band-navbar) { background-color: var(--bandkit-page-navbar) !important; }
+      html[data-bandkit-page-theme="true"] #band-navbar a { color: var(--bandkit-page-navbar-text) !important; }
+      html[data-bandkit-page-theme="true"] .follow-unfollow { background-color: var(--bandkit-page-surface) !important; border-color: var(--bandkit-page-border) !important; color: var(--bandkit-page-text) !important; }
       html[data-bandkit-page-theme="true"] :is(hr, .track_row_view, .collection-item-container, section.floating-player) { border-color: var(--bandkit-page-border) !important; }
       html[data-bandkit-page-theme="true"] ::selection { background: var(--bandkit-page-accent); color: var(--bandkit-page-on-accent); }
     `;
@@ -1191,7 +1198,7 @@
     const enabled = Boolean(state.appearance.applyToPage && !state.appearance.pageAware);
     document.documentElement.dataset.bandkitPageTheme = String(enabled);
     if (!enabled) {
-      for (const name of ["--bandkit-page-background", "--bandkit-page-surface", "--bandkit-page-text", "--bandkit-page-background-text", "--bandkit-page-muted", "--bandkit-page-accent", "--bandkit-page-border", "--bandkit-page-on-accent", "--bandkit-page-scheme"]) {
+      for (const name of ["--bandkit-page-background", "--bandkit-page-surface", "--bandkit-page-navbar", "--bandkit-page-navbar-text", "--bandkit-page-text", "--bandkit-page-background-text", "--bandkit-page-muted", "--bandkit-page-accent", "--bandkit-page-border", "--bandkit-page-on-accent", "--bandkit-page-scheme"]) {
         document.documentElement.style.removeProperty(name);
       }
       return;
@@ -1201,6 +1208,8 @@
     const variables = {
       "--bandkit-page-background": colorString(theme.background),
       "--bandkit-page-surface": colorString(theme.pageSurface),
+      "--bandkit-page-navbar": colorString(theme.navbar),
+      "--bandkit-page-navbar-text": colorString(theme.navbarText),
       "--bandkit-page-text": colorString(theme.text),
       "--bandkit-page-background-text": colorString(theme.backgroundText),
       "--bandkit-page-muted": colorString(theme.muted),
@@ -1506,6 +1515,25 @@
     for (const [name, value] of Object.entries(variables)) document.documentElement.style.setProperty(name, value);
   }
 
+  function themedModernReleasePalette(palette) {
+    if (!state.appearance.applyToPage || state.appearance.pageAware) return palette;
+    const theme = accessibleAppearanceTheme();
+    const dark = luminance(theme.background) < 0.34;
+    return {
+      ...palette,
+      background: theme.background,
+      surface: theme.pageSurface,
+      text: theme.text,
+      secondary: theme.muted,
+      link: theme.accent,
+      navbar: theme.navbar,
+      navbarText: theme.navbarText,
+      line: theme.border,
+      accentSoft: { ...theme.accent, a: dark ? 0.16 : 0.1 },
+      scheme: dark ? "dark" : "light"
+    };
+  }
+
   function clearModernReleasePalette() {
     modernReleasePalette = null;
     for (const name of [
@@ -1521,7 +1549,7 @@
     if (enabled) {
       if (!modernReleaseLayoutPrepared) modernReleasePalette = captureModernReleasePalette();
       prepareModernReleaseLayout();
-      if (modernReleasePalette) setModernReleasePalette(modernReleasePalette);
+      if (modernReleasePalette) setModernReleasePalette(themedModernReleasePalette(modernReleasePalette));
       document.documentElement.dataset.bandkitModernRelease = "true";
       return;
     }
@@ -4013,15 +4041,17 @@
       card: state.appearance.customCard,
       background: state.appearance.customPageBackground,
       pageSurface: state.appearance.customPageSurface,
+      navbar: state.appearance.customNavbar,
       text: state.appearance.customText,
       secondaryText: state.appearance.customSecondaryText
     }];
-    for (const { id, label, accent, surface, card, background, pageSurface, text, secondaryText } of availableThemes) {
+    for (const { id, label, accent, surface, card, background, pageSurface, navbar, text, secondaryText } of availableThemes) {
       const surfaceColor = hexColor(surface, { r: 255, g: 255, b: 255, a: 1 });
       const resolvedCard = card || hexString(luminance(surfaceColor) < 0.34
         ? mixColor(surfaceColor, { r: 255, g: 255, b: 255, a: 1 }, 0.07)
         : mixColor(surfaceColor, { r: 255, g: 255, b: 255, a: 1 }, 0.4));
       const resolvedText = text || (luminance(hexColor(pageSurface || surface, { r: 255, g: 255, b: 255, a: 1 })) < 0.34 ? "#f8fafc" : "#111827");
+      const resolvedNavbar = navbar || pageSurface || surface;
       const resolvedSecondaryText = secondaryText || hexString(mixColor(
         hexColor(resolvedText, { r: 17, g: 24, b: 39, a: 1 }),
         hexColor(pageSurface || surface, surfaceColor),
@@ -4045,6 +4075,7 @@
           state.appearance.customCard = resolvedCard;
           state.appearance.customPageBackground = background || surface;
           state.appearance.customPageSurface = pageSurface || surface;
+          state.appearance.customNavbar = resolvedNavbar;
           state.appearance.customText = resolvedText;
           state.appearance.customSecondaryText = resolvedSecondaryText;
         }
@@ -4065,6 +4096,7 @@
         ["customCard", "BandKit content"],
         ["customPageBackground", "Page background"],
         ["customPageSurface", "Page content"],
+        ["customNavbar", "Artist navigation"],
         ["customText", "Primary text"],
         ["customSecondaryText", "Secondary text"]
       ]) {
@@ -4101,6 +4133,7 @@
           card: state.appearance.customCard,
           background: state.appearance.customPageBackground,
           pageSurface: state.appearance.customPageSurface,
+          navbar: state.appearance.customNavbar,
           text: state.appearance.customText,
           secondaryText: state.appearance.customSecondaryText
         };

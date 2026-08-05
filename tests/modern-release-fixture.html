@@ -114,6 +114,7 @@
     });
     const fixtureSingleTrack = location.search.includes("single-track");
     const fixtureArtistTheme = location.search.includes("artist-theme");
+    const fixtureCustomTheme = location.search.includes("custom-theme");
     const fixtureCart = location.search.includes("cart");
     const fixtureSingleRecommendations = location.search.includes("single-recommendations");
     if (fixtureArtistTheme) document.body.classList.add("artist-theme");
@@ -131,7 +132,23 @@
       },
       storage: {
         local: {
-          get(_key, callback) { callback({ bandcampHubState: { open: false, activeTab: "settings", appearance: { modernReleasePages: true } } }); },
+          get(_key, callback) {
+            callback({ bandcampHubState: { open: false, activeTab: "settings", appearance: fixtureCustomTheme ? {
+              modernReleasePages: true,
+              pageAware: false,
+              applyToPage: true,
+              preset: "custom",
+              customAccent: "#7c3aed",
+              customSurface: "#18181f",
+              customCard: "#22222b",
+              customPageBackground: "#4a456f",
+              customPageSurface: "#312e49",
+              customNavbar: "#1f2937",
+              customText: "#f8fafc",
+              customSecondaryText: "#cbd5e1",
+              savedThemes: []
+            } : { modernReleasePages: true } } });
+          },
           set() {}
         },
         onChanged: { addListener() {} }
@@ -145,18 +162,25 @@
       const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
       const toggle = root?.querySelector(".hub-modern-release-toggle");
       const buy = document.querySelector("#fixture-buy-digital");
-      const palettePreserved = !fixtureArtistTheme || (
-        getComputedStyle(document.body).backgroundColor === "rgb(13, 16, 21)"
-        && getComputedStyle(document.querySelector("#pgBd")).backgroundColor === "rgb(13, 16, 21)"
-        && getComputedStyle(document.querySelector("#name-section .trackTitle")).color === "rgb(207, 214, 218)"
-        && getComputedStyle(document.querySelector(".secondaryText")).color === "rgb(154, 243, 28)"
-        && getComputedStyle(document.querySelector("#band-navbar")).backgroundColor === "rgb(47, 49, 51)"
-      );
+      const palettePreserved = fixtureCustomTheme ? (
+        getComputedStyle(document.querySelector("#band-navbar")).backgroundColor === "rgb(31, 41, 55)"
+        && getComputedStyle(document.querySelector("#band-navbar a")).color === "rgb(248, 250, 252)"
+        && getComputedStyle(document.querySelector(".follow-unfollow")).backgroundColor === "rgb(49, 46, 73)"
+        && getComputedStyle(document.querySelector(".follow-unfollow")).color === "rgb(248, 250, 252)"
+      ) : !fixtureArtistTheme || (
+          getComputedStyle(document.body).backgroundColor === "rgb(13, 16, 21)"
+          && getComputedStyle(document.querySelector("#pgBd")).backgroundColor === "rgb(13, 16, 21)"
+          && getComputedStyle(document.querySelector("#name-section .trackTitle")).color === "rgb(207, 214, 218)"
+          && getComputedStyle(document.querySelector(".secondaryText")).color === "rgb(154, 243, 28)"
+          && getComputedStyle(document.querySelector("#band-navbar")).backgroundColor === "rgb(47, 49, 51)"
+        );
       const cartHidden = !fixtureCart || (
         document.querySelector("#rightColumn > #sidecart")
         && getComputedStyle(document.querySelector("#sidecart")).display === "none"
       );
-      const nativeFollowPreserved = getComputedStyle(document.querySelector(".follow-unfollow")).backgroundColor === "rgb(105, 169, 186)";
+      const followStyled = fixtureCustomTheme
+        ? getComputedStyle(document.querySelector(".follow-unfollow")).color === "rgb(248, 250, 252)"
+        : getComputedStyle(document.querySelector(".follow-unfollow")).backgroundColor === "rgb(105, 169, 186)";
       const nativeHeaderCartSuppressed = getComputedStyle(document.querySelector("#fixture-album-header-cart")).display === "none";
       const customHeaderRect = document.querySelector("#customHeader").getBoundingClientRect();
       const customHeaderImageRect = document.querySelector("#customHeader img").getBoundingClientRect();
@@ -223,7 +247,7 @@
         && cartHidden
         && nativeHeaderCartSuppressed
         && fullCustomHeaderVisible
-        && nativeFollowPreserved;
+        && followStyled;
       buy?.click();
       document.querySelector(".more-thumbs")?.click();
       const supportersExpanded = document.querySelector(".collected-by")?.dataset.bandkitExpanded === "true"
