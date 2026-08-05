@@ -2400,7 +2400,7 @@
       : state.activeTab === "playlist"
         ? content.querySelector(".hub-saved-cart-detail-toolbar, .hub-section-heading")
         : state.activeTab === "nowPlaying"
-          ? content.querySelector(".hub-playlist-toolbar")
+          ? content.querySelector(".hub-section-heading")
           : content.querySelector(".hub-section-heading");
     if (!anchor) return;
     anchor.classList.add("hub-panel-content-header");
@@ -3770,7 +3770,7 @@
       );
       const trackActions = createTrackActionControls(track);
       if (isActiveTrack) {
-        const toggle = createElement("button", "hub-queue-action", seamless.isPlaying ? "Ⅱ" : "▶");
+        const toggle = createElement("button", "hub-queue-action hub-current-track-toggle", seamless.isPlaying ? "Ⅱ" : "▶");
         toggle.type = "button";
         toggle.title = seamless.isPlaying ? `Pause ${track.title}` : `Resume ${track.title}`;
         toggle.setAttribute("aria-label", toggle.title);
@@ -3784,6 +3784,7 @@
   }
 
   function renderCurrentPlaylist() {
+    content.append(createSectionHeading("Now Playing"));
     const pageTracks = buildSeamlessQueue();
     const toolbarItems = state.playlist.length ? state.playlist : pageTracks;
     const backup = createElement("div", "hub-cart-backup hub-playlist-toolbar");
