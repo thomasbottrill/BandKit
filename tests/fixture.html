@@ -42,6 +42,19 @@
     window.fixtureDownloads = [];
     window.fixturePurchaseClicks = 0;
     document.querySelector("#buyItem")?.addEventListener("click", () => { window.fixturePurchaseClicks += 1; });
+    if (location.search.includes("page-footer-space")) {
+      const pageWrapper = document.createElement("div");
+      pageWrapper.id = "propOpenWrapper";
+      const pageBody = document.querySelector("#pgBd");
+      pageBody.before(pageWrapper);
+      pageWrapper.append(pageBody);
+      const classicFooter = document.createElement("div");
+      classicFooter.id = "pgFt";
+      classicFooter.textContent = "Bandcamp footer";
+      const pageFooter = document.createElement("page-footer");
+      pageFooter.textContent = "Bandcamp logo";
+      pageWrapper.append(classicFooter, pageFooter);
+    }
     if (location.search.includes("header-shadow-cart")) {
       const menuBar = document.createElement("menu-bar");
       const menuShadow = menuBar.attachShadow({ mode: "open" });
@@ -209,6 +222,19 @@
         document.title = hiddenByDefault && restored && hiddenAgain
           ? "PASS: shadow header cart visibility fixture"
           : `FAIL: shadow cart ${getComputedStyle(nativeCart).display}/${getComputedStyle(nativeCartWrapper).display}`;
+        return;
+      }
+      if (location.search.includes("page-footer-space")) {
+        const spacer = document.querySelector("#bandcamp-hub-player-spacer");
+        const pageFooter = document.querySelector("page-footer");
+        const playerHeight = Math.round(root?.querySelector(".hub-player")?.getBoundingClientRect().height || 0);
+        const reserved = spacer?.parentElement?.id === "propOpenWrapper"
+          && spacer.previousElementSibling === pageFooter
+          && Math.round(spacer.getBoundingClientRect().height) === playerHeight
+          && getComputedStyle(spacer.parentElement).scrollPaddingBottom === `${playerHeight}px`;
+        document.title = reserved
+          ? "PASS: page footer player space fixture"
+          : `FAIL: footer space ${spacer?.parentElement?.id || "missing"}/${spacer?.previousElementSibling?.tagName || "none"}`;
         return;
       }
       if (location.search.includes("cart-roundtrip")) {

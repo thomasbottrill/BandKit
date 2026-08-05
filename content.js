@@ -308,8 +308,15 @@
   playerSpacer.style.cssText = "clear:both;display:block;flex:none;grid-column:1/-1;pointer-events:none;visibility:hidden;width:100%";
 
   function syncPlayerPageSpace() {
-    const pageFlowParent = document.querySelector("#DiscoverApp main.app") || document.body;
-    if (playerSpacer.parentElement !== pageFlowParent) pageFlowParent.append(playerSpacer);
+    const pageFooter = document.querySelector("#page-footer, #pgFt, page-footer, .full-page-app-wrapper > footer");
+    const pageFlowParent = document.querySelector("#DiscoverApp main.app")
+      || pageFooter?.parentElement
+      || document.querySelector("#propOpenWrapper, .full-page-app-wrapper")
+      || document.body;
+    if (playerSpacer.parentElement !== pageFlowParent) {
+      playerSpacer.parentElement?.style.removeProperty("scroll-padding-bottom");
+      pageFlowParent.append(playerSpacer);
+    }
     const playerHeight = Math.ceil(player.getBoundingClientRect().height);
     if (!playerHeight) return;
     const reservedHeight = `${playerHeight}px`;
@@ -317,6 +324,7 @@
     playerSpacer.style.setProperty("flex-basis", reservedHeight, "important");
     document.documentElement.style.setProperty("--bandkit-player-reserved-height", reservedHeight);
     document.documentElement.style.scrollPaddingBottom = reservedHeight;
+    pageFlowParent.style.setProperty("scroll-padding-bottom", reservedHeight);
   }
 
   const tabs = [
