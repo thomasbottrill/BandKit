@@ -2454,6 +2454,7 @@ button {
 .hub-cart-backup .hub-toolbar {
   flex: 0 0 auto;
   flex-wrap: wrap;
+  gap: 6px;
   justify-content: flex-end;
 }
 
