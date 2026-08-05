@@ -1508,6 +1508,8 @@
     const navbar = firstComputedColor(["#band-navbar"], "backgroundColor") || surface;
     const navbarText = firstComputedColor(["#band-navbar a.active", "#band-navbar a"], "color") || text;
     const dark = luminance(surface) < 0.34;
+    const white = { r: 255, g: 255, b: 255, a: 1 };
+    const black = { r: 17, g: 24, b: 39, a: 1 };
     return {
       background,
       surface,
@@ -1518,6 +1520,7 @@
       navbarText,
       line: { ...text, a: dark ? 0.24 : 0.18 },
       accentSoft: { ...link, a: dark ? 0.16 : 0.1 },
+      onAccent: contrast(link, white) >= contrast(link, black) ? white : black,
       scheme: dark ? "dark" : "light"
     };
   }
@@ -1532,7 +1535,7 @@
       "--bandkit-release-line": colorString(palette.line),
       "--bandkit-release-accent": colorString(palette.link),
       "--bandkit-release-accent-soft": colorString(palette.accentSoft),
-      "--bandkit-release-on-accent": colorString(palette.surface),
+      "--bandkit-release-on-accent": colorString(palette.onAccent || palette.surface),
       "--bandkit-release-navbar": colorString(palette.navbar),
       "--bandkit-release-navbar-text": colorString(palette.navbarText),
       "--bandkit-release-scheme": palette.scheme
@@ -1555,6 +1558,7 @@
       navbarText: theme.navbarText,
       line: theme.border,
       accentSoft: { ...theme.accent, a: dark ? 0.16 : 0.1 },
+      onAccent: theme.onAccent,
       scheme: dark ? "dark" : "light"
     };
   }

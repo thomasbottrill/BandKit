@@ -295,8 +295,8 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .play_
 
 html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .play_cell > a {
   align-items: center;
-  background: #fff !important;
-  border: 1px solid #a9a9a9 !important;
+  background: var(--bandkit-release-surface-raised) !important;
+  border: 1px solid var(--bandkit-release-line) !important;
   border-radius: 3px !important;
   display: flex !important;
   height: 56px !important;
@@ -316,7 +316,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .playb
 
 html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .playbutton::before {
   border-bottom: 11px solid transparent;
-  border-left: 18px solid #292929;
+  border-left: 18px solid var(--bandkit-release-ink);
   border-top: 11px solid transparent;
   content: "";
   height: 0;
@@ -332,7 +332,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .playb
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .playbutton.playing::before {
-  background: linear-gradient(90deg, #292929 0 35%, transparent 35% 65%, #292929 65% 100%);
+  background: linear-gradient(90deg, var(--bandkit-release-ink) 0 35%, transparent 35% 65%, var(--bandkit-release-ink) 65% 100%);
   border: 0;
   height: 24px;
   transform: translate(-50%, -50%);
