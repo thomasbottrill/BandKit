@@ -204,7 +204,7 @@
           && detailActions.some((button) => button.getAttribute("aria-label")?.startsWith("Download "))
           && backButton?.querySelector(".hub-button-icon")
           && detailTracks?.length === 2;
-        backButton?.click();
+        backButton?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, pointerId: 1 }));
         document.title = flattenedDetail
           && root?.querySelector(".hub-saved-playlist-card")
           && !root?.querySelector(".hub-saved-playlist-detail-toolbar")

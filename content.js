@@ -3916,14 +3916,20 @@
     const backIcon = createElement("span", "hub-button-icon");
     backIcon.style.setProperty("--hub-icon", `url('${asset("icon-back.svg")}')`);
     back.append(backIcon);
-    back.addEventListener("click", (event) => {
+    const returnToSavedPlaylists = (event) => {
       event.preventDefault();
       event.stopPropagation();
+      if (!state.selectedSavedPlaylistId) return;
       state.selectedSavedPlaylistId = "";
       state.playlistView = "saved";
       saveState();
       render();
-    });
+    };
+    back.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      returnToSavedPlaylists(event);
+    }, true);
+    back.addEventListener("click", returnToSavedPlaylists);
     const title = createElement("h2", "hub-saved-playlist-detail-title", snapshot.name);
     toolbar.append(back, title, createSavedPlaylistActions(snapshot, { includeDownload: true }));
     content.append(toolbar);
