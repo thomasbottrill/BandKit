@@ -3908,29 +3908,25 @@
   }
 
   function renderSavedPlaylistDetail(snapshot) {
-    const duration = snapshot.items.reduce((total, item) => total + (Number(item.duration) || 0), 0);
-    const toolbar = createElement("div", "hub-saved-cart-detail-toolbar");
+    const toolbar = createElement("div", "hub-saved-cart-detail-toolbar hub-saved-playlist-detail-toolbar");
     const back = createElement("button", "hub-saved-playlist-back");
     back.type = "button";
+    back.title = "Back to playlists";
+    back.setAttribute("aria-label", "Back to playlists");
     const backIcon = createElement("span", "hub-button-icon");
     backIcon.style.setProperty("--hub-icon", `url('${asset("icon-back.svg")}')`);
-    back.append(backIcon, createElement("span", "", "Playlists"));
-    back.addEventListener("click", () => {
-      state.selectedSavedPlaylistId = null;
+    back.append(backIcon);
+    back.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      state.selectedSavedPlaylistId = "";
+      state.playlistView = "saved";
       saveState();
       render();
     });
-    toolbar.append(back);
+    const title = createElement("h2", "hub-saved-playlist-detail-title", snapshot.name);
+    toolbar.append(back, title, createSavedPlaylistActions(snapshot, { includeDownload: true }));
     content.append(toolbar);
-
-    const heading = createElement("div", "hub-saved-cart-detail-heading hub-saved-playlist-detail-heading");
-    const copy = createElement("div", "hub-saved-cart-detail-copy");
-    copy.append(
-      createElement("h2", "", snapshot.name),
-      createElement("span", "", `${snapshot.items.length} track${snapshot.items.length === 1 ? "" : "s"} · ${formatDuration(duration)}`)
-    );
-    heading.append(copy, createSavedPlaylistActions(snapshot, { includeDownload: true }));
-    content.append(heading);
 
     const list = createElement("div", "hub-stack hub-saved-playlist-track-list");
     snapshot.items.forEach((item, index) => {

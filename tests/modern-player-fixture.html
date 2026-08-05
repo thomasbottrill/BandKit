@@ -185,12 +185,11 @@
         const cardActions = [...(card?.querySelectorAll(".hub-saved-playlist-icon-button") || [])];
         const mosaicImages = card?.querySelectorAll(".hub-playlist-mosaic-image");
         card?.querySelector(".hub-saved-playlist-open")?.click();
-        const detailHeading = root?.querySelector(".hub-saved-playlist-detail-heading");
-        const detailActions = [...(detailHeading?.querySelectorAll(".hub-saved-playlist-icon-button") || [])];
-        const detailToolbar = root?.querySelector(".hub-saved-cart-detail-toolbar");
+        const detailToolbar = root?.querySelector(".hub-saved-playlist-detail-toolbar");
+        const detailActions = [...(detailToolbar?.querySelectorAll(".hub-saved-playlist-icon-button") || [])];
         const backButton = detailToolbar?.querySelector(".hub-saved-playlist-back");
         const detailTracks = root?.querySelectorAll(".hub-saved-playlist-track");
-        document.title = panelTitle?.textContent.includes("Playlists")
+        const flattenedDetail = panelTitle?.textContent.includes("Playlists")
           && !root?.querySelector(".hub-content [role='tab']")
           && card?.textContent.includes("Fixture set")
           && card?.textContent.includes("2 tracks")
@@ -198,14 +197,17 @@
           && !cardActions.some((button) => button.getAttribute("aria-label")?.includes("Replace Now Playing"))
           && mosaicImages?.length === 2
           && cardActions.every((button) => !button.textContent.trim() && button.getAttribute("aria-label"))
-          && detailHeading?.textContent.includes("Fixture set")
+          && detailToolbar?.querySelector(".hub-saved-playlist-detail-title")?.textContent === "Fixture set"
+          && !root?.querySelector(".hub-saved-playlist-detail-heading")
           && detailActions.length === 5
           && detailActions.at(-1)?.classList.contains("is-delete")
           && detailActions.some((button) => button.getAttribute("aria-label")?.startsWith("Download "))
-          && !detailToolbar?.querySelector(".hub-saved-playlist-icon-actions")
-          && backButton?.textContent.trim() === "Playlists"
           && backButton?.querySelector(".hub-button-icon")
-          && detailTracks?.length === 2
+          && detailTracks?.length === 2;
+        backButton?.click();
+        document.title = flattenedDetail
+          && root?.querySelector(".hub-saved-playlist-card")
+          && !root?.querySelector(".hub-saved-playlist-detail-toolbar")
           ? "PASS: saved playlists fixture"
           : "FAIL: saved playlists fixture";
         return;
