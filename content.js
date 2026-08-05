@@ -339,9 +339,8 @@
     shortcut.setAttribute("aria-label", tab.label);
     shortcut.innerHTML = `<span class="hub-header-shortcut-icon" style="--hub-icon:url('${asset(tab.icon)}')"></span><span class="hub-header-shortcut-dot"></span>`;
     shortcut.addEventListener("click", () => {
-      const closeCurrent = state.open && state.activeTab === tab.id;
       state.activeTab = tab.id;
-      state.open = !closeCurrent;
+      state.open = true;
       saveState();
       saveLayoutState();
       render();
@@ -1669,7 +1668,7 @@
   }
 
   function capturePanelLayout() {
-    if (applyingLayout || dragging) return;
+    if (applyingLayout || dragging || panel.classList.contains("is-contextual")) return;
     if (state.layoutMode === "docked") {
       const rect = panel.getBoundingClientRect();
       if (!rect.width) return;
@@ -5234,7 +5233,7 @@
   });
   layoutToggleButton.addEventListener("click", toggleLayoutMode);
   panelHeader.addEventListener("pointerdown", (event) => {
-    if (state.layoutMode === "docked" || event.button !== 0 || event.target.closest("button, a, input, select")) return;
+    if (panel.classList.contains("is-contextual") || state.layoutMode === "docked" || event.button !== 0 || event.target.closest("button, a, input, select")) return;
     const rect = panel.getBoundingClientRect();
     dragging = {
       pointerId: event.pointerId,
@@ -5287,7 +5286,7 @@
   }
 
   panel.addEventListener("pointermove", (event) => {
-    if (state.layoutMode === "docked" || dragging || panel.classList.contains("is-resizing")) {
+    if (panel.classList.contains("is-contextual") || state.layoutMode === "docked" || dragging || panel.classList.contains("is-resizing")) {
       clearResizeHover();
       return;
     }
@@ -5307,6 +5306,7 @@
   for (const handle of panel.querySelectorAll(".hub-resize-handle")) {
     let resizing = null;
     handle.addEventListener("pointerdown", (event) => {
+      if (panel.classList.contains("is-contextual")) return;
       const dockedEdge = state.dockSide === "left" ? "right" : "left";
       if (event.button !== 0 || (state.layoutMode === "docked" && handle.dataset.edge !== dockedEdge)) return;
       const rect = panel.getBoundingClientRect();
@@ -5736,6 +5736,30 @@
     document.head.append(modernReleaseStyle);
     let shadowHeaderObserver = null;
     let observedHeaderShadow = null;
+    let panelAnchorFrame = 0;
+    function syncPanelAnchor(nav) {
+      window.cancelAnimationFrame(panelAnchorFrame);
+      panelAnchorFrame = requestAnimationFrame(() => {
+        panelAnchorFrame = 0;
+        const candidates = nav
+          ? [...nav.children]
+          : [headerShortcuts];
+        const rects = candidates
+          .filter((element) => element instanceof Element && !element.hidden)
+          .map((element) => element.getBoundingClientRect())
+          .filter((rect) => rect.width > 0 && rect.height > 0);
+        if (!rects.length) {
+          host.style.removeProperty("--hub-panel-anchor-x");
+          host.style.removeProperty("--hub-panel-anchor-top");
+          return;
+        }
+        const left = Math.min(...rects.map((rect) => rect.left));
+        const right = Math.max(...rects.map((rect) => rect.right));
+        const bottom = Math.max(...rects.map((rect) => rect.bottom));
+        host.style.setProperty("--hub-panel-anchor-x", `${Math.round((left + right) / 2)}px`);
+        host.style.setProperty("--hub-panel-anchor-top", `${Math.round(bottom + 8)}px`);
+      });
+    }
     function syncNativeHeaderCart(nav) {
       const cartShortcut = headerShortcuts.querySelector('[data-tab="cart"]');
       const nativeCart = [...(nav?.querySelectorAll([
@@ -5790,6 +5814,7 @@
         launcher.style.color = nativeColor;
         headerShortcuts.style.color = nativeColor;
         syncNativeHeaderCart(modernNav);
+        syncPanelAnchor(modernNav);
         return true;
       }
       if (legacyNav) {
@@ -5803,6 +5828,7 @@
         headerShortcuts.style.removeProperty("color");
         headerShortcuts.classList.remove("is-modern-header");
         syncNativeHeaderCart(legacyNav);
+        syncPanelAnchor(legacyNav);
         return true;
       }
       if (allowFloating) {
@@ -5813,6 +5839,7 @@
         headerShortcuts.style.removeProperty("color");
         headerShortcuts.classList.remove("is-modern-header");
         syncNativeHeaderCart(null);
+        syncPanelAnchor(null);
       }
       return false;
     }

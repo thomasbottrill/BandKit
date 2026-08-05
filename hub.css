@@ -285,17 +285,18 @@ button {
 .hub-panel.is-contextual {
   bottom: 96px;
   height: auto;
-  left: auto;
+  left: clamp(218px, var(--hub-panel-anchor-x, 50vw), calc(100vw - 218px));
   max-height: none;
   min-height: min(420px, calc(100vh - 160px));
-  right: 20px;
-  top: 64px;
+  right: auto;
+  top: var(--hub-panel-anchor-top, 64px);
+  transform: translateX(-50%);
   width: min(420px, calc(100vw - 32px));
   z-index: 2147483647;
 }
 
 .hub-panel.is-contextual.is-hidden {
-  transform: translateY(12px) scale(0.985);
+  transform: translate(-50%, 12px) scale(0.985);
 }
 
 .hub-panel.is-contextual .hub-reset,
@@ -3657,10 +3658,10 @@ button {
   .hub-panel.is-contextual {
     bottom: 92px;
     height: auto;
-    left: auto;
+    left: clamp(218px, var(--hub-panel-anchor-x, 50vw), calc(100vw - 218px));
     max-height: none;
-    right: 12px;
-    top: 64px;
+    right: auto;
+    top: var(--hub-panel-anchor-top, 64px);
     width: min(420px, calc(100vw - 24px));
   }
 }
@@ -3683,7 +3684,12 @@ button {
     min-height: 320px;
     right: 0;
     top: auto;
+    transform: none;
     width: 100vw;
+  }
+
+  .hub-panel.is-contextual.is-hidden {
+    transform: translateY(12px) scale(0.985);
   }
 
   .hub-player-main {
