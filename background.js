@@ -337,7 +337,7 @@ async function handlePlaybackRequest(message, sender) {
       index,
       currentTime: Math.max(0, Number(message.currentTime) || 0),
       autoplay: Boolean(message.autoplay),
-      rate: Math.max(0.5, Math.min(2, Number(message.rate) || 1)),
+      rate: Math.max(0.35, Math.min(2, Number(message.rate) || 1)),
       preservePitch: message.preservePitch !== false,
       filterValue: Math.max(-1, Math.min(1, Number(message.filterValue) || 0)),
       gainDb: Math.max(-30, Math.min(6, Number(message.gainDb) || 0)),
@@ -379,7 +379,7 @@ async function handlePlaybackRequest(message, sender) {
   const command = {
     type: message.type.replace("BANDCAMP_HUB_SEAMLESS_", "BANDCAMP_HUB_OFFSCREEN_"),
     currentTime: Math.max(0, Number(message.currentTime) || 0),
-    rate: Math.max(0.5, Math.min(2, Number(message.rate) || 1)),
+    rate: Math.max(0.35, Math.min(2, Number(message.rate) || 1)),
     preservePitch: message.preservePitch !== false,
     filterValue: Math.max(-1, Math.min(1, Number(message.filterValue) || 0)),
     gainDb: Math.max(-30, Math.min(6, Number(message.gainDb) || 0)),

@@ -153,6 +153,10 @@ response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_SET_RATE", rate: 0.94, pre
 assert.equal(response.state.rate, 0.94);
 assert.equal(response.state.preservePitch, false);
 
+response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_SET_RATE", rate: 0.35, preservePitch: true });
+assert.equal(response.state.rate, 0.35);
+assert.equal(response.state.preservePitch, true);
+
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_ANALYZE_BPM" });
 assert.equal(response.state.bpmStatus, "ready");
 assert.ok(response.state.detectedBpm >= 115 && response.state.detectedBpm <= 125, `detected ${response.state.detectedBpm} BPM`);

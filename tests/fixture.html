@@ -208,6 +208,42 @@
   <script>
     window.setTimeout(async () => {
       const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
+      if (location.search.includes("dj-bpm-range-reset")) {
+        root?.querySelector(".hub-dj-player-button")?.click();
+        const bpmState = {
+          enabled: true,
+          status: "playing",
+          isPlaying: true,
+          rate: 1,
+          preservePitch: true,
+          detectedBpm: 140,
+          automaticBpm: 140,
+          bpmSource: "auto",
+          bpmStatus: "ready",
+          track: { title: "Fixture Track", artist: "Fixture Artist", pageUrl: "https://fixture-artist.bandcamp.com/track/fixture-track" },
+          queue: []
+        };
+        window.fixtureRuntimeListener?.({ type: "BANDCAMP_HUB_SEAMLESS_STATE", state: bpmState }, {}, () => {});
+        const bpmInput = root?.querySelector(".hub-dj-bpm-input");
+        if (bpmInput) {
+          bpmInput.focus();
+          bpmInput.value = "50";
+          bpmInput.dispatchEvent(new Event("input", { bubbles: true }));
+          bpmInput.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        const lowRateMessage = window.fixtureRuntimeMessages.find((message) => message.type === "BANDCAMP_HUB_SEAMLESS_SET_RATE" && message.rate < 0.5);
+        window.fixtureRuntimeListener?.({ type: "BANDCAMP_HUB_SEAMLESS_STATE", state: { ...bpmState, rate: 0.35 } }, {}, () => {});
+        root?.querySelector(".hub-dj-bpm-reset")?.click();
+        await new Promise((resolve) => window.setTimeout(resolve, 20));
+        const resetIndex = window.fixtureRuntimeMessages.findIndex((message) => message.type === "BANDCAMP_HUB_SEAMLESS_RESET_BPM");
+        const neutralRateAfterReset = window.fixtureRuntimeMessages.slice(resetIndex + 1).some((message) => message.type === "BANDCAMP_HUB_SEAMLESS_SET_RATE" && message.rate === 1);
+        document.title = Math.abs((lowRateMessage?.rate || 0) - (50 / 140)) < 0.001
+          && resetIndex >= 0
+          && neutralRateAfterReset
+          ? "PASS: extended BPM range and reset fixture"
+          : `FAIL: BPM rate ${lowRateMessage?.rate || "missing"}, reset ${resetIndex}/${neutralRateAfterReset}`;
+        return;
+      }
       if (location.search.includes("feed-home-setting")) {
         const toggle = root?.querySelector(".hub-feed-home-toggle");
         const enabledByDefault = toggle?.getAttribute("aria-checked") === "true";

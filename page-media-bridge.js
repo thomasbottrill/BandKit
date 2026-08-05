@@ -243,7 +243,7 @@
       media.currentTime = Math.max(0, Math.min(duration, Number(command.currentTime)));
     }
     if (command.action === "setDj") {
-      const rate = Math.max(0.5, Math.min(1.5, Number(command.rate) || 1));
+      const rate = Math.max(0.35, Math.min(2, Number(command.rate) || 1));
       media.defaultPlaybackRate = rate;
       media.playbackRate = rate;
       if ("preservesPitch" in media) media.preservesPitch = command.preservePitch !== false;

@@ -419,7 +419,7 @@ function sendState(force = false) {
 }
 
 function applyPlaybackOptions(rate = audio.playbackRate || 1, shouldPreservePitch = preservePitch) {
-  const nextRate = Math.max(0.5, Math.min(2, finiteNumber(rate, 1)));
+  const nextRate = Math.max(0.35, Math.min(2, finiteNumber(rate, 1)));
   selectedRate = nextRate;
   scratchActive = false;
   preservePitch = shouldPreservePitch !== false;

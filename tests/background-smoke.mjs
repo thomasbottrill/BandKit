@@ -195,6 +195,15 @@ assert.equal(response.ok, true);
 assert.equal(offscreenMessages.at(-1).type, "BANDCAMP_HUB_OFFSCREEN_RESET_BPM");
 
 response = await send({
+  type: "BANDCAMP_HUB_SEAMLESS_SET_RATE",
+  rate: 0.35,
+  preservePitch: true
+}, { url: "https://artist.bandcamp.com/album/fixture" });
+assert.equal(response.ok, true);
+assert.equal(offscreenMessages.at(-1).type, "BANDCAMP_HUB_OFFSCREEN_SET_RATE");
+assert.equal(offscreenMessages.at(-1).rate, 0.35);
+
+response = await send({
   type: "BANDCAMP_HUB_RESOLVE_PLAYLIST_ITEMS",
   items: [{ playlistItemId: "playlist-one", id: "101", title: "Fixture Track", pageUrl: "https://artist.bandcamp.com/track/fixture-track" }]
 }, { url: "https://artist.bandcamp.com/album/fixture" });

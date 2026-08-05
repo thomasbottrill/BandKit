@@ -2493,7 +2493,7 @@
       bpmInput.value = String(Math.round(displayedValue * 10) / 10);
       if (state.dj.autoTempo) {
         const detectedBase = Number(seamless.automaticBpm) || bpm;
-        const targetRate = Math.max(0.5, Math.min(2, displayedValue / detectedBase));
+        const targetRate = Math.max(0.35, Math.min(2, displayedValue / detectedBase));
         state.dj.rate = targetRate;
         void seamlessCommand("BANDCAMP_HUB_SEAMLESS_SET_RATE", {
           rate: targetRate,
@@ -2538,11 +2538,18 @@
     resetBpm.style.setProperty("--hub-reset-icon", `url('${asset("icon-reset.svg")}')`);
     resetBpm.type = "button";
     resetBpm.disabled = !seamless.enabled || !bpm;
-    resetBpm.title = "Reset to automatically detected BPM";
-    resetBpm.setAttribute("aria-label", "Reset to automatically detected BPM");
+    resetBpm.title = "Reset BPM and tempo";
+    resetBpm.setAttribute("aria-label", "Reset BPM and tempo");
     resetBpm.addEventListener("click", () => {
       bpmTapTimes = [];
-      void seamlessCommand("BANDCAMP_HUB_SEAMLESS_RESET_BPM");
+      bpmEditing = false;
+      bpmDraft = "";
+      state.dj.rate = 1;
+      saveState();
+      void seamlessCommand("BANDCAMP_HUB_SEAMLESS_RESET_BPM").then(() => seamlessCommand("BANDCAMP_HUB_SEAMLESS_SET_RATE", {
+        rate: 1,
+        preservePitch: state.dj.preservePitch
+      }));
     });
     bpmValueRow.append(bpmInput, resetBpm);
     bpmEditor.append(bpmValueRow);
@@ -2573,7 +2580,7 @@
       bpmInput.value = String(tappedBpm);
       if (state.dj.autoTempo && bpm) {
         const detectedBase = Number(seamless.automaticBpm) || bpm;
-        const targetRate = Math.max(0.5, Math.min(2, tappedBpm / detectedBase));
+        const targetRate = Math.max(0.35, Math.min(2, tappedBpm / detectedBase));
         state.dj.rate = targetRate;
         void seamlessCommand("BANDCAMP_HUB_SEAMLESS_SET_RATE", { rate: targetRate, preservePitch: state.dj.preservePitch });
       } else {
