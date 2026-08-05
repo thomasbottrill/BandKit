@@ -32,9 +32,11 @@
       preset: "studio",
       customAccent: "#1da0c3",
       customSurface: "#ffffff",
+      customCard: "#ffffff",
       customPageBackground: "#eef2f4",
       customPageSurface: "#ffffff",
       customText: "#111827",
+      customSecondaryText: "#6b7280",
       savedThemes: []
     },
     dj: {
@@ -1058,6 +1060,10 @@
     return `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, ${alpha})`;
   }
 
+  function hexString(color) {
+    return `#${[color.r, color.g, color.b].map((channel) => Math.round(channel).toString(16).padStart(2, "0")).join("")}`;
+  }
+
   function mixColor(first, second, amount) {
     return {
       r: first.r + (second.r - first.r) * amount,
@@ -1103,9 +1109,11 @@
         label: "Custom",
         accent: state.appearance.customAccent,
         surface: state.appearance.customSurface,
+        card: state.appearance.customCard,
         background: state.appearance.customPageBackground,
         pageSurface: state.appearance.customPageSurface,
-        text: state.appearance.customText
+        text: state.appearance.customText,
+        secondaryText: state.appearance.customSecondaryText
       };
     }
     return selectedTheme || BUILT_IN_THEMES[0];
@@ -1115,28 +1123,33 @@
     const white = { r: 255, g: 255, b: 255, a: 1 };
     const black = { r: 17, g: 24, b: 39, a: 1 };
     const panel = hexColor(theme.surface, white);
+    const panelIsDark = luminance(panel) < 0.34;
+    const card = hexColor(theme.card, panelIsDark ? mixColor(panel, white, 0.07) : mixColor(panel, white, 0.4));
     const background = hexColor(theme.background, luminance(panel) < 0.34 ? mixColor(panel, black, 0.38) : mixColor(panel, white, 0.28));
     const pageSurface = hexColor(theme.pageSurface, panel);
     const preferredText = hexColor(theme.text, luminance(pageSurface) < 0.34 ? white : black);
-    const panelTextResult = readableColor(preferredText, [panel], 4.5);
+    const panelTextResult = readableColor(preferredText, [panel, card], 4.5);
     const textResult = readableColor(preferredText, [pageSurface], 4.5);
     const backgroundTextResult = readableColor(preferredText, [background], 4.5);
+    const preferredSecondaryText = hexColor(theme.secondaryText, mixColor(preferredText, pageSurface, luminance(pageSurface) < 0.34 ? 0.35 : 0.42));
+    const mutedResult = readableColor(preferredSecondaryText, [pageSurface], 4.5);
+    const panelMutedResult = readableColor(preferredSecondaryText, [panel, card], 4.5);
     const preferredAccent = hexColor(theme.accent, { r: 29, g: 160, b: 195, a: 1 });
-    const panelAccentResult = readableColor(preferredAccent, [panel], 3);
+    const panelAccentResult = readableColor(preferredAccent, [panel, card], 3);
     const accentResult = readableColor(preferredAccent, [pageSurface], 3);
     const text = textResult.color;
     const accent = accentResult.color;
     const panelAccent = panelAccentResult.color;
-    const muted = mixColor(text, pageSurface, luminance(pageSurface) < 0.34 ? 0.35 : 0.42);
+    const muted = mutedResult.color;
     const border = mixColor(pageSurface, text, luminance(pageSurface) < 0.34 ? 0.24 : 0.16);
     const onAccent = contrast(accent, white) >= contrast(accent, black) ? white : black;
     const panelOnAccent = contrast(panelAccent, white) >= contrast(panelAccent, black) ? white : black;
     return {
-      panel, background, pageSurface, text, panelText: panelTextResult.color, backgroundText: backgroundTextResult.color,
+      panel, card, background, pageSurface, text, panelText: panelTextResult.color, panelMuted: panelMutedResult.color, backgroundText: backgroundTextResult.color,
       accent, panelAccent, muted, border, onAccent, panelOnAccent,
-      adjusted: panelTextResult.adjusted || textResult.adjusted || backgroundTextResult.adjusted || panelAccentResult.adjusted || accentResult.adjusted,
-      textContrast: Math.min(contrast(panelTextResult.color, panel), contrast(text, pageSurface), contrast(backgroundTextResult.color, background)),
-      accentContrast: Math.min(contrast(panelAccent, panel), contrast(accent, pageSurface))
+      adjusted: panelTextResult.adjusted || textResult.adjusted || backgroundTextResult.adjusted || mutedResult.adjusted || panelMutedResult.adjusted || panelAccentResult.adjusted || accentResult.adjusted,
+      textContrast: Math.min(contrast(panelTextResult.color, panel), contrast(panelTextResult.color, card), contrast(text, pageSurface), contrast(backgroundTextResult.color, background)),
+      accentContrast: Math.min(contrast(panelAccent, panel), contrast(panelAccent, card), contrast(accent, pageSurface))
     };
   }
 
@@ -1148,7 +1161,7 @@
       html[data-bandkit-page-theme="true"] { background: var(--bandkit-page-background) !important; color-scheme: var(--bandkit-page-scheme); }
       html[data-bandkit-page-theme="true"] body { background: var(--bandkit-page-background) !important; background-image: none !important; color: var(--bandkit-page-background-text) !important; }
       html[data-bandkit-page-theme="true"] :is(main, #pgBd, #pgBdWrapper, #main, .page-bg, .collection-main, .collection-grid, .feed-main, .discover-results, .discover-detail, .discover-player, section.floating-player) { background-color: var(--bandkit-page-surface) !important; background-image: none !important; color: var(--bandkit-page-text) !important; }
-      html[data-bandkit-page-theme="true"] :is(h1, h2, h3, h4, h5, h6, p, li, td, th, label, strong, .primaryText, .track-title, .title, .title-text, .item-title, .albumTitle, .trackTitle, #name-section .title) { color: var(--bandkit-page-text) !important; }
+      html[data-bandkit-page-theme="true"] :is(h1, h2, h3, h4, h5, h6, p, li, td, th, label, strong, .primaryText, .track-title, .title, .title-text, .item-title, .albumTitle, .trackTitle, :where(#name-section .title)) { color: var(--bandkit-page-text) !important; }
       html[data-bandkit-page-theme="true"] :is(.secondaryText, .track-number, .time, .artist, .artist-name, .subhead, .itemsubtext, .genre, .location, .tralbumData, .credits) { color: var(--bandkit-page-muted) !important; }
       html[data-bandkit-page-theme="true"] :is(a, a.primaryText, .buy-link, .download-link, #track_table a, button:not(.bandcamp-hub-page-playlist):not(.bandcamp-hub-page-cart):not(.bandcamp-hub-page-dj):not(.bandcamp-hub-page-buy):not(.bandcamp-hub-page-playlist-menu button)) { color: var(--bandkit-page-accent) !important; }
       html[data-bandkit-page-theme="true"] :is(input, select, textarea, .track_row_view, .collection-item-container, .item, .popupmenu, .menu) { border-color: var(--bandkit-page-border) !important; }
@@ -1586,8 +1599,8 @@
     const accent = accessible.panelAccent;
     const dark = luminance(surface) < 0.34;
     const ink = accessible.panelText;
-    const card = dark ? mixColor(surface, { r: 255, g: 255, b: 255, a: 1 }, 0.07) : mixColor(surface, { r: 255, g: 255, b: 255, a: 1 }, 0.4);
-    const muted = mixColor(ink, card, 0.43);
+    const card = accessible.card;
+    const muted = accessible.panelMuted;
     const header = mixColor(surface, card, 0.2);
     const tabForeground = contrast(header, { r: 255, g: 255, b: 255, a: 1 }) >= contrast(header, { r: 17, g: 24, b: 39, a: 1 })
       ? { r: 255, g: 255, b: 255, a: 1 }
@@ -3964,11 +3977,23 @@
       label: "Custom",
       accent: state.appearance.customAccent,
       surface: state.appearance.customSurface,
+      card: state.appearance.customCard,
       background: state.appearance.customPageBackground,
       pageSurface: state.appearance.customPageSurface,
-      text: state.appearance.customText
+      text: state.appearance.customText,
+      secondaryText: state.appearance.customSecondaryText
     }];
-    for (const { id, label, accent, surface, background, pageSurface, text } of availableThemes) {
+    for (const { id, label, accent, surface, card, background, pageSurface, text, secondaryText } of availableThemes) {
+      const surfaceColor = hexColor(surface, { r: 255, g: 255, b: 255, a: 1 });
+      const resolvedCard = card || hexString(luminance(surfaceColor) < 0.34
+        ? mixColor(surfaceColor, { r: 255, g: 255, b: 255, a: 1 }, 0.07)
+        : mixColor(surfaceColor, { r: 255, g: 255, b: 255, a: 1 }, 0.4));
+      const resolvedText = text || (luminance(hexColor(pageSurface || surface, { r: 255, g: 255, b: 255, a: 1 })) < 0.34 ? "#f8fafc" : "#111827");
+      const resolvedSecondaryText = secondaryText || hexString(mixColor(
+        hexColor(resolvedText, { r: 17, g: 24, b: 39, a: 1 }),
+        hexColor(pageSurface || surface, surfaceColor),
+        luminance(hexColor(pageSurface || surface, surfaceColor)) < 0.34 ? 0.35 : 0.42
+      ));
       const button = createElement("button", `hub-theme-preset${id === "custom" ? " is-custom" : ""}${!state.appearance.pageAware && state.appearance.preset === id ? " is-active" : ""}`);
       button.type = "button";
       button.setAttribute("aria-pressed", String(!state.appearance.pageAware && state.appearance.preset === id));
@@ -3976,7 +4001,7 @@
       button.style.setProperty("--theme-panel", surface);
       button.style.setProperty("--theme-surface", pageSurface || surface);
       button.style.setProperty("--theme-background", background || surface);
-      button.style.setProperty("--theme-text", text || (luminance(hexColor(pageSurface || surface, { r: 255, g: 255, b: 255, a: 1 })) < 0.34 ? "#f8fafc" : "#111827"));
+      button.style.setProperty("--theme-text", resolvedText);
       button.innerHTML = `<span class="hub-theme-preview" aria-hidden="true">${id === "custom" ? `<span class="hub-theme-custom-mark" style="--hub-icon:url('${asset("icon-edit.svg")}')"></span>` : ""}</span><span class="hub-theme-preset-label">${escapeHtml(label)}</span>`;
       button.addEventListener("click", () => {
         state.appearance.pageAware = false;
@@ -3984,9 +4009,11 @@
         if (id !== "custom") {
           state.appearance.customAccent = accent;
           state.appearance.customSurface = surface;
+          state.appearance.customCard = resolvedCard;
           state.appearance.customPageBackground = background || surface;
           state.appearance.customPageSurface = pageSurface || surface;
-          state.appearance.customText = text || (luminance(hexColor(surface, { r: 255, g: 255, b: 255, a: 1 })) < 0.34 ? "#f8fafc" : "#111827");
+          state.appearance.customText = resolvedText;
+          state.appearance.customSecondaryText = resolvedSecondaryText;
         }
         applyAppearance();
         saveState();
@@ -4002,9 +4029,11 @@
       for (const [key, label] of [
         ["customAccent", "Accent"],
         ["customSurface", "BandKit panel"],
+        ["customCard", "BandKit content"],
         ["customPageBackground", "Page background"],
         ["customPageSurface", "Page content"],
-        ["customText", "Text"]
+        ["customText", "Primary text"],
+        ["customSecondaryText", "Secondary text"]
       ]) {
         const field = createElement("label", "hub-colour-field");
         const input = createElement("input");
@@ -4036,9 +4065,11 @@
           label: label.slice(0, 28),
           accent: state.appearance.customAccent,
           surface: state.appearance.customSurface,
+          card: state.appearance.customCard,
           background: state.appearance.customPageBackground,
           pageSurface: state.appearance.customPageSurface,
-          text: state.appearance.customText
+          text: state.appearance.customText,
+          secondaryText: state.appearance.customSecondaryText
         };
         state.appearance.savedThemes = [...(state.appearance.savedThemes || []), savedTheme].slice(-12);
         state.appearance.preset = savedTheme.id;
@@ -4150,35 +4181,7 @@
       );
       appearance.append(accessibility);
     }
-    const reset = createElement("button", "hub-settings-action hub-settings-quiet-action", "Reset panel and launcher positions");
-    reset.type = "button";
-    reset.addEventListener("click", resetPanelLayout);
-    appearance.append(reset);
     content.append(appearance);
-
-    const data = createElement("section", "hub-card hub-settings-card");
-    data.append(createElement("h2", "hub-settings-heading", "Local data"));
-    const dataGrid = createElement("div", "hub-settings-data");
-    for (const [label, value] of [
-      ["Playlist tracks", state.playlist.length],
-      ["Saved playlists", state.savedPlaylists.length],
-      ["Current cart", state.cart.length],
-      ["Saved carts", state.savedCarts.length],
-      ["Activity entries", state.activity.length]
-    ]) {
-      const item = createElement("div", "hub-settings-stat");
-      item.append(createElement("strong", "", String(value)), createElement("span", "", label));
-      dataGrid.append(item);
-    }
-    const manageCart = createElement("button", "hub-settings-action hub-settings-quiet-action", "View cart and saved carts");
-    manageCart.type = "button";
-    manageCart.addEventListener("click", () => {
-      state.activeTab = "cart";
-      saveState();
-      render();
-    });
-    data.append(dataGrid, createElement("p", "hub-settings-note", "Saved in this Chrome profile."), manageCart);
-    content.append(data);
 
     const about = createElement("section", "hub-card hub-settings-card");
     about.append(createElement("h2", "hub-settings-heading", "About"));

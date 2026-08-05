@@ -91,9 +91,11 @@
           preset: "custom",
           customAccent: "#202020",
           customSurface: "#151515",
+          customCard: "#191919",
           customPageBackground: "#f7f7f7",
           customPageSurface: "#111111",
           customText: "#222222",
+          customSecondaryText: "#b0b0b0",
           savedThemes: []
         }
       } };
@@ -352,6 +354,7 @@
         const ratio = (first, second) => (Math.max(luminance(first), luminance(second)) + 0.05) / (Math.min(luminance(first), luminance(second)) + 0.05);
         const bodyStyles = getComputedStyle(document.body);
         const pageStyles = getComputedStyle(document.querySelector("#pgBd"));
+        const secondaryStyles = getComputedStyle(document.querySelector(".secondaryText"));
         const linkStyles = getComputedStyle(document.querySelector("a.track-title"));
         const pageThemeToggle = root?.querySelector(".hub-page-theme-toggle");
         const colourFields = root?.querySelectorAll('.hub-custom-theme-panel input[type="color"]');
@@ -362,7 +365,12 @@
           && ratio(bodyStyles.color, bodyStyles.backgroundColor) >= 4.5
           && ratio(linkStyles.color, pageStyles.backgroundColor) >= 3
           && pageThemeToggle?.getAttribute("aria-checked") === "true"
-          && colourFields?.length === 5
+          && secondaryStyles.color === "rgb(176, 176, 176)"
+          && colourFields?.length === 7
+          && root?.querySelector('input[aria-label="BandKit content colour"]')
+          && root?.querySelector('input[aria-label="Secondary text colour"]')
+          && !root?.textContent.includes("Reset panel and launcher positions")
+          && !root?.textContent.includes("Local data")
           && accessibility?.textContent.includes("Contrast adjusted automatically");
         pageThemeToggle?.click();
         const restored = document.documentElement.dataset.bandkitPageTheme === "false"
