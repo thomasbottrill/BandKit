@@ -179,14 +179,15 @@
         return;
       }
       if (location.search.includes("saved-playlists")) {
-        const selectedTab = root?.querySelector('.hub-cart-view-tab[aria-selected="true"]');
+        const panelTitle = root?.querySelector(".hub-title");
         const card = root?.querySelector(".hub-saved-playlist-card");
         const cardActions = [...(card?.querySelectorAll(".hub-saved-playlist-icon-button") || [])];
         const mosaicImages = card?.querySelectorAll(".hub-playlist-mosaic-image");
         card?.querySelector(".hub-saved-playlist-open")?.click();
         const detailHeading = root?.querySelector(".hub-saved-playlist-detail-heading");
         const detailTracks = root?.querySelectorAll(".hub-saved-playlist-track");
-        document.title = selectedTab?.textContent.includes("Playlists")
+        document.title = panelTitle?.textContent.includes("Playlists")
+          && !root?.querySelector(".hub-content [role='tab']")
           && card?.textContent.includes("Fixture set")
           && card?.textContent.includes("2 tracks")
           && cardActions.length === 4

@@ -15,7 +15,7 @@
     { id: "ocean", label: "Ocean", accent: "#38bdf8", surface: "#0f2433", background: "#071721", pageSurface: "#0f2433", text: "#f0f9ff" }
   ];
   const defaultState = {
-    open: true,
+    open: false,
     activeTab: "playlist",
     layout: null,
     layoutMode: "floating",
@@ -205,12 +205,14 @@
   launcher.append(launcherIcon);
 
   const panel = document.createElement("section");
-  panel.className = "hub-panel";
+  panel.className = "hub-panel is-contextual";
   panel.setAttribute("aria-label", "BandKit");
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-modal", "false");
   panel.innerHTML = `
     <header class="hub-header">
       <div class="hub-title-row">
-        <span class="hub-title">BandKit</span>
+        <span class="hub-title">Playlists</span>
       </div>
       <div class="hub-header-actions">
         <button class="hub-icon-button hub-reset" type="button" title="Reset size and position" aria-label="Reset size and position">
@@ -248,6 +250,11 @@
           </div>
         </div>
         <div class="hub-player-tools">
+          <button class="hub-now-playing-button" type="button" aria-label="Open Now Playing" aria-expanded="false">
+            <span class="hub-now-playing-icon" style="--hub-icon:url('${asset("icon-queue.svg")}')"></span>
+            <span class="hub-now-playing-label">Now Playing</span>
+            <span class="hub-now-playing-count">0</span>
+          </button>
           <div class="hub-player-more-wrap">
             <button class="hub-player-more-button" type="button" aria-label="More track actions" aria-expanded="false">
               <span class="hub-player-more-dots" aria-hidden="true"><span></span><span></span><span></span></span>
@@ -270,10 +277,15 @@
     <div class="hub-resize-handle is-bottom" data-edge="bottom" aria-hidden="true"></div>
   `;
 
-  shadow.append(launcher, panel);
+  const player = panel.querySelector(".hub-player");
+  player.remove();
+  const headerShortcuts = document.createElement("nav");
+  headerShortcuts.className = "hub-header-shortcuts";
+  headerShortcuts.setAttribute("aria-label", "BandKit shortcuts");
+  shadow.append(launcher, headerShortcuts, panel, player);
 
   const tabs = [
-    { id: "playlist", label: "Queue and playlists", icon: "icon-queue.svg" },
+    { id: "playlist", label: "Playlists", icon: "icon-queue.svg" },
     { id: "cart", label: "Cart", icon: "icon-cart.svg" },
     { id: "activity", label: "Activity", icon: "icon-activity.svg" },
     { id: "settings", label: "Settings", icon: "icon-settings.svg" }
@@ -282,22 +294,25 @@
   const tabBar = panel.querySelector(".hub-tabs");
   const panelHeader = panel.querySelector(".hub-header");
   const content = panel.querySelector(".hub-content");
-  const playerArt = panel.querySelector(".hub-player-art");
-  const playerArtLink = panel.querySelector(".hub-player-art-link");
-  const playerTrack = panel.querySelector(".hub-player-track");
-  const playerTitle = panel.querySelector(".hub-player-title");
-  const playerArtist = panel.querySelector(".hub-player-artist");
-  const playButton = panel.querySelector(".hub-play-button");
-  const playerMoreButton = panel.querySelector(".hub-player-more-button");
-  const playerMoreMenu = panel.querySelector(".hub-player-more-menu");
-  const djPlayerButton = panel.querySelector(".hub-dj-player-button");
+  const panelTitle = panel.querySelector(".hub-title");
+  const playerArt = player.querySelector(".hub-player-art");
+  const playerArtLink = player.querySelector(".hub-player-art-link");
+  const playerTrack = player.querySelector(".hub-player-track");
+  const playerTitle = player.querySelector(".hub-player-title");
+  const playerArtist = player.querySelector(".hub-player-artist");
+  const playButton = player.querySelector(".hub-play-button");
+  const playerMoreButton = player.querySelector(".hub-player-more-button");
+  const playerMoreMenu = player.querySelector(".hub-player-more-menu");
+  const nowPlayingButton = player.querySelector(".hub-now-playing-button");
+  const nowPlayingCount = player.querySelector(".hub-now-playing-count");
+  const djPlayerButton = player.querySelector(".hub-dj-player-button");
   const headerResetButton = panel.querySelector(".hub-reset");
   const layoutToggleButton = panel.querySelector(".hub-layout-toggle");
-  const djDrawer = panel.querySelector(".hub-dj-drawer");
-  const scrubSlider = panel.querySelector(".hub-scrub-slider");
-  const currentTimeLabel = panel.querySelector(".hub-current-time");
-  const durationLabel = panel.querySelector(".hub-duration");
-  const toast = panel.querySelector(".hub-toast");
+  const djDrawer = player.querySelector(".hub-dj-drawer");
+  const scrubSlider = player.querySelector(".hub-scrub-slider");
+  const currentTimeLabel = player.querySelector(".hub-current-time");
+  const durationLabel = player.querySelector(".hub-duration");
+  const toast = player.querySelector(".hub-toast");
 
   for (const tab of tabs) {
     const button = document.createElement("button");
@@ -314,6 +329,22 @@
     });
     tabBar.append(button);
 
+    const shortcut = document.createElement("button");
+    shortcut.className = "hub-header-shortcut";
+    shortcut.type = "button";
+    shortcut.dataset.tab = tab.id;
+    shortcut.title = tab.label;
+    shortcut.setAttribute("aria-label", tab.label);
+    shortcut.innerHTML = `<span class="hub-header-shortcut-icon" style="--hub-icon:url('${asset(tab.icon)}')"></span><span class="hub-header-shortcut-dot"></span>`;
+    shortcut.addEventListener("click", () => {
+      const closeCurrent = state.open && state.activeTab === tab.id;
+      state.activeTab = tab.id;
+      state.open = !closeCurrent;
+      saveState();
+      saveLayoutState();
+      render();
+    });
+    headerShortcuts.append(shortcut);
   }
 
   function createElement(tag, className, text) {
@@ -590,7 +621,7 @@
     else keys.delete(key);
     state.wishlistTrackKeys = [...keys].slice(-500);
     saveState();
-    if (state.activeTab === "playlist") render();
+    if (["playlist", "nowPlaying"].includes(state.activeTab)) render();
   }
 
   function artistUrlFromPageUrl(value) {
@@ -794,7 +825,7 @@
       state.playlist = normalizePlaylist(state.playlist);
       saveState();
       void syncActivePlaylistQueue();
-      if (state.activeTab === "playlist") render();
+      if (state.activeTab === "nowPlaying") render();
       injectPlaylistButtons();
     }
     if (!quiet) showToast(added ? `Added ${added} track${added === 1 ? "" : "s"} to Now Playing` : "Already in Now Playing");
@@ -900,7 +931,7 @@
     if (pageAudio && !pageAudio.paused) pageAudio.pause();
     applySeamlessState(response.state);
     state.open = true;
-    state.activeTab = "playlist";
+    state.activeTab = "nowPlaying";
     state.playlistView = "current";
     saveState();
     render();
@@ -1605,6 +1636,13 @@
 
   function applySavedLayout() {
     applyingLayout = true;
+    if (panel.classList.contains("is-contextual")) {
+      clearPanelInlineLayout();
+      requestAnimationFrame(() => {
+        applyingLayout = false;
+      });
+      return;
+    }
     if (state.layoutMode === "docked") {
       clearPanelInlineLayout();
       const dockedWidth = Math.min(Math.max(320, Number(state.dockedWidth) || 420), Math.max(320, window.innerWidth));
@@ -2114,6 +2152,23 @@
     launcher.classList.toggle("is-active", state.open);
     launcher.setAttribute("aria-expanded", String(state.open));
     syncDockedControls();
+    const labels = {
+      playlist: "Playlists",
+      cart: "Cart",
+      activity: "Activity",
+      settings: "Settings",
+      nowPlaying: "Now Playing"
+    };
+    panelTitle.textContent = labels[state.activeTab] || "BandKit";
+    panel.setAttribute("aria-label", `${panelTitle.textContent} panel`);
+    panelHeader.setAttribute("aria-label", `${panelTitle.textContent} panel header`);
+    for (const button of headerShortcuts.querySelectorAll(".hub-header-shortcut")) {
+      const active = state.open && button.dataset.tab === state.activeTab;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
+      button.classList.toggle("has-dot", button.dataset.tab === "cart" && state.cart.length > 0);
+      if (button.dataset.tab === "playlist") button.classList.toggle("has-dot", state.playlist.length > 0);
+    }
     for (const button of tabBar.querySelectorAll(".hub-tab")) {
       const active = button.dataset.tab === state.activeTab;
       button.classList.toggle("is-active", active);
@@ -2127,6 +2182,7 @@
     if (state.activeTab === "cart") renderCart();
     if (state.activeTab === "activity") renderActivity();
     if (state.activeTab === "settings") renderSettings();
+    if (state.activeTab === "nowPlaying") renderCurrentPlaylist();
     renderDjTools();
     renderPlayer();
   }
@@ -2943,9 +2999,9 @@
     const activeDjGesture = djDrawer.querySelector(gestureSelector) || pageDjSurface?.querySelector(gestureSelector);
     if ((state.dj.open || pageDjOpen) && !editingDjControl && !activeDjGesture) renderDjTools();
     renderPlayer();
-    if (state.activeTab === "playlist" && state.playlistView === "current" && !(shadow.activeElement && content.contains(shadow.activeElement))) {
+    if (state.activeTab === "nowPlaying" && !(shadow.activeElement && content.contains(shadow.activeElement))) {
       content.replaceChildren();
-      renderPlaylist();
+      renderCurrentPlaylist();
     }
   }
 
@@ -3696,13 +3752,11 @@
   }
 
   function renderPlaylist() {
-    if (!["current", "saved"].includes(state.playlistView)) state.playlistView = "current";
+    state.playlistView = "saved";
     const selected = state.savedPlaylists.find((entry) => entry.id === state.selectedSavedPlaylistId);
     if (!selected) state.selectedSavedPlaylistId = null;
-    renderPlaylistViewTabs();
-    if (state.playlistView === "saved" && selected) renderSavedPlaylistDetail(selected);
-    else if (state.playlistView === "saved") renderSavedPlaylists();
-    else renderCurrentPlaylist();
+    if (selected) renderSavedPlaylistDetail(selected);
+    else renderSavedPlaylists();
   }
 
   function renderActivity() {
@@ -3785,54 +3839,7 @@
     content.append(playback);
 
     const appearance = createElement("section", "hub-card hub-settings-card");
-    appearance.append(createElement("h2", "hub-settings-heading", "Appearance & layout"));
-    const layoutModeRow = createElement("div", "hub-settings-row");
-    const layoutModeCopy = createElement("div", "hub-settings-copy");
-    layoutModeCopy.append(
-      createElement("strong", "", "Panel mode"),
-      createElement("span", "", "Floating or docked.")
-    );
-    const layoutMode = createElement("select", "hub-settings-select hub-layout-mode-select");
-    layoutMode.setAttribute("aria-label", "BandKit panel mode");
-    for (const [value, label] of [["floating", "Floating"], ["docked", "Docked"]]) {
-      const option = createElement("option", "", label);
-      option.value = value;
-      option.selected = state.layoutMode === value;
-      layoutMode.append(option);
-    }
-    layoutMode.addEventListener("change", () => {
-      state.layoutMode = layoutMode.value;
-      applyLayoutMode();
-      saveState();
-      saveLayoutState();
-      showToast(state.layoutMode === "docked" ? `BandKit docked to the ${state.dockSide}` : "BandKit returned to floating mode");
-    });
-    layoutModeRow.append(layoutModeCopy, layoutMode);
-    const dockSideRow = createElement("div", "hub-settings-row");
-    const dockSideCopy = createElement("div", "hub-settings-copy");
-    dockSideCopy.append(
-      createElement("strong", "", "Dock side"),
-      createElement("span", "", "Used in docked mode.")
-    );
-    const dockSide = createElement("select", "hub-settings-select hub-dock-side-select");
-    dockSide.setAttribute("aria-label", "BandKit dock side");
-    for (const [value, label] of [["right", "Right"], ["left", "Left"]]) {
-      const option = createElement("option", "", label);
-      option.value = value;
-      option.selected = state.dockSide === value;
-      dockSide.append(option);
-    }
-    dockSide.addEventListener("change", () => {
-      state.dockSide = dockSide.value;
-      applyLayoutMode();
-      saveState();
-      saveLayoutState();
-      showToast(`BandKit dock side set to ${state.dockSide}`);
-    });
-    dockSideRow.append(dockSideCopy, dockSide);
-    const layoutControls = createElement("div", "hub-settings-layout-grid");
-    layoutControls.append(layoutModeRow, dockSideRow);
-    appearance.append(layoutControls);
+    appearance.append(createElement("h2", "hub-settings-heading", "Appearance"));
     const themeRow = createElement("div", "hub-settings-row");
     const themeCopy = createElement("div", "hub-settings-copy");
     themeCopy.append(createElement("strong", "", "Match Bandcamp"), createElement("span", "", "Use the artist page colours."));
@@ -4080,6 +4087,12 @@
       currentTimeLabel.textContent = formatDuration(currentTime);
     }
     durationLabel.textContent = formatDuration(duration);
+    const queuedTracks = seamless.enabled && Array.isArray(seamless.queue) && seamless.queue.length
+      ? seamless.queue.length
+      : (live.hasPlaybackStarted ? 1 : 0) + (Array.isArray(live.tracks) ? live.tracks.length : 0);
+    nowPlayingCount.textContent = String(queuedTracks);
+    nowPlayingButton.classList.toggle("is-active", state.open && state.activeTab === "nowPlaying");
+    nowPlayingButton.setAttribute("aria-expanded", String(state.open && state.activeTab === "nowPlaying"));
     renderPlayerMoreActions();
   }
 
@@ -5120,9 +5133,9 @@
 
     if (live.isPlaying) recordListeningActivity();
     renderPlayer();
-    if (state.activeTab === "playlist" && state.playlistView === "current" && !(shadow.activeElement && content.contains(shadow.activeElement))) {
+    if (state.activeTab === "nowPlaying" && !(shadow.activeElement && content.contains(shadow.activeElement))) {
       content.replaceChildren();
-      renderPlaylist();
+      renderCurrentPlaylist();
     }
   }
 
@@ -5520,13 +5533,21 @@
   });
 
   djPlayerButton.addEventListener("click", () => toggleDjTools());
+  nowPlayingButton.addEventListener("click", () => {
+    const closeCurrent = state.open && state.activeTab === "nowPlaying";
+    state.activeTab = "nowPlaying";
+    state.open = !closeCurrent;
+    saveState();
+    saveLayoutState();
+    render();
+  });
   playerMoreButton.addEventListener("click", () => {
     if (playerMoreButton.disabled) return;
     playerMoreMenu.hidden = !playerMoreMenu.hidden;
     playerMoreButton.setAttribute("aria-expanded", String(!playerMoreMenu.hidden));
   });
-  panel.querySelector(".hub-player-more-wrap").addEventListener("focusout", () => window.setTimeout(() => {
-    if (!panel.querySelector(".hub-player-more-wrap").contains(shadow.activeElement)) {
+  player.querySelector(".hub-player-more-wrap").addEventListener("focusout", () => window.setTimeout(() => {
+    if (!player.querySelector(".hub-player-more-wrap").contains(shadow.activeElement)) {
       playerMoreMenu.hidden = true;
       playerMoreButton.setAttribute("aria-expanded", "false");
     }
@@ -5540,7 +5561,7 @@
     togglePageDjTools();
   }, true);
 
-  panel.querySelector(".hub-previous-button").addEventListener("click", async () => {
+  player.querySelector(".hub-previous-button").addEventListener("click", async () => {
     if (seamless.enabled) {
       await seamlessCommand("BANDCAMP_HUB_SEAMLESS_PREVIOUS");
       return;
@@ -5549,7 +5570,7 @@
     if (audio) audio.currentTime = 0;
   });
 
-  panel.querySelector(".hub-next-button").addEventListener("click", async () => {
+  player.querySelector(".hub-next-button").addEventListener("click", async () => {
     if (seamless.enabled) {
       await seamlessCommand("BANDCAMP_HUB_SEAMLESS_NEXT");
       return;
@@ -5713,6 +5734,30 @@
     document.head.append(modernReleaseStyle);
     let shadowHeaderObserver = null;
     let observedHeaderShadow = null;
+    function syncNativeHeaderCart(nav) {
+      const cartShortcut = headerShortcuts.querySelector('[data-tab="cart"]');
+      const nativeCart = [...(nav?.querySelectorAll([
+        "a[href*='/cart']",
+        "a[href*='bandcamp.com/cart']",
+        "[aria-label*='cart' i]",
+        "[title*='cart' i]",
+        ".cart-link",
+        "#cart-link",
+        "#cart-control"
+      ].join(",")) || [])].find((control) => !root.contains(control));
+      cartShortcut.hidden = Boolean(nativeCart);
+      if (!nativeCart) return;
+      nativeCart.hidden = false;
+      nativeCart.closest("li")?.removeAttribute("hidden");
+      nativeCart.setAttribute("data-bandkit-native-cart", "");
+      if (nativeCart.dataset.bandkitCartBound) return;
+      nativeCart.dataset.bandkitCartBound = "true";
+      nativeCart.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        openBandKitCart();
+      });
+    }
     function mountLauncherInHeader({ allowFloating = false } = {}) {
       const pageFeedControl = document.querySelector('ul[role="menubar"] a[aria-label="Feed"], .menu-items a[aria-label="Feed"]');
       const menuBarShadow = document.querySelector("menu-bar")?.shadowRoot || null;
@@ -5734,12 +5779,15 @@
         if (feedItem.nextElementSibling !== root) feedItem.after(root);
         launcher.classList.remove("is-floating");
         launcher.classList.add("is-header", "is-modern-header");
+        headerShortcuts.classList.add("is-modern-header");
         const nativeIcon = feedControl.querySelector("svg");
         const nativeIconStyle = nativeIcon ? getComputedStyle(nativeIcon) : null;
         const nativeColor = nativeIconStyle?.fill && nativeIconStyle.fill !== "none"
           ? nativeIconStyle.fill
           : nativeIconStyle?.stroke || getComputedStyle(feedControl).color;
         launcher.style.color = nativeColor;
+        headerShortcuts.style.color = nativeColor;
+        syncNativeHeaderCart(modernNav);
         return true;
       }
       if (legacyNav) {
@@ -5750,6 +5798,9 @@
         launcher.style.removeProperty("color");
         launcher.classList.remove("is-floating", "is-modern-header");
         launcher.classList.add("is-header");
+        headerShortcuts.style.removeProperty("color");
+        headerShortcuts.classList.remove("is-modern-header");
+        syncNativeHeaderCart(legacyNav);
         return true;
       }
       if (allowFloating) {
@@ -5757,6 +5808,9 @@
         launcher.style.removeProperty("color");
         launcher.classList.remove("is-header", "is-modern-header");
         launcher.classList.add("is-floating");
+        headerShortcuts.style.removeProperty("color");
+        headerShortcuts.classList.remove("is-modern-header");
+        syncNativeHeaderCart(null);
       }
       return false;
     }
@@ -5807,8 +5861,11 @@
     });
     state.savedCarts = initialAutoSave.savedCarts;
     if (initialAutoSave.changed) saveState();
-    if (state.activeTab === "playing" || !tabs.some((tab) => tab.id === state.activeTab)) state.activeTab = "playlist";
+    if (state.activeTab === "playing") state.activeTab = "nowPlaying";
+    if (state.activeTab === "playlist" && state.playlistView === "current") state.activeTab = "nowPlaying";
+    if (![...tabs.map((tab) => tab.id), "nowPlaying"].includes(state.activeTab)) state.activeTab = "playlist";
     if (!["floating", "docked"].includes(state.layoutMode)) state.layoutMode = "floating";
+    state.layoutMode = "floating";
     if (!["left", "right"].includes(state.dockSide)) state.dockSide = "right";
     if (!Number.isFinite(Number(state.dockedWidth)) || Number(state.dockedWidth) < 320) state.dockedWidth = 420;
     state.wishlistTrackKeys = Array.isArray(state.wishlistTrackKeys)
