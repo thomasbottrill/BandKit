@@ -118,6 +118,19 @@
         scrub.dispatchEvent(new Event("input", { bubbles: true }));
         scrub.dispatchEvent(new Event("change", { bubbles: true }));
       }
+      if (location.search.includes("section-panel-resize")) {
+        const panel = root?.querySelector(".hub-panel");
+        const topHandle = panel?.querySelector(".hub-resize-handle.is-top");
+        const rect = panel?.getBoundingClientRect();
+        if (topHandle && rect) {
+          const x = rect.left + rect.width / 2;
+          topHandle.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, pointerId: 41, clientX: x, clientY: rect.top + 4 }));
+          topHandle.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, pointerId: 41, clientX: x, clientY: rect.top + 104 }));
+          topHandle.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 41, clientX: x, clientY: rect.top + 104 }));
+          root.querySelector('.hub-header-shortcut[data-tab="cart"]')?.click();
+          document.documentElement.dataset.sectionPanelHeight = String(Math.round(panel.getBoundingClientRect().height));
+        }
+      }
     }, 1700);
     window.setTimeout(() => {
       const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;

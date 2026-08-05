@@ -62,7 +62,7 @@
     savedPlaylists: [],
     playlistView: "current",
     selectedSavedPlaylistId: null,
-    nowPlayingHeight: 340,
+    sectionPanelHeight: null,
     wishlistTrackKeys: [],
     activity: []
   };
@@ -253,7 +253,7 @@
         </div>
         <div class="hub-player-tools">
           <button class="hub-now-playing-button" type="button" aria-label="Open Now Playing" aria-expanded="false">
-            <span class="hub-now-playing-icon" style="--hub-icon:url('${asset("icon-queue.svg")}')"></span>
+            <span class="hub-now-playing-icon" style="--hub-icon:url('${asset("icon-now-playing.svg")}')"></span>
             <span class="hub-now-playing-label">Now Playing</span>
             <span class="hub-now-playing-count">0</span>
           </button>
@@ -293,7 +293,7 @@
   shadow.append(launcher, panel, player);
 
   const tabs = [
-    { id: "playlist", label: "Playlists", icon: "icon-queue.svg" },
+    { id: "playlist", label: "Playlists", icon: "icon-playlist.svg" },
     { id: "cart", label: "Cart", icon: "icon-cart.svg" },
     { id: "activity", label: "Activity", icon: "icon-activity.svg" },
     { id: "settings", label: "Settings", icon: "icon-settings.svg" }
@@ -2166,11 +2166,9 @@
       settings: "Settings",
       nowPlaying: "Now Playing"
     };
-    const nowPlayingPanel = state.activeTab === "nowPlaying";
-    const nowPlayingHeight = Math.max(220, Math.min(520, Number(state.nowPlayingHeight) || 340));
-    state.nowPlayingHeight = nowPlayingHeight;
-    panel.classList.toggle("is-now-playing-panel", nowPlayingPanel);
-    panel.style.setProperty("--hub-now-playing-height", `${nowPlayingHeight}px`);
+    const availablePanelHeight = Math.max(220, window.innerHeight - 160);
+    const sectionPanelHeight = Math.max(220, Math.min(availablePanelHeight, Number(state.sectionPanelHeight) || availablePanelHeight));
+    panel.style.setProperty("--hub-section-panel-height", `${sectionPanelHeight}px`);
     panelTitle.textContent = labels[state.activeTab] || "BandKit";
     panel.setAttribute("aria-label", `${panelTitle.textContent} panel`);
     panelHeader.setAttribute("aria-label", `${panelTitle.textContent} panel header`);
@@ -4105,11 +4103,7 @@
     nowPlayingCount.textContent = String(queuedTracks);
     nowPlayingButton.classList.toggle("is-active", state.open && state.activeTab === "nowPlaying");
     nowPlayingButton.setAttribute("aria-expanded", String(state.open && state.activeTab === "nowPlaying"));
-    const nowPlayingButtonRect = nowPlayingButton.getBoundingClientRect();
     const djPlayerButtonRect = djPlayerButton.getBoundingClientRect();
-    const playerRect = player.getBoundingClientRect();
-    host.style.setProperty("--hub-now-playing-anchor-x", `${Math.round(nowPlayingButtonRect.left + nowPlayingButtonRect.width / 2)}px`);
-    host.style.setProperty("--hub-now-playing-bottom", `${Math.round(window.innerHeight - playerRect.top + 10)}px`);
     player.style.setProperty("--hub-dj-anchor-x", `${Math.round(djPlayerButtonRect.left + djPlayerButtonRect.width / 2)}px`);
     renderPlayerMoreActions();
   }
@@ -5325,8 +5319,8 @@
   for (const handle of panel.querySelectorAll(".hub-resize-handle")) {
     let resizing = null;
     handle.addEventListener("pointerdown", (event) => {
-      const pinnedNowPlayingResize = panel.classList.contains("is-now-playing-panel") && handle.dataset.edge === "top";
-      if (panel.classList.contains("is-contextual") && !pinnedNowPlayingResize) return;
+      const pinnedContextualResize = panel.classList.contains("is-contextual") && handle.dataset.edge === "top";
+      if (panel.classList.contains("is-contextual") && !pinnedContextualResize) return;
       const dockedEdge = state.dockSide === "left" ? "right" : "left";
       if (event.button !== 0 || (state.layoutMode === "docked" && handle.dataset.edge !== dockedEdge)) return;
       const rect = panel.getBoundingClientRect();
@@ -5340,16 +5334,16 @@
         bottom: rect.bottom,
         width: rect.width,
         height: rect.height,
-        pinnedNowPlaying: pinnedNowPlayingResize
+        pinnedContextual: pinnedContextualResize
       };
-      if (state.layoutMode !== "docked" && !pinnedNowPlayingResize) {
+      if (state.layoutMode !== "docked" && !pinnedContextualResize) {
         panel.style.left = `${rect.left}px`;
         panel.style.right = "auto";
         panel.style.top = `${rect.top}px`;
         panel.style.bottom = "auto";
         panel.style.height = `${rect.height}px`;
       }
-      if (!pinnedNowPlayingResize) panel.style.width = `${rect.width}px`;
+      if (!pinnedContextualResize) panel.style.width = `${rect.width}px`;
       setResizeCursor(["top", "bottom"].includes(handle.dataset.edge) ? "ns-resize" : "ew-resize", handle);
       handle.setPointerCapture(event.pointerId);
       event.preventDefault();
@@ -5358,12 +5352,12 @@
       if (!resizing || event.pointerId !== resizing.pointerId) return;
       const minWidth = 320;
       const minHeight = 520;
-      if (resizing.pinnedNowPlaying) {
+      if (resizing.pinnedContextual) {
         const requestedHeight = resizing.height - (event.clientY - resizing.startY);
         const availableHeight = Math.max(220, resizing.bottom - 16);
-        const height = Math.max(220, Math.min(520, availableHeight, requestedHeight));
-        state.nowPlayingHeight = Math.round(height);
-        panel.style.setProperty("--hub-now-playing-height", `${height}px`);
+        const height = Math.max(220, Math.min(availableHeight, requestedHeight));
+        state.sectionPanelHeight = Math.round(height);
+        panel.style.setProperty("--hub-section-panel-height", `${height}px`);
         return;
       }
       if (state.layoutMode === "docked") {
@@ -5398,7 +5392,7 @@
         saveState();
         saveLayoutState();
       }
-      else if (state.activeTab === "nowPlaying") saveState();
+      else if (panel.classList.contains("is-contextual")) saveState();
       else capturePanelLayout();
     };
     handle.addEventListener("pointerup", finishResize);
@@ -5411,7 +5405,7 @@
         saveState();
         saveLayoutState();
       }
-      else if (state.activeTab === "nowPlaying") saveState();
+      else if (panel.classList.contains("is-contextual")) saveState();
       else capturePanelLayout();
     });
   }
@@ -5567,9 +5561,8 @@
 
   djPlayerButton.addEventListener("click", () => toggleDjTools());
   nowPlayingButton.addEventListener("click", () => {
-    const closeCurrent = state.open && state.activeTab === "nowPlaying";
     state.activeTab = "nowPlaying";
-    state.open = !closeCurrent;
+    state.open = true;
     saveState();
     saveLayoutState();
     render();

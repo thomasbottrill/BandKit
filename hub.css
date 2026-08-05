@@ -284,12 +284,12 @@ button {
 
 .hub-panel.is-contextual {
   bottom: 96px;
-  height: auto;
+  height: var(--hub-section-panel-height, calc(100vh - 160px));
   left: auto;
-  max-height: none;
-  min-height: min(420px, calc(100vh - 160px));
+  max-height: calc(100vh - 112px);
+  min-height: min(220px, calc(100vh - 112px));
   right: 16px;
-  top: 64px;
+  top: auto;
   transform: none;
   width: min(420px, calc(100vw - 32px));
   z-index: 2147483647;
@@ -297,21 +297,6 @@ button {
 
 .hub-panel.is-contextual.is-hidden {
   transform: translateY(12px) scale(0.985);
-}
-
-.hub-panel.is-contextual.is-now-playing-panel {
-  bottom: var(--hub-now-playing-bottom, 96px);
-  height: var(--hub-now-playing-height, 340px);
-  left: clamp(218px, var(--hub-now-playing-anchor-x, 50vw), calc(100vw - 218px));
-  max-height: calc(100vh - var(--hub-now-playing-bottom, 96px) - 16px);
-  min-height: min(220px, calc(100vh - var(--hub-now-playing-bottom, 96px) - 16px));
-  right: auto;
-  top: auto;
-  transform: translateX(-50%);
-}
-
-.hub-panel.is-contextual.is-now-playing-panel.is-hidden {
-  transform: translate(-50%, 12px) scale(0.985);
 }
 
 .hub-panel.is-contextual .hub-reset,
@@ -3231,7 +3216,7 @@ button {
   height: 100%;
   margin: 0 auto;
   max-width: 800px;
-  width: min(calc(100% - 48px), calc(100% - 440px));
+  width: min(calc(100% - 48px), calc(100% - 520px));
 }
 
 .hub-player-sections {
@@ -3240,7 +3225,7 @@ button {
   display: flex;
   gap: 4px;
   position: absolute;
-  right: 16px;
+  right: 48px;
   top: 14px;
 }
 
@@ -3659,7 +3644,7 @@ button {
   top: 0;
 }
 
-.hub-panel.is-contextual.is-now-playing-panel .hub-resize-handle.is-top {
+.hub-panel.is-contextual .hub-resize-handle.is-top {
   display: block;
   height: 12px;
 }
@@ -3694,14 +3679,14 @@ button {
 
 @media (max-width: 1120px) {
   .hub-player-content {
-    width: min(calc(100% - 24px), calc(100% - 440px));
+    width: min(calc(100% - 24px), calc(100% - 520px));
   }
 }
 
 @media (max-width: 900px) {
   .hub-player-content {
     margin-left: 0;
-    width: calc(100% - 220px);
+    width: calc(100% - 268px);
   }
 
   .hub-panel {
@@ -3721,11 +3706,11 @@ button {
 
   .hub-panel.is-contextual {
     bottom: 92px;
-    height: auto;
+    height: var(--hub-section-panel-height, calc(100vh - 156px));
     left: auto;
     max-height: none;
     right: 12px;
-    top: 64px;
+    top: auto;
     width: min(420px, calc(100vw - 24px));
   }
 }
@@ -3742,10 +3727,10 @@ button {
   .hub-panel.is-contextual {
     border-radius: 8px 8px 0 0;
     bottom: 84px;
-    height: min(72dvh, calc(100dvh - 100px));
+    height: min(var(--hub-section-panel-height, 72dvh), calc(100dvh - 100px));
     left: 0;
     max-height: calc(100dvh - 100px);
-    min-height: 320px;
+    min-height: min(220px, calc(100dvh - 100px));
     right: 0;
     top: auto;
     transform: none;
@@ -3758,24 +3743,7 @@ button {
 
   .hub-player-sections {
     gap: 1px;
-    right: 6px;
-  }
-
-  .hub-panel.is-contextual.is-now-playing-panel {
-    border-radius: 8px;
-    bottom: var(--hub-now-playing-bottom, 94px);
-    height: var(--hub-now-playing-height, 340px);
-    left: 50%;
-    max-height: calc(100dvh - var(--hub-now-playing-bottom, 94px) - 12px);
-    min-height: min(220px, calc(100dvh - var(--hub-now-playing-bottom, 94px) - 12px));
-    right: auto;
-    top: auto;
-    transform: translateX(-50%);
-    width: calc(100vw - 24px);
-  }
-
-  .hub-panel.is-contextual.is-now-playing-panel.is-hidden {
-    transform: translate(-50%, 12px) scale(0.985);
+    right: 18px;
   }
 
   .hub-player-main {
