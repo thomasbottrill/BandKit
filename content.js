@@ -22,6 +22,7 @@
     dockSide: "right",
     dockedWidth: 420,
     launcherPosition: null,
+    openHomeToFeed: true,
     appearance: {
       pageAware: true,
       applyToPage: false,
@@ -148,6 +149,15 @@
   let bridgedMedia = null;
   let bridgedCart = null;
   let bridgedCartSummary = null;
+
+  function openFeedFromBandcampHome() {
+    if (state.openHomeToFeed === false
+      || location.hostname !== "bandcamp.com"
+      || location.pathname !== "/"
+      || location.hash.startsWith("#bandkit-")) return false;
+    location.replace("https://bandcamp.com/feed");
+    return true;
+  }
   const cartArtistCache = new Map();
   const cartArtistPending = new Set();
   const cartArtistAttempted = new Set();
@@ -4021,6 +4031,30 @@
     playback.append(knobRow);
     content.append(playback);
 
+    const browsing = createElement("section", "hub-card hub-settings-card");
+    browsing.append(createElement("h2", "hub-settings-heading", "Browsing"));
+    const feedRow = createElement("div", "hub-settings-row");
+    const feedCopy = createElement("div", "hub-settings-copy");
+    feedCopy.append(
+      createElement("strong", "", "Open Bandcamp to your feed"),
+      createElement("span", "", "Use your music feed as the homepage.")
+    );
+    const openHomeToFeed = state.openHomeToFeed !== false;
+    const feedToggle = createElement("button", `hub-settings-toggle hub-feed-home-toggle${openHomeToFeed ? " is-active" : ""}`);
+    feedToggle.type = "button";
+    feedToggle.setAttribute("role", "switch");
+    feedToggle.setAttribute("aria-label", "Open Bandcamp to your feed");
+    feedToggle.setAttribute("aria-checked", String(openHomeToFeed));
+    feedToggle.append(createElement("span", "hub-settings-toggle-thumb"));
+    feedToggle.addEventListener("click", () => {
+      state.openHomeToFeed = !(state.openHomeToFeed !== false);
+      saveState();
+      render();
+    });
+    feedRow.append(feedCopy, feedToggle);
+    browsing.append(feedRow);
+    content.append(browsing);
+
     const appearance = createElement("section", "hub-card hub-settings-card");
     appearance.append(createElement("h2", "hub-settings-heading", "Appearance"));
     const themeRow = createElement("div", "hub-settings-row");
@@ -6281,6 +6315,7 @@
         }
       };
     }
+    if (openFeedFromBandcampHome()) return;
     applyPersistedLayout(saved.bandcampHubLayout);
     const savedAtDate = state.cartSavedAt ? new Date(state.cartSavedAt) : new Date();
     const initialAutoSave = cartAutosave.upsertAutoSavedCart(state.savedCarts, state.cart, {

@@ -117,6 +117,9 @@
     if (location.search.includes("panel-header-unify")) {
       window.fixtureStored = { bandcampHubState: { open: true, activeTab: "settings" } };
     }
+    if (location.search.includes("feed-home-setting")) {
+      window.fixtureStored = { bandcampHubState: { open: true, activeTab: "settings" } };
+    }
     if (location.search.includes("page-playlist-placement") || location.search.includes("page-playing-sync") || location.search.includes("page-unrelated-playing-sync") || location.search.includes("page-stale-playback")) {
       document.querySelector(".fixture-track-list").hidden = false;
       const tralbumScript = document.querySelector("script[data-tralbum]");
@@ -205,6 +208,16 @@
   <script>
     window.setTimeout(async () => {
       const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
+      if (location.search.includes("feed-home-setting")) {
+        const toggle = root?.querySelector(".hub-feed-home-toggle");
+        const enabledByDefault = toggle?.getAttribute("aria-checked") === "true";
+        toggle?.click();
+        document.title = enabledByDefault
+          && window.fixtureStored.bandcampHubState?.openHomeToFeed === false
+          ? "PASS: feed homepage setting fixture"
+          : "FAIL: feed homepage setting fixture";
+        return;
+      }
       if (location.search.includes("header-shadow-cart")) {
         const nativeCart = window.fixtureMenuShadow?.querySelector('button[aria-label="Cart"]');
         const nativeCartWrapper = nativeCart?.closest("li");
