@@ -3216,7 +3216,7 @@ button {
 .hub-player-content {
   height: 100%;
   margin: 0 auto;
-  max-width: 1480px;
+  max-width: 600px;
   width: calc(100% - 48px);
 }
 
