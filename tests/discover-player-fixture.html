@@ -50,7 +50,7 @@
       runtime: {
         lastError: null,
         getURL: (path) => new URL(`/${path}`, location.href).href,
-        getManifest: () => ({ version: "0.5.14-section-center" }),
+        getManifest: () => ({ version: "0.5.14-section-button-unify" }),
         sendMessage(message, callback) {
           window.fixtureMessages.push(message);
           if (message.type === "BANDCAMP_HUB_GET_SEAMLESS_STATE") {

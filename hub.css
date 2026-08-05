@@ -3216,7 +3216,7 @@ button {
   height: 100%;
   margin: 0 auto;
   max-width: 800px;
-  width: min(calc(100% - 48px), calc(100% - 688px));
+  width: min(calc(100% - 48px), calc(100% - 704px));
 }
 
 .hub-player-sections {
@@ -3235,6 +3235,7 @@ button {
 
 .hub-player-sections .hub-header-shortcuts {
   color: inherit;
+  gap: 4px;
   height: 40px;
 }
 
@@ -3246,10 +3247,35 @@ button {
 }
 
 .hub-player-sections .hub-now-playing-button {
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: inherit;
+  gap: 0;
+  height: 40px;
   justify-content: center;
   padding: 0;
   position: relative;
   width: 40px;
+}
+
+.hub-player-sections .hub-now-playing-button:hover,
+.hub-player-sections .hub-now-playing-button:focus-visible,
+.hub-player-sections .hub-now-playing-button.is-active {
+  background: var(--hub-accent-soft);
+  border-color: transparent;
+  color: var(--hub-accent);
+}
+
+.hub-player-sections .hub-now-playing-icon {
+  height: 20px;
+  opacity: 0.86;
+  width: 20px;
+}
+
+.hub-player-sections .hub-now-playing-button:hover .hub-now-playing-icon,
+.hub-player-sections .hub-now-playing-button.is-active .hub-now-playing-icon {
+  opacity: 1;
 }
 
 .hub-player-sections .hub-now-playing-label {
@@ -3683,14 +3709,14 @@ button {
 
 @media (max-width: 1120px) {
   .hub-player-content {
-    width: min(calc(100% - 24px), calc(100% - 688px));
+    width: min(calc(100% - 24px), calc(100% - 704px));
   }
 }
 
 @media (max-width: 900px) {
   .hub-player-content {
     margin-left: 0;
-    width: calc(100% - 356px);
+    width: calc(100% - 372px);
   }
 
   .hub-panel {
