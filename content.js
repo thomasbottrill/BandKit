@@ -4106,9 +4106,11 @@
     nowPlayingButton.classList.toggle("is-active", state.open && state.activeTab === "nowPlaying");
     nowPlayingButton.setAttribute("aria-expanded", String(state.open && state.activeTab === "nowPlaying"));
     const nowPlayingButtonRect = nowPlayingButton.getBoundingClientRect();
+    const djPlayerButtonRect = djPlayerButton.getBoundingClientRect();
     const playerRect = player.getBoundingClientRect();
     host.style.setProperty("--hub-now-playing-anchor-x", `${Math.round(nowPlayingButtonRect.left + nowPlayingButtonRect.width / 2)}px`);
     host.style.setProperty("--hub-now-playing-bottom", `${Math.round(window.innerHeight - playerRect.top + 10)}px`);
+    player.style.setProperty("--hub-dj-anchor-x", `${Math.round(djPlayerButtonRect.left + djPlayerButtonRect.width / 2)}px`);
     renderPlayerMoreActions();
   }
 
