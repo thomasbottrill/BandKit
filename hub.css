@@ -3216,7 +3216,7 @@ button {
   height: 100%;
   margin: 0 auto;
   max-width: 800px;
-  width: min(calc(100% - 48px), calc(100% - 520px));
+  width: min(calc(100% - 48px), calc(100% - 688px));
 }
 
 .hub-player-sections {
@@ -3224,9 +3224,13 @@ button {
   color: var(--hub-ink);
   display: flex;
   gap: 4px;
+  justify-content: center;
+  left: var(--hub-sections-center-x, calc(100% - 226px));
   position: absolute;
-  right: 48px;
+  right: auto;
   top: 14px;
+  transform: translateX(-50%);
+  width: var(--hub-sections-panel-width, min(420px, calc(100vw - 32px)));
 }
 
 .hub-player-sections .hub-header-shortcuts {
@@ -3679,14 +3683,14 @@ button {
 
 @media (max-width: 1120px) {
   .hub-player-content {
-    width: min(calc(100% - 24px), calc(100% - 520px));
+    width: min(calc(100% - 24px), calc(100% - 688px));
   }
 }
 
 @media (max-width: 900px) {
   .hub-player-content {
     margin-left: 0;
-    width: calc(100% - 268px);
+    width: calc(100% - 356px);
   }
 
   .hub-panel {
@@ -3713,6 +3717,7 @@ button {
     top: auto;
     width: min(420px, calc(100vw - 24px));
   }
+
 }
 
 @media (max-width: 520px) {
@@ -3743,7 +3748,6 @@ button {
 
   .hub-player-sections {
     gap: 1px;
-    right: 18px;
   }
 
   .hub-player-main {

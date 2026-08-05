@@ -4058,6 +4058,9 @@
   }
 
   function renderPlayer() {
+    const sectionPanelRect = panel.getBoundingClientRect();
+    player.style.setProperty("--hub-sections-center-x", `${Math.round(sectionPanelRect.left + sectionPanelRect.width / 2)}px`);
+    player.style.setProperty("--hub-sections-panel-width", `${Math.round(sectionPanelRect.width)}px`);
     const hasCurrentTrack = Boolean(live.hasPlaybackStarted && live.title);
     playerTrack.classList.toggle("is-empty", !hasCurrentTrack);
     if (hasCurrentTrack) {
