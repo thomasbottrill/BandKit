@@ -39,6 +39,7 @@
     <button class="prev-track" aria-label="Skip to previous song">Previous</button>
     <button class="next-track" aria-label="Skip to next song">Next</button>
     <input type="range" min="0" max="180" value="24">
+    <div class="dialog-container"><div class="player-dialog">Native Now Playing</div></div>
   </section>
   <script>
     const nativeModernControl = document.querySelector(".floating-player .play-pause-button");
@@ -218,6 +219,7 @@
       const playerMenu = root?.querySelector(".hub-player-more-menu");
       const playerMenuActions = playerMenu?.querySelectorAll(".hub-queue-action");
       const nativePlayerClicks = Number(document.documentElement.dataset.nativePlayerClicks || 0);
+      const nativePlayer = document.querySelector("section.floating-player");
       document.title = titleLink?.textContent === "Modern One"
         && titleLink?.href.includes("fixture-artist.bandcamp.com/track/modern-one")
         && activity[0]?.url.includes("fixture-artist.bandcamp.com/track/modern-one")
@@ -245,6 +247,9 @@
         && playerMenuActions?.length === 3
         && [...playerMenuActions].every((button) => !button.disabled)
         && nativePlayerClicks === 1
+        && document.documentElement.dataset.bandkitHideBandcampPlayer === "true"
+        && getComputedStyle(nativePlayer).display === "none"
+        && nativePlayer.querySelector(".player-dialog")
         ? "PASS: modern Bandcamp player fixture"
         : `FAIL: ${titleLink?.textContent || "no title"} / ${activity.length} activities / ${nativePlayerClicks} native clicks`;
     }, 1200);
