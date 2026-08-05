@@ -158,6 +158,7 @@
   let modernReleaseCleanups = [];
   let modernReleaseSupporterTimer = null;
   let modernReleasePalette = null;
+  let playerResizeObserver = null;
 
   function pageMediaCommand(action, details = {}) {
     document.dispatchEvent(new CustomEvent("bandkit:media-command", { detail: { action, ...details } }));
@@ -294,6 +295,21 @@
   playerSections.append(player.querySelector(".hub-now-playing-button"), headerShortcuts);
   player.append(playerSections);
   shadow.append(launcher, panel, player);
+
+  const playerSpacer = document.createElement("div");
+  playerSpacer.id = "bandcamp-hub-player-spacer";
+  playerSpacer.setAttribute("aria-hidden", "true");
+  playerSpacer.style.cssText = "clear:both;display:block;flex:none;grid-column:1/-1;pointer-events:none;visibility:hidden;width:100%";
+
+  function syncPlayerPageSpace() {
+    const playerHeight = Math.ceil(player.getBoundingClientRect().height);
+    if (!playerHeight) return;
+    const reservedHeight = `${playerHeight}px`;
+    playerSpacer.style.setProperty("height", reservedHeight, "important");
+    playerSpacer.style.setProperty("flex-basis", reservedHeight, "important");
+    document.documentElement.style.setProperty("--bandkit-player-reserved-height", reservedHeight);
+    document.documentElement.style.scrollPaddingBottom = reservedHeight;
+  }
 
   const tabs = [
     { id: "playlist", label: "Playlists", icon: "icon-playlist.svg" },
@@ -5947,6 +5963,13 @@
       });
     }
     mountLauncherInHeader({ allowFloating: true });
+    document.body.append(playerSpacer);
+    syncPlayerPageSpace();
+    requestAnimationFrame(syncPlayerPageSpace);
+    if ("ResizeObserver" in window) {
+      playerResizeObserver = new ResizeObserver(syncPlayerPageSpace);
+      playerResizeObserver.observe(player);
+    }
     for (const delay of [100, 500, 1500]) window.setTimeout(scheduleHeaderMount, delay);
     const headerObserver = new MutationObserver(scheduleHeaderMount);
     headerObserver.observe(document.body, { childList: true, subtree: true });
@@ -6017,11 +6040,13 @@
     window.addEventListener("resize", () => {
       applyLauncherPosition();
       applySavedLayout();
+      syncPlayerPageSpace();
     });
     window.addEventListener("pagehide", () => {
       window.clearInterval(scanTimer);
       window.clearInterval(seamlessSyncTimer);
       window.clearTimeout(layoutSaveTimer);
+      playerResizeObserver?.disconnect();
       const finalPanelRect = panel.getBoundingClientRect();
       if (finalPanelRect.width && finalPanelRect.height) {
         if (state.layoutMode === "docked") {
