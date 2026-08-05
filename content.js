@@ -1632,6 +1632,41 @@
     for (const wrapper of document.querySelectorAll("[data-bandkit-native-cart-wrapper]")) {
       wrapper.toggleAttribute("hidden", hideHeaderCart);
     }
+    applyShadowHeaderCartVisibility(hideHeaderCart);
+  }
+
+  function setShadowCartElementVisibility(element, hidden) {
+    if (!element) return;
+    if (!element.hasAttribute("data-bandkit-display-captured")) {
+      element.setAttribute("data-bandkit-display-captured", "true");
+      element.dataset.bandkitDisplayValue = element.style.getPropertyValue("display");
+      element.dataset.bandkitDisplayPriority = element.style.getPropertyPriority("display");
+    }
+    element.toggleAttribute("hidden", hidden);
+    if (hidden) {
+      element.style.setProperty("display", "none", "important");
+      return;
+    }
+    const value = element.dataset.bandkitDisplayValue || "";
+    const priority = element.dataset.bandkitDisplayPriority || "";
+    if (value) element.style.setProperty("display", value, priority);
+    else element.style.removeProperty("display");
+  }
+
+  function applyShadowHeaderCartVisibility(hidden) {
+    const menuShadow = document.querySelector("menu-bar")?.shadowRoot;
+    if (!menuShadow) return;
+    let visibilityStyle = menuShadow.querySelector("#bandkit-native-header-cart-style");
+    if (!visibilityStyle) {
+      visibilityStyle = document.createElement("style");
+      visibilityStyle.id = "bandkit-native-header-cart-style";
+      menuShadow.append(visibilityStyle);
+    }
+    visibilityStyle.textContent = hidden
+      ? `li.cart,li[data-bandkit-native-cart-wrapper],button[aria-label="Cart"],button[data-bandkit-native-cart]{display:none!important}`
+      : "";
+    const candidates = menuShadow.querySelectorAll('li.cart, li[data-bandkit-native-cart-wrapper], button[aria-label="Cart"], button[data-bandkit-native-cart]');
+    for (const candidate of candidates) setShadowCartElementVisibility(candidate, hidden);
   }
 
   function applyNativePlayerVisibility() {
@@ -6019,6 +6054,7 @@
           openBandKitCart();
         });
       }
+      applyShadowHeaderCartVisibility(hideHeaderCart);
     }
     function mountLauncherInHeader({ allowFloating = false } = {}) {
       const pageFeedControl = document.querySelector('ul[role="menubar"] a[aria-label="Feed"], .menu-items a[aria-label="Feed"]');

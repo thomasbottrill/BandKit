@@ -42,6 +42,13 @@
     window.fixtureDownloads = [];
     window.fixturePurchaseClicks = 0;
     document.querySelector("#buyItem")?.addEventListener("click", () => { window.fixturePurchaseClicks += 1; });
+    if (location.search.includes("header-shadow-cart")) {
+      const menuBar = document.createElement("menu-bar");
+      const menuShadow = menuBar.attachShadow({ mode: "open" });
+      menuShadow.innerHTML = `<style>li.cart,li.cart[hidden],button[aria-label="Cart"],button[aria-label="Cart"][hidden]{display:flex!important}</style><ul><li class="cart"><button type="button" aria-label="Cart"><span>3</span></button></li></ul>`;
+      document.body.prepend(menuBar);
+      window.fixtureMenuShadow = menuShadow;
+    }
     window.fixtureStored = (location.search.includes("cart-ui") || location.search.includes("cart-roundtrip")) ? {
       bandcampHubState: {
         open: true,
@@ -175,6 +182,29 @@
   <script>
     window.setTimeout(async () => {
       const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
+      if (location.search.includes("header-shadow-cart")) {
+        const nativeCart = window.fixtureMenuShadow?.querySelector('button[aria-label="Cart"]');
+        const nativeCartWrapper = nativeCart?.closest("li");
+        const hiddenByDefault = getComputedStyle(nativeCart).display === "none"
+          && getComputedStyle(nativeCartWrapper).display === "none"
+          && nativeCart.style.getPropertyValue("display") === "none"
+          && nativeCart.style.getPropertyPriority("display") === "important"
+          && window.fixtureMenuShadow.querySelector("#bandkit-native-header-cart-style");
+        root?.querySelector('.hub-header-shortcut[data-tab="settings"]')?.click();
+        root?.querySelector('[role="switch"][aria-label="Hide header shopping cart"]')?.click();
+        const restored = getComputedStyle(nativeCart).display === "flex"
+          && getComputedStyle(nativeCartWrapper).display === "flex"
+          && !nativeCart.hasAttribute("hidden")
+          && !nativeCartWrapper.hasAttribute("hidden")
+          && nativeCart.style.getPropertyValue("display") === "";
+        root?.querySelector('[role="switch"][aria-label="Hide header shopping cart"]')?.click();
+        const hiddenAgain = getComputedStyle(nativeCart).display === "none"
+          && getComputedStyle(nativeCartWrapper).display === "none";
+        document.title = hiddenByDefault && restored && hiddenAgain
+          ? "PASS: shadow header cart visibility fixture"
+          : `FAIL: shadow cart ${getComputedStyle(nativeCart).display}/${getComputedStyle(nativeCartWrapper).display}`;
+        return;
+      }
       if (location.search.includes("cart-roundtrip")) {
         root?.querySelectorAll(".hub-cart-view-tab").forEach((button) => {
           if (button.textContent.includes("Cart")) button.click();
