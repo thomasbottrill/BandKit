@@ -23,6 +23,7 @@
     dockedWidth: 420,
     launcherPosition: null,
     openHomeToFeed: true,
+    feedUrl: "",
     appearance: {
       pageAware: true,
       applyToPage: false,
@@ -153,12 +154,37 @@
   let bridgedCart = null;
   let bridgedCartSummary = null;
 
+  function canonicalBandcampFeedUrl(value) {
+    try {
+      const url = new URL(value || "", "https://bandcamp.com/");
+      return url.protocol === "https:"
+        && url.hostname === "bandcamp.com"
+        && /^\/[^/]+\/feed\/?$/.test(url.pathname)
+        ? `${url.origin}${url.pathname.replace(/\/$/, "")}`
+        : "";
+    } catch {
+      return "";
+    }
+  }
+
+  function discoverBandcampFeedUrl() {
+    const current = canonicalBandcampFeedUrl(location.href);
+    if (current) return current;
+    for (const anchor of document.querySelectorAll("a[href]")) {
+      const feedUrl = canonicalBandcampFeedUrl(anchor.href);
+      if (feedUrl) return feedUrl;
+    }
+    return "";
+  }
+
   function openFeedFromBandcampHome() {
     if (state.openHomeToFeed === false
       || location.hostname !== "bandcamp.com"
       || location.pathname !== "/"
       || location.hash.startsWith("#bandkit-")) return false;
-    location.replace("https://bandcamp.com/feed");
+    const feedUrl = canonicalBandcampFeedUrl(state.feedUrl) || discoverBandcampFeedUrl();
+    if (!feedUrl) return false;
+    location.replace(feedUrl);
     return true;
   }
   const cartArtistCache = new Map();
@@ -6364,6 +6390,11 @@
           ...(saved.bandcampHubState.dj || {})
         }
       };
+    }
+    const discoveredFeedUrl = discoverBandcampFeedUrl();
+    if (discoveredFeedUrl && discoveredFeedUrl !== state.feedUrl) {
+      state.feedUrl = discoveredFeedUrl;
+      saveState();
     }
     if (openFeedFromBandcampHome()) return;
     applyPersistedLayout(saved.bandcampHubLayout);
