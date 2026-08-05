@@ -307,6 +307,8 @@
   playerSpacer.id = "bandcamp-hub-player-spacer";
   playerSpacer.setAttribute("aria-hidden", "true");
   playerSpacer.style.cssText = "clear:both;display:block;flex:none;grid-column:1/-1;pointer-events:none;visibility:hidden;width:100%";
+  const discoverPlayerSpacer = playerSpacer.cloneNode(false);
+  discoverPlayerSpacer.id = "bandcamp-hub-discover-player-spacer";
 
   function syncPlayerPageSpace() {
     const pageFooter = document.querySelector("#page-footer, #pgFt, page-footer, .full-page-app-wrapper > footer");
@@ -321,8 +323,18 @@
     const playerHeight = Math.ceil(player.getBoundingClientRect().height);
     if (!playerHeight) return;
     const reservedHeight = `${playerHeight}px`;
+    const discoverReservedHeight = `${playerHeight + 16}px`;
     playerSpacer.style.setProperty("height", reservedHeight, "important");
     playerSpacer.style.setProperty("flex-basis", reservedHeight, "important");
+    const discoverDetail = document.querySelector("#DiscoverApp .focused-result");
+    if (discoverDetail) {
+      if (discoverPlayerSpacer.parentElement !== discoverDetail) discoverDetail.append(discoverPlayerSpacer);
+      discoverPlayerSpacer.style.setProperty("height", discoverReservedHeight, "important");
+      discoverPlayerSpacer.style.setProperty("flex-basis", discoverReservedHeight, "important");
+      discoverDetail.style.setProperty("scroll-padding-bottom", discoverReservedHeight);
+    } else {
+      discoverPlayerSpacer.remove();
+    }
     document.documentElement.style.setProperty("--bandkit-player-reserved-height", reservedHeight);
     document.documentElement.style.scrollPaddingBottom = reservedHeight;
     pageFlowParent.style.setProperty("scroll-padding-bottom", reservedHeight);
@@ -4928,7 +4940,7 @@
       const pageStyle = document.createElement("style");
       pageStyle.id = "bandcamp-hub-page-style";
       pageStyle.textContent = `.bandcamp-hub-page-dj{align-items:center;background:var(--hub-accent-soft,rgba(29,160,195,.12));border:1px solid var(--hub-line,rgba(127,127,127,.35));border-radius:999px;color:var(--hub-accent,var(--link-color,#1da0c3));cursor:pointer;display:flex;height:32px;justify-content:center;margin:8px 0 0;padding:0;width:32px}.bandcamp-hub-page-dj::before{background:currentColor;content:"";height:18px;mask:var(--hub-dj-icon) center/contain no-repeat;-webkit-mask:var(--hub-dj-icon) center/contain no-repeat;width:18px}.bandcamp-hub-page-dj:hover,.bandcamp-hub-page-dj:focus-visible{border-color:var(--hub-accent,var(--link-color,#1da0c3));outline:0}.bandcamp-hub-page-dj.is-active{background:var(--hub-accent,var(--link-color,#1da0c3));border-color:var(--hub-accent,var(--link-color,#1da0c3));color:var(--hub-on-accent,#fff)}.bandcamp-hub-page-dj-host{display:block;margin-top:8px;max-width:420px;width:100%}.bandcamp-hub-page-dj-host[hidden]{display:none!important}body.bandcamp-hub-remote-playing section.floating-player .play-pause-button.outline>svg{display:none!important}body.bandcamp-hub-remote-playing section.floating-player .play-pause-button.outline::after{background:linear-gradient(90deg,currentColor 0 34%,transparent 34% 66%,currentColor 66%);content:"";display:block;height:18px;width:14px}`;
-      pageStyle.textContent += `#DiscoverApp .focused-result{padding-bottom:calc(var(--bandkit-player-reserved-height,84px) + 16px)!important;scroll-padding-bottom:calc(var(--bandkit-player-reserved-height,84px) + 16px)}`;
+      pageStyle.textContent += `#DiscoverApp .focused-result{scroll-padding-bottom:calc(var(--bandkit-player-reserved-height,84px) + 16px)}`;
       pageStyle.textContent += `html[data-bandkit-hide-bandcamp-player="true"] :is(.discover-player,section.floating-player){display:none!important}`;
       pageStyle.textContent += `html[data-bandkit-hide-page-cart="true"] #sidecart{display:none!important}html[data-bandkit-hide-header-cart="true"] :is(header,#menubar-wrapper,#user-nav,ul[role="menubar"].menu-items) :is(a[href*="/cart"],a[href*="bandcamp.com/cart"],[aria-label*="cart" i],[title*="cart" i],[data-testid*="cart" i],.cart-link,.cart-wrapper,.cart-wrapper-corp-lo,.menubar-cart-icon,#cart-link,#cart-control){display:none!important}html[data-bandkit-hide-header-cart="true"] :is(header,#menubar-wrapper,#user-nav,ul[role="menubar"].menu-items) :is(a,button,[role="button"],li):has(use[href$="#menubar-cart-icon"],use[xlink\\:href$="#menubar-cart-icon"],svg.menubar-cart-icon){display:none!important}html[data-bandkit-hide-header-cart="true"] :is(header,#menubar-wrapper,#user-nav,ul[role="menubar"].menu-items) li:has(> :is(a[href*="/cart"],a[href*="bandcamp.com/cart"],[aria-label*="cart" i],[title*="cart" i],[data-testid*="cart" i],.cart-link,.cart-wrapper,.cart-wrapper-corp-lo,#cart-link,#cart-control)){display:none!important}`;
       pageStyle.textContent += `.bandcamp-hub-page-tools{align-items:center;display:flex;gap:8px;margin:8px 0 0}.bandcamp-hub-page-tools .bandcamp-hub-page-dj{margin:0}.bandcamp-hub-page-playlist{align-items:center;background:var(--hub-accent-soft,rgba(29,160,195,.12));border:1px solid var(--hub-line,rgba(127,127,127,.35));border-radius:999px;box-sizing:border-box;color:var(--hub-accent,var(--link-color,#1da0c3));cursor:pointer;display:inline-flex;font-size:0;height:32px;justify-content:center;line-height:0;margin:8px 0 0;padding:0;text-decoration:none!important;vertical-align:middle;width:32px}.bandcamp-hub-page-playlist::before{background:currentColor;content:"";display:block;height:18px;mask:var(--hub-plus-icon) center/contain no-repeat;-webkit-mask:var(--hub-plus-icon) center/contain no-repeat;width:18px}.bandcamp-hub-page-playlist:hover,.bandcamp-hub-page-playlist:focus-visible{background:var(--hub-accent-soft,rgba(29,160,195,.12));border-color:var(--hub-accent,var(--link-color,#1da0c3));outline:0;text-decoration:none!important}.bandcamp-hub-page-playlist.is-added{background:var(--hub-accent,var(--link-color,#1da0c3));border-color:var(--hub-accent,var(--link-color,#1da0c3));color:var(--hub-on-accent,#fff)}.bandcamp-hub-page-playlist.is-player-control{margin:0}.bandcamp-hub-page-playlist.is-track-action{background:var(--hub-accent-soft,rgba(29,160,195,.12))!important;border-color:var(--hub-line,rgba(127,127,127,.35))!important;color:var(--hub-accent,var(--link-color,#1da0c3))!important;height:24px;margin:0 8px 0 0!important;opacity:0;pointer-events:none;text-decoration:none!important;width:24px}.bandcamp-hub-page-playlist.is-track-action::before{height:14px;width:14px}.bandcamp-hub-page-playlist.is-track-action:hover,.bandcamp-hub-page-playlist.is-track-action:focus-visible{border-color:var(--hub-accent,var(--link-color,#1da0c3))!important;text-decoration:none!important}.bandcamp-hub-page-playlist.is-track-action.is-added{background:var(--hub-accent,var(--link-color,#1da0c3))!important;border-color:var(--hub-accent,var(--link-color,#1da0c3))!important;color:var(--hub-on-accent,#fff)!important}.track_row_view:hover .bandcamp-hub-page-playlist.is-track-action,.track_row_view:focus-within .bandcamp-hub-page-playlist.is-track-action,.bandcamp-hub-page-playlist.is-track-action:focus-visible{opacity:1;pointer-events:auto}`;

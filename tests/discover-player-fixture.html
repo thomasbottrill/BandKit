@@ -140,14 +140,18 @@
       const title = root?.querySelector(".hub-player-title");
       const artist = root?.querySelector(".hub-player-artist");
       const playerHeight = Math.round(root?.querySelector(".hub-player")?.getBoundingClientRect().height || 0);
-      const detailReserve = Math.round(parseFloat(getComputedStyle(document.querySelector(".focused-result")).paddingBottom) || 0);
+      const discoverSpacer = document.querySelector("#bandcamp-hub-discover-player-spacer");
+      const detailReserve = Math.round(discoverSpacer?.getBoundingClientRect().height || 0);
+      const detailScrollReserve = Math.round(parseFloat(getComputedStyle(document.querySelector(".focused-result")).scrollPaddingBottom) || 0);
       document.title = title?.textContent === "Discover Fixture Track"
         && title.href.includes("fixture-artist.bandcamp.com/album/fixture-album")
         && artist?.textContent === "Fixture Artist"
         && getComputedStyle(document.querySelector(".discover-player")).display === "none"
         && document.querySelector("#bandcamp-hub-player-spacer")?.parentElement === document.querySelector("#DiscoverApp main.app")
         && Math.round(document.querySelector("#bandcamp-hub-player-spacer")?.getBoundingClientRect().height || 0) === playerHeight
+        && discoverSpacer?.parentElement === document.querySelector("#DiscoverApp .focused-result")
         && detailReserve === playerHeight + 16
+        && detailScrollReserve === playerHeight + 16
         && root?.querySelector(".hub-duration")?.textContent === "3:00"
         && activity[0]?.title === "Discover Fixture Track"
         && root?.querySelector(".hub-dj-waveform")?.disabled === false
