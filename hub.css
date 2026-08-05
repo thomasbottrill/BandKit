@@ -2414,6 +2414,11 @@ button {
   align-items: center;
   display: flex;
   gap: 5px;
+  justify-content: flex-end;
+}
+
+.hub-saved-playlist-icon-button.is-delete {
+  margin-left: 10px;
 }
 
 .hub-saved-playlist-icon-button {
@@ -2444,6 +2449,32 @@ button {
 
 .hub-saved-playlist-detail-heading {
   grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.hub-saved-playlist-back {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--hub-ink);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  gap: 6px;
+  line-height: 20px;
+  padding: 0;
+}
+
+.hub-saved-playlist-back .hub-button-icon {
+  height: 16px;
+  width: 16px;
+}
+
+.hub-saved-playlist-back:hover,
+.hub-saved-playlist-back:focus-visible {
+  color: var(--hub-accent);
+  outline: 0;
 }
 
 .hub-saved-playlist-track-list {

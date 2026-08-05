@@ -3848,8 +3848,8 @@
     render();
   }
 
-  function createSavedPlaylistActionButton(label, icon, onClick) {
-    const button = createElement("button", "hub-saved-playlist-icon-button");
+  function createSavedPlaylistActionButton(label, icon, onClick, className = "") {
+    const button = createElement("button", `hub-saved-playlist-icon-button${className ? ` ${className}` : ""}`);
     button.type = "button";
     button.title = label;
     button.setAttribute("aria-label", label);
@@ -3863,7 +3863,7 @@
     return button;
   }
 
-  function createSavedPlaylistActions(snapshot) {
+  function createSavedPlaylistActions(snapshot, { includeDownload = false } = {}) {
     const actions = createElement("div", "hub-saved-playlist-icon-actions");
     actions.append(
       createSavedPlaylistActionButton(`Play ${snapshot.name}`, "icon-play.svg", () => {
@@ -3871,9 +3871,12 @@
         void playPlaylistAt(0);
       }),
       createSavedPlaylistActionButton(`Add ${snapshot.name} to Now Playing`, "icon-plus.svg", () => restoreSavedPlaylist(snapshot, "append")),
-      createSavedPlaylistActionButton(`Rename ${snapshot.name}`, "icon-edit.svg", () => renameSavedPlaylist(snapshot)),
-      createSavedPlaylistActionButton(`Delete ${snapshot.name}`, "icon-trash.svg", () => deleteSavedPlaylist(snapshot))
+      createSavedPlaylistActionButton(`Rename ${snapshot.name}`, "icon-edit.svg", () => renameSavedPlaylist(snapshot))
     );
+    if (includeDownload) {
+      actions.append(createSavedPlaylistActionButton(`Download ${snapshot.name}`, "icon-download-all.svg", () => exportPlaylist(snapshot.items)));
+    }
+    actions.append(createSavedPlaylistActionButton(`Delete ${snapshot.name}`, "icon-trash.svg", () => deleteSavedPlaylist(snapshot), "is-delete"));
     return actions;
   }
 
@@ -3907,14 +3910,17 @@
   function renderSavedPlaylistDetail(snapshot) {
     const duration = snapshot.items.reduce((total, item) => total + (Number(item.duration) || 0), 0);
     const toolbar = createElement("div", "hub-saved-cart-detail-toolbar");
-    const back = createElement("button", "hub-text-button is-accent", "← Playlists");
+    const back = createElement("button", "hub-saved-playlist-back");
     back.type = "button";
+    const backIcon = createElement("span", "hub-button-icon");
+    backIcon.style.setProperty("--hub-icon", `url('${asset("icon-back.svg")}')`);
+    back.append(backIcon, createElement("span", "", "Playlists"));
     back.addEventListener("click", () => {
       state.selectedSavedPlaylistId = null;
       saveState();
       render();
     });
-    toolbar.append(back, createSavedPlaylistActions(snapshot));
+    toolbar.append(back);
     content.append(toolbar);
 
     const heading = createElement("div", "hub-saved-cart-detail-heading hub-saved-playlist-detail-heading");
@@ -3923,8 +3929,7 @@
       createElement("h2", "", snapshot.name),
       createElement("span", "", `${snapshot.items.length} track${snapshot.items.length === 1 ? "" : "s"} · ${formatDuration(duration)}`)
     );
-    const download = createSavedPlaylistActionButton(`Download ${snapshot.name}`, "icon-download-all.svg", () => exportPlaylist(snapshot.items));
-    heading.append(copy, download);
+    heading.append(copy, createSavedPlaylistActions(snapshot, { includeDownload: true }));
     content.append(heading);
 
     const list = createElement("div", "hub-stack hub-saved-playlist-track-list");
