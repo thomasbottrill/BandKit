@@ -7,7 +7,11 @@
   }
 
   function isAutoSavedCart(snapshot) {
-    return Boolean(snapshot?.autoSaved) || snapshot?.id === AUTO_SAVED_CART_ID;
+    const normalizedName = String(snapshot?.name || "").trim().toLowerCase().replace(/[\s_-]+/g, " ");
+    return Boolean(snapshot?.autoSaved)
+      || snapshot?.id === AUTO_SAVED_CART_ID
+      || normalizedName === "auto saved cart"
+      || normalizedName === "autosaved cart";
   }
 
   function itemSignature(item) {
@@ -42,15 +46,30 @@
   }
 
   function normalizeSavedCarts(savedCarts) {
+    const candidates = (Array.isArray(savedCarts) ? savedCarts : [])
+      .filter((snapshot) => snapshot && Array.isArray(snapshot.items) && snapshot.items.length);
+    const autoSaves = candidates.filter(isAutoSavedCart);
+    const newestAutoSave = autoSaves.reduce((newest, snapshot) => {
+      const timestamp = Date.parse(snapshot.savedAt || snapshot.createdAt || "") || 0;
+      const newestTimestamp = Date.parse(newest?.savedAt || newest?.createdAt || "") || 0;
+      return !newest || timestamp > newestTimestamp ? snapshot : newest;
+    }, null);
+    const canonicalAutoSave = newestAutoSave ? {
+      ...newestAutoSave,
+      id: AUTO_SAVED_CART_ID,
+      name: "Auto-saved cart",
+      autoSaved: true
+    } : null;
     const normalized = [];
     let hasAutoSave = false;
-    for (const snapshot of Array.isArray(savedCarts) ? savedCarts : []) {
-      if (!snapshot || !Array.isArray(snapshot.items) || !snapshot.items.length) continue;
+    for (const snapshot of candidates) {
       if (isAutoSavedCart(snapshot)) {
         if (hasAutoSave) continue;
         hasAutoSave = true;
+        normalized.push(canonicalAutoSave);
+      } else {
+        normalized.push(snapshot);
       }
-      normalized.push(snapshot);
       if (normalized.length === MAX_SAVED_CARTS) break;
     }
     return normalized;

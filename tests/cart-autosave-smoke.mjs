@@ -56,4 +56,20 @@ const duplicates = autosave.normalizeSavedCarts([
 assert.equal(duplicates.filter(autosave.isAutoSavedCart).length, 1);
 assert.equal(duplicates.some((snapshot) => snapshot.id === "empty"), false);
 
+const legacyDuplicates = autosave.normalizeSavedCarts([
+  { id: "legacy-auto-older", name: "Auto saved cart", savedAt: "2026-08-01T00:00:00.000Z", items: [item(20)] },
+  { id: "legacy-auto-newer", name: "Autosaved Cart", savedAt: "2026-08-03T00:00:00.000Z", items: [item(21)] },
+  { id: "legacy-auto-empty", name: "Auto-saved cart", savedAt: "2026-08-04T00:00:00.000Z", items: [] },
+  { id: "manual-cart", name: "Weekend picks", savedAt: "2026-08-02T00:00:00.000Z", items: [item(22)] }
+]);
+assert.equal(legacyDuplicates.filter(autosave.isAutoSavedCart).length, 1, "legacy autosaves must collapse into one entry");
+assert.equal(legacyDuplicates[0].id, autosave.AUTO_SAVED_CART_ID, "the surviving autosave must use the canonical id");
+assert.equal(legacyDuplicates[0].autoSaved, true);
+assert.equal(legacyDuplicates[0].items[0].restore.item_id, 21, "the newest non-empty legacy autosave should survive");
+assert.equal(legacyDuplicates.some((snapshot) => snapshot.id === "manual-cart"), true, "manual saved carts must remain untouched");
+
+const emptyUpdate = autosave.upsertAutoSavedCart(legacyDuplicates, [], { savedAt: "2026-08-05T00:00:00.000Z" });
+assert.equal(emptyUpdate.savedCarts.filter(autosave.isAutoSavedCart).length, 1);
+assert.equal(emptyUpdate.savedCarts[0].savedAt, "2026-08-03T00:00:00.000Z", "an empty live cart must not update the autosave");
+
 console.log("cart autosave smoke test passed");
