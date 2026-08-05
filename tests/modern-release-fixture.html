@@ -27,6 +27,7 @@
     #sidecart .remove { color: #08f; }
     #sidecartCheckout { background: #489424; color: #fff; display: block; padding: 8px; }
     .follow-unfollow { background: #69a9ba; border: 0; color: #fff; }
+    .follow-unfollow .following-label { background: #69a9ba; display: block; }
     .recommended-album { height: 600px; min-height: 600px; }
     .recommended-album .album-details { min-height: 180px; }
     #name-section { margin-left: 190px; width: max-content; }
@@ -75,7 +76,7 @@
     </div>
     <aside id="rightColumn" class="rightColumn">
       <div id="sidecart" hidden><h3>Shopping cart</h3><div class="cart-row"><a class="item-link" href="#cart-item">World's Greatest Tribute To System Of A Down, digital album</a> <span>$9 USD</span> <a class="remove" href="#remove">x</a></div><a id="sidecartCheckout" class="buttonLink" href="#" data-test="sidecartCheckout">Check out</a></div>
-      <div id="bio-container"><div class="artists-bio-pic"><img class="band-photo" src="/assets/art-meridian.png" alt="North Harbour"></div><p id="band-name-location"><span class="title">North Harbour</span><span class="location secondaryText">Sydney, Australia</span></p><div class="following-actions-wrapper"><button class="follow-unfollow">Follow</button></div><div class="signed-out-artists-bio-text"><p id="bio-text">Low light music for late hours.</p></div><ol id="band-links"><li><a href="#instagram">Instagram</a></li></ol></div>
+      <div id="bio-container"><div class="artists-bio-pic"><img class="band-photo" src="/assets/art-meridian.png" alt="North Harbour"></div><p id="band-name-location"><span class="title">North Harbour</span><span class="location secondaryText">Sydney, Australia</span></p><div class="following-actions-wrapper"><button class="follow-unfollow"><span class="following-label">Following</span></button></div><div class="signed-out-artists-bio-text"><p id="bio-text">Low light music for late hours.</p></div><ol id="band-links"><li><a href="#instagram">Instagram</a></li></ol></div>
       <div id="discography" class="sidebar"><h3><a href="#music">discography</a></h3><ul><li><a href="#release"><img src="/assets/art-clouds.png" alt="Cloud Studies"></a><div class="trackTitle"><a href="#release">Cloud Studies</a></div><div class="trackYear secondaryText">Aug 2026</div></li></ul></div>
     </aside>
   </main></div></div>
@@ -171,6 +172,7 @@
         && getComputedStyle(document.querySelector(".inline_player .play_cell > a")).backgroundColor === "rgb(49, 46, 73)"
         && getComputedStyle(document.querySelector(".inline_player .play_cell > a")).borderColor === "rgb(97, 95, 116)"
         && getComputedStyle(document.querySelector(".follow-unfollow")).backgroundColor === "rgb(145, 90, 240)"
+        && getComputedStyle(document.querySelector(".following-label")).backgroundColor === "rgb(145, 90, 240)"
         && getComputedStyle(document.querySelector(".follow-unfollow")).color === "rgb(255, 255, 255)"
         && getComputedStyle(document.querySelector(".follow-unfollow")).borderTopWidth === "0px"
       ) : !fixtureArtistTheme || (
