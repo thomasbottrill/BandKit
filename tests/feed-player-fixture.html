@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bandcamp Feed player fixture</title>
+  <style>
+    body { background: #202124; color: #fff; font-family: Arial, sans-serif; min-height: 100vh; }
+    #user-nav { display: flex; justify-content: flex-end; list-style: none; }
+    .story { margin: 80px; }
+  </style>
+</head>
+<body class="feed">
+  <ul id="user-nav"></ul>
+  <main>
+    <article class="story">
+      <div id="feed-item" class="story-innards collection-item-container track_play_hilite playing" data-trackid="888227773">
+        <button class="track_play_auxiliary" data-trackid="888227773" type="button">Pause</button>
+        <img class="tralbum-art-large" src="/assets/art-clouds.png" alt="">
+        <a class="artist-name" href="https://fixture-feed.bandcamp.com/">Feed Fixture Artist</a>
+        <a class="item-link" href="https://fixture-feed.bandcamp.com/album/feed-fixture-album">
+          <span class="collection-item-title">Feed Fixture Album</span>
+          <span class="collection-item-artist">by Feed Fixture Artist</span>
+        </a>
+        <span class="fav-track-title">Feed Fixture Track</span>
+        <span class="time_elapsed">00:24</span>
+        <span class="time_total">04:20</span>
+      </div>
+    </article>
+    <audio id="feed-audio" src="https://bandcamp.com/stream_redirect?enc=mp3-128&track_id=888227773"></audio>
+  </main>
+  <script>
+    const feedItem = document.querySelector("#feed-item");
+    feedItem.dataset.itemJson = JSON.stringify({
+      item_title: "Feed Fixture Album",
+      item_url: "https://fixture-feed.bandcamp.com/album/feed-fixture-album",
+      item_art_url: new URL("/assets/art-clouds.png", location.href).href,
+      band_name: "Feed Fixture Artist",
+      band_url: "https://fixture-feed.bandcamp.com/",
+      featured_track_title: "Feed Fixture Track",
+      featured_track_duration: 260
+    });
+    const feedAudio = document.querySelector("#feed-audio");
+    let feedPaused = false;
+    Object.defineProperties(feedAudio, {
+      paused: { get: () => feedPaused },
+      ended: { get: () => false },
+      currentTime: { get: () => 24 },
+      duration: { get: () => 260 }
+    });
+    feedAudio.pause = () => {
+      feedPaused = true;
+      feedAudio.dispatchEvent(new Event("pause"));
+    };
+    window.fixtureStored = {};
+    window.fixtureMessages = [];
+    window.fixtureSeamlessState = { enabled: false, status: "idle" };
+    const fixtureChrome = {
+      runtime: {
+        lastError: null,
+        getURL: (path) => new URL(`/${path}`, location.href).href,
+        getManifest: () => ({ version: "0.5.14" }),
+        sendMessage(message, callback) {
+          window.fixtureMessages.push(message);
+          if (message.type === "BANDCAMP_HUB_GET_SEAMLESS_STATE") {
+            callback?.({ ok: true, state: window.fixtureSeamlessState });
+          } else if (message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE") {
+            window.fixtureSeamlessState = {
+              enabled: true,
+              status: "playing",
+              isPlaying: true,
+              currentTime: Number(message.currentTime) || 24,
+              duration: 260,
+              progress: (Number(message.currentTime) || 24) / 260,
+              rate: Number(message.rate) || 1,
+              preservePitch: message.preservePitch !== false,
+              filterValue: Number(message.filterValue) || 0,
+              gainDb: Number(message.gainDb) || 0,
+              eqLowDb: Number(message.eqLowDb) || 0,
+              eqMidDb: Number(message.eqMidDb) || 0,
+              eqHighDb: Number(message.eqHighDb) || 0,
+              waveform: [20, 55, 35, 80, 45, 70],
+              detectedBpm: 128,
+              automaticBpm: 128,
+              bpmSource: "auto",
+              bpmStatus: "ready",
+              detectedKey: { camelot: "7A", shortName: "D min", name: "D minor" },
+              index: 0,
+              track: message.queue[0],
+              queue: message.queue
+            };
+            callback?.({ ok: true, state: window.fixtureSeamlessState });
+          } else callback?.({ ok: true, state: window.fixtureSeamlessState });
+        },
+        onMessage: { addListener() {} }
+      },
+      storage: {
+        local: {
+          get(_key, callback) { callback(window.fixtureStored); },
+          set(values) { Object.assign(window.fixtureStored, values); }
+        }
+      }
+    };
+    fetch(`/cart-autosave.js${location.search}`).then((response) => response.text()).then((source) => eval(source)).then(() => fetch(`/content.js${location.search}`)).then((response) => response.text()).then((source) => {
+      eval(source.replaceAll("chrome.", "fixtureChrome."));
+    }).catch((error) => { document.documentElement.dataset.fixtureError = String(error); });
+    window.setTimeout(() => {
+      const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
+      root?.querySelector(".hub-dj-player-button")?.click();
+    }, 1400);
+    window.setTimeout(() => {
+      const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
+      const activity = window.fixtureStored.bandcampHubState?.activity || [];
+      const title = root?.querySelector(".hub-player-title");
+      const artist = root?.querySelector(".hub-player-artist");
+      document.title = title?.textContent === "Feed Fixture Track"
+        && title.href.includes("fixture-feed.bandcamp.com/album/feed-fixture-album")
+        && artist?.textContent === "Feed Fixture Artist"
+        && root?.querySelector(".hub-duration")?.textContent === "4:20"
+        && activity[0]?.title === "Feed Fixture Track"
+        && root?.querySelector(".hub-dj-waveform")?.disabled === false
+        && root?.querySelector(".hub-dj-bpm-input")?.value === "128"
+        ? "PASS: Bandcamp Feed player fixture"
+        : `FAIL: ${title?.textContent || "no title"} / ${artist?.textContent || "no artist"}`;
+    }, 1900);
+  </script>
+</body>
+</html>

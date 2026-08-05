@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BandKit modern release fixture</title>
+  <style>
+    body { margin: 0; }
+    #pgBd { margin: 0 auto; width: 975px; }
+    .trackView { float: left; width: 700px; }
+    .middleColumn { float: left; width: 350px; }
+    #trackInfo { float: right; width: 330px; }
+    #rightColumn { float: right; width: 220px; }
+    #tralbumArt img { max-width: 350px; width: 100%; }
+    body.artist-theme { background-color: #0d1015; color: #cfd6da; }
+    body.artist-theme #pgBd { background-color: #0d1015; color: #cfd6da; }
+    body.artist-theme .primaryText,
+    body.artist-theme #name-section,
+    body.artist-theme #name-section a,
+    body.artist-theme #rightColumn a,
+    body.artist-theme #trackInfo a { color: #cfd6da; }
+    body.artist-theme .secondaryText { color: #9af31c; }
+    body.artist-theme #band-navbar { background-color: #2f3133; }
+    body.artist-theme #band-navbar a { color: #cfd6da; }
+    #sidecart { background: #e5e5e5; color: #333; padding: 12px; }
+    #sidecart .item-link { color: #333; }
+    #sidecart .remove { color: #08f; }
+    #sidecartCheckout { background: #489424; color: #fff; display: block; padding: 8px; }
+    .follow-unfollow { background: #69a9ba; border: 0; color: #fff; }
+    .recommended-album { height: 600px; min-height: 600px; }
+    .recommended-album .album-details { min-height: 180px; }
+    #name-section { margin-left: 190px; width: max-content; }
+    .tralbum-tags { height: 360px; min-width: 1800px; position: absolute; white-space: nowrap; }
+  </style>
+</head>
+<body class="tralbum-page has-menubar">
+  <ul id="user-nav"></ul>
+  <div id="centerWrapper"><div id="propOpenWrapper"><main id="pgBd">
+    <div id="customHeaderWrapper">
+      <div id="customHeader"><div class="desktop-header"><a href="#"><picture><img src="/assets/art-clouds.png" width="975" height="180" alt="Artist header"></picture></a></div></div>
+      <div class="band-navbar-wrapper"><ol id="band-navbar"><li><a class="active" href="#music">music</a></li><li><a href="#merch">merch</a></li><li><a href="#community">community</a></li></ol></div>
+    </div>
+    <div class="trackView leftMiddleColumns has-art">
+      <div id="name-section"><h2 class="trackTitle">Cloud Studies</h2><h3>by <a href="#artist">North Harbour</a></h3></div>
+      <div class="middleColumn">
+        <div id="tralbumArt"><a href="#art"><picture><img src="/assets/art-clouds.png" alt="Cloud Studies cover"></picture></a></div>
+        <div class="collected-by tralbum collectors"><div class="message">supported by</div><div class="deets populated">
+          <div class="writing"><a class="pic" href="#fan-one"><img class="thumb" src="/assets/art-gaiko.png" alt="Fan one"></a><div class="text"><a class="name notSkinnable" href="#fan-one">Mira</a> Beautiful late-night record.<span class="fav-track">Favorite track: Signal Bloom.</span></div></div>
+          <div class="writing"><a class="pic" href="#fan-two"><img class="thumb" src="/assets/art-meridian.png" alt="Fan two"></a><div class="text"><a class="name notSkinnable" href="#fan-two">Jon</a> On repeat all week.</div></div>
+          <div class="no-writing"><a class="fan pic" href="#fan-three"><img class="thumb" src="/assets/art-remix.png" alt="Fan three"></a><a class="fan pic" href="#fan-four"><img class="thumb" src="/assets/art-velocity.png" alt="Fan four"></a><a class="fan pic" href="#fan-five"><img class="thumb" src="/assets/art-magma.png" alt="Fan five"></a><a class="fan pic" href="#fan-six"><img class="thumb" src="/assets/art-apophenia.png" alt="Fan six"></a><a class="fan pic" href="#fan-seven"><img class="thumb" src="/assets/art-quack.png" alt="Fan seven"></a><a class="fan pic" href="#fan-eight"><img class="thumb" src="/assets/art-cobrastyle.png" alt="Fan eight"></a></div>
+          <a class="more-thumbs">more...</a>
+        </div></div>
+      </div>
+      <div id="trackInfo" class="leftColumn"><div id="trackInfoInner">
+        <div class="inline_player"><table><tr><td class="play_cell" rowspan="2"><a role="button" aria-label="Play/pause"><div class="playbutton"></div></a></td><td class="track_cell"><div class="track_info"><span class="title-section"><a class="title_link primaryText" href="#"><span class="title">Signal Bloom</span></a></span><span class="time secondaryText"><span>0:00</span> / <span>5:22</span></span></div></td></tr><tr><td class="progbar_cell"><div class="progbar"><div class="progbar_empty"><div class="progbar_fill"></div><div class="thumb"></div></div></div></td></tr></table></div>
+        <ul class="tralbumCommands">
+          <li class="buyItem digital"><h3 class="hd"><button class="download-link buy-link"><span class="buyItemPackageTitle primaryText">Digital Album</span></button><span class="digitaldescription secondaryText">Streaming + Download</span></h3><div class="bd">Unlimited streaming plus a high-quality download.</div><div class="audio-quality">Download available in 24-bit/48kHz.</div><div class="ft"><h4 class="ft compound-button main-button"><button id="fixture-buy-digital" class="download-link buy-link">Buy Digital Album</button> <span>€8 EUR or more</span></h4><h4 class="ft compound-button send-as-gift"><button class="download-link buy-link">Send as Gift</button></h4></div></li>
+          <li class="buyItem package"><h3 class="hd"><button class="order_package_link buy-link"><span class="buyItemPackageTitle primaryText">Double CD</span></button><span class="merchtype secondaryText">Compact Disc + Digital Album</span></h3><ul class="popupImageGallery"><li class="gallery_item"><a href="#merch-art"><img src="/assets/art-purchase-gaiko.png" alt="Double CD"></a></li></ul><div class="bd">Ships within five days. Edition of 50.</div><div class="ft"><h4 class="compound-button main-button"><button class="order_package_link buy-link">Buy Compact Disc</button> <span>€10 EUR or more</span></h4></div></li>
+          <li id="collect-item-placeholder"><button>Wishlist</button></li>
+          <li class="share-link-container"><button id="share-link">Share / Embed</button></li>
+        </ul>
+        <table id="track_table" class="track_list track_table"><tbody>
+          <tr class="track_row_view linked"><td class="play-col"><a role="button" aria-label="Play Signal Bloom"><div class="play_status"></div></a></td><td class="track-number-col"><div class="track_number secondaryText">1.</div></td><td class="title-col"><div class="title"><a href="#track"><span class="track-title">Signal Bloom</span></a><span class="time secondaryText">05:22</span></div></td><td class="info-col"></td><td class="download-col"><a href="#buy-track">buy track</a></td></tr>
+          <tr class="track_row_view linked"><td class="play-col"><a role="button" aria-label="Play Glass Harbour"><div class="play_status"></div></a></td><td class="track-number-col"><div class="track_number secondaryText">2.</div></td><td class="title-col"><div class="title"><a href="#track-2"><span class="track-title">Glass Harbour</span></a><span class="time secondaryText">04:18</span></div></td><td class="info-col"></td><td class="download-col"><a href="#buy-track-2">buy track</a></td></tr>
+        </tbody></table>
+        <h3 class="about-label">about</h3><div class="tralbumData tralbum-about">A patient collection of deep electronic sketches.</div>
+        <h3 class="credits-label">credits</h3><div class="tralbumData tralbum-credits">released August 5, 2026<br>Mastered by North Harbour.</div>
+        <h3 class="license-label">license</h3><div id="license">all rights reserved</div>
+      </div></div>
+      <h3 class="tags-label">tags</h3><div class="tralbumData tralbum-tags hidden"><h3>Tags</h3><a class="tag" href="#ambient">ambient</a><a class="tag" href="#dub">dub techno</a></div>
+    </div>
+    <aside id="rightColumn" class="rightColumn">
+      <div id="sidecart" hidden><h3>Shopping cart</h3><div class="cart-row"><a class="item-link" href="#cart-item">World's Greatest Tribute To System Of A Down, digital album</a> <span>$9 USD</span> <a class="remove" href="#remove">x</a></div><a id="sidecartCheckout" class="buttonLink" href="#" data-test="sidecartCheckout">Check out</a></div>
+      <div id="bio-container"><div class="artists-bio-pic"><img class="band-photo" src="/assets/art-meridian.png" alt="North Harbour"></div><p id="band-name-location"><span class="title">North Harbour</span><span class="location secondaryText">Sydney, Australia</span></p><div class="following-actions-wrapper"><button class="follow-unfollow">Follow</button></div><div class="signed-out-artists-bio-text"><p id="bio-text">Low light music for late hours.</p></div><ol id="band-links"><li><a href="#instagram">Instagram</a></li></ol></div>
+      <div id="discography" class="sidebar"><h3><a href="#music">discography</a></h3><ul><li><a href="#release"><img src="/assets/art-clouds.png" alt="Cloud Studies"></a><div class="trackTitle"><a href="#release">Cloud Studies</a></div><div class="trackYear secondaryText">Aug 2026</div></li></ul></div>
+    </aside>
+  </main></div></div>
+  <footer id="pgFt"><div class="recommendations-container" id="recommendations_container"><div class="recommendations-content"><div class="first-row">
+    <section class="recs-section artist-recs"><p class="section-title">North Harbour recommends:</p><ul class="horizontal">
+      <li class="recommended-album"><div class="album-art-container"><picture><img class="album-art" src="/assets/art-gaiko.png" alt="Night Geometry"></picture></div><p class="title-and-artist"><a class="album-link" href="#recommendation-one"><span class="release-title">Night Geometry</span><br><span class="by-artist">by Mira Vale</span></a></p><div class="album-details"><p class="comment">Deep listening for late hours.</p><a class="go-to-album album-link" href="#recommendation-one">go to album</a></div></li>
+      <li class="recommended-album"><div class="album-art-container"><picture><img class="album-art" src="/assets/art-magma.png" alt="Soft Current"></picture></div><p class="title-and-artist"><a class="album-link" href="#recommendation-two"><span class="release-title">Soft Current</span><br><span class="by-artist">by Pale Index</span></a></p></li>
+      <li class="recommended-album"><div class="album-art-container"><picture><img class="album-art" src="/assets/art-remix.png" alt="Afterimage"></picture></div><p class="title-and-artist"><a class="album-link" href="#recommendation-three"><span class="release-title">Afterimage</span><br><span class="by-artist">by Common Field</span></a></p></li>
+    </ul></section>
+    <section class="recs-section bc-recs"><p class="section-title">If you like Cloud Studies, you may also like:</p><ul class="horizontal">
+      <li class="recommended-album"><div class="album-art-container"><picture><img class="album-art" src="/assets/art-velocity.png" alt="Low Weather"></picture></div><p class="title-and-artist"><a class="album-link" href="#recommendation-four"><span class="release-title">Low Weather</span><br><span class="by-artist">by Glass Harbour</span></a></p><div class="album-details"><p class="supporters-text">supported by 42 fans</p></div></li>
+      <li class="recommended-album"><div class="album-art-container"><picture><img class="album-art" src="/assets/art-cobrastyle.png" alt="Still Water"></picture></div><p class="title-and-artist"><a class="album-link" href="#recommendation-five"><span class="release-title">Still Water</span><br><span class="by-artist">by Serein</span></a></p></li>
+      <li class="recommended-album"><div class="album-art-container"><picture><img class="album-art" src="/assets/art-apophenia.png" alt="Signal Coast"></picture></div><p class="title-and-artist"><a class="album-link" href="#recommendation-six"><span class="release-title">Signal Coast</span><br><span class="by-artist">by Seaward</span></a></p></li>
+    </ul></section>
+  </div></div></div></footer>
+  <script>
+    window.fixtureBuyClicks = 0;
+    window.fixtureCheckoutClicks = 0;
+    window.fixtureMoreClicks = 0;
+    const fixtureFanGrid = document.querySelector(".no-writing");
+    for (let fanIndex = 9; fanIndex <= 28; fanIndex += 1) {
+      const fan = fixtureFanGrid.firstElementChild.cloneNode(true);
+      fan.href = `#fan-${fanIndex}`;
+      fan.querySelector("img").alt = `Fan ${fanIndex}`;
+      fixtureFanGrid.append(fan);
+    }
+    document.querySelector(".more-thumbs").addEventListener("click", () => {
+      window.fixtureMoreClicks += 1;
+    });
+    document.querySelector("#sidecartCheckout").addEventListener("click", (event) => {
+      event.preventDefault();
+      window.fixtureCheckoutClicks += 1;
+      document.documentElement.dataset.fixtureCheckout = "opened";
+      document.documentElement.dataset.fixtureCheckoutClicks = String(window.fixtureCheckoutClicks);
+      history.pushState({ checkout: true }, "", "#checkout");
+    });
+    const fixtureSingleTrack = location.search.includes("single-track");
+    const fixtureArtistTheme = location.search.includes("artist-theme");
+    const fixtureCart = location.search.includes("cart");
+    const fixtureSingleRecommendations = location.search.includes("single-recommendations");
+    if (fixtureArtistTheme) document.body.classList.add("artist-theme");
+    if (fixtureCart) document.querySelector("#sidecart").hidden = false;
+    if (fixtureSingleTrack) document.querySelector("#track_table")?.remove();
+    if (fixtureSingleRecommendations) document.querySelector("#recommendations_container .bc-recs")?.remove();
+    document.querySelector("#fixture-buy-digital").addEventListener("click", () => { window.fixtureBuyClicks += 1; });
+    const fixtureChrome = {
+      runtime: {
+        lastError: null,
+        getURL: (path) => new URL(`/${path}`, location.href).href,
+        getManifest: () => ({ version: "0.7.5" }),
+        sendMessage(_message, callback) { callback?.({ ok: true, state: { enabled: false, status: "idle" } }); },
+        onMessage: { addListener(listener) { window.fixtureRuntimeListener = listener; } }
+      },
+      storage: {
+        local: {
+          get(_key, callback) { callback({ bandcampHubState: { open: false, activeTab: "settings", appearance: { modernReleasePages: true } } }); },
+          set() {}
+        },
+        onChanged: { addListener() {} }
+      }
+    };
+    window.fixtureCartAutosaveReady = fetch("/cart-autosave.js").then((response) => response.text()).then((source) => eval(source));
+    window.fixtureCartAutosaveReady.then(() => fetch("/content.js")).then((response) => response.text()).then((source) => {
+      eval(source.replaceAll("chrome.", "fixtureChrome."));
+    }).catch((error) => { document.documentElement.dataset.fixtureError = String(error); });
+    window.setTimeout(() => {
+      const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
+      const toggle = root?.querySelector(".hub-modern-release-toggle");
+      const buy = document.querySelector("#fixture-buy-digital");
+      const palettePreserved = !fixtureArtistTheme || (
+        getComputedStyle(document.body).backgroundColor === "rgb(13, 16, 21)"
+        && getComputedStyle(document.querySelector("#pgBd")).backgroundColor === "rgb(13, 16, 21)"
+        && getComputedStyle(document.querySelector("#name-section .trackTitle")).color === "rgb(207, 214, 218)"
+        && getComputedStyle(document.querySelector(".secondaryText")).color === "rgb(154, 243, 28)"
+        && getComputedStyle(document.querySelector("#band-navbar")).backgroundColor === "rgb(47, 49, 51)"
+      );
+      const cartHidden = !fixtureCart || (
+        document.querySelector("#rightColumn > #sidecart")
+        && getComputedStyle(document.querySelector("#sidecart")).display === "none"
+      );
+      const nativeFollowPreserved = getComputedStyle(document.querySelector(".follow-unfollow")).backgroundColor === "rgb(105, 169, 186)";
+      const pageRect = document.querySelector("#pgBd").getBoundingClientRect();
+      const pageStyle = getComputedStyle(document.querySelector("#pgBd"));
+      const recommendationsRect = document.querySelector("#recommendations_container").getBoundingClientRect();
+      const recommendationsMatchPage = Math.abs(recommendationsRect.left - (pageRect.left + Number.parseFloat(pageStyle.paddingLeft))) <= 2
+        && Math.abs(recommendationsRect.right - (pageRect.right - Number.parseFloat(pageStyle.paddingRight))) <= 2;
+      const singleRecommendationsFillGrid = !fixtureSingleRecommendations
+        || (() => {
+          const row = document.querySelector("#recommendations_container .first-row").getBoundingClientRect();
+          const section = document.querySelector("#recommendations_container .recs-section").getBoundingClientRect();
+          const cards = [...document.querySelectorAll("#recommendations_container .recommended-album")];
+          const firstCard = cards[0]?.getBoundingClientRect();
+          const lastCard = cards.at(-1)?.getBoundingClientRect();
+          return Math.abs(section.width - row.width) <= 2
+            && firstCard?.width <= 182
+            && Math.abs(firstCard.left - row.left) <= 2
+            && Math.abs(lastCard.right - row.right) <= 2;
+        })();
+      const modern = document.documentElement.dataset.bandkitModernRelease === "true"
+        && document.querySelector("#rightColumn > .bandkit-modern-purchase-panel .buyItem.digital")
+        && (fixtureSingleTrack
+          ? document.querySelector(".bandkit-modern-release-body.is-single-track") && !document.querySelector(".bandkit-modern-track-panel")
+        : document.querySelector("#trackInfoInner > #track_table"))
+      && (fixtureSingleTrack
+        ? document.querySelector(".bandkit-modern-music-column > #trackInfo")
+        : document.querySelector("#trackInfoInner > .inline_player + #track_table"))
+        && document.querySelector(".bandkit-modern-art-column > .middleColumn")
+        && document.querySelector(".bandkit-modern-art-column > .bandkit-modern-notes-panel")
+        && document.querySelector(".bandkit-modern-release-body > .bandkit-modern-tags-panel .tralbum-tags")
+        && document.querySelector(".bandkit-modern-tags-panel > .bandkit-modern-section-title")?.textContent === "Tags"
+        && document.querySelector("#recommendations_container > .bandkit-modern-recommendations-title")
+        && recommendationsMatchPage
+        && singleRecommendationsFillGrid
+        && getComputedStyle(document.querySelector("#recommendations_container .first-row")).display === "grid"
+        && document.querySelector("#recommendations_container .recommended-album").getBoundingClientRect().height < 500
+        && new Set([...document.querySelectorAll("#recommendations_container .recommended-album")].map((card) => Math.round(card.getBoundingClientRect().height))).size === 1
+        && getComputedStyle(document.querySelector("#recommendations_container .album-details")).display === "none"
+        && document.querySelector(".bandkit-modern-release-body > .collected-by:first-child")
+        && document.querySelectorAll(".bandkit-modern-supporter-reviews > .writing").length === 2
+        && document.querySelectorAll(".bandkit-modern-supporter-grid .no-writing > .fan.pic").length === 26
+        && getComputedStyle(document.querySelector(".bandkit-modern-supporter-grid .no-writing")).overflow === "visible"
+        && document.querySelectorAll(".bandkit-modern-supporter-grid .bandkit-modern-supporter-overflow").length > 0
+        && document.querySelector(".bandkit-modern-supporter-grid > .more-thumbs")
+        && getComputedStyle(document.querySelector(".bandkit-modern-supporter-grid .no-writing")).display === "grid"
+        && getComputedStyle(document.querySelector(".bandkit-modern-supporter-reviews")).gridColumnStart === "1"
+        && getComputedStyle(document.querySelector(".bandkit-modern-supporter-grid")).gridColumnStart === "2"
+        && getComputedStyle(document.querySelector("#pgBd")).display === "grid"
+        && getComputedStyle(document.querySelector(".tralbum-tags")).display === "flex"
+        && Math.round(document.querySelector("#name-section").getBoundingClientRect().left) === Math.round(document.querySelector("#trackInfo").getBoundingClientRect().left)
+        && document.querySelector("#trackInfoInner > #track_table").getBoundingClientRect().top - document.querySelector("#trackInfoInner > .inline_player").getBoundingClientRect().bottom <= 16
+        && Math.round(document.querySelector(".inline_player .play_cell > a").getBoundingClientRect().width) === 56
+        && Math.round(document.querySelector(".inline_player .play_cell > a").getBoundingClientRect().height) === 56
+        && Math.round(document.querySelector(".bandkit-modern-tags-panel").getBoundingClientRect().width) === Math.round(document.querySelector(".bandkit-modern-release-body > .collected-by").getBoundingClientRect().width)
+        && document.querySelector(".bandkit-modern-tags-panel .tralbum-tags").getBoundingClientRect().right <= document.querySelector(".bandkit-modern-release-body > .collected-by").getBoundingClientRect().right + 1
+        && document.querySelector(".bandkit-modern-tags-panel .tralbum-tags").getBoundingClientRect().height < 100
+        && toggle?.getAttribute("aria-checked") === "true"
+        && palettePreserved
+        && cartHidden
+        && nativeFollowPreserved;
+      buy?.click();
+      document.querySelector(".more-thumbs")?.click();
+      const supportersExpanded = document.querySelector(".collected-by")?.dataset.bandkitExpanded === "true"
+        && !document.querySelector(".bandkit-modern-supporters-toggle")?.hidden
+        && [...document.querySelectorAll(".bandkit-modern-supporter-reviews > .writing")].every((review) => getComputedStyle(review).display === "grid" && review.getAttribute("aria-hidden") === "false");
+      document.querySelector(".bandkit-modern-supporters-toggle")?.click();
+      const supportersCollapsed = document.querySelector(".collected-by")?.dataset.bandkitExpanded === "false"
+        && document.querySelector(".bandkit-modern-supporters-toggle")?.hidden
+        && [...document.querySelectorAll(".bandkit-modern-supporter-reviews > .writing")].filter((review) => getComputedStyle(review).display === "grid").length === 1;
+      toggle?.click();
+      const cartRestored = !fixtureCart || getComputedStyle(document.querySelector("#sidecart")).display !== "none";
+      const restored = document.documentElement.dataset.bandkitModernRelease === "false"
+        && document.querySelector("#trackInfoInner > .tralbumCommands > .buyItem.digital")
+        && (fixtureSingleTrack || document.querySelector("#trackInfoInner > #track_table"))
+        && document.querySelector(".middleColumn > .collected-by")
+        && !document.querySelector(".bandkit-modern-purchase-panel")
+        && !document.querySelector(".bandkit-modern-recommendations-title")
+        && window.fixtureBuyClicks === 1
+        && window.fixtureMoreClicks === 1
+        && cartRestored;
+      const passed = modern && supportersExpanded && supportersCollapsed && restored;
+      toggle?.click();
+      document.title = passed
+        ? `PASS: modern ${fixtureSingleTrack ? "track" : "release"} layout fixture`
+        : `FAIL: modern release ${Boolean(modern)}/${Boolean(restored)}`;
+    }, 1200);
+  </script>
+</body>
+</html>

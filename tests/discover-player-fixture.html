@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bandcamp Discover player fixture</title>
+  <style>
+    body { background: #202124; color: #fff; font-family: Arial, sans-serif; min-height: 100vh; }
+    #user-nav { display: flex; justify-content: flex-end; list-style: none; }
+    .focused-result { margin: 80px; }
+  </style>
+</head>
+<body>
+  <ul id="user-nav"></ul>
+  <main>
+    <div class="focused-result">
+      <img src="/assets/art-clouds.png" alt="View Fixture Album">
+      <div class="discover-player">
+        <div class="player-top">
+          <button class="g-button play-pause-button play-button" aria-label="Pause">Pause</button>
+          <div class="player-info">
+            <p class="title">Discover Fixture Track</p>
+            <a href="https://fixture-artist.bandcamp.com/album/fixture-album">from Fixture Album</a>
+            <a href="https://fixture-artist.bandcamp.com/">by Fixture Artist</a>
+          </div>
+        </div>
+        <div class="player-bottom">
+          <span class="playback-time current">00:24</span>
+          <input type="range" min="0" max="1" step="0.001" value="0.133">
+          <span class="playback-time total">03:00</span>
+        </div>
+      </div>
+      <button id="simulate-next-track" type="button">Simulate next track</button>
+    </div>
+  </main>
+  <script>
+    window.fixtureStored = {};
+    window.fixtureMessages = [];
+    window.fixtureSeamlessState = { enabled: false, status: "idle" };
+    const nativeControl = document.querySelector(".discover-player .play-pause-button");
+    document.querySelector("#simulate-next-track").addEventListener("click", () => {
+      document.querySelector(".discover-player .player-info .title").textContent = "Second Live Fixture Track";
+    });
+    nativeControl.addEventListener("click", () => {
+      const playing = nativeControl.getAttribute("aria-label") === "Pause";
+      nativeControl.setAttribute("aria-label", playing ? "Play" : "Pause");
+      nativeControl.textContent = playing ? "Play" : "Pause";
+    });
+    const fixtureChrome = {
+      runtime: {
+        lastError: null,
+        getURL: (path) => new URL(`/${path}`, location.href).href,
+        getManifest: () => ({ version: "0.5.14" }),
+        sendMessage(message, callback) {
+          window.fixtureMessages.push(message);
+          if (message.type === "BANDCAMP_HUB_GET_SEAMLESS_STATE") {
+            callback?.({ ok: true, state: window.fixtureSeamlessState });
+          } else if (message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE") {
+            window.fixtureSeamlessState = {
+              enabled: true,
+              status: "playing",
+              isPlaying: true,
+              currentTime: Number(message.currentTime) || 24,
+              duration: 180,
+              progress: (Number(message.currentTime) || 24) / 180,
+              rate: Number(message.rate) || 1,
+              preservePitch: message.preservePitch !== false,
+              filterValue: Number(message.filterValue) || 0,
+              gainDb: Number(message.gainDb) || 0,
+              waveform: [20, 60, 35, 80, 45, 70],
+              detectedBpm: 124,
+              automaticBpm: 124,
+              bpmSource: "auto",
+              bpmStatus: "ready",
+              detectedKey: { camelot: "8A", shortName: "A min", name: "A minor" },
+              index: 0,
+              track: message.queue[0],
+              queue: message.queue
+            };
+            callback?.({ ok: true, state: window.fixtureSeamlessState });
+          } else if (message.type === "BANDCAMP_HUB_SEAMLESS_SEEK") {
+            window.fixtureSeamlessState.currentTime = Number(message.currentTime) || 0;
+            window.fixtureSeamlessState.progress = window.fixtureSeamlessState.currentTime / 180;
+            callback?.({ ok: true, state: window.fixtureSeamlessState });
+          } else callback?.({ ok: true, state: window.fixtureSeamlessState });
+        },
+        onMessage: { addListener() {} }
+      },
+      storage: {
+        local: {
+          get(_key, callback) { callback(window.fixtureStored); },
+          set(values) { Object.assign(window.fixtureStored, values); }
+        }
+      }
+    };
+    Promise.all([
+      fetch(`/page-media-bridge.js${location.search}`).then((response) => response.text()),
+      fetch(`/cart-autosave.js${location.search}`).then((response) => response.text()).then((source) => eval(source)).then(() => fetch(`/content.js${location.search}`)).then((response) => response.text())
+    ]).then(([bridgeSource, contentSource]) => {
+      eval(bridgeSource);
+      const hiddenDiscoverAudio = new Audio("https://bandcamp.com/stream_redirect?enc=mp3-128&track_id=12345");
+      Object.defineProperties(hiddenDiscoverAudio, {
+        paused: { get: () => false },
+        ended: { get: () => false },
+        currentTime: { get: () => 24 },
+        duration: { get: () => 180 }
+      });
+      eval(contentSource.replaceAll("chrome.", "fixtureChrome."));
+      hiddenDiscoverAudio.dispatchEvent(new Event("playing"));
+    }).catch((error) => { document.documentElement.dataset.fixtureError = String(error); });
+    window.setTimeout(() => {
+      const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
+      root?.querySelector(".hub-dj-player-button")?.click();
+      root?.querySelector(".hub-dj-platter")?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+      const scrub = root?.querySelector(".hub-scrub-slider");
+      if (scrub) {
+        scrub.value = "750";
+        scrub.dispatchEvent(new Event("input", { bubbles: true }));
+        scrub.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }, 1700);
+    window.setTimeout(() => {
+      const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
+      const activity = window.fixtureStored.bandcampHubState?.activity || [];
+      const title = root?.querySelector(".hub-player-title");
+      const artist = root?.querySelector(".hub-player-artist");
+      document.title = title?.textContent === "Discover Fixture Track"
+        && title.href.includes("fixture-artist.bandcamp.com/album/fixture-album")
+        && artist?.textContent === "Fixture Artist"
+        && root?.querySelector(".hub-duration")?.textContent === "3:00"
+        && activity[0]?.title === "Discover Fixture Track"
+        && root?.querySelector(".hub-dj-waveform")?.disabled === false
+        && window.fixtureMessages.some((message) => message.type === "BANDCAMP_HUB_SEAMLESS_SCRATCH" && message.active === true)
+        && window.fixtureMessages.some((message) => message.type === "BANDCAMP_HUB_SEAMLESS_SEEK" && Number(message.currentTime) === 135)
+        ? "PASS: Bandcamp Discover player fixture"
+        : `FAIL: ${title?.textContent || "no title"} / ${artist?.textContent || "no artist"} / ${root?.querySelector(".hub-duration")?.textContent || "no duration"} / ${activity[0]?.title || "no activity"} / waveform ${String(root?.querySelector(".hub-dj-waveform")?.disabled)} / seeks ${window.fixtureMessages.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_SEEK").map((message) => message.currentTime).join(",")}`;
+    }, 2300);
+  </script>
+</body>
+</html>
