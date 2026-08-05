@@ -3212,6 +3212,13 @@ button {
   z-index: 2147483646;
 }
 
+.hub-player-content {
+  height: 100%;
+  margin: 0 auto;
+  max-width: 1480px;
+  width: calc(100% - 48px);
+}
+
 .hub-player-main {
   align-items: center;
   display: grid;
@@ -3621,7 +3628,17 @@ button {
   transform: translate(-50%, 0);
 }
 
+@media (max-width: 1120px) {
+  .hub-player-content {
+    width: calc(100% - 24px);
+  }
+}
+
 @media (max-width: 900px) {
+  .hub-player-content {
+    width: 100%;
+  }
+
   .hub-panel {
     bottom: 12px;
     height: auto;

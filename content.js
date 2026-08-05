@@ -230,7 +230,8 @@
     <main class="hub-content"></main>
     <footer class="hub-player">
       <div class="hub-dj-drawer" aria-hidden="true"></div>
-      <div class="hub-player-main">
+      <div class="hub-player-content">
+        <div class="hub-player-main">
         <div class="hub-player-actions">
           <button class="hub-skip-button hub-previous-button" type="button" aria-label="Previous track">
             <img src="${asset("icon-skip.svg")}" alt="">
@@ -263,11 +264,12 @@
           </div>
           <button class="hub-dj-player-button" type="button" aria-label="Open DJ tools" style="--hub-dj-icon:url('${asset("icon-dj.svg")}')"></button>
         </div>
-      </div>
-      <div class="hub-scrub-row">
-        <span class="hub-current-time">0:00</span>
-        <input class="hub-scrub-slider" type="range" min="0" max="1000" step="1" value="0" aria-label="Playback position">
-        <span class="hub-duration">0:00</span>
+        </div>
+        <div class="hub-scrub-row">
+          <span class="hub-current-time">0:00</span>
+          <input class="hub-scrub-slider" type="range" min="0" max="1000" step="1" value="0" aria-label="Playback position">
+          <span class="hub-duration">0:00</span>
+        </div>
       </div>
       <div class="hub-toast" role="status" aria-live="polite"></div>
     </footer>
