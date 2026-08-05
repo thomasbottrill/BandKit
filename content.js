@@ -4759,6 +4759,14 @@
     if (feedHandoffBusy) return false;
     const feed = getFeedPlayerState(requestedTrackId);
     if (!feed?.track || !feed.isPlaying || !isReusableStreamUrl(feed.track.url)) return false;
+    const sameSeamlessTrack = seamless.enabled
+      && String(seamless.track?.id || "") === String(feed.track.id || "")
+      && seamless.track?.pageUrl === feed.track.pageUrl;
+    if (sameSeamlessTrack) {
+      const currentAudio = getAudio();
+      if (currentAudio && !currentAudio.paused) currentAudio.pause();
+      return true;
+    }
     feedHandoffBusy = true;
     try {
       const response = await runtimeMessage({
@@ -4776,10 +4784,10 @@
         eqHighDb: state.dj.eqHighDb
       });
       if (!response?.ok) return false;
+      applySeamlessState(response.state);
+      if (!requestedTrackId || pendingFeedTrackId === requestedTrackId) pendingFeedTrackId = "";
       const audio = getAudio();
       if (audio && !audio.paused) audio.pause();
-      if (!requestedTrackId || pendingFeedTrackId === requestedTrackId) pendingFeedTrackId = "";
-      applySeamlessState(response.state);
       return true;
     } finally {
       feedHandoffBusy = false;
@@ -5525,7 +5533,18 @@
       observedAudio.add(candidate);
       candidate.addEventListener("play", async () => {
         const requestedFeedTrackId = pendingFeedTrackId;
-        const tookOver = getFeedPlayerState(requestedFeedTrackId)
+        const feedState = getFeedPlayerState(requestedFeedTrackId);
+        const sameSeamlessFeedTrack = Boolean(
+          feedState?.track
+          && seamless.enabled
+          && String(feedState.track.id || "") === String(seamless.track?.id || "")
+          && feedState.track.pageUrl === seamless.track?.pageUrl
+        );
+        if (sameSeamlessFeedTrack) {
+          if (!candidate.paused) candidate.pause();
+          return;
+        }
+        const tookOver = feedState
           ? await handoffFeedPlayer(requestedFeedTrackId)
           : await handoffPageAudio(candidate);
         if (!tookOver) {

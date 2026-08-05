@@ -151,6 +151,10 @@
       const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
       root?.querySelector(".hub-dj-player-button")?.click();
       secondFeedItem.querySelector(".track_play_auxiliary")?.click();
+      window.setTimeout(() => {
+        feedPaused = false;
+        feedAudio.dispatchEvent(new Event("play"));
+      }, 250);
     }, 1400);
     window.setTimeout(() => {
       const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
@@ -158,6 +162,7 @@
       const title = root?.querySelector(".hub-player-title");
       const artist = root?.querySelector(".hub-player-artist");
       const enabledMessages = window.fixtureMessages.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE");
+      const secondTrackEnables = enabledMessages.filter((message) => message.queue?.[0]?.id === "999116642");
       document.title = title?.textContent === "Second Feed Track"
         && title.href.includes("second-feed.bandcamp.com/album/second-feed-album")
         && artist?.textContent === "Second Feed Artist"
@@ -166,6 +171,7 @@
         && root?.querySelector(".hub-dj-waveform")?.disabled === false
         && root?.querySelector(".hub-dj-bpm-input")?.value === "128"
         && enabledMessages.at(-1)?.queue?.[0]?.id === "999116642"
+        && secondTrackEnables.length === 1
         && getComputedStyle(document.querySelector("#track_play_waypoint")).display === "none"
         && getComputedStyle(root?.querySelector(".hub-player")).zIndex === "2147483647"
         ? "PASS: Bandcamp Feed player fixture"
