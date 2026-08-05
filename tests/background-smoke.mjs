@@ -203,6 +203,13 @@ assert.equal(response.items[0].url, "https://t4.bcbits.com/stream/refreshed-fixt
 assert.equal(response.items[0].duration, 181);
 
 response = await send({
+  type: "BANDCAMP_HUB_RESOLVE_CART_METADATA",
+  items: [{ url: "https://artist.bandcamp.com/album/fixture-album" }]
+}, { url: "https://artist.bandcamp.com/album/fixture" });
+assert.equal(response.ok, true);
+assert.equal(response.items[0].artist, "Fixture Artist");
+
+response = await send({
   type: "BANDCAMP_HUB_SEAMLESS_UPDATE_QUEUE",
   queue: [{ playlistItemId: "playlist-one", title: "Fixture Track", url: "https://t4.bcbits.com/stream/refreshed-fixture" }]
 }, { url: "https://artist.bandcamp.com/album/fixture" });

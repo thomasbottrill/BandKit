@@ -11,13 +11,14 @@
     "id", "local_id", "item_type", "item_id", "item_title", "item_title2", "releases", "band_id",
     "artist_name", "unit_price", "currency", "quantity", "option_id", "option_name",
     "discount_id", "discount_type", "url", "art_id", "image_id", "purchase_note",
-    "album_art_id", "item_art_id", "item_art_url", "art_url", "band_name", "album_title",
+    "album_art_id", "item_art_id", "item_art_url", "art_url", "band_name", "band_title",
+    "selling_band_name", "artist", "artist_title", "album_title",
     "notify_me", "notify_me_label", "license_id", "associated_license_id", "is_paypalable"
   ];
 
   const releaseFields = [
     "item_type", "item_id", "title", "item_title", "album_title", "artist", "artist_name",
-    "band_name", "url", "art_id", "image_id", "album_art_id", "item_art_id", "item_art_url", "art_url"
+    "band_name", "band_title", "selling_band_name", "artist_title", "url", "art_id", "image_id", "album_art_id", "item_art_id", "item_art_url", "art_url"
   ];
 
   function releaseData(releases) {

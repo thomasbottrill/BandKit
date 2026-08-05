@@ -147,6 +147,9 @@
   let bridgedMedia = null;
   let bridgedCart = null;
   let bridgedCartSummary = null;
+  const cartArtistCache = new Map();
+  const cartArtistPending = new Set();
+  const cartArtistAttempted = new Set();
   let pageDjOpen = false;
   let pageDjHost = null;
   let pageDjShadow = null;
@@ -1854,7 +1857,8 @@
       "item_type", "item_id", "item_title", "item_title2", "band_id", "artist_name",
       "unit_price", "currency", "quantity", "option_id", "option_name", "discount_id",
       "discount_type", "url", "art_id", "image_id", "purchase_note", "album_art_id",
-      "item_art_id", "item_art_url", "art_url", "band_name", "album_title", "notify_me",
+      "item_art_id", "item_art_url", "art_url", "band_name", "band_title", "selling_band_name",
+      "artist", "artist_title", "album_title", "notify_me",
       "notify_me_label", "license_id", "associated_license_id", "is_paypalable"
     ];
     const sanitized = {};
@@ -3266,6 +3270,7 @@
   }
 
   function renderCartItemCard(item, { removable = false } = {}) {
+    if (isGenericCartArtist(item.artist)) queueCartArtistResolution([item]);
     const card = createElement("article", "hub-card");
     const main = createElement("div", "hub-product-main");
     const artLink = createPageLink("", item.url, "hub-art-link");
@@ -3275,7 +3280,10 @@
     const details = createElement("div", "hub-product-details");
     const row = createElement("div", "hub-row-title");
     row.append(createPageLink(item.title, item.url, "hub-cart-title hub-inline-link"), createElement("span", "hub-price", formatCartPrice(item.price, item.currency)));
-    details.append(row, createPageLink(item.artist, artistUrlFromPageUrl(item.url) || item.url, "hub-track-artist hub-inline-link"));
+    details.append(row);
+    if (!isGenericCartArtist(item.artist)) {
+      details.append(createPageLink(item.artist, artistUrlFromPageUrl(item.url) || item.url, "hub-track-artist hub-inline-link"));
+    }
     const metaRow = createElement("div", "hub-row-title");
     metaRow.style.marginTop = "8px";
     metaRow.append(createElement("span", "hub-meta", item.kind));
@@ -5202,6 +5210,46 @@
     return "";
   }
 
+  function isGenericCartArtist(value) {
+    const artist = String(value || "").trim();
+    return !artist || artist.toLowerCase() === "bandcamp";
+  }
+
+  function queueCartArtistResolution(items) {
+    const unresolved = [...new Map((items || [])
+      .filter((item) => isGenericCartArtist(item.artist) && safeBandcampUrl(item.url) && !cartArtistPending.has(item.url) && !cartArtistAttempted.has(item.url))
+      .map((item) => [item.url, { url: item.url }])).values()];
+    if (!unresolved.length) return;
+    for (const item of unresolved) {
+      cartArtistPending.add(item.url);
+      cartArtistAttempted.add(item.url);
+    }
+    void runtimeMessage({ type: "BANDCAMP_HUB_RESOLVE_CART_METADATA", items: unresolved }).then((response) => {
+      let metadataChanged = false;
+      for (const item of response?.items || []) {
+        const url = safeBandcampUrl(item?.url);
+        const artist = String(item?.artist || "").trim();
+        if (!url || isGenericCartArtist(artist)) continue;
+        cartArtistCache.set(url, artist);
+        metadataChanged = true;
+      }
+      for (const item of unresolved) cartArtistPending.delete(item.url);
+      if (!metadataChanged) return;
+      state.savedCarts = state.savedCarts.map((snapshot) => ({
+        ...snapshot,
+        items: (snapshot.items || []).map((item) => {
+          const artist = cartArtistCache.get(safeBandcampUrl(item.url));
+          return artist && isGenericCartArtist(item.artist) ? { ...item, artist } : item;
+        })
+      }));
+      scanLiveCart();
+      saveState();
+      if (state.activeTab === "cart") render();
+    }).catch(() => {
+      for (const item of unresolved) cartArtistPending.delete(item.url);
+    });
+  }
+
   function scanLiveCart() {
     const hasBridgedCart = Array.isArray(bridgedCart);
     const releaseCandidates = (item) => Array.isArray(item?.releases) ? item.releases : [];
@@ -5223,20 +5271,27 @@
       if (imageId) return `https://f4.bcbits.com/img/${String(imageId).padStart(10, "0")}_37.jpg`;
       return "";
     };
-    const parsedFromBridge = Array.isArray(bridgedCart) ? bridgedCart.map((item) => ({
-      id: `bandcamp-${item.item_type}-${item.item_id}-${item.option_id ?? ""}`,
-      title: item.item_title2 || item.item_title || "Bandcamp item",
-      artist: item.artist_name || item.band_name || firstReleaseValue(item, ["artist_name", "band_name", "artist"]) || "Bandcamp",
-      kind: item.option_name || ({ a: "Digital album", t: "Digital track", b: "Digital discography", p: "Merch" }[item.item_type] || "Saved cart item"),
-      price: Math.max(0, Number(item.unit_price) || 0) * Math.max(1, Number(item.quantity) || 1),
-      currency: /^[A-Z]{3}$/.test(item.currency || "") ? item.currency : "USD",
-      art: bridgeArt(item),
-      url: item.url || firstReleaseValue(item, ["url"]) || location.href,
-      restore: {
-        ...item,
-        associated_license_id: item.license_id ?? null
-      }
-    })) : [];
+    const parsedFromBridge = Array.isArray(bridgedCart) ? bridgedCart.map((item) => {
+      const url = safeBandcampUrl(item.url || firstReleaseValue(item, ["url"])) || location.href;
+      const payloadArtist = item.artist_name || item.band_name || item.band_title || item.selling_band_name
+        || item.artist || item.artist_title
+        || firstReleaseValue(item, ["artist_name", "band_name", "band_title", "selling_band_name", "artist", "artist_title"]);
+      const artist = isGenericCartArtist(payloadArtist) ? cartArtistCache.get(url) || "Bandcamp" : payloadArtist;
+      return {
+        id: `bandcamp-${item.item_type}-${item.item_id}-${item.option_id ?? ""}`,
+        title: item.item_title2 || item.item_title || "Bandcamp item",
+        artist,
+        kind: item.option_name || ({ a: "Digital album", t: "Digital track", b: "Digital discography", p: "Merch" }[item.item_type] || "Saved cart item"),
+        price: Math.max(0, Number(item.unit_price) || 0) * Math.max(1, Number(item.quantity) || 1),
+        currency: /^[A-Z]{3}$/.test(item.currency || "") ? item.currency : "USD",
+        art: bridgeArt(item),
+        url,
+        restore: {
+          ...item,
+          associated_license_id: item.license_id ?? null
+        }
+      };
+    }) : [];
     const candidates = [...document.querySelectorAll("#sidecart #item_list > *, [data-test='cart-item'], .cart-item")]
       .filter((node) => node.children.length > 0 && getComputedStyle(node).display !== "none");
     if (!hasBridgedCart && !candidates.length) return;
@@ -5244,7 +5299,7 @@
     const parsedFromDom = candidates.map((row, index) => {
       const title = elementText(row, [".item-title", ".product-title", ".title", "h3", "h4", "a[href]"]);
       if (!title) return null;
-      const artist = elementText(row, [".artist", ".band-name", ".item-artist", ".secondaryText"]);
+      const nativeArtist = elementText(row, [".artist", ".band-name", ".item-artist", ".secondaryText"]);
       const priceText = elementText(row, [".item-price", ".price", ".numeric", "[data-price]"]);
       const numericPrice = Number((priceText.match(/[\d,.]+/) || ["0"])[0].replace(/,/g, ""));
       const currency = /£|\bGBP\b/i.test(priceText) ? "GBP" : /€|\bEUR\b/i.test(priceText) ? "EUR" : /¥|\bJPY\b/i.test(priceText) ? "JPY" : "USD";
@@ -5256,7 +5311,7 @@
       return {
         id: row.getAttribute("data-item-id") || row.id || `${link}|${title}|${index}`,
         title,
-        artist: artist || "Bandcamp",
+        artist: isGenericCartArtist(nativeArtist) ? cartArtistCache.get(safeBandcampUrl(link)) || "Bandcamp" : nativeArtist,
         kind: elementText(row, [".item-type", ".format", ".description"]) || "Saved cart item",
         price: Number.isFinite(numericPrice) ? numericPrice : 0,
         currency,
@@ -5271,6 +5326,7 @@
       `${item.url}|${item.title}|${item.artist}`,
       item
     ])).values()];
+    queueCartArtistResolution(uniqueItems);
 
     const signature = (items) => JSON.stringify(items.map(({ title, artist, price, currency, url, art, restore }) => ({
       title, artist, price, currency, url, art, restoreKey: restore ? `${restore.item_type}:${restore.item_id}:${restore.option_id ?? ""}` : ""

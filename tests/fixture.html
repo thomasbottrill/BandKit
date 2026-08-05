@@ -152,6 +152,10 @@
             callback?.({ ok: true, state: { enabled: true, status: "playing", isPlaying: true, index, track: message.queue[index], queue: message.queue } });
             return;
           }
+          if (message.type === "BANDCAMP_HUB_RESOLVE_CART_METADATA") {
+            callback?.({ ok: true, items: (message.items || []).map((item) => ({ ...item, artist: "Resolved Cart Artist" })) });
+            return;
+          }
           callback?.({ ok: true, state: { enabled: false, status: "idle" } });
         },
         onMessage: { addListener(listener) { window.fixtureRuntimeListener = listener; } }
@@ -398,6 +402,23 @@
           && artist?.href === "https://amwa.bandcamp.com/"
           ? "PASS: single digital track cart artwork fixture"
           : `FAIL: single track cart ${art?.src || "no art"} / ${artist?.textContent || "no artist"}`;
+        return;
+      }
+      if (location.search.includes("cart-artist-metadata")) {
+        document.dispatchEvent(new CustomEvent("bandkit:cart-state", { detail: {
+          items: [{
+            item_type: "a", item_id: 701, item_title: "Artist Metadata Album",
+            unit_price: 8, currency: "AUD", quantity: 1,
+            url: "https://resolved-cart-artist.bandcamp.com/album/artist-metadata-album"
+          }],
+          summary: { subtotal: 8, currency: "AUD" }
+        } }));
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        root?.querySelector('.hub-header-shortcut[data-tab="cart"]')?.click();
+        const artist = root?.querySelector(".hub-product-details .hub-track-artist")?.textContent;
+        document.title = artist === "Resolved Cart Artist"
+          ? "PASS: cart artist metadata fixture"
+          : `FAIL: cart artist ${artist || "missing"}`;
         return;
       }
       if (location.search.includes("page-playlist-placement")) {

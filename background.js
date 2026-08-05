@@ -55,6 +55,47 @@ function tralbumDataFromHtml(html) {
   }
 }
 
+function artistNameFromHtml(html) {
+  const tralbumArtist = String(tralbumDataFromHtml(html)?.artist || "").trim();
+  if (tralbumArtist) return tralbumArtist;
+  const scripts = [...String(html || "").matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+  for (const match of scripts) {
+    try {
+      const json = JSON.parse(match[1]);
+      const candidates = Array.isArray(json) ? json : [json];
+      for (const candidate of candidates) {
+        const artist = candidate?.byArtist?.name || candidate?.publisher?.name || candidate?.brand?.name;
+        if (String(artist || "").trim()) return String(artist).trim();
+      }
+    } catch {
+      // Ignore unrelated or malformed JSON-LD blocks.
+    }
+  }
+  return "";
+}
+
+async function resolveCartMetadata(items) {
+  const requests = new Map();
+  const readArtist = (url) => {
+    if (!requests.has(url)) {
+      requests.set(url, fetch(url, { credentials: "omit", redirect: "follow" }).then(async (response) => {
+        if (!response.ok) throw new Error(`Bandcamp returned ${response.status}`);
+        return artistNameFromHtml(await response.text());
+      }));
+    }
+    return requests.get(url);
+  };
+  return Promise.all((Array.isArray(items) ? items : []).slice(0, 100).map(async (item) => {
+    const url = isBandcampUrl(item?.url) ? item.url : "";
+    if (!url) return { url: "", artist: "" };
+    try {
+      return { url, artist: await readArtist(url) };
+    } catch {
+      return { url, artist: "" };
+    }
+  }));
+}
+
 async function resolvePlaylistItems(items) {
   const sourceItems = Array.isArray(items) ? items.slice(0, 500) : [];
   const pageRequests = new Map();
@@ -237,6 +278,10 @@ async function handlePlaybackRequest(message, sender) {
 
   if (message.type === "BANDCAMP_HUB_RESOLVE_CART_ITEMS") {
     return { ok: true, items: await resolveSavedCartItems(message.items) };
+  }
+
+  if (message.type === "BANDCAMP_HUB_RESOLVE_CART_METADATA") {
+    return { ok: true, items: await resolveCartMetadata(message.items) };
   }
 
   if (message.type === "BANDCAMP_HUB_RESOLVE_PLAYLIST_ITEMS") {
