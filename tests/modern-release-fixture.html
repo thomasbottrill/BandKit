@@ -34,6 +34,9 @@
   </style>
 </head>
 <body class="tralbum-page has-menubar">
+  <div id="menubar-wrapper">
+    <ul><li id="fixture-album-header-cart"><button type="button"><svg><use href="#menubar-cart-icon"></use></svg></button></li></ul>
+  </div>
   <ul id="user-nav"></ul>
   <div id="centerWrapper"><div id="propOpenWrapper"><main id="pgBd">
     <div id="customHeaderWrapper">
@@ -153,6 +156,7 @@
         && getComputedStyle(document.querySelector("#sidecart")).display === "none"
       );
       const nativeFollowPreserved = getComputedStyle(document.querySelector(".follow-unfollow")).backgroundColor === "rgb(105, 169, 186)";
+      const nativeHeaderCartSuppressed = getComputedStyle(document.querySelector("#fixture-album-header-cart")).display === "none";
       const pageRect = document.querySelector("#pgBd").getBoundingClientRect();
       const pageStyle = getComputedStyle(document.querySelector("#pgBd"));
       const recommendationsRect = document.querySelector("#recommendations_container").getBoundingClientRect();
@@ -210,6 +214,7 @@
         && toggle?.getAttribute("aria-checked") === "true"
         && palettePreserved
         && cartHidden
+        && nativeHeaderCartSuppressed
         && nativeFollowPreserved;
       buy?.click();
       document.querySelector(".more-thumbs")?.click();
@@ -230,7 +235,8 @@
         && !document.querySelector(".bandkit-modern-recommendations-title")
         && window.fixtureBuyClicks === 1
         && window.fixtureMoreClicks === 1
-        && cartRestored;
+        && cartRestored
+        && nativeHeaderCartSuppressed;
       const passed = modern && supportersExpanded && supportersCollapsed && restored;
       toggle?.click();
       document.title = passed
