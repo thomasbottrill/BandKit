@@ -163,6 +163,7 @@
       const artist = root?.querySelector(".hub-player-artist");
       const enabledMessages = window.fixtureMessages.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE");
       const secondTrackEnables = enabledMessages.filter((message) => message.queue?.[0]?.id === "999116642");
+      const nowPlayingHeader = root?.querySelector(".hub-now-playing-header");
       document.title = title?.textContent === "Second Feed Track"
         && title.href.includes("second-feed.bandcamp.com/album/second-feed-album")
         && artist?.textContent === "Second Feed Artist"
@@ -172,6 +173,10 @@
         && root?.querySelector(".hub-dj-bpm-input")?.value === "128"
         && enabledMessages.at(-1)?.queue?.[0]?.id === "999116642"
         && secondTrackEnables.length === 1
+        && nowPlayingHeader?.childNodes[0]?.textContent?.trim() === "Now Playing"
+        && nowPlayingHeader?.querySelectorAll(".hub-playlist-toolbar-icon").length === 4
+        && nowPlayingHeader?.querySelector(".hub-close")
+        && !root?.querySelector(".hub-playlist-toolbar .hub-cart-backup-time")
         && getComputedStyle(document.querySelector("#track_play_waypoint")).display === "none"
         && getComputedStyle(root?.querySelector(".hub-player")).zIndex === "2147483647"
         ? "PASS: Bandcamp Feed player fixture"

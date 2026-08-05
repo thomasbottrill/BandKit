@@ -2129,6 +2129,20 @@ button {
   align-items: flex-start;
 }
 
+.hub-now-playing-header {
+  gap: 12px;
+}
+
+.hub-now-playing-header-actions {
+  flex: 0 0 auto;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.hub-now-playing-header.hub-panel-content-header > .hub-close {
+  margin-left: 2px;
+}
+
 .hub-playlist-toolbar .hub-toolbar {
   flex: 0 0 auto;
   flex-wrap: wrap;

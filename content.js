@@ -3786,19 +3786,11 @@
   }
 
   function renderCurrentPlaylist() {
-    content.append(createSectionHeading("Now Playing"));
+    const heading = createSectionHeading("Now Playing");
+    heading.classList.add("hub-now-playing-header");
     const pageTracks = buildSeamlessQueue();
     const toolbarItems = state.playlist.length ? state.playlist : pageTracks;
-    const backup = createElement("div", "hub-cart-backup hub-playlist-toolbar");
-    const statusCopy = playlistIsActive()
-      ? "This queue is controlling playback"
-      : state.playlist.length
-        ? "Saved automatically in this Chrome profile"
-        : live.tracks.length
-          ? "Playing from the current page"
-          : "Build your queue from Bandcamp";
-    backup.append(createElement("div", "hub-cart-backup-time", statusCopy));
-    const actions = createElement("div", "hub-toolbar");
+    const actions = createElement("div", "hub-toolbar hub-now-playing-header-actions");
     const addPage = createPlaylistToolbarButton("Add page to queue", "icon-queue.svg", () => {
       if (!pageTracks.length) showToast("This page does not expose a streamable track list.");
       else addTracksToPlaylist(pageTracks);
@@ -3820,8 +3812,9 @@
     });
     clear.disabled = !state.playlist.length && !toolbarItems.length && !live.hasPlaybackStarted;
     actions.append(addPage, save, download, clear);
-    backup.append(actions);
-    content.append(backup);
+    heading.append(actions);
+    content.append(heading);
+    mountPanelClose();
 
     if (!state.playlist.length) {
       renderPageQueueFallback();
