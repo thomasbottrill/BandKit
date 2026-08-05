@@ -12,6 +12,7 @@
 </head>
 <body class="feed">
   <ul id="user-nav"></ul>
+  <aside id="track_play_waypoint">last played Feed Fixture Album</aside>
   <main>
     <article class="story">
       <div id="feed-item" class="story-innards collection-item-container track_play_hilite playing" data-trackid="888227773">
@@ -27,10 +28,25 @@
         <span class="time_total">04:20</span>
       </div>
     </article>
+    <article class="story">
+      <div id="feed-item-two" class="story-innards collection-item-container track_play_hilite" data-trackid="999116642">
+        <button class="track_play_auxiliary" data-trackid="999116642" type="button">Play</button>
+        <img class="tralbum-art-large" src="/assets/art-remix.png" alt="">
+        <a class="artist-name" href="https://second-feed.bandcamp.com/">Second Feed Artist</a>
+        <a class="item-link" href="https://second-feed.bandcamp.com/album/second-feed-album">
+          <span class="collection-item-title">Second Feed Album</span>
+          <span class="collection-item-artist">by Second Feed Artist</span>
+        </a>
+        <span class="fav-track-title">Second Feed Track</span>
+        <span class="time_elapsed">00:00</span>
+        <span class="time_total">03:10</span>
+      </div>
+    </article>
     <audio id="feed-audio" src="https://bandcamp.com/stream_redirect?enc=mp3-128&track_id=888227773"></audio>
   </main>
   <script>
     const feedItem = document.querySelector("#feed-item");
+    const secondFeedItem = document.querySelector("#feed-item-two");
     feedItem.dataset.itemJson = JSON.stringify({
       item_title: "Feed Fixture Album",
       item_url: "https://fixture-feed.bandcamp.com/album/feed-fixture-album",
@@ -40,18 +56,41 @@
       featured_track_title: "Feed Fixture Track",
       featured_track_duration: 260
     });
+    secondFeedItem.dataset.itemJson = JSON.stringify({
+      item_title: "Second Feed Album",
+      item_url: "https://second-feed.bandcamp.com/album/second-feed-album",
+      item_art_url: new URL("/assets/art-remix.png", location.href).href,
+      band_name: "Second Feed Artist",
+      band_url: "https://second-feed.bandcamp.com/",
+      featured_track_title: "Second Feed Track",
+      featured_track_duration: 190
+    });
     const feedAudio = document.querySelector("#feed-audio");
     let feedPaused = false;
+    let feedSrc = "https://bandcamp.com/stream_redirect?enc=mp3-128&track_id=888227773";
+    let feedCurrentTime = 24;
+    let feedDuration = 260;
     Object.defineProperties(feedAudio, {
       paused: { get: () => feedPaused },
       ended: { get: () => false },
-      currentTime: { get: () => 24 },
-      duration: { get: () => 260 }
+      currentSrc: { get: () => feedSrc },
+      src: { get: () => feedSrc, set: (value) => { feedSrc = value; } },
+      currentTime: { get: () => feedCurrentTime },
+      duration: { get: () => feedDuration }
     });
     feedAudio.pause = () => {
       feedPaused = true;
       feedAudio.dispatchEvent(new Event("pause"));
     };
+    secondFeedItem.querySelector(".track_play_auxiliary").addEventListener("click", () => {
+      feedItem.classList.remove("playing");
+      secondFeedItem.classList.add("playing");
+      feedSrc = "https://bandcamp.com/stream_redirect?enc=mp3-128&track_id=999116642";
+      feedCurrentTime = 0;
+      feedDuration = 190;
+      feedPaused = false;
+      feedAudio.dispatchEvent(new Event("play"));
+    });
     window.fixtureStored = {};
     window.fixtureMessages = [];
     window.fixtureSeamlessState = { enabled: false, status: "idle" };
@@ -65,13 +104,14 @@
           if (message.type === "BANDCAMP_HUB_GET_SEAMLESS_STATE") {
             callback?.({ ok: true, state: window.fixtureSeamlessState });
           } else if (message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE") {
+            const duration = Number(message.queue[0]?.duration) || 260;
             window.fixtureSeamlessState = {
               enabled: true,
               status: "playing",
               isPlaying: true,
-              currentTime: Number(message.currentTime) || 24,
-              duration: 260,
-              progress: (Number(message.currentTime) || 24) / 260,
+              currentTime: Number.isFinite(Number(message.currentTime)) ? Number(message.currentTime) : 24,
+              duration,
+              progress: (Number(message.currentTime) || 0) / duration,
               rate: Number(message.rate) || 1,
               preservePitch: message.preservePitch !== false,
               filterValue: Number(message.filterValue) || 0,
@@ -90,6 +130,9 @@
               queue: message.queue
             };
             callback?.({ ok: true, state: window.fixtureSeamlessState });
+          } else if (message.type === "BANDCAMP_HUB_SEAMLESS_DISABLE") {
+            window.fixtureSeamlessState = { enabled: false, status: "idle" };
+            callback?.({ ok: true, state: window.fixtureSeamlessState });
           } else callback?.({ ok: true, state: window.fixtureSeamlessState });
         },
         onMessage: { addListener() {} }
@@ -107,19 +150,24 @@
     window.setTimeout(() => {
       const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
       root?.querySelector(".hub-dj-player-button")?.click();
+      secondFeedItem.querySelector(".track_play_auxiliary")?.click();
     }, 1400);
     window.setTimeout(() => {
       const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
       const activity = window.fixtureStored.bandcampHubState?.activity || [];
       const title = root?.querySelector(".hub-player-title");
       const artist = root?.querySelector(".hub-player-artist");
-      document.title = title?.textContent === "Feed Fixture Track"
-        && title.href.includes("fixture-feed.bandcamp.com/album/feed-fixture-album")
-        && artist?.textContent === "Feed Fixture Artist"
-        && root?.querySelector(".hub-duration")?.textContent === "4:20"
-        && activity[0]?.title === "Feed Fixture Track"
+      const enabledMessages = window.fixtureMessages.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE");
+      document.title = title?.textContent === "Second Feed Track"
+        && title.href.includes("second-feed.bandcamp.com/album/second-feed-album")
+        && artist?.textContent === "Second Feed Artist"
+        && root?.querySelector(".hub-duration")?.textContent === "3:10"
+        && activity[0]?.title === "Second Feed Track"
         && root?.querySelector(".hub-dj-waveform")?.disabled === false
         && root?.querySelector(".hub-dj-bpm-input")?.value === "128"
+        && enabledMessages.at(-1)?.queue?.[0]?.id === "999116642"
+        && getComputedStyle(document.querySelector("#track_play_waypoint")).display === "none"
+        && getComputedStyle(root?.querySelector(".hub-player")).zIndex === "2147483647"
         ? "PASS: Bandcamp Feed player fixture"
         : `FAIL: ${title?.textContent || "no title"} / ${artist?.textContent || "no artist"}`;
     }, 1900);

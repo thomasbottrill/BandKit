@@ -3180,7 +3180,7 @@ button {
   position: fixed;
   right: 0;
   width: 100vw;
-  z-index: 2147483646;
+  z-index: 2147483647;
 }
 
 .hub-player-content {

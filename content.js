@@ -137,6 +137,9 @@
   let modernHandoffBusy = false;
   let discoverHandoffBusy = false;
   let feedHandoffBusy = false;
+  let feedSwitchPendingDisable = false;
+  let pendingFeedTrackId = "";
+  let feedHandoffTimer = 0;
   let suppressModernControl = false;
   let scrubbing = false;
   let pendingSeekTimer = 0;
@@ -4588,19 +4591,22 @@
     };
   }
 
-  function getFeedPlayerState() {
+  function feedStreamTrackId(value) {
+    try {
+      return new URL(value || "", location.href).searchParams.get("track_id") || "";
+    } catch {
+      return "";
+    }
+  }
+
+  function getFeedPlayerState(preferredTrackId = "") {
     if (!document.body.classList.contains("feed") && !/\/feed\/?$/.test(location.pathname)) return null;
     const audio = getAudio();
-    const audioTrackId = (() => {
-      try {
-        return new URL(audio?.currentSrc || audio?.src || "", location.href).searchParams.get("track_id") || "";
-      } catch {
-        return "";
-      }
-    })();
+    const audioTrackId = feedStreamTrackId(audio?.currentSrc || audio?.src);
     const playingNode = document.querySelector(".collection-item-container.playing[data-trackid]");
-    const trackId = playingNode?.dataset.trackid || audioTrackId;
+    const trackId = String(preferredTrackId || playingNode?.dataset.trackid || audioTrackId);
     if (!trackId) return null;
+    if (preferredTrackId && audioTrackId !== trackId) return null;
     const matchingNodes = [...document.querySelectorAll(".collection-item-container[data-trackid]")]
       .filter((node) => node.dataset.trackid === trackId);
     const metadataNode = matchingNodes.find((node) => node.dataset.itemJson) || playingNode || matchingNodes[0];
@@ -4719,10 +4725,10 @@
     }
   }
 
-  async function handoffFeedPlayer() {
+  async function handoffFeedPlayer(requestedTrackId = "") {
     if (feedHandoffBusy) return false;
-    const feed = getFeedPlayerState();
-    if (!feed?.track || !isReusableStreamUrl(feed.track.url)) return false;
+    const feed = getFeedPlayerState(requestedTrackId);
+    if (!feed?.track || !feed.isPlaying || !isReusableStreamUrl(feed.track.url)) return false;
     feedHandoffBusy = true;
     try {
       const response = await runtimeMessage({
@@ -4742,11 +4748,29 @@
       if (!response?.ok) return false;
       const audio = getAudio();
       if (audio && !audio.paused) audio.pause();
+      if (!requestedTrackId || pendingFeedTrackId === requestedTrackId) pendingFeedTrackId = "";
       applySeamlessState(response.state);
       return true;
     } finally {
       feedHandoffBusy = false;
     }
+  }
+
+  function scheduleFeedHandoff(trackId, attempt = 0) {
+    const requestedTrackId = String(trackId || "");
+    if (!requestedTrackId) return;
+    pendingFeedTrackId = requestedTrackId;
+    window.clearTimeout(feedHandoffTimer);
+    feedHandoffTimer = window.setTimeout(async () => {
+      if (pendingFeedTrackId !== requestedTrackId) return;
+      if (feedSwitchPendingDisable) {
+        if (attempt < 15) scheduleFeedHandoff(requestedTrackId, attempt + 1);
+        return;
+      }
+      if (await handoffFeedPlayer(requestedTrackId)) return;
+      if (attempt < 15) scheduleFeedHandoff(requestedTrackId, attempt + 1);
+      else pendingFeedTrackId = "";
+    }, attempt ? 90 : 40);
   }
 
   function getGenericPageItem() {
@@ -4982,7 +5006,7 @@
       pageStyle.id = "bandcamp-hub-page-style";
       pageStyle.textContent = `.bandcamp-hub-page-dj{align-items:center;background:var(--hub-accent-soft,rgba(29,160,195,.12));border:1px solid var(--hub-line,rgba(127,127,127,.35));border-radius:999px;color:var(--hub-accent,var(--link-color,#1da0c3));cursor:pointer;display:flex;height:32px;justify-content:center;margin:8px 0 0;padding:0;width:32px}.bandcamp-hub-page-dj::before{background:currentColor;content:"";height:18px;mask:var(--hub-dj-icon) center/contain no-repeat;-webkit-mask:var(--hub-dj-icon) center/contain no-repeat;width:18px}.bandcamp-hub-page-dj:hover,.bandcamp-hub-page-dj:focus-visible{border-color:var(--hub-accent,var(--link-color,#1da0c3));outline:0}.bandcamp-hub-page-dj.is-active{background:var(--hub-accent,var(--link-color,#1da0c3));border-color:var(--hub-accent,var(--link-color,#1da0c3));color:var(--hub-on-accent,#fff)}.bandcamp-hub-page-dj-host{display:block;margin-top:8px;max-width:420px;width:100%}.bandcamp-hub-page-dj-host[hidden]{display:none!important}body.bandcamp-hub-remote-playing section.floating-player .play-pause-button.outline>svg{display:none!important}body.bandcamp-hub-remote-playing section.floating-player .play-pause-button.outline::after{background:linear-gradient(90deg,currentColor 0 34%,transparent 34% 66%,currentColor 66%);content:"";display:block;height:18px;width:14px}`;
       pageStyle.textContent += `#DiscoverApp .focused-result{scroll-padding-bottom:calc(var(--bandkit-player-reserved-height,84px) + 16px)}`;
-      pageStyle.textContent += `html[data-bandkit-hide-bandcamp-player="true"] :is(.discover-player,section.floating-player){display:none!important}`;
+      pageStyle.textContent += `html[data-bandkit-hide-bandcamp-player="true"] :is(.discover-player,section.floating-player){display:none!important}html[data-bandkit-feed-page="true"] :is(#track_play_waypoint,.track_play_waypoint){display:none!important}`;
       pageStyle.textContent += `html[data-bandkit-hide-page-cart="true"] #sidecart{display:none!important}html[data-bandkit-hide-header-cart="true"] :is(header,#menubar-wrapper,#user-nav,ul[role="menubar"].menu-items) :is(a[href*="/cart"],a[href*="bandcamp.com/cart"],[aria-label*="cart" i],[title*="cart" i],[data-testid*="cart" i],.cart-link,.cart-wrapper,.cart-wrapper-corp-lo,.menubar-cart-icon,#cart-link,#cart-control){display:none!important}html[data-bandkit-hide-header-cart="true"] :is(header,#menubar-wrapper,#user-nav,ul[role="menubar"].menu-items) :is(a,button,[role="button"],li):has(use[href$="#menubar-cart-icon"],use[xlink\\:href$="#menubar-cart-icon"],svg.menubar-cart-icon){display:none!important}html[data-bandkit-hide-header-cart="true"] :is(header,#menubar-wrapper,#user-nav,ul[role="menubar"].menu-items) li:has(> :is(a[href*="/cart"],a[href*="bandcamp.com/cart"],[aria-label*="cart" i],[title*="cart" i],[data-testid*="cart" i],.cart-link,.cart-wrapper,.cart-wrapper-corp-lo,#cart-link,#cart-control)){display:none!important}`;
       pageStyle.textContent += `.bandcamp-hub-page-tools{align-items:center;display:flex;gap:8px;margin:8px 0 0}.bandcamp-hub-page-tools .bandcamp-hub-page-dj{margin:0}.bandcamp-hub-page-playlist{align-items:center;background:var(--hub-accent-soft,rgba(29,160,195,.12));border:1px solid var(--hub-line,rgba(127,127,127,.35));border-radius:999px;box-sizing:border-box;color:var(--hub-accent,var(--link-color,#1da0c3));cursor:pointer;display:inline-flex;font-size:0;height:32px;justify-content:center;line-height:0;margin:8px 0 0;padding:0;text-decoration:none!important;vertical-align:middle;width:32px}.bandcamp-hub-page-playlist::before{background:currentColor;content:"";display:block;height:18px;mask:var(--hub-plus-icon) center/contain no-repeat;-webkit-mask:var(--hub-plus-icon) center/contain no-repeat;width:18px}.bandcamp-hub-page-playlist:hover,.bandcamp-hub-page-playlist:focus-visible{background:var(--hub-accent-soft,rgba(29,160,195,.12));border-color:var(--hub-accent,var(--link-color,#1da0c3));outline:0;text-decoration:none!important}.bandcamp-hub-page-playlist.is-added{background:var(--hub-accent,var(--link-color,#1da0c3));border-color:var(--hub-accent,var(--link-color,#1da0c3));color:var(--hub-on-accent,#fff)}.bandcamp-hub-page-playlist.is-player-control{margin:0}.bandcamp-hub-page-playlist.is-track-action{background:var(--hub-accent-soft,rgba(29,160,195,.12))!important;border-color:var(--hub-line,rgba(127,127,127,.35))!important;color:var(--hub-accent,var(--link-color,#1da0c3))!important;height:24px;margin:0 8px 0 0!important;opacity:0;pointer-events:none;text-decoration:none!important;width:24px}.bandcamp-hub-page-playlist.is-track-action::before{height:14px;width:14px}.bandcamp-hub-page-playlist.is-track-action:hover,.bandcamp-hub-page-playlist.is-track-action:focus-visible{border-color:var(--hub-accent,var(--link-color,#1da0c3))!important;text-decoration:none!important}.bandcamp-hub-page-playlist.is-track-action.is-added{background:var(--hub-accent,var(--link-color,#1da0c3))!important;border-color:var(--hub-accent,var(--link-color,#1da0c3))!important;color:var(--hub-on-accent,#fff)!important}.track_row_view:hover .bandcamp-hub-page-playlist.is-track-action,.track_row_view:focus-within .bandcamp-hub-page-playlist.is-track-action,.bandcamp-hub-page-playlist.is-track-action:focus-visible{opacity:1;pointer-events:auto}`;
       pageStyle.textContent += `.bandcamp-hub-page-cart{align-items:center;background:var(--hub-accent-soft,rgba(29,160,195,.12));border:1px solid var(--hub-line,rgba(127,127,127,.35));border-radius:999px;box-sizing:border-box;color:var(--hub-accent,var(--link-color,#1da0c3));cursor:pointer;display:inline-flex;height:32px;justify-content:center;margin:0;padding:0;width:32px}.bandcamp-hub-page-cart::before{background:currentColor;content:"";display:block;height:18px;mask:var(--hub-cart-icon) center/contain no-repeat;-webkit-mask:var(--hub-cart-icon) center/contain no-repeat;width:18px}.bandcamp-hub-page-cart:hover,.bandcamp-hub-page-cart:focus-visible{border-color:var(--hub-accent,var(--link-color,#1da0c3));outline:0}.bandcamp-hub-page-cart.is-active{background:var(--hub-accent,var(--link-color,#1da0c3));border-color:var(--hub-accent,var(--link-color,#1da0c3));color:var(--hub-on-accent,#fff)}.bandcamp-hub-page-cart:disabled{cursor:not-allowed;opacity:.45}`;
@@ -5470,10 +5494,14 @@
       if (observedAudio.has(candidate)) continue;
       observedAudio.add(candidate);
       candidate.addEventListener("play", async () => {
-        const tookOver = getFeedPlayerState()
-          ? await handoffFeedPlayer()
+        const requestedFeedTrackId = pendingFeedTrackId;
+        const tookOver = getFeedPlayerState(requestedFeedTrackId)
+          ? await handoffFeedPlayer(requestedFeedTrackId)
           : await handoffPageAudio(candidate);
-        if (!tookOver) scanLivePlayer();
+        if (!tookOver) {
+          if (requestedFeedTrackId) scheduleFeedHandoff(requestedFeedTrackId);
+          else scanLivePlayer();
+        }
       });
       candidate.addEventListener("pause", scanLivePlayer);
       candidate.addEventListener("ended", scanLivePlayer);
@@ -5487,7 +5515,7 @@
 
     const modern = getModernPlayerState();
     const discover = getDiscoverPlayerState();
-    const feed = getFeedPlayerState();
+    const feed = getFeedPlayerState(pendingFeedTrackId);
     if (modern?.isPlaying && modern.track?.url !== seamless.track?.url) {
       void handoffModernPlayer();
     } else if (modern?.isPlaying && seamless.enabled && modern.track?.url === seamless.track?.url) {
@@ -5834,13 +5862,14 @@
 
   document.addEventListener("click", (event) => {
     if (suppressModernControl || !(event.target instanceof Element)) return;
-    const feedControl = event.target.closest("body.feed .track_play_auxiliary");
+    const onFeedPage = document.body.classList.contains("feed") || /\/feed\/?$/.test(location.pathname);
+    const feedControl = onFeedPage ? event.target.closest(".track_play_auxiliary") : null;
     if (feedControl) {
-      const feed = getFeedPlayerState();
+      const clickedTrackId = String(feedControl.dataset.trackid || feedControl.closest("[data-trackid]")?.dataset.trackid || "");
       const controlsCurrentSeamlessTrack = Boolean(
         seamless.enabled
-        && feed?.track?.id === seamless.track?.id
-        && feed?.track?.pageUrl === seamless.track?.pageUrl
+        && clickedTrackId
+        && clickedTrackId === String(seamless.track?.id || "")
       );
       if (controlsCurrentSeamlessTrack) {
         event.preventDefault();
@@ -5848,7 +5877,16 @@
         void seamlessCommand("BANDCAMP_HUB_SEAMLESS_PLAY_PAUSE");
         return;
       }
-      if (seamless.enabled) void seamlessCommand("BANDCAMP_HUB_SEAMLESS_DISABLE");
+      if (clickedTrackId) pendingFeedTrackId = clickedTrackId;
+      if (seamless.enabled) {
+        feedSwitchPendingDisable = true;
+        void seamlessCommand("BANDCAMP_HUB_SEAMLESS_DISABLE").finally(() => {
+          feedSwitchPendingDisable = false;
+          if (clickedTrackId) scheduleFeedHandoff(clickedTrackId);
+        });
+      } else if (clickedTrackId) {
+        scheduleFeedHandoff(clickedTrackId);
+      }
       window.setTimeout(scanLivePlayer, 160);
       return;
     }
@@ -6167,6 +6205,7 @@
   });
 
   async function init() {
+    document.documentElement.dataset.bandkitFeedPage = String(document.body.classList.contains("feed") || /\/feed\/?$/.test(location.pathname));
     const styleUrl = new URL(chrome.runtime.getURL("hub.css"));
     styleUrl.searchParams.set("v", chrome.runtime.getManifest().version);
     const modernStyleUrl = new URL(chrome.runtime.getURL("modern-release.css"));
@@ -6371,6 +6410,7 @@
       window.clearInterval(scanTimer);
       window.clearInterval(seamlessSyncTimer);
       window.clearTimeout(layoutSaveTimer);
+      window.clearTimeout(feedHandoffTimer);
       playerResizeObserver?.disconnect();
       const finalPanelRect = panel.getBoundingClientRect();
       if (finalPanelRect.width && finalPanelRect.height) {
