@@ -332,7 +332,11 @@
         const focusedOpacity = listActions[0] ? getComputedStyle(listActions[0]).opacity : "";
         listActions[0]?.blur();
         root?.querySelector(".hub-close")?.click();
-        document.querySelector("#fixture-header-cart")?.click();
+        const nativeHeaderCart = document.querySelector("#fixture-header-cart");
+        const nativeHeaderCartSuppressed = nativeHeaderCart?.hidden
+          && nativeHeaderCart.closest("li")?.hidden
+          && getComputedStyle(nativeHeaderCart).display === "none";
+        nativeHeaderCart?.click();
         const nativeHeaderCartWorks = !root?.querySelector(".hub-panel")?.classList.contains("is-hidden")
           && root?.querySelector('.hub-tab[data-tab="cart"]')?.getAttribute("aria-current") === "page";
         root?.querySelector(".hub-close")?.click();
@@ -378,6 +382,7 @@
           && getComputedStyle(playerCart).borderColor === getComputedStyle(pageDj).borderColor
           && playerCart?.style.getPropertyValue("--hub-cart-icon").includes("icon-cart.svg")
           && playerCart?.getAttribute("aria-label") === "Open Bandcamp purchase options and BandKit cart"
+          && nativeHeaderCartSuppressed
           && nativeHeaderCartWorks
           && cartNavigationWorks
           && playerPlaylistMenuWorksDuringPlayback
