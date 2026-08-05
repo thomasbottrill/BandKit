@@ -302,6 +302,8 @@
   playerSpacer.style.cssText = "clear:both;display:block;flex:none;grid-column:1/-1;pointer-events:none;visibility:hidden;width:100%";
 
   function syncPlayerPageSpace() {
+    const pageFlowParent = document.querySelector("#DiscoverApp main.app") || document.body;
+    if (playerSpacer.parentElement !== pageFlowParent) pageFlowParent.append(playerSpacer);
     const playerHeight = Math.ceil(player.getBoundingClientRect().height);
     if (!playerHeight) return;
     const reservedHeight = `${playerHeight}px`;
@@ -5960,10 +5962,10 @@
       headerMountFrame = requestAnimationFrame(() => {
         headerMountFrame = 0;
         mountLauncherInHeader({ allowFloating: !root.isConnected });
+        syncPlayerPageSpace();
       });
     }
     mountLauncherInHeader({ allowFloating: true });
-    document.body.append(playerSpacer);
     syncPlayerPageSpace();
     requestAnimationFrame(syncPlayerPageSpace);
     if ("ResizeObserver" in window) {
