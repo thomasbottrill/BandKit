@@ -58,6 +58,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #pgBd {
 html[data-bandkit-modern-release="true"] body.tralbum-page #customHeaderWrapper {
   grid-column: 1 / -1;
   margin-inline: -24px;
+  margin-top: 0 !important;
   width: calc(100% + 48px) !important;
 }
 

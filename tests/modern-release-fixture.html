@@ -31,6 +31,7 @@
     .recommended-album .album-details { min-height: 180px; }
     #name-section { margin-left: 190px; width: max-content; }
     .tralbum-tags { height: 360px; min-width: 1800px; position: absolute; white-space: nowrap; }
+    #customHeaderWrapper { margin-top: -35px; }
   </style>
 </head>
 <body class="tralbum-page has-menubar">
@@ -161,7 +162,8 @@
       const customHeaderImageRect = document.querySelector("#customHeader img").getBoundingClientRect();
       const fullCustomHeaderVisible = Math.abs(customHeaderRect.height - customHeaderRect.width * 180 / 975) <= 2
         && Math.abs(customHeaderImageRect.height - customHeaderRect.height) <= 2
-        && getComputedStyle(document.querySelector("#customHeader img")).objectFit === "contain";
+        && getComputedStyle(document.querySelector("#customHeader img")).objectFit === "contain"
+        && Math.round(document.querySelector("#customHeaderWrapper").getBoundingClientRect().top) === Math.round(document.querySelector("#pgBd").getBoundingClientRect().top);
       const pageRect = document.querySelector("#pgBd").getBoundingClientRect();
       const pageStyle = getComputedStyle(document.querySelector("#pgBd"));
       const recommendationsRect = document.querySelector("#recommendations_container").getBoundingClientRect();
