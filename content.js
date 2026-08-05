@@ -324,6 +324,15 @@
   const durationLabel = player.querySelector(".hub-duration");
   const toast = player.querySelector(".hub-toast");
 
+  function toggleSectionPanel(tabId) {
+    const currentPanelVisible = state.activeTab === tabId && !panel.classList.contains("is-hidden");
+    state.activeTab = tabId;
+    state.open = !currentPanelVisible;
+    saveState();
+    saveLayoutState();
+    render();
+  }
+
   for (const tab of tabs) {
     const button = document.createElement("button");
     button.className = "hub-tab";
@@ -346,13 +355,10 @@
     shortcut.title = tab.label;
     shortcut.setAttribute("aria-label", tab.label);
     shortcut.innerHTML = `<span class="hub-header-shortcut-icon" style="--hub-icon:url('${asset(tab.icon)}')"></span>${tab.id === "cart" ? '<span class="hub-now-playing-count hub-cart-shortcut-count">0</span>' : '<span class="hub-header-shortcut-dot"></span>'}`;
-    shortcut.addEventListener("click", () => {
-      const closeCurrent = state.open && state.activeTab === tab.id;
-      state.activeTab = tab.id;
-      state.open = !closeCurrent;
-      saveState();
-      saveLayoutState();
-      render();
+    shortcut.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleSectionPanel(tab.id);
     });
     headerShortcuts.append(shortcut);
   }
@@ -5608,13 +5614,10 @@
   });
 
   djPlayerButton.addEventListener("click", () => toggleDjTools());
-  nowPlayingButton.addEventListener("click", () => {
-    const closeCurrent = state.open && state.activeTab === "nowPlaying";
-    state.activeTab = "nowPlaying";
-    state.open = !closeCurrent;
-    saveState();
-    saveLayoutState();
-    render();
+  nowPlayingButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleSectionPanel("nowPlaying");
   });
   playerMoreButton.addEventListener("click", () => {
     if (playerMoreButton.disabled) return;
