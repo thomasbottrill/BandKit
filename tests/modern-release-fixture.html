@@ -124,7 +124,7 @@
       runtime: {
         lastError: null,
         getURL: (path) => new URL(`/${path}`, location.href).href,
-        getManifest: () => ({ version: "0.7.5-header-height" }),
+        getManifest: () => ({ version: "0.7.5-cart-visibility" }),
         sendMessage(_message, callback) { callback?.({ ok: true, state: { enabled: false, status: "idle" } }); },
         onMessage: { addListener(listener) { window.fixtureRuntimeListener = listener; } }
       },
@@ -232,7 +232,7 @@
         && document.querySelector(".bandkit-modern-supporters-toggle")?.hidden
         && [...document.querySelectorAll(".bandkit-modern-supporter-reviews > .writing")].filter((review) => getComputedStyle(review).display === "grid").length === 1;
       toggle?.click();
-      const cartRestored = !fixtureCart || getComputedStyle(document.querySelector("#sidecart")).display !== "none";
+      const cartRestored = !fixtureCart || getComputedStyle(document.querySelector("#sidecart")).display === "none";
       const restored = document.documentElement.dataset.bandkitModernRelease === "false"
         && document.querySelector("#trackInfoInner > .tralbumCommands > .buyItem.digital")
         && (fixtureSingleTrack || document.querySelector("#trackInfoInner > #track_table"))

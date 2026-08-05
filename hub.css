@@ -3361,6 +3361,11 @@ button {
   color: var(--hub-on-accent);
 }
 
+.hub-header-shortcut.is-active .hub-cart-shortcut-count {
+  background: var(--hub-accent);
+  color: var(--hub-on-accent);
+}
+
 .hub-player-more-wrap {
   position: relative;
 }

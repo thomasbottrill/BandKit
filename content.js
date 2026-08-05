@@ -26,6 +26,8 @@
       pageAware: true,
       applyToPage: false,
       modernReleasePages: false,
+      hidePageCart: true,
+      hideHeaderCart: true,
       preset: "studio",
       customAccent: "#1da0c3",
       customSurface: "#ffffff",
@@ -343,10 +345,11 @@
     shortcut.dataset.tab = tab.id;
     shortcut.title = tab.label;
     shortcut.setAttribute("aria-label", tab.label);
-    shortcut.innerHTML = `<span class="hub-header-shortcut-icon" style="--hub-icon:url('${asset(tab.icon)}')"></span><span class="hub-header-shortcut-dot"></span>`;
+    shortcut.innerHTML = `<span class="hub-header-shortcut-icon" style="--hub-icon:url('${asset(tab.icon)}')"></span>${tab.id === "cart" ? '<span class="hub-now-playing-count hub-cart-shortcut-count">0</span>' : '<span class="hub-header-shortcut-dot"></span>'}`;
     shortcut.addEventListener("click", () => {
+      const closeCurrent = state.open && state.activeTab === tab.id;
       state.activeTab = tab.id;
-      state.open = true;
+      state.open = !closeCurrent;
       saveState();
       saveLayoutState();
       render();
@@ -1587,6 +1590,21 @@
     else applySelectedTheme();
     applyBandcampPageTheme();
     applyModernReleaseLayout();
+    applyNativeCartVisibility();
+  }
+
+  function applyNativeCartVisibility() {
+    ensurePageStyles();
+    const hidePageCart = state.appearance.hidePageCart !== false;
+    const hideHeaderCart = state.appearance.hideHeaderCart !== false;
+    document.documentElement.dataset.bandkitHidePageCart = String(hidePageCart);
+    document.documentElement.dataset.bandkitHideHeaderCart = String(hideHeaderCart);
+    for (const nativeCart of document.querySelectorAll("[data-bandkit-native-cart]")) {
+      nativeCart.toggleAttribute("hidden", hideHeaderCart);
+    }
+    for (const wrapper of document.querySelectorAll("[data-bandkit-native-cart-wrapper]")) {
+      wrapper.toggleAttribute("hidden", hideHeaderCart);
+    }
   }
 
   function applyLauncherPosition() {
@@ -2179,6 +2197,8 @@
       button.classList.toggle("has-dot", button.dataset.tab === "cart" && state.cart.length > 0);
       if (button.dataset.tab === "playlist") button.classList.toggle("has-dot", state.playlist.length > 0);
     }
+    const cartShortcutCount = headerShortcuts.querySelector(".hub-cart-shortcut-count");
+    if (cartShortcutCount) cartShortcutCount.textContent = String(state.cart.length);
     for (const button of tabBar.querySelectorAll(".hub-tab")) {
       const active = button.dataset.tab === state.activeTab;
       button.classList.toggle("is-active", active);
@@ -4008,6 +4028,30 @@
     modernReleaseRow.append(modernReleaseCopy, modernReleaseToggle);
     appearance.append(modernReleaseRow);
 
+    for (const [key, label, description] of [
+      ["hidePageCart", "Hide page shopping cart", "Use BandKit’s Cart panel instead of Bandcamp’s page cart."],
+      ["hideHeaderCart", "Hide header shopping cart", "Remove Bandcamp’s cart from the album and track page header."]
+    ]) {
+      const row = createElement("div", "hub-settings-row hub-settings-subrow");
+      const copy = createElement("div", "hub-settings-copy");
+      copy.append(createElement("strong", "", label), createElement("span", "", description));
+      const enabled = state.appearance[key] !== false;
+      const toggle = createElement("button", `hub-settings-toggle${enabled ? " is-active" : ""}`);
+      toggle.type = "button";
+      toggle.setAttribute("role", "switch");
+      toggle.setAttribute("aria-label", label);
+      toggle.setAttribute("aria-checked", String(enabled));
+      toggle.append(createElement("span", "hub-settings-toggle-thumb"));
+      toggle.addEventListener("click", () => {
+        state.appearance[key] = !(state.appearance[key] !== false);
+        applyNativeCartVisibility();
+        saveState();
+        render();
+      });
+      row.append(copy, toggle);
+      appearance.append(row);
+    }
+
     if (!state.appearance.pageAware) {
       const accessibleTheme = accessibleAppearanceTheme();
       const accessibility = createElement("div", `hub-theme-accessibility${accessibleTheme.adjusted ? " is-adjusted" : ""}`);
@@ -4130,6 +4174,7 @@
   }
 
   function handleNativeHeaderCart(event) {
+    if (state.appearance.hideHeaderCart === false) return;
     const target = event.target instanceof Element ? event.target : null;
     if (!target?.closest("#user-nav, ul[role='menubar'].menu-items") || target.closest("#bandcamp-hub-extension-root")) return;
     const cartControl = target.closest([
@@ -4612,7 +4657,7 @@
       pageStyle.id = "bandcamp-hub-page-style";
       pageStyle.textContent = `.bandcamp-hub-page-dj{align-items:center;background:var(--hub-accent-soft,rgba(29,160,195,.12));border:1px solid var(--hub-line,rgba(127,127,127,.35));border-radius:999px;color:var(--hub-accent,var(--link-color,#1da0c3));cursor:pointer;display:flex;height:32px;justify-content:center;margin:8px 0 0;padding:0;width:32px}.bandcamp-hub-page-dj::before{background:currentColor;content:"";height:18px;mask:var(--hub-dj-icon) center/contain no-repeat;-webkit-mask:var(--hub-dj-icon) center/contain no-repeat;width:18px}.bandcamp-hub-page-dj:hover,.bandcamp-hub-page-dj:focus-visible{border-color:var(--hub-accent,var(--link-color,#1da0c3));outline:0}.bandcamp-hub-page-dj.is-active{background:var(--hub-accent,var(--link-color,#1da0c3));border-color:var(--hub-accent,var(--link-color,#1da0c3));color:var(--hub-on-accent,#fff)}.bandcamp-hub-page-dj-host{display:block;margin-top:8px;max-width:420px;width:100%}.bandcamp-hub-page-dj-host[hidden]{display:none!important}body.bandcamp-hub-remote-playing section.floating-player .play-pause-button.outline>svg{display:none!important}body.bandcamp-hub-remote-playing section.floating-player .play-pause-button.outline::after{background:linear-gradient(90deg,currentColor 0 34%,transparent 34% 66%,currentColor 66%);content:"";display:block;height:18px;width:14px}`;
       pageStyle.textContent += `.discover-player{display:none!important}`;
-      pageStyle.textContent += `:is(header,#menubar-wrapper,#user-nav,ul[role="menubar"].menu-items) :is(a[href*="/cart"],a[href*="bandcamp.com/cart"],[aria-label*="cart" i],[title*="cart" i],[data-testid*="cart" i],.cart-link,#cart-link,#cart-control){display:none!important}:is(header,#menubar-wrapper,#user-nav,ul[role="menubar"].menu-items) :is(a,button,[role="button"],li):has(use[href$="#menubar-cart-icon"],use[xlink\\:href$="#menubar-cart-icon"]){display:none!important}:is(header,#menubar-wrapper,#user-nav,ul[role="menubar"].menu-items) li:has(> :is(a[href*="/cart"],a[href*="bandcamp.com/cart"],[aria-label*="cart" i],[title*="cart" i],[data-testid*="cart" i],.cart-link,#cart-link,#cart-control)){display:none!important}`;
+      pageStyle.textContent += `html[data-bandkit-hide-page-cart="true"] #sidecart{display:none!important}html[data-bandkit-hide-header-cart="true"] :is(header,#menubar-wrapper,#user-nav,ul[role="menubar"].menu-items) :is(a[href*="/cart"],a[href*="bandcamp.com/cart"],[aria-label*="cart" i],[title*="cart" i],[data-testid*="cart" i],.cart-link,.cart-wrapper,.cart-wrapper-corp-lo,.menubar-cart-icon,#cart-link,#cart-control){display:none!important}html[data-bandkit-hide-header-cart="true"] :is(header,#menubar-wrapper,#user-nav,ul[role="menubar"].menu-items) :is(a,button,[role="button"],li):has(use[href$="#menubar-cart-icon"],use[xlink\\:href$="#menubar-cart-icon"],svg.menubar-cart-icon){display:none!important}html[data-bandkit-hide-header-cart="true"] :is(header,#menubar-wrapper,#user-nav,ul[role="menubar"].menu-items) li:has(> :is(a[href*="/cart"],a[href*="bandcamp.com/cart"],[aria-label*="cart" i],[title*="cart" i],[data-testid*="cart" i],.cart-link,.cart-wrapper,.cart-wrapper-corp-lo,#cart-link,#cart-control)){display:none!important}`;
       pageStyle.textContent += `.bandcamp-hub-page-tools{align-items:center;display:flex;gap:8px;margin:8px 0 0}.bandcamp-hub-page-tools .bandcamp-hub-page-dj{margin:0}.bandcamp-hub-page-playlist{align-items:center;background:var(--hub-accent-soft,rgba(29,160,195,.12));border:1px solid var(--hub-line,rgba(127,127,127,.35));border-radius:999px;box-sizing:border-box;color:var(--hub-accent,var(--link-color,#1da0c3));cursor:pointer;display:inline-flex;font-size:0;height:32px;justify-content:center;line-height:0;margin:8px 0 0;padding:0;text-decoration:none!important;vertical-align:middle;width:32px}.bandcamp-hub-page-playlist::before{background:currentColor;content:"";display:block;height:18px;mask:var(--hub-plus-icon) center/contain no-repeat;-webkit-mask:var(--hub-plus-icon) center/contain no-repeat;width:18px}.bandcamp-hub-page-playlist:hover,.bandcamp-hub-page-playlist:focus-visible{background:var(--hub-accent-soft,rgba(29,160,195,.12));border-color:var(--hub-accent,var(--link-color,#1da0c3));outline:0;text-decoration:none!important}.bandcamp-hub-page-playlist.is-added{background:var(--hub-accent,var(--link-color,#1da0c3));border-color:var(--hub-accent,var(--link-color,#1da0c3));color:var(--hub-on-accent,#fff)}.bandcamp-hub-page-playlist.is-player-control{margin:0}.bandcamp-hub-page-playlist.is-track-action{background:var(--hub-accent-soft,rgba(29,160,195,.12))!important;border-color:var(--hub-line,rgba(127,127,127,.35))!important;color:var(--hub-accent,var(--link-color,#1da0c3))!important;height:24px;margin:0 8px 0 0!important;opacity:0;pointer-events:none;text-decoration:none!important;width:24px}.bandcamp-hub-page-playlist.is-track-action::before{height:14px;width:14px}.bandcamp-hub-page-playlist.is-track-action:hover,.bandcamp-hub-page-playlist.is-track-action:focus-visible{border-color:var(--hub-accent,var(--link-color,#1da0c3))!important;text-decoration:none!important}.bandcamp-hub-page-playlist.is-track-action.is-added{background:var(--hub-accent,var(--link-color,#1da0c3))!important;border-color:var(--hub-accent,var(--link-color,#1da0c3))!important;color:var(--hub-on-accent,#fff)!important}.track_row_view:hover .bandcamp-hub-page-playlist.is-track-action,.track_row_view:focus-within .bandcamp-hub-page-playlist.is-track-action,.bandcamp-hub-page-playlist.is-track-action:focus-visible{opacity:1;pointer-events:auto}`;
       pageStyle.textContent += `.bandcamp-hub-page-cart{align-items:center;background:var(--hub-accent-soft,rgba(29,160,195,.12));border:1px solid var(--hub-line,rgba(127,127,127,.35));border-radius:999px;box-sizing:border-box;color:var(--hub-accent,var(--link-color,#1da0c3));cursor:pointer;display:inline-flex;height:32px;justify-content:center;margin:0;padding:0;width:32px}.bandcamp-hub-page-cart::before{background:currentColor;content:"";display:block;height:18px;mask:var(--hub-cart-icon) center/contain no-repeat;-webkit-mask:var(--hub-cart-icon) center/contain no-repeat;width:18px}.bandcamp-hub-page-cart:hover,.bandcamp-hub-page-cart:focus-visible{border-color:var(--hub-accent,var(--link-color,#1da0c3));outline:0}.bandcamp-hub-page-cart.is-active{background:var(--hub-accent,var(--link-color,#1da0c3));border-color:var(--hub-accent,var(--link-color,#1da0c3));color:var(--hub-on-accent,#fff)}.bandcamp-hub-page-cart:disabled{cursor:not-allowed;opacity:.45}`;
       pageStyle.textContent += `.bandcamp-hub-page-buy{align-items:center;background:var(--hub-accent-soft,rgba(29,160,195,.12))!important;border:1px solid var(--hub-line,rgba(127,127,127,.35))!important;border-radius:999px!important;box-sizing:border-box;color:var(--hub-accent,var(--link-color,#1da0c3))!important;display:inline-flex!important;flex:0 0 24px;font-size:0!important;height:24px;justify-content:center;line-height:0!important;margin:0!important;overflow:hidden;padding:0!important;text-decoration:none!important;vertical-align:middle;width:24px!important}.bandcamp-hub-page-buy::before{background:currentColor;content:"";display:block;height:14px;mask:var(--hub-buy-icon) center/contain no-repeat;-webkit-mask:var(--hub-buy-icon) center/contain no-repeat;width:14px}.bandcamp-hub-page-buy:hover,.bandcamp-hub-page-buy:focus-visible{background:var(--hub-accent-soft,rgba(29,160,195,.12))!important;border-color:var(--hub-accent,var(--link-color,#1da0c3))!important;outline:0;text-decoration:none!important}`;
@@ -5564,8 +5609,9 @@
 
   djPlayerButton.addEventListener("click", () => toggleDjTools());
   nowPlayingButton.addEventListener("click", () => {
+    const closeCurrent = state.open && state.activeTab === "nowPlaying";
     state.activeTab = "nowPlaying";
-    state.open = true;
+    state.open = !closeCurrent;
     saveState();
     saveLayoutState();
     render();
@@ -5770,6 +5816,9 @@
       "[title*='cart' i]",
       "[data-testid*='cart' i]",
       ".cart-link",
+      ".cart-wrapper",
+      ".cart-wrapper-corp-lo",
+      ".menubar-cart-icon",
       "#cart-link",
       "#cart-control"
     ].join(",");
@@ -5789,13 +5838,17 @@
         .filter(Boolean));
       const nativeCarts = [...new Set([...labelledNativeCarts, ...iconNativeCarts])]
         .filter((control) => !root.contains(control));
+      const hideHeaderCart = state.appearance.hideHeaderCart !== false;
       for (const nativeCart of nativeCarts) {
-        nativeCart.hidden = true;
-        nativeCart.closest("li")?.setAttribute("hidden", "");
         nativeCart.setAttribute("data-bandkit-native-cart", "");
+        nativeCart.toggleAttribute("hidden", hideHeaderCart);
+        const nativeCartWrapper = nativeCart.closest("li");
+        nativeCartWrapper?.setAttribute("data-bandkit-native-cart-wrapper", "");
+        nativeCartWrapper?.toggleAttribute("hidden", hideHeaderCart);
         if (nativeCart.dataset.bandkitCartBound) continue;
         nativeCart.dataset.bandkitCartBound = "true";
         nativeCart.addEventListener("click", (event) => {
+          if (state.appearance.hideHeaderCart === false) return;
           event.preventDefault();
           event.stopImmediatePropagation();
           openBandKitCart();

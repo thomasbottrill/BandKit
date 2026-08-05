@@ -1089,7 +1089,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn > #recom
   color: var(--bandkit-release-accent) !important;
 }
 
-html[data-bandkit-modern-release="true"] body.tralbum-page #sidecart {
+html[data-bandkit-modern-release="true"][data-bandkit-hide-page-cart="true"] body.tralbum-page #sidecart {
   display: none !important;
 }
 
