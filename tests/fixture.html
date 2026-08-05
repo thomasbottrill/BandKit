@@ -24,6 +24,8 @@
     <p class="secondaryText">Dark artist theme fixture</p>
     <div class="inline_player">
       <span class="title">Fixture Track</span>
+      <span class="time"><span class="time_elapsed">0:00</span> / <span class="time_total">3:00</span></span>
+      <div class="progbar"><div class="progbar_fill" style="width:0%"></div><div class="thumb" style="left:0%"></div></div>
       <button class="fixture-native-play" type="button" aria-label="Play">
         <span class="playbutton paused"><span class="play_status paused"></span></span>
       </button>
@@ -89,7 +91,7 @@
         }
       } };
     }
-    if (location.search.includes("page-playlist-placement") || location.search.includes("page-playing-sync") || location.search.includes("page-stale-playback")) {
+    if (location.search.includes("page-playlist-placement") || location.search.includes("page-playing-sync") || location.search.includes("page-unrelated-playing-sync") || location.search.includes("page-stale-playback")) {
       document.querySelector(".fixture-track-list").hidden = false;
       const tralbumScript = document.querySelector("script[data-tralbum]");
       const tralbum = JSON.parse(tralbumScript.getAttribute("data-tralbum"));
@@ -258,17 +260,57 @@
           && currentControl?.classList.contains("playing")
           && currentControl?.getAttribute("aria-label") === "Pause"
           && rows[1]?.classList.contains("bandcamp-hub-current")
-          && rows[1]?.classList.contains("bandcamp-hub-is-playing");
+          && rows[1]?.classList.contains("bandcamp-hub-is-playing")
+          && inlinePlayer?.querySelector(".time_elapsed")?.textContent === "0:42"
+          && inlinePlayer?.querySelector(".time_total")?.textContent === "3:30"
+          && inlinePlayer?.querySelector(".progbar_fill")?.style.width === "20%"
+          && inlinePlayer?.querySelector(".thumb")?.style.left === "20%";
         window.fixtureRuntimeListener?.({ type: "BANDCAMP_HUB_SEAMLESS_STATE", state: {
           enabled: false, status: "idle", isPlaying: false
         } }, {}, () => {});
         const cleaned = !document.querySelector("[data-bandkit-playback-state]")
           && !inlineControl?.classList.contains("playing")
           && !currentControl?.classList.contains("playing")
-          && currentControl?.getAttribute("aria-label") === "Play";
+          && currentControl?.getAttribute("aria-label") === null
+          && inlinePlayer?.querySelector(".title")?.textContent === "Fixture Track"
+          && inlinePlayer?.querySelector(".time_elapsed")?.textContent === "0:00"
+          && inlinePlayer?.querySelector(".time_total")?.textContent === "3:00"
+          && inlinePlayer?.querySelector(".progbar_fill")?.style.width === "0%"
+          && inlinePlayer?.querySelector(".thumb")?.style.left === "0%";
         document.title = synced && cleaned
           ? "PASS: page playing state sync fixture"
           : `FAIL: page playing state sync ${inlinePlayer?.querySelector(".title")?.textContent}/${inlineControl?.className}/${currentControl?.className}`;
+        return;
+      }
+      if (location.search.includes("page-unrelated-playing-sync")) {
+        const pageQueue = [
+          { id: "1", title: "Fixture Track", artist: "Fixture Artist", pageUrl: "https://fixture-artist.bandcamp.com/track/fixture-track", duration: 180, url: "https://t4.bcbits.com/stream/fixture-track" },
+          { id: "2", title: "Next Fixture Track", artist: "Fixture Artist", pageUrl: "https://fixture-artist.bandcamp.com/track/next-fixture-track", duration: 210, url: "https://t4.bcbits.com/stream/next-fixture-track" }
+        ];
+        const remoteTrack = { id: "remote", title: "Hatching", artist: "MOULD", pageUrl: "https://moulditsmould.bandcamp.com/track/hatching", duration: 263, url: "https://t4.bcbits.com/stream/hatching" };
+        const setPlayback = (track, queue, currentTime, duration) => window.fixtureRuntimeListener?.({ type: "BANDCAMP_HUB_SEAMLESS_STATE", state: {
+          enabled: true, status: "playing", isPlaying: true, currentTime, duration, progress: currentTime / duration,
+          index: Math.max(0, queue.indexOf(track)), track, queue
+        } }, {}, () => {});
+        const inlinePlayer = document.querySelector(".inline_player");
+        const untouched = () => inlinePlayer?.querySelector(".title")?.textContent === "Fixture Track"
+          && inlinePlayer?.querySelector(".time_elapsed")?.textContent === "0:00"
+          && inlinePlayer?.querySelector(".time_total")?.textContent === "3:00"
+          && inlinePlayer?.querySelector(".progbar_fill")?.style.width === "0%"
+          && inlinePlayer?.querySelector(".thumb")?.style.left === "0%"
+          && !inlinePlayer?.classList.contains("bandcamp-hub-current")
+          && !inlinePlayer?.classList.contains("bandcamp-hub-is-playing")
+          && !document.body.classList.contains("bandcamp-hub-remote-playing");
+        setPlayback(remoteTrack, [remoteTrack], 88, 263);
+        const unrelatedStayedNative = untouched();
+        setPlayback(pageQueue[1], pageQueue, 42, 210);
+        const matchingTrackSynced = inlinePlayer?.classList.contains("bandcamp-hub-is-playing")
+          && inlinePlayer?.querySelector(".title")?.textContent === "Next Fixture Track";
+        setPlayback(remoteTrack, [remoteTrack], 90, 263);
+        const restoredAfterLeavingPage = untouched();
+        document.title = unrelatedStayedNative && matchingTrackSynced && restoredAfterLeavingPage
+          ? "PASS: unrelated playback leaves album player native"
+          : `FAIL: unrelated playback ${inlinePlayer?.querySelector(".title")?.textContent}/${inlinePlayer?.querySelector(".time_elapsed")?.textContent}/${inlinePlayer?.className}`;
         return;
       }
       if (location.search.includes("appearance-reskin")) {

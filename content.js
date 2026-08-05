@@ -159,6 +159,7 @@
   let modernReleaseSupporterTimer = null;
   let modernReleasePalette = null;
   let playerResizeObserver = null;
+  let pagePlayerSnapshot = null;
 
   function pageMediaCommand(action, details = {}) {
     document.dispatchEvent(new CustomEvent("bandkit:media-command", { detail: { action, ...details } }));
@@ -4614,6 +4615,30 @@
     return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
   }
 
+  function matchingPagePlaybackTrack(queue, requested = {}) {
+    const tracks = Array.isArray(queue) ? queue : [];
+    const requestedUrl = String(requested.url || "");
+    if (requestedUrl) {
+      const streamMatch = tracks.find((track) => String(track.url || "") === requestedUrl);
+      if (streamMatch) return streamMatch;
+    }
+    const requestedId = String(requested.id || "");
+    if (requestedId) {
+      const idMatch = tracks.find((track) => String(track.id || "") === requestedId);
+      if (idMatch) return idMatch;
+    }
+    const requestedPageUrl = safeBandcampUrl(requested.pageUrl);
+    if (requestedPageUrl) {
+      const pageMatch = tracks.find((track) => safeBandcampUrl(track.pageUrl) === requestedPageUrl);
+      if (pageMatch) return pageMatch;
+    }
+    const requestedTitle = normalizedTrackTitle(requested.title);
+    const requestedArtist = normalizedTrackTitle(requested.artist);
+    if (!requestedTitle || !requestedArtist) return null;
+    return tracks.find((track) => normalizedTrackTitle(track.title) === requestedTitle
+      && normalizedTrackTitle(track.artist) === requestedArtist) || null;
+  }
+
   function classicTrackRowMatches(row, track, pageData) {
     if (!row?.matches(".track_row_view") || !track) return false;
     const relation = row.getAttribute("rel") || "";
@@ -4644,17 +4669,107 @@
     }
   }
 
+  function capturePagePlayerUi() {
+    if (pagePlayerSnapshot) return;
+    const inlinePlayer = document.querySelector(".inline_player");
+    const textElements = [
+      inlinePlayer?.querySelector(".title"),
+      inlinePlayer?.querySelector(".time_elapsed"),
+      inlinePlayer?.querySelector(".time_total")
+    ].filter(Boolean).map((element) => ({ element, text: element.textContent }));
+    const visibilityElements = [
+      inlinePlayer?.querySelector(".title-section"),
+      inlinePlayer?.querySelector(".time"),
+      inlinePlayer?.querySelector(".prevbutton"),
+      inlinePlayer?.querySelector(".nextbutton")
+    ].filter(Boolean).map((element) => ({ element, hidden: element.classList.contains("hiddenelem") }));
+    const visualControls = [...document.querySelectorAll(".inline_player .playbutton, .inline_player .play_status, .track_row_view .playbutton, .track_row_view .play_status")]
+      .map((element) => ({
+        element,
+        playing: element.classList.contains("playing"),
+        paused: element.classList.contains("paused"),
+        playbackState: element.getAttribute("data-bandkit-playback-state")
+      }));
+    const actions = [...new Set(visualControls.map(({ element }) => element.closest("a, button, [role='button']") || element))]
+      .map((element) => ({
+        element,
+        ariaLabel: element.getAttribute("aria-label"),
+        ariaPressed: element.getAttribute("aria-pressed")
+      }));
+    const fill = inlinePlayer?.querySelector(".progbar_fill");
+    const thumb = inlinePlayer?.querySelector(".thumb");
+    const modernTimeline = document.querySelector("section.floating-player.has-track input[type='range']");
+    pagePlayerSnapshot = {
+      textElements,
+      visibilityElements,
+      visualControls,
+      actions,
+      fill: fill ? { element: fill, value: fill.style.getPropertyValue("width"), priority: fill.style.getPropertyPriority("width") } : null,
+      thumb: thumb ? { element: thumb, value: thumb.style.getPropertyValue("left"), priority: thumb.style.getPropertyPriority("left") } : null,
+      modernTimeline: modernTimeline ? {
+        element: modernTimeline,
+        max: modernTimeline.getAttribute("max"),
+        value: modernTimeline.value
+      } : null
+    };
+  }
+
+  function restorePagePlayerUi() {
+    clearBandKitPagePlaybackState();
+    if (!pagePlayerSnapshot) return;
+    for (const { element, text } of pagePlayerSnapshot.textElements) {
+      if (element.isConnected) element.textContent = text;
+    }
+    for (const { element, hidden } of pagePlayerSnapshot.visibilityElements) {
+      if (element.isConnected) element.classList.toggle("hiddenelem", hidden);
+    }
+    for (const { element, playing, paused, playbackState } of pagePlayerSnapshot.visualControls) {
+      if (!element.isConnected) continue;
+      element.classList.toggle("playing", playing);
+      element.classList.toggle("paused", paused);
+      if (playbackState === null) element.removeAttribute("data-bandkit-playback-state");
+      else element.setAttribute("data-bandkit-playback-state", playbackState);
+    }
+    for (const { element, ariaLabel, ariaPressed } of pagePlayerSnapshot.actions) {
+      if (!element.isConnected) continue;
+      if (ariaLabel === null) element.removeAttribute("aria-label");
+      else element.setAttribute("aria-label", ariaLabel);
+      if (ariaPressed === null) element.removeAttribute("aria-pressed");
+      else element.setAttribute("aria-pressed", ariaPressed);
+    }
+    for (const snapshot of [pagePlayerSnapshot.fill, pagePlayerSnapshot.thumb]) {
+      if (!snapshot?.element.isConnected) continue;
+      const property = snapshot === pagePlayerSnapshot.fill ? "width" : "left";
+      if (snapshot.value) snapshot.element.style.setProperty(property, snapshot.value, snapshot.priority);
+      else snapshot.element.style.removeProperty(property);
+    }
+    const timeline = pagePlayerSnapshot.modernTimeline;
+    if (timeline?.element.isConnected) {
+      if (timeline.max === null) timeline.element.removeAttribute("max");
+      else timeline.element.setAttribute("max", timeline.max);
+      timeline.element.value = timeline.value;
+    }
+    pagePlayerSnapshot = null;
+  }
+
   function syncPagePlayerUi() {
-    document.body.classList.toggle("bandcamp-hub-remote-playing", Boolean(seamless.enabled && seamless.isPlaying));
     if (!seamless.enabled) {
-      clearBandKitPagePlaybackState();
+      document.body.classList.remove("bandcamp-hub-remote-playing");
+      restorePagePlayerUi();
       return;
     }
     ensurePageStyles();
     const pageData = getBandcampPageData();
     const inlineTitle = document.querySelector(".inline_player .title");
-    const currentPageTrack = matchingQueueTrack(buildSeamlessQueue(), seamless.track || {});
-    if (inlineTitle && currentPageTrack && seamless.track?.title) inlineTitle.textContent = seamless.track.title;
+    const currentPageTrack = matchingPagePlaybackTrack(buildSeamlessQueue(), seamless.track || {});
+    if (!currentPageTrack) {
+      document.body.classList.remove("bandcamp-hub-remote-playing");
+      restorePagePlayerUi();
+      return;
+    }
+    capturePagePlayerUi();
+    document.body.classList.toggle("bandcamp-hub-remote-playing", Boolean(seamless.isPlaying));
+    if (inlineTitle && seamless.track?.title) inlineTitle.textContent = seamless.track.title;
     for (const player of document.querySelectorAll(".inline_player, .track_row_view")) {
       const isInlinePlayer = player.matches(".inline_player");
       const isCurrent = isInlinePlayer || classicTrackRowMatches(player, seamless.track, pageData);
