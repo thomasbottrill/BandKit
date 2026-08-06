@@ -2469,7 +2469,7 @@
 
   function mountPanelClose() {
     const anchor = state.activeTab === "cart"
-      ? content.querySelector(".hub-cart-view-header")
+      ? content.querySelector(".hub-saved-cart-detail-toolbar, .hub-cart-view-header")
       : state.activeTab === "playlist"
         ? content.querySelector(".hub-saved-cart-detail-toolbar, .hub-section-heading")
         : state.activeTab === "nowPlaying"
@@ -3505,22 +3505,6 @@
     return card;
   }
 
-  function createRestoreButton(snapshot, primary = false) {
-    const button = createElement("button", primary ? "hub-primary-button" : "hub-text-button is-accent", "Restore");
-    button.type = "button";
-    button.disabled = !snapshot.items?.length;
-    button.addEventListener("click", async () => {
-      button.disabled = true;
-      button.textContent = "Restoring…";
-      const result = await restoreSavedCart(snapshot.items || []);
-      if (!result?.ok) {
-        button.disabled = false;
-        button.textContent = "Retry restore";
-      }
-    });
-    return button;
-  }
-
   function renderCurrentCart() {
     const backup = createElement("div", "hub-cart-backup");
     const savedText = state.cartSavedAt ? `Auto-saved ${new Date(state.cartSavedAt).toLocaleString()}` : "Not captured yet";
@@ -3580,6 +3564,32 @@
     render();
   }
 
+  function openSavedCart(snapshot) {
+    state.selectedSavedCartId = snapshot.id;
+    saveState();
+    render();
+  }
+
+  function createSavedCartOpenButton(snapshot) {
+    const button = createElement("button", "hub-saved-playlist-play-button hub-saved-cart-open-button");
+    button.type = "button";
+    button.title = `Open ${snapshot.name || "saved cart"}`;
+    button.setAttribute("aria-label", button.title);
+    button.append(createButtonIcon("icon-play.svg"), document.createTextNode("Open"));
+    button.addEventListener("click", () => openSavedCart(snapshot));
+    return button;
+  }
+
+  function createSavedCartActions(snapshot) {
+    const actions = createElement("div", "hub-saved-playlist-icon-actions hub-saved-cart-icon-actions");
+    actions.append(
+      createSavedItemActionButton(`Restore ${snapshot.name || "saved cart"}`, "icon-restore.svg", () => void restoreSavedCart(snapshot.items || [])),
+      createSavedItemActionButton(`Delete ${snapshot.name || "saved cart"}`, "icon-trash.svg", () => deleteSavedCart(snapshot), "is-delete")
+    );
+    actions.firstElementChild.disabled = !snapshot.items?.length;
+    return actions;
+  }
+
   function renderSavedCartList() {
     if (!state.savedCarts.length) {
       content.append(createElement("div", "hub-empty", "Your current cart will be auto-saved here as soon as BandKit captures it."));
@@ -3588,31 +3598,24 @@
     const stack = createElement("div", "hub-stack hub-saved-cart-stack");
     for (const snapshot of state.savedCarts) {
       const items = Array.isArray(snapshot.items) ? snapshot.items : [];
-      const card = createElement("article", "hub-card hub-saved-cart-card");
-      const body = createElement("div", "hub-saved-cart-body");
+      const card = createElement("article", "hub-card hub-saved-cart-card hub-saved-playlist-card");
+      const body = createElement("button", "hub-saved-cart-body hub-saved-playlist-open");
+      body.type = "button";
+      body.setAttribute("aria-label", `Open saved cart ${snapshot.name || "Saved cart"}`);
+      body.addEventListener("click", () => openSavedCart(snapshot));
       const titleRow = createElement("div", "hub-row-title");
       titleRow.append(createElement("strong", "", snapshot.name || "Saved cart"), createElement("span", "hub-saved-cart-total", cartTotalLabel(items, snapshot.summary)));
       const savedAt = snapshot.savedAt ? new Date(snapshot.savedAt) : null;
       const validDate = savedAt && !Number.isNaN(savedAt.getTime());
-      body.append(
+      const bodyCopy = createElement("div", "hub-saved-playlist-card-copy");
+      bodyCopy.append(
         titleRow,
         createElement("div", "hub-saved-cart-date", `${snapshot.autoSaved ? "Auto-saved · " : ""}${validDate ? savedAt.toLocaleString() : "Saved locally"}`),
         createElement("div", "hub-saved-cart-summary", `${items.length} item${items.length === 1 ? "" : "s"}${items.length ? ` · ${items.slice(0, 3).map((item) => item.title).join(", ")}${items.length > 3 ? ` +${items.length - 3} more` : ""}` : ""}`)
       );
+      body.append(createPlaylistArtworkMosaic(items.map((item) => ({ ...item, art: cartItemArt(item) }))), bodyCopy);
       const footer = createElement("div", "hub-card-footer hub-saved-cart-actions");
-      const open = createElement("button", "hub-text-button is-accent", "Open");
-      open.type = "button";
-      open.addEventListener("click", () => {
-        state.selectedSavedCartId = snapshot.id;
-        saveState();
-        render();
-      });
-      const secondaryActions = createElement("div", "hub-toolbar");
-      const remove = createElement("button", "hub-text-button is-danger", "Delete");
-      remove.type = "button";
-      remove.addEventListener("click", () => deleteSavedCart(snapshot));
-      secondaryActions.append(createRestoreButton(snapshot), remove);
-      footer.append(open, secondaryActions);
+      footer.append(createSavedCartOpenButton(snapshot), createSavedCartActions(snapshot));
       card.append(body, footer);
       stack.append(card);
     }
@@ -3621,29 +3624,33 @@
 
   function renderSavedCartDetail(snapshot) {
     const items = Array.isArray(snapshot.items) ? snapshot.items : [];
-    const toolbar = createElement("div", "hub-saved-cart-detail-toolbar");
-    const back = createElement("button", "hub-text-button is-accent", "← All saved carts");
+    const toolbar = createElement("div", "hub-saved-cart-detail-toolbar hub-saved-playlist-detail-toolbar");
+    const back = createElement("button", "hub-saved-playlist-back hub-saved-cart-back");
     back.type = "button";
-    back.addEventListener("click", () => {
+    back.title = "Back to saved carts";
+    back.setAttribute("aria-label", "Back to saved carts");
+    back.append(createButtonIcon("icon-back.svg"));
+    const returnToSavedCarts = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       state.selectedSavedCartId = null;
       saveState();
       render();
-    });
-    const remove = createElement("button", "hub-text-button is-danger", "Delete cart");
-    remove.type = "button";
-    remove.addEventListener("click", () => deleteSavedCart(snapshot));
-    toolbar.append(back, remove);
+    };
+    back.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      returnToSavedCarts(event);
+    }, true);
+    back.addEventListener("click", returnToSavedCarts);
+    toolbar.append(back, createElement("h2", "hub-saved-playlist-detail-title", snapshot.name || "Saved cart"));
     content.append(toolbar);
 
-    const heading = createElement("div", "hub-saved-cart-detail-heading");
-    const copy = createElement("div", "hub-saved-cart-detail-copy");
-    copy.append(
-      createElement("h2", "", snapshot.name || "Saved cart"),
-      createElement("span", "", `${items.length} item${items.length === 1 ? "" : "s"} · ${snapshot.savedAt ? new Date(snapshot.savedAt).toLocaleString() : "Saved locally"}`)
+    const actionRow = createElement("div", "hub-cart-backup hub-playlist-toolbar hub-saved-playlist-action-row hub-saved-cart-detail-action-row");
+    actionRow.append(
+      createElement("div", "hub-cart-backup-time", `${items.length} item${items.length === 1 ? "" : "s"} · ${cartTotalLabel(items, snapshot.summary)}`),
+      createSavedCartActions(snapshot)
     );
-    const restore = createRestoreButton(snapshot, true);
-    heading.append(copy, restore);
-    content.append(heading);
+    content.append(actionRow);
 
     const stack = createElement("div", "hub-stack");
     for (const item of items) stack.append(renderCartItemCard(item));
@@ -3655,10 +3662,13 @@
     if (!['current', 'saved'].includes(state.cartView)) state.cartView = "current";
     const snapshot = state.savedCarts.find((entry) => entry.id === state.selectedSavedCartId);
     if (!snapshot) state.selectedSavedCartId = null;
+    if (snapshot && state.cartView === "saved") {
+      renderSavedCartDetail(snapshot);
+      return;
+    }
     const total = state.cartView === "current" ? cartTotalLabel(state.cart, state.cartSummary) : state.savedCarts.length;
     renderCartViewTabs(state.cartView === "current" ? `Total: ${total}` : `${total} saved`);
     if (state.cartView === "current") renderCurrentCart();
-    else if (snapshot) renderSavedCartDetail(snapshot);
     else renderSavedCartList();
   }
 
@@ -3929,7 +3939,7 @@
     render();
   }
 
-  function createSavedPlaylistActionButton(label, icon, onClick, className = "") {
+  function createSavedItemActionButton(label, icon, onClick, className = "") {
     const button = createElement("button", `hub-saved-playlist-icon-button${className ? ` ${className}` : ""}`);
     button.type = "button";
     button.title = label;
@@ -3939,7 +3949,7 @@
     button.append(glyph);
     button.addEventListener("click", (event) => {
       event.stopPropagation();
-      onClick();
+      void onClick();
     });
     return button;
   }
@@ -3947,22 +3957,22 @@
   function createSavedPlaylistActions(snapshot, { includeDownload = false, includePlay = true, includeRestoreCart = false } = {}) {
     const actions = createElement("div", "hub-saved-playlist-icon-actions");
     if (includePlay) {
-      actions.append(createSavedPlaylistActionButton(`Play ${snapshot.name}`, "icon-play.svg", () => {
+      actions.append(createSavedItemActionButton(`Play ${snapshot.name}`, "icon-play.svg", () => {
         restoreSavedPlaylist(snapshot, "replace");
         void playPlaylistAt(0);
       }));
     }
     actions.append(
-      createSavedPlaylistActionButton(`Add ${snapshot.name} to Now Playing`, "icon-plus.svg", () => restoreSavedPlaylist(snapshot, "append")),
-      createSavedPlaylistActionButton(`Rename ${snapshot.name}`, "icon-edit.svg", () => renameSavedPlaylist(snapshot))
+      createSavedItemActionButton(`Add ${snapshot.name} to Now Playing`, "icon-plus.svg", () => restoreSavedPlaylist(snapshot, "append")),
+      createSavedItemActionButton(`Rename ${snapshot.name}`, "icon-edit.svg", () => renameSavedPlaylist(snapshot))
     );
     if (includeDownload) {
-      actions.append(createSavedPlaylistActionButton(`Download ${snapshot.name}`, "icon-download-all.svg", () => exportPlaylist(snapshot.items, snapshot.name)));
+      actions.append(createSavedItemActionButton(`Download ${snapshot.name}`, "icon-download-all.svg", () => exportPlaylist(snapshot.items, snapshot.name)));
     }
     if (includeRestoreCart) {
-      actions.append(createSavedPlaylistActionButton(`Restore ${snapshot.name} to cart`, "icon-cart.svg", () => void restoreSavedCart(snapshot.items)));
+      actions.append(createSavedItemActionButton(`Restore ${snapshot.name} to cart`, "icon-cart.svg", () => void restoreSavedCart(snapshot.items)));
     }
-    actions.append(createSavedPlaylistActionButton(`Delete ${snapshot.name}`, "icon-trash.svg", () => deleteSavedPlaylist(snapshot), "is-delete"));
+    actions.append(createSavedItemActionButton(`Delete ${snapshot.name}`, "icon-trash.svg", () => deleteSavedPlaylist(snapshot), "is-delete"));
     return actions;
   }
 

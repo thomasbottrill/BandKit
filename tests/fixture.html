@@ -654,10 +654,37 @@
         const savedCards = [...(root?.querySelectorAll(".hub-saved-cart-card") || [])];
         const autoSavedCard = savedCards.find((card) => card.textContent.includes("Auto-saved cart"));
         const namedCard = savedCards.find((card) => card.textContent.includes("Bandcamp Friday shortlist"));
+        const openButton = namedCard?.querySelector(".hub-saved-cart-open-button");
+        const cardActions = [...(namedCard?.querySelectorAll(".hub-saved-playlist-icon-button") || [])];
+        const listMatchesPlaylists = namedCard?.classList.contains("hub-saved-playlist-card")
+          && namedCard?.querySelector(".hub-saved-playlist-open")
+          && namedCard?.querySelector(".hub-playlist-mosaic")
+          && openButton?.textContent.trim() === "Open"
+          && getComputedStyle(openButton).backgroundColor !== "rgba(0, 0, 0, 0)"
+          && cardActions.length === 2
+          && cardActions.some((button) => button.getAttribute("aria-label") === "Restore Bandcamp Friday shortlist")
+          && cardActions.some((button) => button.getAttribute("aria-label") === "Delete Bandcamp Friday shortlist")
+          && cardActions.every((button) => !button.textContent.trim() && button.querySelector(".hub-button-icon"));
+        openButton?.click();
+        const detailToolbar = root?.querySelector(".hub-saved-cart-detail-toolbar.hub-saved-playlist-detail-toolbar");
+        const detailActions = [...(root?.querySelectorAll(".hub-saved-cart-detail-action-row .hub-saved-playlist-icon-button") || [])];
+        const backButton = detailToolbar?.querySelector(".hub-saved-cart-back");
+        const detailMatchesPlaylists = detailToolbar?.querySelector(".hub-saved-playlist-detail-title")?.textContent === "Bandcamp Friday shortlist"
+          && backButton?.querySelector(".hub-button-icon")
+          && detailToolbar?.querySelector(".hub-close")
+          && !root?.querySelector(".hub-cart-view-tabs")
+          && !root?.querySelector(".hub-saved-cart-detail-heading")
+          && root?.querySelector(".hub-saved-cart-detail-action-row .hub-cart-backup-time")?.textContent.includes("3 items")
+          && detailActions.length === 2
+          && detailActions.every((button) => getComputedStyle(button).width === "30px" && getComputedStyle(button).height === "30px" && getComputedStyle(button).borderRadius === "5px")
+          && getComputedStyle(root?.querySelector(".hub-saved-cart-detail-action-row .hub-saved-playlist-icon-actions")).gap === "6px";
+        backButton?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, pointerId: 1 }));
         document.title = savedTab?.textContent.includes("Saved")
           && autoSavedCard?.textContent.includes("Auto-saved")
-          && namedCard?.textContent.includes("Restore")
-          && namedCard?.textContent.includes("Open")
+          && listMatchesPlaylists
+          && detailMatchesPlaylists
+          && root?.querySelector(".hub-saved-cart-card")
+          && !root?.querySelector(".hub-saved-cart-detail-toolbar")
           ? "PASS: BandKit cart fixture"
           : "FAIL: BandKit cart fixture";
         return;
