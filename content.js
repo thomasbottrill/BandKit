@@ -3575,7 +3575,7 @@
     button.type = "button";
     button.title = `Open ${snapshot.name || "saved cart"}`;
     button.setAttribute("aria-label", button.title);
-    button.append(createButtonIcon("icon-play.svg"), document.createTextNode("Open"));
+    button.append(createButtonIcon("icon-open.svg"), document.createTextNode("Open"));
     button.addEventListener("click", () => openSavedCart(snapshot));
     return button;
   }

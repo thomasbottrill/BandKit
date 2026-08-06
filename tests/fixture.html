@@ -660,6 +660,7 @@
           && namedCard?.querySelector(".hub-saved-playlist-open")
           && namedCard?.querySelector(".hub-playlist-mosaic")
           && openButton?.textContent.trim() === "Open"
+          && openButton?.querySelector(".hub-button-icon")?.style.getPropertyValue("--hub-icon").includes("icon-open.svg")
           && getComputedStyle(openButton).backgroundColor !== "rgba(0, 0, 0, 0)"
           && cardActions.length === 2
           && cardActions.some((button) => button.getAttribute("aria-label") === "Restore Bandcamp Friday shortlist")
