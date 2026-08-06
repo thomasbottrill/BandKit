@@ -456,6 +456,12 @@
     return element;
   }
 
+  function createButtonIcon(icon) {
+    const glyph = createElement("span", "hub-button-icon");
+    glyph.style.setProperty("--hub-icon", `url('${asset(icon)}')`);
+    return glyph;
+  }
+
   function resolveImage(source) {
     return /^https?:/.test(source || "") ? source : "";
   }
@@ -2231,13 +2237,15 @@
   function createPlaylistDestinationControl(track, { labeled = false } = {}) {
     const wrapper = createElement("div", `hub-playlist-destination${labeled ? " is-labeled" : ""}`);
     const trackPageUrl = resolvedTrackPageUrl(track);
-    const trigger = createElement("button", `hub-queue-action hub-playlist-action${labeled ? " is-labeled" : ""}`, labeled ? "＋ Add" : "＋");
+    const trigger = createElement("button", `hub-queue-action hub-playlist-action${labeled ? " is-labeled" : ""}`);
     trigger.type = "button";
     trigger.disabled = !trackPageUrl;
     trigger.title = `Add ${track.title} to Now Playing or a playlist`;
     trigger.setAttribute("aria-label", trigger.title);
     trigger.setAttribute("aria-haspopup", "menu");
     trigger.setAttribute("aria-expanded", "false");
+    trigger.append(createButtonIcon("icon-plus.svg"));
+    if (labeled) trigger.append(document.createTextNode("Add"));
     const menu = createElement("div", "hub-playlist-destination-menu");
     menu.hidden = true;
     menu.setAttribute("role", "menu");
@@ -2268,7 +2276,7 @@
     trigger.setAttribute("aria-label", trigger.title);
     trigger.setAttribute("aria-haspopup", "menu");
     trigger.setAttribute("aria-expanded", "false");
-    const cartIcon = createElement("span", "hub-queue-cart-icon");
+    const cartIcon = createElement("span", "hub-button-icon hub-queue-cart-icon");
     cartIcon.style.setProperty("--hub-icon", `url('${asset("icon-cart.svg")}')`);
     trigger.append(cartIcon);
     if (labeled) trigger.append(document.createTextNode(" Add to cart"));
@@ -2307,12 +2315,14 @@
     const trackPageUrl = resolvedTrackPageUrl(track);
     const playlist = createPlaylistDestinationControl(track, { labeled });
     const wishlisted = (state.wishlistTrackKeys || []).includes(wishlistTrackKey(track));
-    const wishlist = createElement("button", `hub-queue-action hub-wishlist-action${labeled ? " is-labeled" : ""}${wishlisted ? " is-active" : ""}`, labeled ? `${wishlisted ? "♥ Wishlisted" : "♡ Wishlist"}` : wishlisted ? "♥" : "♡");
+    const wishlist = createElement("button", `hub-queue-action hub-wishlist-action${labeled ? " is-labeled" : ""}${wishlisted ? " is-active" : ""}`);
     wishlist.type = "button";
     wishlist.disabled = !trackPageUrl;
     wishlist.title = wishlisted ? `${track.title} is in your Bandcamp wishlist` : trackPageUrl ? `Add ${track.title} to your Bandcamp wishlist` : "No individual Bandcamp track page is available";
     wishlist.setAttribute("aria-label", wishlisted ? `${track.title} is wishlisted` : `Add ${track.title} to wishlist`);
     wishlist.setAttribute("aria-pressed", String(wishlisted));
+    wishlist.append(createButtonIcon("icon-wishlist.svg"));
+    if (labeled) wishlist.append(document.createTextNode(wishlisted ? "Wishlisted" : "Wishlist"));
     wishlist.addEventListener("click", () => {
       if (wishlisted) showToast(`“${track.title}” is already in your Bandcamp wishlist.`);
       else void openTrackAction(track, "wishlist");
@@ -3693,15 +3703,17 @@
     if (details) copy.append(createElement("span", `hub-playlist-meta${item.restoreError ? " is-error" : ""}`, details));
 
     const actions = createElement("div", "hub-playlist-track-actions");
-    const play = createElement("button", "hub-playlist-icon-button", "▶");
+    const play = createElement("button", "hub-playlist-icon-button");
     play.type = "button";
     play.title = `Play ${item.title}`;
     play.setAttribute("aria-label", `Play ${item.title}`);
+    play.append(createButtonIcon("icon-play.svg"));
     play.addEventListener("click", () => void playPlaylistAt(index));
-    const remove = createElement("button", "hub-playlist-icon-button is-danger", "×");
+    const remove = createElement("button", "hub-playlist-icon-button is-danger");
     remove.type = "button";
     remove.title = "Remove from playlist";
     remove.setAttribute("aria-label", `Remove ${item.title} from playlist`);
+    remove.append(createButtonIcon("icon-close.svg"));
     remove.addEventListener("click", () => {
       state.playlist.splice(index, 1);
       saveState();
@@ -3772,10 +3784,11 @@
       );
       const trackActions = createTrackActionControls(track);
       if (isActiveTrack) {
-        const toggle = createElement("button", "hub-queue-action hub-current-track-toggle", seamless.isPlaying ? "Ⅱ" : "▶");
+        const toggle = createElement("button", "hub-queue-action hub-current-track-toggle");
         toggle.type = "button";
         toggle.title = seamless.isPlaying ? `Pause ${track.title}` : `Resume ${track.title}`;
         toggle.setAttribute("aria-label", toggle.title);
+        toggle.append(createButtonIcon(seamless.isPlaying ? "icon-pause.svg" : "icon-play.svg"));
         toggle.addEventListener("click", () => void seamlessCommand("BANDCAMP_HUB_SEAMLESS_PLAY_PAUSE"));
         trackActions.prepend(toggle);
       }

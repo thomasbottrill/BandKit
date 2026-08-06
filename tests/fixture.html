@@ -299,9 +299,15 @@
           placements[tab] = closeParent()?.classList.contains("hub-panel-content-header");
         }
         root?.querySelector(".hub-now-playing-button")?.click();
-        placements.nowPlaying = closeParent()?.matches(".hub-playlist-toolbar.hub-panel-content-header");
+        placements.nowPlaying = closeParent()?.matches(".hub-now-playing-header.hub-panel-content-header");
+        const nowPlayingHeader = closeParent();
+        const headerActions = [...(nowPlayingHeader?.querySelectorAll(".hub-playlist-toolbar-icon") || [])];
         const unified = getComputedStyle(root?.querySelector(".hub-header")).display === "none"
-          && Object.values(placements).every(Boolean);
+          && Object.values(placements).every(Boolean)
+          && headerActions.length === 4
+          && headerActions.every((button) => getComputedStyle(button).width === "30px" && getComputedStyle(button).height === "30px" && getComputedStyle(button).borderRadius === "5px" && getComputedStyle(button.querySelector(".hub-button-icon")).width === "14px")
+          && getComputedStyle(nowPlayingHeader?.querySelector(".hub-now-playing-header-actions")).gap === "6px"
+          && getComputedStyle(nowPlayingHeader?.querySelector(".hub-close")).width === "30px";
         document.title = unified
           ? "PASS: unified panel headers fixture"
           : `FAIL: panel headers ${JSON.stringify(placements)}`;
@@ -314,6 +320,8 @@
         const downloadButton = [...(root?.querySelectorAll(".hub-cart-backup .hub-text-button") || [])].find((button) => button.textContent.includes("Download"));
         const importInput = root?.querySelector('.hub-cart-backup input[type="file"]');
         const importButton = [...(root?.querySelectorAll(".hub-cart-backup .hub-text-button") || [])].find((button) => button.textContent.includes("Import"));
+        const cartActionButtons = [...(root?.querySelectorAll(".hub-cart-backup .hub-text-button") || [])];
+        const cartActionToolbar = root?.querySelector(".hub-cart-backup .hub-toolbar");
         downloadButton?.click();
         const download = window.fixtureDownloads.at(-1);
         const exportedHtml = download ? await download.blob.text() : "";
@@ -332,6 +340,9 @@
           && payload?.version === 1
           && payload?.items?.length === 3
           && importButton
+          && cartActionButtons.length === 3
+          && cartActionButtons.every((button) => getComputedStyle(button).minHeight === "30px" && getComputedStyle(button).borderRadius === "5px" && getComputedStyle(button.querySelector(".hub-button-icon")).width === "14px")
+          && getComputedStyle(cartActionToolbar).gap === "6px"
           && importedSnapshot?.items?.length === 3
           ? "PASS: cart backup round trip"
           : `FAIL: cart backup round trip ${payload?.format || "no payload"}/${payload?.items?.length || 0}/${importedSnapshot?.items?.length || 0}`;
@@ -659,10 +670,12 @@
         }, {}, () => {});
         const queueActions = root?.querySelectorAll(".hub-queue-item .hub-queue-action");
         const footerMore = root?.querySelector(".hub-player-more-button");
-        const selectedQueueTab = root?.querySelector('.hub-cart-view-tab[aria-selected="true"]');
-        document.title = queueActions?.length === 3
+        const nowPlayingHeading = root?.querySelector(".hub-now-playing-header");
+        document.title = queueActions?.length >= 3
           && [...queueActions].every((button) => !button.disabled)
-          && selectedQueueTab?.textContent.includes("Now Playing")
+          && [...queueActions].every((button) => getComputedStyle(button).width === "30px" && getComputedStyle(button).height === "30px" && getComputedStyle(button).borderRadius === "5px" && button.querySelector(".hub-button-icon"))
+          && [...(root?.querySelectorAll(".hub-queue-actions") || [])].every((actions) => getComputedStyle(actions).gap === "6px")
+          && nowPlayingHeading?.textContent.includes("Now Playing")
           && !footerMore?.disabled
           ? "PASS: resolved track actions fixture"
           : "FAIL: unresolved track actions fixture";

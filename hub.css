@@ -14,6 +14,10 @@
   --hub-hover: #eef0f2;
   --hub-on-accent: #ffffff;
   --hub-wash: rgba(249, 250, 251, 0.92);
+  --hub-control-size: 30px;
+  --hub-control-icon-size: 14px;
+  --hub-control-radius: 5px;
+  --hub-control-gap: 6px;
   color: var(--hub-ink);
   font-family: var(--hub-font-family, "Helvetica Neue", Helvetica, Arial, sans-serif);
   font-size: 14px;
@@ -374,7 +378,7 @@ button {
 .hub-header-actions {
   align-items: center;
   display: flex;
-  gap: 4px;
+  gap: var(--hub-control-gap);
 }
 
 .hub-reset {
@@ -407,13 +411,13 @@ button {
   align-items: center;
   background: transparent;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--hub-control-radius);
   cursor: pointer;
   display: inline-flex;
-  height: 32px;
+  height: var(--hub-control-size);
   justify-content: center;
   padding: 0;
-  width: 32px;
+  width: var(--hub-control-size);
 }
 
 .hub-icon-button:hover {
@@ -421,8 +425,8 @@ button {
 }
 
 .hub-icon-button img {
-  height: 20px;
-  width: 20px;
+  height: 16px;
+  width: 16px;
 }
 
 .hub-tabs {
@@ -1679,16 +1683,16 @@ button {
 }
 
 .hub-panel-content-header > .hub-close {
-  flex: 0 0 32px;
+  flex: 0 0 var(--hub-control-size);
   margin-left: auto;
 }
 
 .hub-panel-content-header > .hub-section-heading-meta + .hub-close {
-  margin-left: 8px;
+  margin-left: var(--hub-control-gap);
 }
 
 .hub-cart-view-header.hub-panel-content-header {
-  grid-template-columns: minmax(0, 1fr) auto 32px;
+  grid-template-columns: minmax(0, 1fr) auto var(--hub-control-size);
 }
 
 .hub-cart-view-header {
@@ -1943,29 +1947,29 @@ button {
 .hub-queue-actions {
   align-items: center;
   display: flex;
-  gap: 4px;
+  gap: var(--hub-control-gap);
 }
 
 .hub-queue-actions.is-labeled {
   align-items: stretch;
   flex-direction: column;
-  gap: 5px;
+  gap: var(--hub-control-gap);
 }
 
 .hub-queue-action {
   align-items: center;
-  background: transparent;
+  background: var(--hub-card);
   border: 1px solid var(--hub-line);
-  border-radius: 4px;
+  border-radius: var(--hub-control-radius);
   color: var(--hub-muted);
   cursor: pointer;
   display: inline-flex;
   font-size: 14px;
-  height: 25px;
+  height: var(--hub-control-size);
   justify-content: center;
   line-height: 1;
   padding: 0;
-  width: 25px;
+  width: var(--hub-control-size);
 }
 
 .hub-queue-action:hover:not(:disabled),
@@ -2071,23 +2075,23 @@ button {
 
 .hub-queue-action.is-labeled {
   font-size: 11px;
-  gap: 5px;
+  gap: var(--hub-control-gap);
   justify-content: flex-start;
   padding: 0 8px;
   width: 100%;
 }
 
 .hub-queue-cart {
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .hub-queue-cart-icon {
   background: currentColor;
   display: block;
-  height: 12px;
+  height: var(--hub-control-icon-size);
   mask: var(--hub-icon) center / contain no-repeat;
   -webkit-mask: var(--hub-icon) center / contain no-repeat;
-  width: 12px;
+  width: var(--hub-control-icon-size);
 }
 
 .hub-queue-art-link {
@@ -2130,39 +2134,39 @@ button {
 }
 
 .hub-now-playing-header {
-  gap: 12px;
+  gap: var(--hub-control-gap);
 }
 
 .hub-now-playing-header-actions {
   flex: 0 0 auto;
-  gap: 6px;
+  gap: var(--hub-control-gap);
   margin-left: auto;
 }
 
 .hub-now-playing-header.hub-panel-content-header > .hub-close {
-  margin-left: 2px;
+  margin-left: 0;
 }
 
 .hub-playlist-toolbar .hub-toolbar {
   flex: 0 0 auto;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--hub-control-gap);
 }
 
 .hub-playlist-toolbar-icon {
   align-items: center;
   background: var(--hub-card);
   border: 1px solid var(--hub-line);
-  border-radius: 5px;
+  border-radius: var(--hub-control-radius);
   color: var(--hub-accent);
   cursor: pointer;
   display: inline-flex;
-  height: 30px;
+  height: var(--hub-control-size);
   justify-content: center;
   padding: 0;
   position: relative;
   transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
-  width: 30px;
+  width: var(--hub-control-size);
 }
 
 .hub-playlist-toolbar-icon:hover:not(:disabled),
@@ -2181,8 +2185,8 @@ button {
 }
 
 .hub-playlist-toolbar-icon .hub-button-icon {
-  height: 14px;
-  width: 14px;
+  height: var(--hub-control-icon-size);
+  width: var(--hub-control-icon-size);
 }
 
 .hub-add-page-badge {
@@ -2312,24 +2316,27 @@ button {
 
 .hub-playlist-track-actions {
   align-items: center;
-  display: grid;
-  gap: 3px;
-  grid-template-columns: repeat(2, 24px);
+  display: flex;
+  gap: var(--hub-control-gap);
 }
 
 .hub-playlist-icon-button {
   align-items: center;
   background: transparent;
   border: 1px solid var(--hub-line);
-  border-radius: 4px;
+  border-radius: var(--hub-control-radius);
   color: var(--hub-muted);
   cursor: pointer;
   display: inline-flex;
-  font: 700 11px/1 system-ui, sans-serif;
-  height: 24px;
+  height: var(--hub-control-size);
   justify-content: center;
   padding: 0;
-  width: 24px;
+  width: var(--hub-control-size);
+}
+
+.hub-playlist-icon-button .hub-button-icon {
+  height: var(--hub-control-icon-size);
+  width: var(--hub-control-icon-size);
 }
 
 .hub-playlist-icon-button:hover:not(:disabled),
@@ -2427,27 +2434,27 @@ button {
 .hub-saved-playlist-icon-actions {
   align-items: center;
   display: flex;
-  gap: 5px;
+  gap: var(--hub-control-gap);
   justify-content: flex-end;
   margin-left: auto;
 }
 
 .hub-saved-playlist-icon-button.is-delete {
-  margin-left: 10px;
+  margin-left: var(--hub-control-gap);
 }
 
 .hub-saved-playlist-icon-button {
   align-items: center;
   background: var(--hub-card);
   border: 1px solid var(--hub-line);
-  border-radius: 5px;
+  border-radius: var(--hub-control-radius);
   color: var(--hub-accent);
   cursor: pointer;
   display: inline-flex;
-  height: 30px;
+  height: var(--hub-control-size);
   justify-content: center;
   padding: 0;
-  width: 30px;
+  width: var(--hub-control-size);
 }
 
 .hub-saved-playlist-icon-button:hover,
@@ -2458,27 +2465,27 @@ button {
 }
 
 .hub-saved-playlist-icon-button .hub-button-icon {
-  height: 14px;
-  width: 14px;
+  height: var(--hub-control-icon-size);
+  width: var(--hub-control-icon-size);
 }
 
 .hub-saved-playlist-back {
   align-items: center;
   background: var(--hub-card);
   border: 1px solid var(--hub-line);
-  border-radius: 5px;
+  border-radius: var(--hub-control-radius);
   color: var(--hub-accent);
   cursor: pointer;
   display: inline-flex;
-  height: 30px;
+  height: var(--hub-control-size);
   justify-content: center;
   padding: 0;
-  width: 30px;
+  width: var(--hub-control-size);
 }
 
 .hub-saved-playlist-back .hub-button-icon {
-  height: 16px;
-  width: 16px;
+  height: var(--hub-control-icon-size);
+  width: var(--hub-control-icon-size);
 }
 
 .hub-saved-playlist-back:hover,
@@ -2491,7 +2498,7 @@ button {
 
 .hub-saved-playlist-detail-toolbar {
   display: flex;
-  gap: 10px;
+  gap: var(--hub-control-gap);
 }
 
 .hub-saved-playlist-detail-toolbar.hub-panel-content-header {
@@ -2499,7 +2506,7 @@ button {
 }
 
 .hub-saved-playlist-detail-toolbar.hub-panel-content-header > .hub-close {
-  margin-left: 6px;
+  margin-left: 0;
 }
 
 .hub-saved-playlist-detail-title {
@@ -2507,6 +2514,7 @@ button {
   font-size: 15px;
   line-height: 20px;
   margin: 0;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2519,7 +2527,7 @@ button {
 .hub-toolbar {
   align-items: center;
   display: flex;
-  gap: 12px;
+  gap: var(--hub-control-gap);
   justify-content: flex-end;
 }
 
@@ -2543,16 +2551,16 @@ button {
 .hub-cart-backup .hub-toolbar {
   flex: 0 0 auto;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--hub-control-gap);
   justify-content: flex-end;
 }
 
 .hub-cart-backup .hub-text-button {
   background: var(--hub-card);
   border: 1px solid var(--hub-line);
-  border-radius: 5px;
-  min-height: 30px;
-  padding: 5px 9px;
+  border-radius: var(--hub-control-radius);
+  min-height: var(--hub-control-size);
+  padding: 5px 10px;
   transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
 }
 
@@ -2596,7 +2604,7 @@ button {
   cursor: pointer;
   display: inline-flex;
   font-size: 12px;
-  gap: 5px;
+  gap: var(--hub-control-gap);
   padding: 0;
 }
 
@@ -2617,10 +2625,10 @@ button {
 .hub-button-icon {
   background: currentColor;
   display: inline-block;
-  height: 13px;
+  height: var(--hub-control-icon-size);
   mask: var(--hub-icon) center / contain no-repeat;
   -webkit-mask: var(--hub-icon) center / contain no-repeat;
-  width: 13px;
+  width: var(--hub-control-icon-size);
 }
 
 .hub-stack {
@@ -3353,6 +3361,7 @@ button {
   align-items: center;
   display: flex;
   gap: 5px;
+  grid-column: 3;
   justify-content: flex-end;
 }
 
