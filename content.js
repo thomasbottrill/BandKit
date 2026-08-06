@@ -477,7 +477,7 @@
 
   function createSectionHeading(label, metaText = "") {
     const heading = createElement("h2", "hub-section-heading");
-    heading.append(document.createTextNode(label));
+    heading.append(createElement("span", "hub-section-heading-label", label));
     if (metaText) heading.append(createElement("span", "hub-section-heading-meta", metaText));
     return heading;
   }

@@ -293,18 +293,35 @@
       if (location.search.includes("panel-header-unify")) {
         const closeParent = () => root?.querySelector(".hub-close")?.parentElement;
         const placements = {};
+        const titleMetrics = {};
+        const captureTitleMetrics = (name, selector) => {
+          const label = root?.querySelector(selector);
+          const rect = label?.getBoundingClientRect();
+          const style = label ? getComputedStyle(label) : null;
+          titleMetrics[name] = label && rect && style ? {
+            left: Math.round(rect.left),
+            top: Math.round(rect.top),
+            fontSize: style.fontSize,
+            fontWeight: style.fontWeight,
+            lineHeight: style.lineHeight
+          } : null;
+        };
         placements.settings = closeParent()?.matches(".hub-section-heading.hub-panel-content-header");
+        captureTitleMetrics("settings", ".hub-section-heading-label");
         for (const tab of ["cart", "activity", "playlist"]) {
           root?.querySelector(`.hub-header-shortcut[data-tab="${tab}"]`)?.click();
           placements[tab] = closeParent()?.classList.contains("hub-panel-content-header");
+          captureTitleMetrics(tab, tab === "cart" ? ".hub-cart-view-tab.is-active" : ".hub-section-heading-label");
         }
         root?.querySelector(".hub-now-playing-button")?.click();
         placements.nowPlaying = closeParent()?.matches(".hub-now-playing-header.hub-panel-content-header");
+        captureTitleMetrics("nowPlaying", ".hub-section-heading-label");
         const nowPlayingHeader = closeParent();
         const nowPlayingToolbar = root?.querySelector(".hub-now-playing-toolbar");
         const toolbarActions = [...(nowPlayingToolbar?.querySelectorAll(".hub-playlist-toolbar-icon") || [])];
         const unified = getComputedStyle(root?.querySelector(".hub-header")).display === "none"
           && Object.values(placements).every(Boolean)
+          && Object.values(titleMetrics).every((metrics) => metrics && JSON.stringify(metrics) === JSON.stringify(titleMetrics.cart))
           && !nowPlayingHeader?.querySelector(".hub-playlist-toolbar-icon")
           && nowPlayingToolbar?.querySelector(".hub-cart-backup-time")?.textContent.includes("song")
           && toolbarActions.length === 4
