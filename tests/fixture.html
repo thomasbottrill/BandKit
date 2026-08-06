@@ -322,6 +322,7 @@
         const unified = getComputedStyle(root?.querySelector(".hub-header")).display === "none"
           && Object.values(placements).every(Boolean)
           && Object.values(titleMetrics).every((metrics) => metrics && JSON.stringify(metrics) === JSON.stringify(titleMetrics.cart))
+          && getComputedStyle(root?.querySelector(".hub-section-heading-label"), "::after").visibility === "hidden"
           && !nowPlayingHeader?.querySelector(".hub-playlist-toolbar-icon")
           && nowPlayingToolbar?.querySelector(".hub-cart-backup-time")?.textContent.includes("song")
           && toolbarActions.length === 4
