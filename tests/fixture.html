@@ -301,12 +301,15 @@
         root?.querySelector(".hub-now-playing-button")?.click();
         placements.nowPlaying = closeParent()?.matches(".hub-now-playing-header.hub-panel-content-header");
         const nowPlayingHeader = closeParent();
-        const headerActions = [...(nowPlayingHeader?.querySelectorAll(".hub-playlist-toolbar-icon") || [])];
+        const nowPlayingToolbar = root?.querySelector(".hub-now-playing-toolbar");
+        const toolbarActions = [...(nowPlayingToolbar?.querySelectorAll(".hub-playlist-toolbar-icon") || [])];
         const unified = getComputedStyle(root?.querySelector(".hub-header")).display === "none"
           && Object.values(placements).every(Boolean)
-          && headerActions.length === 4
-          && headerActions.every((button) => getComputedStyle(button).width === "30px" && getComputedStyle(button).height === "30px" && getComputedStyle(button).borderRadius === "5px" && getComputedStyle(button.querySelector(".hub-button-icon")).width === "14px")
-          && getComputedStyle(nowPlayingHeader?.querySelector(".hub-now-playing-header-actions")).gap === "6px"
+          && !nowPlayingHeader?.querySelector(".hub-playlist-toolbar-icon")
+          && nowPlayingToolbar?.querySelector(".hub-cart-backup-time")?.textContent.includes("song")
+          && toolbarActions.length === 4
+          && toolbarActions.every((button) => getComputedStyle(button).width === "30px" && getComputedStyle(button).height === "30px" && getComputedStyle(button).borderRadius === "5px" && getComputedStyle(button.querySelector(".hub-button-icon")).width === "14px")
+          && getComputedStyle(nowPlayingToolbar?.querySelector(".hub-toolbar")).gap === "6px"
           && getComputedStyle(nowPlayingHeader?.querySelector(".hub-close")).width === "30px";
         document.title = unified
           ? "PASS: unified panel headers fixture"

@@ -2133,20 +2133,6 @@ button {
   align-items: flex-start;
 }
 
-.hub-now-playing-header {
-  gap: var(--hub-control-gap);
-}
-
-.hub-now-playing-header-actions {
-  flex: 0 0 auto;
-  gap: var(--hub-control-gap);
-  margin-left: auto;
-}
-
-.hub-now-playing-header.hub-panel-content-header > .hub-close {
-  margin-left: 0;
-}
-
 .hub-playlist-toolbar .hub-toolbar {
   flex: 0 0 auto;
   flex-wrap: wrap;
@@ -2439,10 +2425,6 @@ button {
   margin-left: auto;
 }
 
-.hub-saved-playlist-icon-button.is-delete {
-  margin-left: var(--hub-control-gap);
-}
-
 .hub-saved-playlist-icon-button {
   align-items: center;
   background: var(--hub-card);
@@ -2511,6 +2493,7 @@ button {
 
 .hub-saved-playlist-detail-title {
   color: var(--hub-ink);
+  flex: 1 1 auto;
   font-size: 15px;
   line-height: 20px;
   margin: 0;

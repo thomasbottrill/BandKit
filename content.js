@@ -3803,7 +3803,17 @@
     heading.classList.add("hub-now-playing-header");
     const pageTracks = buildSeamlessQueue();
     const toolbarItems = state.playlist.length ? state.playlist : pageTracks;
-    const actions = createElement("div", "hub-toolbar hub-now-playing-header-actions");
+    content.append(heading);
+    mountPanelClose();
+
+    const toolbar = createElement("div", "hub-cart-backup hub-playlist-toolbar hub-now-playing-toolbar");
+    const songCount = toolbarItems.length;
+    toolbar.append(createElement(
+      "div",
+      "hub-cart-backup-time",
+      `${songCount} song${songCount === 1 ? "" : "s"} in Now Playing`
+    ));
+    const actions = createElement("div", "hub-toolbar");
     const addPage = createPlaylistToolbarButton("Add page to queue", "icon-queue.svg", () => {
       if (!pageTracks.length) showToast("This page does not expose a streamable track list.");
       else addTracksToPlaylist(pageTracks);
@@ -3825,9 +3835,8 @@
     });
     clear.disabled = !state.playlist.length && !toolbarItems.length && !live.hasPlaybackStarted;
     actions.append(addPage, save, download, clear);
-    heading.append(actions);
-    content.append(heading);
-    mountPanelClose();
+    toolbar.append(actions);
+    content.append(toolbar);
 
     if (!state.playlist.length) {
       renderPageQueueFallback();
@@ -3937,8 +3946,20 @@
     }, true);
     back.addEventListener("click", returnToSavedPlaylists);
     const title = createElement("h2", "hub-saved-playlist-detail-title", snapshot.name);
-    toolbar.append(back, title, createSavedPlaylistActions(snapshot, { includeDownload: true }));
+    toolbar.append(back, title);
     content.append(toolbar);
+
+    const actionRow = createElement("div", "hub-cart-backup hub-playlist-toolbar hub-saved-playlist-action-row");
+    const duration = snapshot.items.reduce((sum, item) => sum + (Number(item.duration) || 0), 0);
+    actionRow.append(
+      createElement(
+        "div",
+        "hub-cart-backup-time",
+        `${snapshot.items.length} track${snapshot.items.length === 1 ? "" : "s"} · ${formatDuration(duration)}`
+      ),
+      createSavedPlaylistActions(snapshot, { includeDownload: true })
+    );
+    content.append(actionRow);
 
     const list = createElement("div", "hub-stack hub-saved-playlist-track-list");
     snapshot.items.forEach((item, index) => {

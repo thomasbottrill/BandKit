@@ -186,7 +186,8 @@
         const mosaicImages = card?.querySelectorAll(".hub-playlist-mosaic-image");
         card?.querySelector(".hub-saved-playlist-open")?.click();
         const detailToolbar = root?.querySelector(".hub-saved-playlist-detail-toolbar");
-        const detailActions = [...(detailToolbar?.querySelectorAll(".hub-saved-playlist-icon-button") || [])];
+        const detailActionRow = root?.querySelector(".hub-saved-playlist-action-row");
+        const detailActions = [...(detailActionRow?.querySelectorAll(".hub-saved-playlist-icon-button") || [])];
         const backButton = detailToolbar?.querySelector(".hub-saved-playlist-back");
         const detailTracks = root?.querySelectorAll(".hub-saved-playlist-track");
         const flattenedDetail = panelTitle?.textContent.includes("Playlists")
@@ -199,12 +200,14 @@
           && cardActions.every((button) => !button.textContent.trim() && button.getAttribute("aria-label"))
           && detailToolbar?.querySelector(".hub-saved-playlist-detail-title")?.textContent === "Fixture set"
           && !root?.querySelector(".hub-saved-playlist-detail-heading")
+          && !detailToolbar?.querySelector(".hub-saved-playlist-icon-button")
+          && detailActionRow?.querySelector(".hub-cart-backup-time")?.textContent === "2 tracks · 6:30"
           && detailActions.length === 5
           && detailActions.at(-1)?.classList.contains("is-delete")
           && detailActions.some((button) => button.getAttribute("aria-label")?.startsWith("Download "))
           && detailActions.every((button) => getComputedStyle(button).width === "30px" && getComputedStyle(button).height === "30px" && getComputedStyle(button).borderRadius === "5px" && getComputedStyle(button.querySelector(".hub-button-icon")).width === "14px")
-          && getComputedStyle(detailToolbar.querySelector(".hub-saved-playlist-icon-actions")).gap === "6px"
-          && getComputedStyle(detailActions.at(-1)).marginLeft === "6px"
+          && getComputedStyle(detailActionRow.querySelector(".hub-saved-playlist-icon-actions")).gap === "6px"
+          && getComputedStyle(detailActions.at(-1)).marginLeft === "0px"
           && backButton?.querySelector(".hub-button-icon")
           && detailTracks?.length === 2;
         backButton?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, pointerId: 1 }));
