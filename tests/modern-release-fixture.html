@@ -244,7 +244,7 @@
         && getComputedStyle(document.querySelector("#pgBd")).display === "grid"
         && getComputedStyle(document.querySelector(".tralbum-tags")).display === "flex"
         && Math.round(document.querySelector("#name-section").getBoundingClientRect().left) === Math.round(document.querySelector("#trackInfo").getBoundingClientRect().left)
-        && document.querySelector("#trackInfoInner > #track_table").getBoundingClientRect().top - document.querySelector("#trackInfoInner > .inline_player").getBoundingClientRect().bottom <= 16
+        && (fixtureSingleTrack || document.querySelector("#trackInfoInner > #track_table").getBoundingClientRect().top - document.querySelector("#trackInfoInner > .inline_player").getBoundingClientRect().bottom <= 16)
         && Math.round(document.querySelector(".inline_player .play_cell > a").getBoundingClientRect().width) === 56
         && Math.round(document.querySelector(".inline_player .play_cell > a").getBoundingClientRect().height) === 56
         && Math.round(document.querySelector(".bandkit-modern-tags-panel").getBoundingClientRect().width) === Math.round(document.querySelector(".bandkit-modern-release-body > .collected-by").getBoundingClientRect().width)

@@ -1371,6 +1371,28 @@
     return shell;
   }
 
+  function markModernTrackAvailability(trackTable) {
+    if (!trackTable) return;
+    const trackInfo = getBandcampPageData()?.tralbum?.trackinfo || [];
+    const rows = [...trackTable.querySelectorAll(".track_row_view")];
+    for (const [index, row] of rows.entries()) {
+      const control = row.querySelector(".play-col > a");
+      const relation = row.getAttribute("rel") || "";
+      const trackNumber = Number(relation.match(/(?:^|[&;\s])tracknum=(\d+)/i)?.[1] || 0);
+      const track = trackInfo[trackNumber > 0 ? trackNumber - 1 : index];
+      const hasTrackAvailability = Boolean(track && Object.prototype.hasOwnProperty.call(track, "file"));
+      const hasPlayableFile = Boolean(track?.file && Object.values(track.file).some((value) => typeof value === "string" && value.trim()));
+      const nativeStyle = control ? getComputedStyle(control) : null;
+      const nativelyUnavailable = !control
+        || control.hidden
+        || control.getAttribute("aria-disabled") === "true"
+        || nativeStyle?.display === "none"
+        || nativeStyle?.visibility === "hidden";
+      row.classList.toggle("bandkit-modern-track-unplayable", hasTrackAvailability ? !hasPlayableFile : nativelyUnavailable);
+    }
+    modernReleaseCleanups.push(() => rows.forEach((row) => row.classList.remove("bandkit-modern-track-unplayable")));
+  }
+
   function prepareModernReleaseLayout() {
     if (modernReleaseLayoutPrepared || !isClassicReleasePage()) return;
     const release = document.querySelector(".trackView");
@@ -1387,6 +1409,7 @@
     for (const item of commands?.querySelectorAll(":scope > .buyItem") || []) {
       moveModernReleaseNode(item, purchaseList);
     }
+    markModernTrackAvailability(trackTable);
 
     const releasePrimary = createModernReleaseShell("section", "bandkit-modern-release-primary");
     const musicColumn = createModernReleaseShell("div", "bandkit-modern-music-column");

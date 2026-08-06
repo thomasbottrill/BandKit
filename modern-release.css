@@ -468,6 +468,69 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #track_table td {
   vertical-align: middle !important;
 }
 
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play-col {
+  padding-left: 0 !important;
+  padding-right: 8px !important;
+  width: 32px !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play-col > a {
+  align-items: center;
+  aspect-ratio: 1;
+  background: var(--bandkit-release-surface-raised) !important;
+  border: 1px solid var(--bandkit-release-line) !important;
+  border-radius: 3px !important;
+  color: var(--bandkit-release-ink) !important;
+  display: flex !important;
+  height: 24px !important;
+  justify-content: center;
+  max-height: 24px !important;
+  max-width: 24px !important;
+  min-height: 24px !important;
+  min-width: 24px !important;
+  padding: 0 !important;
+  width: 24px !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view.bandkit-modern-track-unplayable .play-col > a {
+  display: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_status {
+  background: none !important;
+  border: 0 !important;
+  display: block !important;
+  height: 100% !important;
+  position: relative;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_status::before {
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid currentColor;
+  border-top: 5px solid transparent;
+  content: "";
+  height: 0;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-42%, -50%);
+  width: 0;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_status::after {
+  content: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_status.playing::before,
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view.bandcamp-hub-is-playing .play_status::before {
+  background: linear-gradient(90deg, currentColor 0 34%, transparent 34% 66%, currentColor 66% 100%);
+  border: 0;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  width: 10px;
+}
+
 html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track-number-col {
   width: 28px !important;
 }
@@ -506,8 +569,11 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .info-co
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col {
-  padding-left: 10px !important;
-  width: 70px !important;
+  box-sizing: border-box;
+  padding: 7px 0 7px 8px !important;
+  text-align: right !important;
+  white-space: nowrap;
+  width: 124px !important;
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col a {
@@ -515,6 +581,47 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .downloa
   font-size: 11px !important;
   font-weight: 600;
   text-decoration: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col :is(.bandcamp-hub-page-playlist.is-track-action, .bandcamp-hub-page-buy) {
+  background: transparent !important;
+  border: 1px solid var(--bandkit-release-line) !important;
+  border-radius: 4px !important;
+  box-sizing: border-box !important;
+  color: var(--bandkit-release-accent) !important;
+  height: 24px !important;
+  margin: 0 !important;
+  max-height: 24px !important;
+  min-height: 24px !important;
+  vertical-align: middle !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .bandcamp-hub-page-playlist.is-track-action {
+  margin-right: 4px !important;
+  max-width: 24px !important;
+  min-width: 24px !important;
+  width: 24px !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .bandcamp-hub-page-buy {
+  flex: 0 0 auto !important;
+  font-size: 11px !important;
+  line-height: 1 !important;
+  max-width: none !important;
+  min-width: max-content !important;
+  overflow: visible !important;
+  padding: 0 8px !important;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .bandcamp-hub-page-buy::before {
+  content: none !important;
+  display: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col :is(.bandcamp-hub-page-playlist.is-track-action, .bandcamp-hub-page-buy):is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--bandkit-release-accent) 10%, transparent) !important;
+  border-color: var(--bandkit-release-accent) !important;
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-notes-panel > h3 {
@@ -1017,6 +1124,56 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purch
   height: 100% !important;
   object-fit: cover;
   width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography > .art.compact {
+  box-sizing: border-box;
+  display: flex !important;
+  height: 65px !important;
+  margin: 12px 0 !important;
+  overflow: hidden !important;
+  padding-right: 69px;
+  position: relative !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .art-thumb {
+  background-position: center;
+  background-size: cover;
+  display: block;
+  flex: 0 0 65px;
+  height: 65px;
+  margin-right: -33px;
+  position: relative;
+  width: 65px;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .more-button {
+  align-items: center;
+  background: var(--bandkit-release-surface-raised) !important;
+  box-sizing: border-box;
+  display: flex !important;
+  flex-direction: column;
+  height: 65px;
+  justify-content: center;
+  left: auto !important;
+  margin: 0 !important;
+  position: absolute !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 65px;
+  z-index: 20;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .more-button .count {
+  font-size: 24px;
+  line-height: 1;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .more-button .releases {
+  font-size: 11px;
+  line-height: 1.3;
+  margin-top: 5px;
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container {
