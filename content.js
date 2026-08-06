@@ -1085,11 +1085,21 @@
     showToast(mode === "replace" ? `Loaded “${snapshot.name}” into Now Playing` : `Added “${snapshot.name}” to Now Playing`);
   }
 
-  function exportPlaylist(items = state.playlist) {
+  function exportPlaylist(items = state.playlist, playlistName = "BandKit playlist") {
     const playlistItems = normalizePlaylist(items);
     const exportedAt = new Date();
+    const safeName = String(playlistName || "BandKit playlist").trim().slice(0, 120) || "BandKit playlist";
+    const payload = {
+      format: "bandkit-playlist",
+      version: 1,
+      name: safeName,
+      exportedAt: exportedAt.toISOString(),
+      sourcePage: location.href,
+      items: playlistItems
+    };
+    const embeddedPayload = JSON.stringify(payload).replace(/</g, "\\u003c");
     const rows = playlistItems.map((item) => `<li><strong>${escapeHtml(item.title)}</strong> by ${escapeHtml(item.artist)}${item.album ? ` — ${escapeHtml(item.album)}` : ""}${item.duration ? ` (${escapeHtml(formatDuration(item.duration))})` : ""}<br><a href="${escapeHtml(item.pageUrl)}">${escapeHtml(item.pageUrl)}</a></li>`).join("");
-    const documentText = `<!doctype html><html lang="en"><meta charset="utf-8"><title>BandKit playlist</title><style>body{font:16px/1.5 system-ui,sans-serif;max-width:800px;margin:48px auto;padding:0 24px;color:#17202a}li{margin:0 0 18px}a{color:#1687a7;overflow-wrap:anywhere}</style><h1>BandKit playlist</h1><p>Exported ${escapeHtml(exportedAt.toLocaleString())}. ${playlistItems.length} tracks.</p><ol>${rows}</ol></html>`;
+    const documentText = `<!doctype html><html lang="en"><meta charset="utf-8"><title>${escapeHtml(safeName)}</title><style>body{font:16px/1.5 system-ui,sans-serif;max-width:800px;margin:48px auto;padding:0 24px;color:#17202a}li{margin:0 0 18px}a{color:#1687a7;overflow-wrap:anywhere}</style><h1>${escapeHtml(safeName)}</h1><p>Exported ${escapeHtml(exportedAt.toLocaleString())}. ${playlistItems.length} tracks.</p><ol>${rows}</ol><script type="application/json" id="bandkit-playlist-data">${embeddedPayload}<\/script></html>`;
     const blobUrl = URL.createObjectURL(new Blob([documentText], { type: "text/html" }));
     const link = document.createElement("a");
     link.href = blobUrl;
@@ -1097,6 +1107,57 @@
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
     showToast(`Downloaded ${playlistItems.length} playlist track${playlistItems.length === 1 ? "" : "s"}`);
+  }
+
+  function parsePlaylistBackup(text) {
+    const source = String(text || "").trim();
+    if (!source) throw new Error("The selected file is empty.");
+    let payload;
+    if (source.startsWith("{")) {
+      payload = JSON.parse(source);
+    } else {
+      const documentNode = new DOMParser().parseFromString(source, "text/html");
+      const embedded = documentNode.querySelector("#bandkit-playlist-data")?.textContent;
+      if (!embedded) throw new Error("This HTML file does not contain a BandKit playlist.");
+      payload = JSON.parse(embedded);
+    }
+    if (payload?.format !== "bandkit-playlist" || Number(payload.version) !== 1 || !Array.isArray(payload.items)) {
+      throw new Error("This is not a supported BandKit playlist.");
+    }
+    const items = normalizePlaylist(payload.items);
+    if (!items.length) throw new Error("The playlist does not contain any valid Bandcamp tracks.");
+    return {
+      name: String(payload.name || "Imported playlist").trim().slice(0, 120) || "Imported playlist",
+      savedAt: Number.isNaN(new Date(payload.exportedAt).getTime()) ? new Date().toISOString() : new Date(payload.exportedAt).toISOString(),
+      sourcePage: safeBandcampUrl(payload.sourcePage),
+      items
+    };
+  }
+
+  async function importPlaylist(file, button) {
+    if (!file) return;
+    button.disabled = true;
+    try {
+      if (file.size > 5 * 1024 * 1024) throw new Error("Playlist files must be smaller than 5 MB.");
+      const imported = parsePlaylistBackup(await file.text());
+      const fallbackName = String(file.name || "Imported playlist").replace(/\.(?:html?|json)$/i, "").replace(/^bandkit-playlist-?/i, "").trim();
+      const snapshot = {
+        id: `playlist-import-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: imported.name === "BandKit playlist" && fallbackName ? fallbackName.slice(0, 120) : imported.name,
+        savedAt: imported.savedAt,
+        sourcePage: imported.sourcePage,
+        items: imported.items
+      };
+      state.savedPlaylists.unshift(snapshot);
+      state.savedPlaylists = normalizeSavedPlaylists(state.savedPlaylists);
+      saveState();
+      render();
+      showToast(`Imported “${snapshot.name}” with ${snapshot.items.length} track${snapshot.items.length === 1 ? "" : "s"}`);
+    } catch (error) {
+      showToast(error?.message || "The playlist could not be imported.");
+    } finally {
+      button.disabled = false;
+    }
   }
 
   function reportDiagnostic(status, error = "") {
@@ -3413,15 +3474,20 @@
     metaRow.style.marginTop = "8px";
     metaRow.append(createElement("span", "hub-meta", item.kind));
     if (removable) {
-      const remove = createElement("button", "hub-text-button is-danger", "Remove");
+      const remove = createElement("button", "hub-playlist-icon-button hub-cart-remove-button");
       remove.type = "button";
+      remove.title = `Remove ${item.title} from cart`;
+      remove.setAttribute("aria-label", remove.title);
+      remove.append(createButtonIcon("icon-close.svg"));
       remove.addEventListener("click", async () => {
         remove.disabled = true;
-        remove.textContent = "Removing…";
+        remove.title = `Removing ${item.title} from cart`;
+        remove.setAttribute("aria-label", remove.title);
         const result = await removeLiveCartItem(item);
         if (!result.removed) {
           remove.disabled = false;
-          remove.textContent = "Remove";
+          remove.title = `Remove ${item.title} from cart`;
+          remove.setAttribute("aria-label", remove.title);
           showToast(result.error || "Bandcamp could not remove this item.");
           return;
         }
@@ -3709,7 +3775,7 @@
     play.setAttribute("aria-label", `Play ${item.title}`);
     play.append(createButtonIcon("icon-play.svg"));
     play.addEventListener("click", () => void playPlaylistAt(index));
-    const remove = createElement("button", "hub-playlist-icon-button is-danger");
+    const remove = createElement("button", "hub-playlist-icon-button");
     remove.type = "button";
     remove.title = "Remove from playlist";
     remove.setAttribute("aria-label", `Remove ${item.title} from playlist`);
@@ -3878,21 +3944,39 @@
     return button;
   }
 
-  function createSavedPlaylistActions(snapshot, { includeDownload = false } = {}) {
+  function createSavedPlaylistActions(snapshot, { includeDownload = false, includePlay = true, includeRestoreCart = false } = {}) {
     const actions = createElement("div", "hub-saved-playlist-icon-actions");
-    actions.append(
-      createSavedPlaylistActionButton(`Play ${snapshot.name}`, "icon-play.svg", () => {
+    if (includePlay) {
+      actions.append(createSavedPlaylistActionButton(`Play ${snapshot.name}`, "icon-play.svg", () => {
         restoreSavedPlaylist(snapshot, "replace");
         void playPlaylistAt(0);
-      }),
+      }));
+    }
+    actions.append(
       createSavedPlaylistActionButton(`Add ${snapshot.name} to Now Playing`, "icon-plus.svg", () => restoreSavedPlaylist(snapshot, "append")),
       createSavedPlaylistActionButton(`Rename ${snapshot.name}`, "icon-edit.svg", () => renameSavedPlaylist(snapshot))
     );
     if (includeDownload) {
-      actions.append(createSavedPlaylistActionButton(`Download ${snapshot.name}`, "icon-download-all.svg", () => exportPlaylist(snapshot.items)));
+      actions.append(createSavedPlaylistActionButton(`Download ${snapshot.name}`, "icon-download-all.svg", () => exportPlaylist(snapshot.items, snapshot.name)));
+    }
+    if (includeRestoreCart) {
+      actions.append(createSavedPlaylistActionButton(`Restore ${snapshot.name} to cart`, "icon-cart.svg", () => void restoreSavedCart(snapshot.items)));
     }
     actions.append(createSavedPlaylistActionButton(`Delete ${snapshot.name}`, "icon-trash.svg", () => deleteSavedPlaylist(snapshot), "is-delete"));
     return actions;
+  }
+
+  function createSavedPlaylistPlayButton(snapshot) {
+    const button = createElement("button", "hub-saved-playlist-play-button");
+    button.type = "button";
+    button.title = `Play ${snapshot.name}`;
+    button.setAttribute("aria-label", button.title);
+    button.append(createButtonIcon("icon-play.svg"), document.createTextNode("Play"));
+    button.addEventListener("click", () => {
+      restoreSavedPlaylist(snapshot, "replace");
+      void playPlaylistAt(0);
+    });
+    return button;
   }
 
   function createPlaylistArtworkMosaic(items) {
@@ -4012,7 +4096,10 @@
       );
       body.append(createPlaylistArtworkMosaic(snapshot.items), bodyCopy);
       const footer = createElement("div", "hub-card-footer hub-saved-cart-actions");
-      footer.append(createSavedPlaylistActions(snapshot));
+      footer.append(
+        createSavedPlaylistPlayButton(snapshot),
+        createSavedPlaylistActions(snapshot, { includePlay: false, includeRestoreCart: true })
+      );
       card.append(body, footer);
       stack.append(card);
     }
@@ -4026,6 +4113,25 @@
     if (selected) renderSavedPlaylistDetail(selected);
     else {
       content.append(createSectionHeading("Playlists", `${state.savedPlaylists.length} saved`));
+      const importRow = createElement("div", "hub-cart-backup hub-playlist-import-row");
+      importRow.append(createElement("div", "hub-cart-backup-time", "Import a downloaded BandKit playlist"));
+      const actions = createElement("div", "hub-toolbar");
+      const importInput = document.createElement("input");
+      importInput.type = "file";
+      importInput.accept = ".html,.htm,.json,text/html,application/json";
+      importInput.hidden = true;
+      const importButton = createElement("button", "hub-text-button is-accent hub-playlist-import-button", "Import");
+      importButton.type = "button";
+      importButton.prepend(createButtonIcon("icon-import.svg"));
+      importButton.addEventListener("click", () => importInput.click());
+      importInput.addEventListener("change", () => {
+        const file = importInput.files?.[0];
+        importInput.value = "";
+        void importPlaylist(file, importButton);
+      });
+      actions.append(importButton, importInput);
+      importRow.append(actions);
+      content.append(importRow);
       renderSavedPlaylists();
     }
   }

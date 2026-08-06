@@ -2151,7 +2151,7 @@ button {
   justify-content: center;
   padding: 0;
   position: relative;
-  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
   width: var(--hub-control-size);
 }
 
@@ -2160,7 +2160,6 @@ button {
   background: var(--hub-accent-soft);
   border-color: var(--hub-accent);
   outline: 0;
-  transform: translateY(-1px);
 }
 
 .hub-playlist-toolbar-icon:disabled {
@@ -2306,6 +2305,24 @@ button {
   gap: var(--hub-control-gap);
 }
 
+.hub-playlist-track .hub-playlist-track-actions,
+.hub-queue-list .hub-queue-item .hub-queue-actions,
+.hub-saved-playlist-track .hub-queue-actions {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 100ms ease;
+}
+
+.hub-playlist-track:hover .hub-playlist-track-actions,
+.hub-playlist-track:focus-within .hub-playlist-track-actions,
+.hub-queue-list .hub-queue-item:hover .hub-queue-actions,
+.hub-queue-list .hub-queue-item:focus-within .hub-queue-actions,
+.hub-saved-playlist-track:hover .hub-queue-actions,
+.hub-saved-playlist-track:focus-within .hub-queue-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .hub-playlist-icon-button {
   align-items: center;
   background: transparent;
@@ -2337,13 +2354,36 @@ button {
   opacity: 0.3;
 }
 
-.hub-playlist-icon-button.is-danger {
-  color: #ef4444;
-}
-
 .hub-saved-playlist-card .hub-saved-cart-actions {
   flex-wrap: wrap;
-  justify-content: flex-end;
+  gap: var(--hub-control-gap);
+  justify-content: space-between;
+}
+
+.hub-saved-playlist-play-button {
+  align-items: center;
+  background: var(--hub-accent);
+  border: 1px solid var(--hub-accent);
+  border-radius: var(--hub-control-radius);
+  color: var(--hub-on-accent);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  gap: var(--hub-control-gap);
+  height: var(--hub-control-size);
+  padding: 0 10px;
+}
+
+.hub-saved-playlist-play-button:hover,
+.hub-saved-playlist-play-button:focus-visible {
+  filter: brightness(0.92);
+  outline: 0;
+}
+
+.hub-saved-playlist-play-button .hub-button-icon {
+  height: var(--hub-control-icon-size);
+  width: var(--hub-control-icon-size);
 }
 
 .hub-saved-playlist-open {
@@ -2544,24 +2584,19 @@ button {
   border-radius: var(--hub-control-radius);
   min-height: var(--hub-control-size);
   padding: 5px 10px;
-  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
 .hub-cart-backup .hub-text-button:hover:not(:disabled) {
   background: var(--hub-accent-soft);
   border-color: var(--hub-accent);
   color: var(--hub-accent);
-  transform: translateY(-1px);
 }
 
 .hub-cart-backup .hub-text-button:focus-visible {
   border-color: var(--hub-accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--hub-accent) 28%, transparent);
   outline: 0;
-}
-
-.hub-cart-backup .hub-text-button:active:not(:disabled) {
-  transform: translateY(0);
 }
 
 .hub-cart-backup .hub-text-button:disabled {
@@ -2598,6 +2633,15 @@ button {
 
 .hub-text-button.is-danger {
   color: #ef4444;
+}
+
+@media (hover: none) {
+  .hub-playlist-track .hub-playlist-track-actions,
+  .hub-queue-list .hub-queue-item .hub-queue-actions,
+  .hub-saved-playlist-track .hub-queue-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .hub-text-button img {

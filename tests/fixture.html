@@ -323,6 +323,7 @@
         const downloadButton = [...(root?.querySelectorAll(".hub-cart-backup .hub-text-button") || [])].find((button) => button.textContent.includes("Download"));
         const importInput = root?.querySelector('.hub-cart-backup input[type="file"]');
         const importButton = [...(root?.querySelectorAll(".hub-cart-backup .hub-text-button") || [])].find((button) => button.textContent.includes("Import"));
+        const cartRemoveButtons = [...(root?.querySelectorAll(".hub-cart-remove-button") || [])];
         const cartActionButtons = [...(root?.querySelectorAll(".hub-cart-backup .hub-text-button") || [])];
         const cartActionToolbar = root?.querySelector(".hub-cart-backup .hub-toolbar");
         downloadButton?.click();
@@ -343,6 +344,8 @@
           && payload?.version === 1
           && payload?.items?.length === 3
           && importButton
+          && cartRemoveButtons.length === 3
+          && cartRemoveButtons.every((button) => !button.textContent.trim() && button.querySelector(".hub-button-icon") && getComputedStyle(button).color !== "rgb(239, 68, 68)")
           && cartActionButtons.length === 3
           && cartActionButtons.every((button) => getComputedStyle(button).minHeight === "30px" && getComputedStyle(button).borderRadius === "5px" && getComputedStyle(button.querySelector(".hub-button-icon")).width === "14px")
           && getComputedStyle(cartActionToolbar).gap === "6px"

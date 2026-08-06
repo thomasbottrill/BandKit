@@ -50,6 +50,20 @@
       nativeModernControl.setAttribute("aria-label", playing ? "Play" : "Pause");
       nativeModernControl.textContent = playing ? "Play" : "Pause";
     });
+    window.fixtureDownloads = [];
+    URL.createObjectURL = (blob) => {
+      window.fixtureDownloads.push({ blob, filename: "" });
+      return `blob:fixture-${window.fixtureDownloads.length}`;
+    };
+    URL.revokeObjectURL = () => {};
+    const fixtureAnchorClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () {
+      if (this.download) {
+        window.fixtureDownloads.at(-1).filename = this.download;
+        return;
+      }
+      fixtureAnchorClick.call(this);
+    };
     window.fixtureStored = location.search.includes("saved-playlists") ? {
       bandcampHubState: {
         open: true,
@@ -137,7 +151,7 @@
     fetch(`/cart-autosave.js${location.search}`).then((response) => response.text()).then((source) => eval(source)).then(() => fetch(`/content.js${location.search}`)).then((response) => response.text()).then((source) => {
       eval(source.replaceAll("chrome.", "fixtureChrome."));
     }).catch((error) => { document.documentElement.dataset.fixtureError = String(error); });
-    window.setTimeout(() => {
+    window.setTimeout(async () => {
       const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
       if (location.search.includes("appearance-reskin")) {
         const pageThemeToggle = root?.querySelector(".hub-page-theme-toggle");
@@ -168,34 +182,89 @@
       if (location.search.includes("playlist-reorder")) {
         const initialCards = [...(root?.querySelectorAll(".hub-playlist-track") || [])];
         const hasNoArrowButtons = !initialCards.some((card) => [...card.querySelectorAll("button")].some((button) => ["↑", "↓"].includes(button.textContent.trim())));
+        const firstActions = initialCards[0]?.querySelector(".hub-playlist-track-actions");
+        const firstActionButtons = [...(firstActions?.querySelectorAll("button") || [])];
+        const hiddenActions = getComputedStyle(firstActions).opacity === (initialCards[0]?.matches(":hover") ? "1" : "0");
+        const neutralRemove = firstActionButtons.length === 2 && getComputedStyle(firstActionButtons[1]).color !== "rgb(239, 68, 68)";
+        firstActionButtons[0]?.focus();
+        await new Promise((resolve) => setTimeout(resolve, 120));
+        const focusedActions = getComputedStyle(firstActions).opacity === "1";
         initialCards[0]?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", altKey: true, bubbles: true }));
         const reorderedCards = [...(root?.querySelectorAll(".hub-playlist-track") || [])];
         document.title = initialCards.length === 2
           && initialCards.every((card) => card.draggable && card.getAttribute("aria-label")?.includes("Drag to reorder"))
           && hasNoArrowButtons
+          && hiddenActions
+          && focusedActions
+          && neutralRemove
           && reorderedCards[0]?.textContent.includes("Modern Two")
           && window.fixtureStored.bandcampHubState?.playlist?.[0]?.title === "Modern Two"
           ? "PASS: draggable playlist reorder fixture"
-          : "FAIL: draggable playlist reorder fixture";
+          : `FAIL: draggable playlist reorder fixture cards:${initialCards.length} arrows:${hasNoArrowButtons} hidden:${hiddenActions} focus:${focusedActions} neutral:${neutralRemove} reordered:${reorderedCards[0]?.textContent.includes("Modern Two")} stored:${window.fixtureStored.bandcampHubState?.playlist?.[0]?.title}`;
         return;
       }
       if (location.search.includes("saved-playlists")) {
         const panelTitle = root?.querySelector(".hub-title");
-        const card = root?.querySelector(".hub-saved-playlist-card");
+        const importRow = root?.querySelector(".hub-playlist-import-row");
+        const importButton = importRow?.querySelector(".hub-playlist-import-button");
+        const importInput = importRow?.querySelector('input[type="file"]');
+        const importPayload = {
+          format: "bandkit-playlist",
+          version: 1,
+          name: "Imported fixture",
+          exportedAt: "2026-08-05T10:00:00.000Z",
+          sourcePage: "https://bandcamp.com/",
+          items: [{
+            id: "imported-track",
+            title: "Imported Track",
+            artist: "Imported Artist",
+            pageUrl: "https://fixture-artist.bandcamp.com/track/imported-track",
+            duration: 150
+          }]
+        };
+        if (importInput) {
+          const importedHtml = `<!doctype html><script type="application/json" id="bandkit-playlist-data">${JSON.stringify(importPayload)}<\/script>`;
+          const file = new File([importedHtml], "imported-fixture.html", { type: "text/html" });
+          Object.defineProperty(importInput, "files", { configurable: true, value: [file] });
+          importInput.dispatchEvent(new Event("change", { bubbles: true }));
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        const playlistCards = [...(root?.querySelectorAll(".hub-saved-playlist-card") || [])];
+        const importedCard = playlistCards.find((entry) => entry.textContent.includes("Imported fixture"));
+        const card = playlistCards.find((entry) => entry.textContent.includes("Fixture set"));
         const cardActions = [...(card?.querySelectorAll(".hub-saved-playlist-icon-button") || [])];
+        const cardPlay = card?.querySelector(".hub-saved-playlist-play-button");
+        const cardPlayProminent = cardPlay && getComputedStyle(cardPlay).backgroundColor !== "rgba(0, 0, 0, 0)";
         const mosaicImages = card?.querySelectorAll(".hub-playlist-mosaic-image");
         card?.querySelector(".hub-saved-playlist-open")?.click();
         const detailToolbar = root?.querySelector(".hub-saved-playlist-detail-toolbar");
         const detailActionRow = root?.querySelector(".hub-saved-playlist-action-row");
         const detailActions = [...(detailActionRow?.querySelectorAll(".hub-saved-playlist-icon-button") || [])];
+        const downloadAction = detailActions.find((button) => button.getAttribute("aria-label")?.startsWith("Download "));
+        downloadAction?.click();
+        const exportedDownload = window.fixtureDownloads.at(-1);
+        const exportedHtml = exportedDownload ? await exportedDownload.blob.text() : "";
+        const exportedText = new DOMParser().parseFromString(exportedHtml, "text/html").querySelector("#bandkit-playlist-data")?.textContent || "";
+        let exportedPayload = null;
+        try { exportedPayload = JSON.parse(exportedText); } catch {}
         const backButton = detailToolbar?.querySelector(".hub-saved-playlist-back");
         const detailTracks = root?.querySelectorAll(".hub-saved-playlist-track");
+        const firstTrackActions = detailTracks?.[0]?.querySelector(".hub-queue-actions");
+        const detailTrackActionsHidden = getComputedStyle(firstTrackActions).opacity === (detailTracks?.[0]?.matches(":hover") ? "1" : "0");
+        firstTrackActions?.querySelector("button")?.focus();
+        await new Promise((resolve) => setTimeout(resolve, 120));
+        const detailTrackActionsFocused = getComputedStyle(firstTrackActions).opacity === "1";
         const flattenedDetail = panelTitle?.textContent.includes("Playlists")
           && !root?.querySelector(".hub-content [role='tab']")
           && card?.textContent.includes("Fixture set")
           && card?.textContent.includes("2 tracks")
           && cardActions.length === 4
+          && cardPlay?.textContent.trim() === "Play"
+          && cardPlayProminent
+          && cardActions.some((button) => button.getAttribute("aria-label") === "Restore Fixture set to cart")
           && !cardActions.some((button) => button.getAttribute("aria-label")?.includes("Replace Now Playing"))
+          && importButton?.textContent.includes("Import")
+          && importedCard?.textContent.includes("Imported Track")
           && mosaicImages?.length === 2
           && cardActions.every((button) => !button.textContent.trim() && button.getAttribute("aria-label"))
           && detailToolbar?.querySelector(".hub-saved-playlist-detail-title")?.textContent === "Fixture set"
@@ -205,17 +274,23 @@
           && detailActions.length === 5
           && detailActions.at(-1)?.classList.contains("is-delete")
           && detailActions.some((button) => button.getAttribute("aria-label")?.startsWith("Download "))
+          && exportedDownload?.filename.endsWith(".html")
+          && exportedPayload?.format === "bandkit-playlist"
+          && exportedPayload?.name === "Fixture set"
+          && exportedPayload?.items?.length === 2
           && detailActions.every((button) => getComputedStyle(button).width === "30px" && getComputedStyle(button).height === "30px" && getComputedStyle(button).borderRadius === "5px" && getComputedStyle(button.querySelector(".hub-button-icon")).width === "14px")
           && getComputedStyle(detailActionRow.querySelector(".hub-saved-playlist-icon-actions")).gap === "6px"
           && getComputedStyle(detailActions.at(-1)).marginLeft === "0px"
           && backButton?.querySelector(".hub-button-icon")
           && detailTracks?.length === 2;
+        const detailInteractionPattern = detailTrackActionsHidden && detailTrackActionsFocused;
         backButton?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, pointerId: 1 }));
         document.title = flattenedDetail
+          && detailInteractionPattern
           && root?.querySelector(".hub-saved-playlist-card")
           && !root?.querySelector(".hub-saved-playlist-detail-toolbar")
           ? "PASS: saved playlists fixture"
-          : "FAIL: saved playlists fixture";
+          : `FAIL: saved playlists fixture import:${Boolean(importedCard)} play:${Boolean(cardPlayProminent)} restore:${cardActions.some((button) => button.getAttribute("aria-label") === "Restore Fixture set to cart")} hidden:${detailTrackActionsHidden} focus:${detailTrackActionsFocused} flat:${flattenedDetail}`;
         return;
       }
       const activity = window.fixtureStored.bandcampHubState?.activity || [];
