@@ -15,7 +15,9 @@
   <aside id="track_play_waypoint">last played Feed Fixture Album</aside>
   <main>
     <article class="story">
-      <div id="feed-item" class="story-innards collection-item-container track_play_hilite playing" data-trackid="888227773">
+      <div class="story-innards">
+      <div class="story-body">
+      <div id="feed-item" class="collection-item-container track_play_hilite playing" data-trackid="888227773">
         <button class="track_play_auxiliary" data-trackid="888227773" type="button">Pause</button>
         <img class="tralbum-art-large" src="/assets/art-clouds.png" alt="">
         <a class="artist-name" href="https://fixture-feed.bandcamp.com/">Feed Fixture Artist</a>
@@ -27,9 +29,14 @@
         <span class="time_elapsed">00:24</span>
         <span class="time_total">04:20</span>
       </div>
+      </div>
+      <div class="collection-item-actions tralbum-wrapper-collect-controls"><ul><li class="buy-now"><a href="#preorder">pre-order</a></li><li><a href="#wishlist">wishlist</a></li><li><a href="https://fixture-feed.bandcamp.com/album/feed-fixture-album">hear more</a></li></ul></div>
+      </div>
     </article>
     <article class="story">
-      <div id="feed-item-two" class="story-innards collection-item-container track_play_hilite" data-trackid="999116642">
+      <div class="story-innards">
+      <div class="story-body">
+      <div id="feed-item-two" class="collection-item-container track_play_hilite" data-trackid="999116642">
         <button class="track_play_auxiliary" data-trackid="999116642" type="button">Play</button>
         <img class="tralbum-art-large" src="/assets/art-remix.png" alt="">
         <a class="artist-name" href="https://second-feed.bandcamp.com/">Second Feed Artist</a>
@@ -41,12 +48,57 @@
         <span class="time_elapsed">00:00</span>
         <span class="time_total">03:10</span>
       </div>
+      </div>
+      <div class="collection-item-actions tralbum-wrapper-collect-controls"><ul><li class="buy-now"><a href="#preorder">pre-order</a></li><li><a href="#wishlist">wishlist</a></li><li><a href="https://second-feed.bandcamp.com/album/second-feed-album">hear more</a></li></ul></div>
+      </div>
     </article>
+    <ol class="collection-grid">
+      <li id="feed-sidebar-item" class="new-release collection-item-container" data-trackid="777005531">
+        <a class="item-link" href="https://sidebar-feed.bandcamp.com/album/sidebar-release"><span class="collection-item-title">Sidebar Release</span></a>
+        <span class="fav-track-title">Sidebar Track</span>
+        <div class="collect-item"><ul>
+          <li class="buy-now"><a href="https://sidebar-feed.bandcamp.com/album/sidebar-release">buy now</a></li>
+          <li id="collect-item_sidebar"><span class="wishlist-msg"><span class="bc-ui2 collect-item-icon"></span><span class="text"><a>wishlist</a></span></span><span class="wishlisted-msg"><span title="Remove this album from your wishlist"><span class="text"><a>in wishlist</a></span></span></span></li>
+          <li><a href="https://sidebar-feed.bandcamp.com/album/sidebar-release">hear more</a></li>
+        </ul></div>
+      </li>
+    </ol>
+    <div id="collection-items">
+      <ol class="collection-grid" data-ismain="true" data-iswish="false">
+        <li class="collection-item-container" data-itemid="collection-album" data-trackid="collection-album-track" data-itemtype="album" data-tralbumtype="a" data-title="Owned Album">
+          <div class="collection-item-gallery-container">
+            <a class="track_play_auxiliary" data-trackid="collection-album-track"><img class="collection-item-art" src="/assets/art-apophenia.png" alt=""></a>
+            <div class="collection-title-details"><a class="item-link" href="https://owned-album.bandcamp.com/album/owned-album"><span class="collection-item-title">Owned Album</span><span class="collection-item-artist">by Owned Artist</span></a></div>
+          </div>
+          <div class="bottom-owner-controls"><span class="redownload-item"><a href="https://bandcamp.com/download?from=collection&amp;sitem_id=owned-album">download</a></span></div>
+        </li>
+        <li class="collection-item-container" data-itemid="collection-album-track" data-trackid="collection-featured-track" data-itemtype="track" data-tralbumtype="t" data-title="Album-backed Track">
+          <div class="collection-item-gallery-container">
+            <img class="collection-item-art" src="/assets/art-magma.png" alt="">
+            <div class="collection-title-details"><a class="item-link" href="https://owned-track.bandcamp.com/album/owned-release"><span class="collection-item-title">Album-backed Track</span><span class="collection-item-artist">by Track Artist</span></a></div>
+          </div>
+          <div class="bottom-owner-controls"><span class="redownload-item"><a href="https://bandcamp.com/download?from=collection&amp;sitem_id=owned-track">download</a></span></div>
+        </li>
+        <li class="collection-item-container" data-itemid="collection-direct-track" data-trackid="collection-direct-track" data-itemtype="track" data-tralbumtype="t" data-title="Direct Track">
+          <div class="collection-item-gallery-container">
+            <img class="collection-item-art" src="/assets/art-gniben.png" alt="">
+            <div class="collection-title-details"><a class="item-link" href="https://direct-track.bandcamp.com/track/direct-track"><span class="collection-item-title">Direct Track</span><span class="collection-item-artist">by Direct Artist</span></a></div>
+          </div>
+          <div class="bottom-owner-controls"><span class="redownload-item"><a href="https://bandcamp.com/download?from=collection&amp;sitem_id=direct-track">download</a></span></div>
+        </li>
+      </ol>
+    </div>
     <audio id="feed-audio" src="https://bandcamp.com/stream_redirect?enc=mp3-128&track_id=888227773"></audio>
   </main>
   <script>
+    if (!location.search.includes("collection-actions")) document.querySelector("#collection-items")?.remove();
+    window.fixtureCollectionNativePlays = 0;
+    document.querySelector('#collection-items .track_play_auxiliary')?.addEventListener("click", () => {
+      window.fixtureCollectionNativePlays += 1;
+    });
     const feedItem = document.querySelector("#feed-item");
     const secondFeedItem = document.querySelector("#feed-item-two");
+    const sidebarFeedItem = document.querySelector("#feed-sidebar-item");
     feedItem.dataset.itemJson = JSON.stringify({
       item_title: "Feed Fixture Album",
       item_url: "https://fixture-feed.bandcamp.com/album/feed-fixture-album",
@@ -58,31 +110,43 @@
     });
     secondFeedItem.dataset.itemJson = JSON.stringify({
       item_title: "Second Feed Album",
-      item_url: "https://second-feed.bandcamp.com/album/second-feed-album",
+      item_url: "//second-feed.bandcamp.com/album/second-feed-album",
       item_art_url: new URL("/assets/art-remix.png", location.href).href,
       band_name: "Second Feed Artist",
       band_url: "https://second-feed.bandcamp.com/",
       featured_track_title: "Second Feed Track",
       featured_track_duration: 190
     });
+    sidebarFeedItem.dataset.itemJson = JSON.stringify({
+      item_title: "Sidebar Release",
+      item_url: "https://sidebar-feed.bandcamp.com/album/sidebar-release",
+      band_name: "Sidebar Artist",
+      band_url: "https://sidebar-feed.bandcamp.com/",
+      featured_track_title: "Sidebar Track",
+      featured_track_duration: 205
+    });
     const feedAudio = document.querySelector("#feed-audio");
-    let feedPaused = false;
+    let feedPaused = location.search.includes("collection-actions") || location.search.includes("rapid-switch") || location.search.includes("cross-page-active");
     let feedSrc = "https://bandcamp.com/stream_redirect?enc=mp3-128&track_id=888227773";
     let feedCurrentTime = 24;
     let feedDuration = 260;
+    let feedMuted = false;
+    window.fixtureFeedNativeStarts = [];
     Object.defineProperties(feedAudio, {
       paused: { get: () => feedPaused },
       ended: { get: () => false },
       currentSrc: { get: () => feedSrc },
       src: { get: () => feedSrc, set: (value) => { feedSrc = value; } },
       currentTime: { get: () => feedCurrentTime },
-      duration: { get: () => feedDuration }
+      duration: { get: () => feedDuration },
+      muted: { get: () => feedMuted, set: (value) => { feedMuted = Boolean(value); } }
     });
     feedAudio.pause = () => {
       feedPaused = true;
       feedAudio.dispatchEvent(new Event("pause"));
     };
     secondFeedItem.querySelector(".track_play_auxiliary").addEventListener("click", () => {
+      window.fixtureFeedNativeStarts.push({ id: "999116642", muted: feedAudio.muted });
       feedItem.classList.remove("playing");
       secondFeedItem.classList.add("playing");
       feedSrc = "https://bandcamp.com/stream_redirect?enc=mp3-128&track_id=999116642";
@@ -90,21 +154,92 @@
       feedDuration = 190;
       feedPaused = false;
       feedAudio.dispatchEvent(new Event("play"));
+      document.dispatchEvent(new CustomEvent("bandkit:media-state", { detail: {
+        src: feedSrc,
+        paused: false,
+        ended: false,
+        currentTime: feedCurrentTime,
+        duration: feedDuration,
+        playbackRate: 1,
+        volume: 1
+      } }));
+      if (location.search.includes("cross-page-state-race")) {
+        window.fixtureRuntimeListener?.({
+          type: "BANDCAMP_HUB_SEAMLESS_STATE",
+          state: structuredClone(window.fixtureSeamlessState)
+        }, {}, () => {});
+      }
     });
-    window.fixtureStored = {};
+    window.fixtureStored = location.search.includes("collection-actions") ? {
+      bandcampHubState: {
+        open: true,
+        activeTab: "nowPlaying",
+        playlistView: "current",
+        playlist: [
+          { playlistItemId: "playlist-one", id: "queued-one", title: "Queued One", artist: "Queue Artist", pageUrl: "https://queue-one.bandcamp.com/track/queued-one" },
+          { playlistItemId: "playlist-two", id: "queued-two", title: "Queued Two", artist: "Queue Artist", pageUrl: "https://queue-two.bandcamp.com/track/queued-two" },
+          { playlistItemId: "playlist-three", id: "queued-three", title: "Queued Three", artist: "Queue Artist", pageUrl: "https://queue-three.bandcamp.com/track/queued-three" }
+        ],
+        playlistMode: "manual"
+      }
+    } : location.search.includes("remove-active-feed") ? {
+      bandcampHubState: {
+        open: true,
+        activeTab: "nowPlaying",
+        playlistView: "current",
+        playlistMode: "manual",
+        playlist: [
+          { playlistItemId: "playlist-feed-one", id: "888227773", title: "Feed Fixture Track", artist: "Feed Fixture Artist", album: "Feed Fixture Album", art: new URL("/assets/art-clouds.png", location.href).href, pageUrl: "https://fixture-feed.bandcamp.com/album/feed-fixture-album", artistUrl: "https://fixture-feed.bandcamp.com/", duration: 260, url: "https://bandcamp.com/stream_redirect?enc=mp3-128&track_id=888227773" }
+        ]
+      }
+    } : location.search.includes("cross-page-active") ? {
+      bandcampHubState: {
+        open: true,
+        activeTab: "nowPlaying",
+        playlistView: "current",
+        playlistMode: "browse",
+        playlist: [
+          { playlistItemId: "playlist-album-source", id: "album-source", title: "Album Source Track", artist: "Album Artist", pageUrl: "https://album-source.bandcamp.com/track/album-source", duration: 200, url: "https://t4.bcbits.com/stream/album-source" }
+        ]
+      }
+    } : {};
     window.fixtureMessages = [];
-    window.fixtureSeamlessState = { enabled: false, status: "idle" };
+    window.fixtureSeamlessState = location.search.includes("cross-page-active") ? {
+      enabled: true,
+      status: "playing",
+      isPlaying: true,
+      currentTime: 42,
+      duration: 200,
+      progress: 0.21,
+      index: 0,
+      track: window.fixtureStored.bandcampHubState.playlist[0],
+      queue: window.fixtureStored.bandcampHubState.playlist
+    } : { enabled: false, status: "idle" };
     const fixtureChrome = {
       runtime: {
         lastError: null,
         getURL: (path) => new URL(`/${path}`, location.href).href,
         getManifest: () => ({ version: "0.5.14" }),
         sendMessage(message, callback) {
-          window.fixtureMessages.push(message);
+          window.fixtureMessages.push({ ...message, __at: performance.now() });
           if (message.type === "BANDCAMP_HUB_GET_SEAMLESS_STATE") {
             callback?.({ ok: true, state: window.fixtureSeamlessState });
+          } else if (message.type === "BANDCAMP_HUB_RESOLVE_PLAYLIST_ITEMS") {
+            const items = message.items.map((item) => ({
+              ...item,
+              duration: Number(item.duration) || 240,
+              url: item.id === "999116642"
+                ? "https://bandcamp.com/stream_redirect?enc=mp3-128&track_id=999116642"
+                : "https://bandcamp.com/stream_redirect?enc=mp3-128&track_id=888227773"
+            }));
+            if (location.search.includes("rapid-switch")) {
+              window.setTimeout(() => callback?.({ ok: true, items }), items[0]?.id === "888227773" ? 220 : 20);
+            } else if (location.search.includes("single-flight")) {
+              window.setTimeout(() => callback?.({ ok: true, items }), 180);
+            } else callback?.({ ok: true, items });
           } else if (message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE") {
-            const duration = Number(message.queue[0]?.duration) || 260;
+            const index = Math.max(0, Math.min(message.queue.length - 1, Number(message.index) || 0));
+            const duration = Number(message.queue[index]?.duration) || 260;
             window.fixtureSeamlessState = {
               enabled: true,
               status: "playing",
@@ -125,17 +260,44 @@
               bpmSource: "auto",
               bpmStatus: "ready",
               detectedKey: { camelot: "7A", shortName: "D min", name: "D minor" },
-              index: 0,
-              track: message.queue[0],
+              index,
+              track: message.queue[index],
               queue: message.queue
             };
+            callback?.({ ok: true, state: window.fixtureSeamlessState });
+          } else if (message.type === "BANDCAMP_HUB_SEAMLESS_UPDATE_QUEUE") {
+            const queue = Array.isArray(message.queue) ? message.queue : [];
+            if (!queue.length) {
+              window.fixtureSeamlessState = { enabled: false, status: "idle", queue: [], index: -1, track: null };
+            } else {
+              const previousTrack = window.fixtureSeamlessState.track;
+              const previousIndex = Math.max(0, Number(window.fixtureSeamlessState.index) || 0);
+              const matchingIndex = queue.findIndex((track) => track.playlistItemId === previousTrack?.playlistItemId);
+              const index = matchingIndex >= 0 ? matchingIndex : Math.min(queue.length - 1, previousIndex);
+              const track = queue[index];
+              window.fixtureSeamlessState = {
+                ...window.fixtureSeamlessState,
+                enabled: true,
+                status: "playing",
+                isPlaying: true,
+                currentTime: matchingIndex >= 0 ? window.fixtureSeamlessState.currentTime : 0,
+                duration: Number(track.duration) || 240,
+                progress: 0,
+                index,
+                track,
+                queue
+              };
+            }
             callback?.({ ok: true, state: window.fixtureSeamlessState });
           } else if (message.type === "BANDCAMP_HUB_SEAMLESS_DISABLE") {
             window.fixtureSeamlessState = { enabled: false, status: "idle" };
             callback?.({ ok: true, state: window.fixtureSeamlessState });
           } else callback?.({ ok: true, state: window.fixtureSeamlessState });
         },
-        onMessage: { addListener() {} }
+        onMessage: {
+          addListener(listener) { window.fixtureRuntimeListener = listener; },
+          removeListener(listener) { if (window.fixtureRuntimeListener === listener) window.fixtureRuntimeListener = null; }
+        }
       },
       storage: {
         local: {
@@ -148,39 +310,166 @@
       eval(source.replaceAll("chrome.", "fixtureChrome."));
     }).catch((error) => { document.documentElement.dataset.fixtureError = String(error); });
     window.setTimeout(() => {
+      if (location.search.includes("collection-actions")) {
+        document.querySelector('#collection-items .track_play_auxiliary')?.click();
+        return;
+      }
+      if (location.search.includes("rapid-switch")) {
+        feedPaused = false;
+        feedAudio.dispatchEvent(new Event("play"));
+        window.setTimeout(() => secondFeedItem.querySelector(".track_play_auxiliary")?.click(), 20);
+        return;
+      }
       const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
       root?.querySelector(".hub-dj-player-button")?.click();
       secondFeedItem.querySelector(".track_play_auxiliary")?.click();
-      window.setTimeout(() => {
-        feedPaused = false;
-        feedAudio.dispatchEvent(new Event("play"));
-      }, 250);
+      if (!location.search.includes("bridge-second-track")) {
+        window.setTimeout(() => {
+          feedPaused = false;
+          feedAudio.dispatchEvent(new Event("play"));
+        }, location.search.includes("single-flight") ? 20 : 250);
+      }
     }, 1400);
     window.setTimeout(() => {
       const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
+      if (location.search.includes("rapid-switch")) {
+        const enabledMessages = window.fixtureMessages.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE");
+        const activeTrack = enabledMessages.at(-1)?.queue?.[enabledMessages.at(-1)?.index || 0];
+        document.title = enabledMessages.length === 1
+          && activeTrack?.id === "999116642"
+          && window.fixtureSeamlessState.track?.id === "999116642"
+          && window.fixtureStored.bandcampHubState?.playlist?.length === 1
+          && window.fixtureStored.bandcampHubState.playlist[0]?.id === "999116642"
+          && window.fixtureStored.bandcampHubState.playlistMode === "browse"
+          ? "PASS: rapid Feed switch keeps latest request fixture"
+          : `FAIL: rapid Feed switch ${enabledMessages.length}/${activeTrack?.id || "none"}/${window.fixtureSeamlessState.track?.id || "none"}`;
+        return;
+      }
+      if (location.search.includes("remove-active-feed")) {
+        root?.querySelector('[aria-label="Remove Second Feed Track from playlist"]')?.click();
+        window.setTimeout(() => {
+          feedPaused = false;
+          feedAudio.dispatchEvent(new Event("play"));
+        }, 80);
+        window.setTimeout(() => {
+          const playlist = window.fixtureStored.bandcampHubState?.playlist || [];
+          const cards = [...(root?.querySelectorAll(".hub-playlist-track") || [])];
+          const secondTrackEnables = window.fixtureMessages.filter((message) => (
+            message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE"
+            && message.queue?.[message.index || 0]?.id === "999116642"
+          ));
+          const queueUpdates = window.fixtureMessages.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_UPDATE_QUEUE");
+          const lastQueue = queueUpdates.at(-1)?.queue || [];
+          const stayedRemoved = playlist.length === 1
+            && playlist[0]?.id === "888227773"
+            && cards.length === 1
+            && !cards[0]?.textContent.includes("Second Feed Track")
+            && secondTrackEnables.length === 1
+            && lastQueue.length === 1
+            && lastQueue[0]?.id === "888227773"
+            && window.fixtureSeamlessState.track?.id === "888227773"
+            && feedPaused;
+          if (!stayedRemoved) {
+            document.title = `FAIL: removed Feed track playlist:${playlist.map((track) => track.id).join("|")} cards:${cards.length} enables:${secondTrackEnables.length} queue:${lastQueue.map((track) => track.id).join("|")} active:${window.fixtureSeamlessState.track?.id || "none"} paused:${feedPaused}`;
+            return;
+          }
+          secondFeedItem.querySelector(".track_play_auxiliary")?.click();
+          window.setTimeout(() => {
+            const replayedPlaylist = window.fixtureStored.bandcampHubState?.playlist || [];
+            const replayedEnables = window.fixtureMessages.filter((message) => (
+              message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE"
+              && message.queue?.[message.index || 0]?.id === "999116642"
+            ));
+            document.title = replayedPlaylist.some((track) => track.id === "999116642")
+              && replayedEnables.length === 2
+              && window.fixtureSeamlessState.track?.id === "999116642"
+              ? "PASS: removed active Feed track stays removed until replayed fixture"
+              : `FAIL: explicit Feed replay playlist:${replayedPlaylist.map((track) => track.id).join("|")} enables:${replayedEnables.length} active:${window.fixtureSeamlessState.track?.id || "none"}`;
+          }, 1000);
+        }, 1300);
+        return;
+      }
+      const feedPlaylistButton = secondFeedItem.closest(".story-innards")?.querySelector(".bandcamp-hub-page-playlist");
+      if (!location.search.includes("collection-actions")) {
+        feedPlaylistButton?.click();
+        [...document.querySelectorAll(".bandcamp-hub-page-playlist-menu button")]
+          .find((button) => button.textContent.includes("Add to Now Playing"))?.click();
+      }
       const activity = window.fixtureStored.bandcampHubState?.activity || [];
+      const playlist = window.fixtureStored.bandcampHubState?.playlist || [];
       const title = root?.querySelector(".hub-player-title");
       const artist = root?.querySelector(".hub-player-artist");
       const enabledMessages = window.fixtureMessages.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE");
-      const secondTrackEnables = enabledMessages.filter((message) => message.queue?.[0]?.id === "999116642");
+      const secondTrackEnables = enabledMessages.filter((message) => message.queue?.[message.index || 0]?.id === "999116642");
+      const playbackDisables = window.fixtureMessages.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_DISABLE");
+      const mutedNativeHandoff = window.fixtureFeedNativeStarts.at(-1)?.muted === true && feedAudio.muted === false;
       const nowPlayingHeader = root?.querySelector(".hub-now-playing-header");
+      const mainFeedActions = [...secondFeedItem.closest(".story-innards")?.querySelectorAll(".bandkit-feed-action-row :is(.is-feed-compact-action, .bandkit-feed-purchase-action, .bandkit-feed-wishlist-control, .bandkit-feed-hear-more-action)") || []];
+      const sidebarActions = [...document.querySelectorAll("#feed-sidebar-item .bandkit-feed-sidebar-actions :is(.is-feed-sidebar-action, .bandkit-feed-purchase-action, .wishlist-msg, .bandkit-feed-hear-more-action)")];
+      const ownedCollectionCards = [...document.querySelectorAll('#collection-items .collection-grid[data-ismain="true"][data-iswish="false"] > .collection-item-container')];
+      const ownedCollectionActions = ownedCollectionCards.map((card) => [...card.querySelectorAll(".bandkit-collection-action-row > *")]);
+      const collectionResolveMessages = window.fixtureMessages.filter((message) => message.type === "BANDCAMP_HUB_RESOLVE_PLAYLIST_ITEMS");
+      const collectionPlayResolve = collectionResolveMessages.find((message) => message.items?.some((item) => item.id === "collection-album-track"));
+      const promotedPlaylistTitles = window.fixtureStored.bandcampHubState?.playlist?.map((item) => item.title) || [];
+      const nowPlayingCards = [...(root?.querySelectorAll(".hub-playlist-track") || [])];
+      if (location.search.includes("collection-actions")) {
+        document.title = ownedCollectionActions.length === 3
+          && ownedCollectionActions.every((actions) => actions.length === 2
+            && actions[0].classList.contains("is-feed-compact-action")
+            && actions[1].classList.contains("bandkit-collection-download-action")
+            && actions.every((action) => Math.round(action.getBoundingClientRect().width) === 28 && action.title))
+          && ownedCollectionCards[0].querySelector(".bandcamp-hub-page-playlist")?.getAttribute("aria-label") === "Add Owned Album to the queue or a playlist"
+          && ownedCollectionCards[1].querySelector(".bandcamp-hub-page-playlist")?.getAttribute("aria-label") === "Add Album-backed Track to the queue or a playlist"
+          && getComputedStyle(ownedCollectionCards[0].querySelector(".bottom-owner-controls .redownload-item")).display === "none"
+          && window.fixtureCollectionNativePlays === 0
+          && collectionPlayResolve?.items?.length === 4
+          && collectionPlayResolve.items[3]?.id === "collection-album-track"
+          && enabledMessages.length === 1
+          && enabledMessages[0].queue?.length === 4
+          && enabledMessages[0].queue?.[enabledMessages[0].index]?.id === "collection-album-track"
+          && promotedPlaylistTitles.join("|") === "Queued One|Queued Two|Queued Three|Owned Album"
+          && nowPlayingCards.length === 4
+          && nowPlayingCards[3]?.textContent.includes("Owned Album")
+          ? "PASS: collection action buttons fixture"
+          : `FAIL: collection actions native:${window.fixtureCollectionNativePlays} resolve:${collectionResolveMessages.map((message) => message.items?.map((item) => item.id).join("|")).join(";")} enable:${enabledMessages.length}/${enabledMessages[0]?.queue?.length || 0}/${enabledMessages[0]?.queue?.[enabledMessages[0]?.index || 0]?.id || "none"} list:${promotedPlaylistTitles.join("|")} cards:${nowPlayingCards.length}/${nowPlayingCards[0]?.textContent?.replace(/\s+/g, " ").trim() || "none"}`;
+        return;
+      }
       document.title = title?.textContent === "Second Feed Track"
         && title.href.includes("second-feed.bandcamp.com/album/second-feed-album")
         && artist?.textContent === "Second Feed Artist"
         && root?.querySelector(".hub-duration")?.textContent === "3:10"
         && activity[0]?.title === "Second Feed Track"
+        && playlist.length === 1
+        && playlist[0]?.title === "Second Feed Track"
+        && playlist[0]?.pageUrl === "https://second-feed.bandcamp.com/album/second-feed-album"
+        && window.fixtureStored.bandcampHubState?.playlistMode === "browse"
+        && feedPlaylistButton?.classList.contains("is-feed-add-to")
+        && feedPlaylistButton?.textContent === "add to..."
+        && feedPlaylistButton?.nextElementSibling?.textContent === "pre-order"
+        && secondFeedItem.closest(".story-innards")?.querySelectorAll(".bandcamp-hub-page-playlist").length === 1
+        && mainFeedActions.length === 4
+        && mainFeedActions.every((action) => Math.round(action.getBoundingClientRect().width) === 28 && action.title)
+        && getComputedStyle(secondFeedItem.closest(".story-innards").querySelector(".story-body")).paddingBottom === "6px"
+        && getComputedStyle(secondFeedItem.closest(".story-innards").querySelector(".tralbum-wrapper-collect-controls")).marginBottom === "18px"
+        && getComputedStyle(secondFeedItem.closest(".story-innards").querySelector(".bandkit-feed-action-row")).marginTop === "4px"
+        && secondFeedItem.closest(".story-innards")?.querySelector(".bandkit-feed-hear-more-action")?.getAttribute("aria-label") === "Hear more from Second Feed Album"
+        && sidebarActions.length === 4
+        && sidebarActions.every((action) => Math.round(action.getBoundingClientRect().width) === 28 && action.title)
+        && document.querySelector("#feed-sidebar-item .bandkit-feed-hear-more-action")?.getAttribute("aria-label") === "Hear more from Sidebar Release"
         && root?.querySelector(".hub-dj-waveform")?.disabled === false
         && root?.querySelector(".hub-dj-bpm-input")?.value === "128"
-        && enabledMessages.at(-1)?.queue?.[0]?.id === "999116642"
+        && enabledMessages.at(-1)?.queue?.[enabledMessages.at(-1)?.index || 0]?.id === "999116642"
         && secondTrackEnables.length === 1
+        && playbackDisables.length === 0
+        && mutedNativeHandoff
         && nowPlayingHeader?.childNodes[0]?.textContent?.trim() === "Now Playing"
-        && nowPlayingHeader?.querySelectorAll(".hub-playlist-toolbar-icon").length === 4
+        && root?.querySelectorAll(".hub-now-playing-toolbar .hub-playlist-toolbar-icon").length === 4
         && nowPlayingHeader?.querySelector(".hub-close")
-        && !root?.querySelector(".hub-playlist-toolbar .hub-cart-backup-time")
+        && root?.querySelector(".hub-now-playing-toolbar .hub-cart-backup-time")?.textContent === "1 song in Now Playing"
         && getComputedStyle(document.querySelector("#track_play_waypoint")).display === "none"
         && getComputedStyle(root?.querySelector(".hub-player")).zIndex === "2147483647"
         ? "PASS: Bandcamp Feed player fixture"
-        : `FAIL: ${title?.textContent || "no title"} / ${artist?.textContent || "no artist"}`;
+        : `FAIL: ${title?.textContent || "no title"} / ${artist?.textContent || "no artist"} / activity:${activity[0]?.title || "none"} playlist:${playlist.map((track) => track.title).join("|")}/${window.fixtureStored.bandcampHubState?.playlistMode || "none"} enables:${enabledMessages.length}/${secondTrackEnables.length}/${enabledMessages.at(-1)?.queue?.[enabledMessages.at(-1)?.index || 0]?.id || "none"} disables:${playbackDisables.length} muted:${mutedNativeHandoff} toolbar:${root?.querySelectorAll(".hub-now-playing-toolbar .hub-playlist-toolbar-icon").length}/${root?.querySelector(".hub-now-playing-toolbar .hub-cart-backup-time")?.textContent || "none"} seq:${window.fixtureMessages.filter((message) => ["BANDCAMP_HUB_SEAMLESS_ENABLE","BANDCAMP_HUB_SEAMLESS_DISABLE","BANDCAMP_HUB_RESOLVE_PLAYLIST_ITEMS"].includes(message.type)).map((message) => `${Math.round(message.__at)}:${message.type.replace("BANDCAMP_HUB_", "")}:${message.queue?.[message.index || 0]?.id || message.items?.[0]?.id || "-"}`).join(",")}`;
     }, 1900);
   </script>
 </body>

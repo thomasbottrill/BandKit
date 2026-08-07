@@ -9,13 +9,26 @@
     #DiscoverApp { height: 0; }
     .discover-app { min-height: 100vh; position: absolute; width: 100%; }
     #user-nav { display: flex; justify-content: flex-end; list-style: none; }
-    .focused-result { margin: 80px; }
+    .focused-result { margin: 80px; position: relative; }
+    .focused-result > .play-pause-button { height: 64px; left: 16px; position: absolute; top: 300px; width: 64px; }
+    .results-grid-item { list-style: none; margin: 20px 80px; width: 260px; }
+    .results-grid-item .image-container { height: 260px; position: relative; width: 260px; }
+    .results-grid-item .image-container img { height: 100%; width: 100%; }
+    .results-grid-item .image-container > .play-pause-button { bottom: 16px; height: 34px; left: 16px; position: absolute; width: 34px; }
   </style>
 </head>
 <body>
   <ul id="user-nav"></ul>
   <div id="DiscoverApp"><div class="full-page-app-wrapper discover-app"><main class="app">
+    <ul class="results-grid"><li class="results-grid-item"><div class="card">
+      <div class="image-container"><img src="/assets/art-remix.png" alt=""><button class="g-button play-pause-button play-button" aria-label="Play">Play</button></div>
+      <div class="content"><div class="header"><a class="stretch-link" href="https://grid-artist.bandcamp.com/album/grid-album"><div class="title">Grid Fixture Album</div><div class="attribution-meta">by Grid Fixture Artist</div></a></div></div>
+    </div></li><li class="results-grid-item custom-domain-card"><div class="card">
+      <div class="image-container"><img src="/assets/art-clouds.png" alt=""><button class="g-button play-pause-button play-button" aria-label="Play">Play</button></div>
+      <div class="content"><div class="header"><a class="stretch-link" href="https://custom-label.example/album/custom-album"><div class="title">Custom Domain Album</div><div class="attribution-meta">by Custom Domain Artist</div></a></div></div>
+    </div></li></ul>
     <div class="focused-result">
+      <button class="g-button play-pause-button artwork-play-button" aria-label="Pause">Pause</button>
       <img src="/assets/art-clouds.png" alt="View Fixture Album">
       <div class="discover-player">
         <div class="player-top">
@@ -36,10 +49,29 @@
     </div>
   </main></div></div>
   <script>
-    window.fixtureStored = {};
+    const fixtureNativePlayerVisible = location.search.includes("native-visible");
+    window.fixtureStored = location.search.includes("queue-to-discover-switch") ? { bandcampHubState: {
+      open: true,
+      activeTab: "nowPlaying",
+      playlistMode: "manual",
+      playlist: [{
+        playlistItemId: "queued-before-discover",
+        id: "queued-before-discover",
+        title: "Queued Before Discover",
+        artist: "Fixture",
+        pageUrl: "https://fixture.bandcamp.com/track/queued-before-discover",
+        duration: 150,
+        url: "https://t4.bcbits.com/stream/queued-before-discover"
+      }]
+    } } : fixtureNativePlayerVisible ? { bandcampHubState: { appearance: { hideBandcampPlayer: false } } } : {};
     window.fixtureMessages = [];
     window.fixtureSeamlessState = { enabled: false, status: "idle" };
     const nativeControl = document.querySelector(".discover-player .play-pause-button");
+    if (location.search.includes("queue-to-discover-switch")) {
+      nativeControl.setAttribute("aria-label", "Play");
+      nativeControl.textContent = "Play";
+      document.querySelector(".focused-result > .artwork-play-button")?.setAttribute("aria-label", "Play");
+    }
     document.querySelector("#simulate-next-track").addEventListener("click", () => {
       document.querySelector(".discover-player .player-info .title").textContent = "Second Live Fixture Track";
     });
@@ -57,14 +89,19 @@
           window.fixtureMessages.push(message);
           if (message.type === "BANDCAMP_HUB_GET_SEAMLESS_STATE") {
             callback?.({ ok: true, state: window.fixtureSeamlessState });
+          } else if (message.type === "BANDCAMP_HUB_RESOLVE_PLAYLIST_ITEMS") {
+            if (location.search.includes("rapid-switch")) {
+              window.setTimeout(() => callback?.({ ok: true, items: message.items }), message.items[0]?.title === "Discover Fixture Track" ? 220 : 20);
+            } else callback?.({ ok: true, items: message.items });
           } else if (message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE") {
+            const index = Math.max(0, Math.min(message.queue.length - 1, Number(message.index) || 0));
             window.fixtureSeamlessState = {
               enabled: true,
               status: "playing",
               isPlaying: true,
               currentTime: Number(message.currentTime) || 24,
-              duration: 180,
-              progress: (Number(message.currentTime) || 24) / 180,
+              duration: Number(message.queue[index]?.duration) || 180,
+              progress: (Number(message.currentTime) || 24) / (Number(message.queue[index]?.duration) || 180),
               rate: Number(message.rate) || 1,
               preservePitch: message.preservePitch !== false,
               filterValue: Number(message.filterValue) || 0,
@@ -75,11 +112,13 @@
               bpmSource: "auto",
               bpmStatus: "ready",
               detectedKey: { camelot: "8A", shortName: "A min", name: "A minor" },
-              index: 0,
-              track: message.queue[0],
+              index,
+              track: message.queue[index],
               queue: message.queue
             };
-            callback?.({ ok: true, state: window.fixtureSeamlessState });
+            if (location.search.includes("queue-to-discover-switch") && message.queue[message.index]?.title === "Queued Before Discover") {
+              window.setTimeout(() => callback?.({ ok: true, state: window.fixtureSeamlessState }), 220);
+            } else callback?.({ ok: true, state: window.fixtureSeamlessState });
           } else if (message.type === "BANDCAMP_HUB_SEAMLESS_SEEK") {
             window.fixtureSeamlessState.currentTime = Number(message.currentTime) || 0;
             window.fixtureSeamlessState.progress = window.fixtureSeamlessState.currentTime / 180;
@@ -101,17 +140,44 @@
     ]).then(([bridgeSource, contentSource]) => {
       eval(bridgeSource);
       const hiddenDiscoverAudio = new Audio("https://bandcamp.com/stream_redirect?enc=mp3-128&track_id=12345");
+      let hiddenDiscoverPaused = location.search.includes("queue-to-discover-switch");
       Object.defineProperties(hiddenDiscoverAudio, {
-        paused: { get: () => false },
+        paused: { get: () => hiddenDiscoverPaused },
         ended: { get: () => false },
         currentTime: { get: () => 24 },
         duration: { get: () => 180 }
       });
       eval(contentSource.replaceAll("chrome.", "fixtureChrome."));
-      hiddenDiscoverAudio.dispatchEvent(new Event("playing"));
+      if (!location.search.includes("queue-to-discover-switch")) hiddenDiscoverAudio.dispatchEvent(new Event("playing"));
+      if (location.search.includes("queue-to-discover-switch")) {
+        window.setTimeout(() => {
+          const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
+          root?.querySelector(".hub-playlist-position-play")?.click();
+          window.setTimeout(() => {
+            hiddenDiscoverPaused = false;
+            nativeControl.setAttribute("aria-label", "Play");
+            nativeControl.textContent = "Play";
+            nativeControl.click();
+            hiddenDiscoverAudio.dispatchEvent(new Event("playing"));
+          }, 100);
+        }, 300);
+      }
+      if (location.search.includes("rapid-switch")) {
+        window.setTimeout(() => {
+          document.querySelector(".discover-player .player-info .title").textContent = "Second Discover Fixture Track";
+          const links = document.querySelectorAll(".discover-player .player-info a");
+          links[0].href = "https://second-discover.bandcamp.com/album/second-discover-album";
+          links[0].textContent = "from Second Discover Album";
+          links[1].href = "https://second-discover.bandcamp.com/";
+          links[1].textContent = "by Second Discover Artist";
+          document.querySelector(".results-grid-item .play-pause-button")?.click();
+          hiddenDiscoverAudio.dispatchEvent(new Event("playing"));
+        }, 20);
+      }
     }).catch((error) => { document.documentElement.dataset.fixtureError = String(error); });
     window.setTimeout(() => {
       const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
+      if (location.search.includes("rapid-switch") || location.search.includes("queue-to-discover-switch")) return;
       root?.querySelector(".hub-dj-player-button")?.click();
       root?.querySelector(".hub-dj-platter")?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
       const scrub = root?.querySelector(".hub-scrub-slider");
@@ -136,6 +202,30 @@
     }, 1700);
     window.setTimeout(() => {
       const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
+      if (location.search.includes("queue-to-discover-switch")) {
+        const enables = window.fixtureMessages.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE");
+        const finalTrack = window.fixtureSeamlessState.track;
+        const queuedCard = root?.querySelector('[data-playlist-item-id="queued-before-discover"]');
+        document.title = enables.length === 2
+          && finalTrack?.title === "Discover Fixture Track"
+          && !queuedCard?.querySelector(".hub-playlist-position-play")?.disabled
+          ? "PASS: Discover click supersedes pending queue start fixture"
+          : `FAIL: Discover supersession ${enables.length}/${finalTrack?.title || "none"}/${queuedCard?.querySelector(".hub-playlist-position-play")?.disabled}`;
+        return;
+      }
+      if (location.search.includes("rapid-switch")) {
+        const enabledMessages = window.fixtureMessages.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE");
+        const activeTrack = enabledMessages.at(-1)?.queue?.[enabledMessages.at(-1)?.index || 0];
+        document.title = enabledMessages.length === 1
+          && activeTrack?.title === "Second Discover Fixture Track"
+          && window.fixtureSeamlessState.track?.title === "Second Discover Fixture Track"
+          && window.fixtureStored.bandcampHubState?.playlist?.length === 1
+          && window.fixtureStored.bandcampHubState.playlist[0]?.title === "Second Discover Fixture Track"
+          && window.fixtureStored.bandcampHubState.playlistMode === "browse"
+          ? "PASS: rapid Discover switch keeps latest request fixture"
+          : `FAIL: rapid Discover switch ${enabledMessages.length}/${activeTrack?.title || "none"}/${window.fixtureSeamlessState.track?.title || "none"}`;
+        return;
+      }
       const activity = window.fixtureStored.bandcampHubState?.activity || [];
       const title = root?.querySelector(".hub-player-title");
       const artist = root?.querySelector(".hub-player-artist");
@@ -143,16 +233,37 @@
       const discoverSpacer = document.querySelector("#bandcamp-hub-discover-player-spacer");
       const detailReserve = Math.round(discoverSpacer?.getBoundingClientRect().height || 0);
       const detailScrollReserve = Math.round(parseFloat(getComputedStyle(document.querySelector(".focused-result")).scrollPaddingBottom) || 0);
+      const discoverAddButton = document.querySelector(".focused-result > .bandcamp-hub-page-playlist.is-discover-add-to");
+      const artworkPlayButton = document.querySelector(".focused-result > .artwork-play-button");
+      const nativeDiscoverAddButton = document.querySelector(".focused-result .bandcamp-hub-page-playlist.is-discover-add-to");
+      const nativeDiscoverPlayButton = document.querySelector(".discover-player .play-pause-button");
+      const gridPlayButton = document.querySelector(".results-grid-item .play-pause-button");
+      const gridAddButton = document.querySelector(".results-grid-item .bandcamp-hub-page-playlist.is-discover-add-to");
+      const customDomainAddButton = document.querySelector(".custom-domain-card .bandcamp-hub-page-playlist.is-discover-add-to");
       document.title = title?.textContent === "Discover Fixture Track"
         && title.href.includes("fixture-artist.bandcamp.com/album/fixture-album")
         && artist?.textContent === "Fixture Artist"
-        && getComputedStyle(document.querySelector(".discover-player")).display === "none"
+        && (fixtureNativePlayerVisible
+          ? getComputedStyle(document.querySelector(".discover-player")).display !== "none"
+            && nativeDiscoverAddButton
+            && nativeDiscoverAddButton.getBoundingClientRect().left > nativeDiscoverPlayButton.getBoundingClientRect().right
+          : getComputedStyle(document.querySelector(".discover-player")).display === "none")
         && document.querySelector("#bandcamp-hub-player-spacer")?.parentElement === document.querySelector("#DiscoverApp main.app")
         && Math.round(document.querySelector("#bandcamp-hub-player-spacer")?.getBoundingClientRect().height || 0) === playerHeight
         && discoverSpacer?.parentElement === document.querySelector("#DiscoverApp .focused-result")
         && detailReserve === playerHeight + 16
         && detailScrollReserve === playerHeight + 16
+        && gridAddButton?.getAttribute("aria-label") === "Add Grid Fixture Album to Now Playing or a playlist"
+        && gridAddButton?.getBoundingClientRect().left > gridPlayButton?.getBoundingClientRect().right
+        && Math.round(gridAddButton?.getBoundingClientRect().width || 0) === 28
+        && customDomainAddButton?.getAttribute("aria-label") === "Add Custom Domain Album to Now Playing or a playlist"
+        && (fixtureNativePlayerVisible || (discoverAddButton?.getAttribute("aria-label")?.includes("Now Playing or a playlist")
+          && discoverAddButton?.offsetLeft > artworkPlayButton?.offsetLeft + artworkPlayButton?.offsetWidth
+          && Math.round(discoverAddButton?.getBoundingClientRect().width || 0) === 28))
         && root?.querySelector(".hub-duration")?.textContent === "3:00"
+        && root?.querySelector(".hub-scrub-waveform-played")?.getAttribute("d")
+        && root?.querySelector(".hub-scrub-control")?.style.getPropertyValue("--hub-scrub-progress") === "75.00%"
+        && root?.querySelector(".hub-scrub-slider")?.getAttribute("aria-valuetext") === "2:15 of 3:00"
         && activity[0]?.title === "Discover Fixture Track"
         && root?.querySelector(".hub-dj-waveform")?.disabled === false
         && window.fixtureMessages.some((message) => message.type === "BANDCAMP_HUB_SEAMLESS_SCRATCH" && message.active === true)

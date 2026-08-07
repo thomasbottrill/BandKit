@@ -3,9 +3,11 @@ import assert from "node:assert/strict";
 let runtimeListener;
 let actionListener;
 let offscreenCreated = false;
+let offscreenCreateCalls = 0;
 let injected = false;
 let injectedFiles = [];
 let tabMessageCalls = 0;
+const tabMessages = [];
 let createdBackgroundTab = null;
 let removedTabId = null;
 const offscreenMessages = [];
@@ -50,6 +52,7 @@ const digitalOfferFixture = {
 
 const playlistTralbumFixture = {
   artist: "Fixture Artist",
+  current: { title: "Fixture Album", artist: "Fixture Artist", featured_track_id: 101 },
   trackinfo: [
     { track_id: 101, title: "Fixture Track", duration: 181, file: { "mp3-128": "https://t4.bcbits.com/stream/refreshed-fixture" } }
   ]
@@ -58,7 +61,7 @@ const playlistTralbumFixture = {
 globalThis.fetch = async () => ({
   ok: true,
   async text() {
-    return `<script data-tralbum='${JSON.stringify(playlistTralbumFixture)}'></script><script type="application/ld+json">${JSON.stringify(digitalOfferFixture)}</script>`;
+    return `<meta property="og:image" content="//f4.bcbits.com/img/a-fixture_10.jpg"><script data-tralbum='${JSON.stringify(playlistTralbumFixture)}'></script><script type="application/ld+json">${JSON.stringify(digitalOfferFixture)}</script>`;
   }
 });
 
@@ -86,7 +89,10 @@ globalThis.chrome = {
     }
   },
   offscreen: {
-    async createDocument() { offscreenCreated = true; }
+    async createDocument() {
+      offscreenCreateCalls += 1;
+      offscreenCreated = true;
+    }
   },
   storage: {
     session: {
@@ -96,10 +102,19 @@ globalThis.chrome = {
   },
   tabs: {
     async query() { return [{ id: 7 }]; },
-    async create(details) { createdBackgroundTab = { id: 19, ...details }; return createdBackgroundTab; },
+    async create(details) {
+      createdBackgroundTab = { id: details.active === false ? 20 : 19, ...details };
+      return createdBackgroundTab;
+    },
+    async get(tabId) {
+      return tabId === 20
+        ? { id: 20, status: "complete", url: "https://artist.bandcamp.com/album/fixture-album" }
+        : { id: tabId, status: "complete", url: "https://artist.bandcamp.com/album/fixture" };
+    },
     async remove(tabId) { removedTabId = tabId; },
-    async sendMessage() {
+    async sendMessage(tabId, message) {
       tabMessageCalls += 1;
+      tabMessages.push({ tabId, message });
       if (!injected) throw new Error("No receiver");
       return { ok: true };
     }
@@ -134,6 +149,30 @@ assert.equal(response.ok, true);
 assert.equal(response.state.queue.length, 1);
 const playbackQueue = response.state.queue;
 assert.equal(offscreenCreated, true);
+assert.equal(offscreenCreateCalls, 1);
+
+offscreenCreated = false;
+session.bandcampHubPlayback = {
+  enabled: true,
+  status: "playing",
+  isPlaying: true,
+  currentTime: 43,
+  index: 0,
+  queue: playbackQueue
+};
+offscreenMessages.length = 0;
+const [resumedPlayback, advancedPlayback] = await Promise.all([
+  send({ type: "BANDCAMP_HUB_SEAMLESS_PLAY_PAUSE" }, { url: "https://artist.bandcamp.com/album/fixture" }),
+  send({ type: "BANDCAMP_HUB_SEAMLESS_NEXT" }, { url: "https://artist.bandcamp.com/album/fixture" })
+]);
+assert.equal(resumedPlayback.ok, true);
+assert.equal(advancedPlayback.ok, true);
+assert.equal(offscreenCreateCalls, 2, "concurrent commands must share one offscreen recreation");
+assert.equal(offscreenMessages.filter((message) => message.type === "BANDCAMP_HUB_OFFSCREEN_RESTORE").length, 1);
+assert.equal(offscreenMessages[0].state.currentTime, 43);
+assert.equal(offscreenMessages[0].state.isPlaying, true);
+assert.ok(offscreenMessages.some((message) => message.type === "BANDCAMP_HUB_OFFSCREEN_PLAY_PAUSE"));
+assert.ok(offscreenMessages.some((message) => message.type === "BANDCAMP_HUB_OFFSCREEN_NEXT"));
 
 response = await send({
   type: "BANDCAMP_HUB_GET_SEAMLESS_STATE"
@@ -205,11 +244,43 @@ assert.equal(offscreenMessages.at(-1).rate, 0.35);
 
 response = await send({
   type: "BANDCAMP_HUB_RESOLVE_PLAYLIST_ITEMS",
-  items: [{ playlistItemId: "playlist-one", id: "101", title: "Fixture Track", pageUrl: "https://artist.bandcamp.com/track/fixture-track" }]
+  items: [{ playlistItemId: "playlist-one", id: "101", title: "Fixture Track", artist: "Bandcamp", pageUrl: "https://artist.bandcamp.com/track/fixture-track" }]
 }, { url: "https://artist.bandcamp.com/album/fixture" });
 assert.equal(response.ok, true);
 assert.equal(response.items[0].url, "https://t4.bcbits.com/stream/refreshed-fixture");
 assert.equal(response.items[0].duration, 181);
+assert.equal(response.items[0].artist, "Fixture Artist");
+assert.equal(response.items[0].art, "https://f4.bcbits.com/img/a-fixture_10.jpg");
+
+response = await send({
+  type: "BANDCAMP_HUB_RESOLVE_PLAYLIST_ITEMS",
+  items: [{ playlistItemId: "missing-stable", id: "999", title: "Missing Stable Track", album: "Fixture Album", pageUrl: "https://artist.bandcamp.com/album/fixture-album" }]
+}, { url: "https://artist.bandcamp.com/album/fixture" });
+assert.equal(response.ok, true);
+assert.equal(response.items[0].url, undefined);
+assert.ok(response.items[0].restoreError.includes("not currently streamable"),
+  "a missing stable track id must not fall back to the album's featured stream");
+
+response = await send({
+  type: "BANDCAMP_HUB_RESOLVE_PLAYLIST_ITEMS",
+  items: [{ playlistItemId: "missing-specific", id: "missing-specific", title: "Missing Specific Track", album: "Fixture Album", pageUrl: "https://artist.bandcamp.com/album/fixture-album" }]
+}, { url: "https://artist.bandcamp.com/album/fixture" });
+assert.equal(response.ok, true);
+assert.equal(response.items[0].url, undefined);
+assert.ok(response.items[0].restoreError.includes("not currently streamable"),
+  "a missing specific track title must not fall back to an unrelated featured stream");
+
+response = await send({
+  type: "BANDCAMP_HUB_RESOLVE_PLAYLIST_ITEMS",
+  items: [{ playlistItemId: "playlist-custom", id: "Fixture Album", title: "Fixture Album", pageUrl: "https://custom-label.example/album/fixture-album" }]
+}, { url: "https://bandcamp.com/discover" });
+assert.equal(response.ok, true);
+assert.equal(response.items[0].pageUrl, "https://artist.bandcamp.com/album/fixture-album");
+assert.equal(response.items[0].title, "Fixture Track");
+assert.equal(response.items[0].album, "Fixture Album");
+assert.equal(response.items[0].url, "https://t4.bcbits.com/stream/refreshed-fixture");
+assert.equal(removedTabId, 20);
+removedTabId = null;
 
 response = await send({
   type: "BANDCAMP_HUB_RESOLVE_CART_METADATA",
@@ -235,6 +306,13 @@ assert.equal(response.ok, true);
 assert.equal(offscreenMessages.at(-1).type, "BANDCAMP_HUB_OFFSCREEN_PLAY_INDEX");
 
 response = await send({
+  type: "BANDCAMP_HUB_CLEAR_PLAYBACK"
+}, { url: "https://artist.bandcamp.com/album/fixture" });
+assert.equal(response.ok, true);
+assert.equal(offscreenMessages.at(-1).type, "BANDCAMP_HUB_OFFSCREEN_DISABLE");
+assert.ok(tabMessages.some(({ message }) => message.type === "BANDCAMP_HUB_PLAYBACK_CLEARED"));
+
+response = await send({
   type: "BANDCAMP_HUB_RESOLVE_CART_ITEMS",
   items: [
     { title: "Fixture Track", url: "https://artist.bandcamp.com/track/fixture-track", requestedItemType: "t" },
@@ -253,8 +331,15 @@ response = await send({
   url: "https://artist.bandcamp.com/track/fixture-track?bandkit_wishlist_key=fixture#bandkit-wishlist"
 }, { url: "https://bandcamp.com/discover" });
 assert.equal(response.ok, true);
-assert.equal(createdBackgroundTab.active, false);
+assert.equal(createdBackgroundTab.active, true);
 assert.equal(createdBackgroundTab.id, 19);
+
+response = await send({
+  type: "BANDCAMP_HUB_OPEN_BACKGROUND_TAB",
+  url: "https://artist.bandcamp.com/album/fixture-album#bandkit-cart"
+}, { url: "https://bandcamp.com/discover" });
+assert.equal(response.ok, true);
+assert.equal(createdBackgroundTab.active, true);
 
 response = await send({
   type: "BANDCAMP_HUB_WISHLIST_RESULT",
@@ -262,8 +347,7 @@ response = await send({
   success: true
 }, { url: "https://artist.bandcamp.com/track/fixture-track", tab: { id: 19 } });
 assert.equal(response.ok, true);
-await new Promise((resolve) => setTimeout(resolve, 1900));
-assert.equal(removedTabId, 19);
+assert.equal(removedTabId, null);
 
 response = await send({
   type: "BANDCAMP_HUB_OFFSCREEN_STATE",
@@ -271,6 +355,25 @@ response = await send({
 }, { url: "chrome-extension://fixture-extension/offscreen.html" });
 assert.equal(response.ok, true);
 assert.equal(session.bandcampHubPlayback.status, "playing");
+
+const originalSessionSet = chrome.storage.session.set;
+let delayedStateWrites = 0;
+chrome.storage.session.set = async (values) => {
+  delayedStateWrites += 1;
+  if (delayedStateWrites === 1) await new Promise((resolve) => setTimeout(resolve, 30));
+  Object.assign(session, values);
+};
+tabMessages.length = 0;
+await Promise.all([
+  send({ type: "BANDCAMP_HUB_OFFSCREEN_STATE", state: { enabled: true, status: "loading", queue: playbackQueue } }, { url: "chrome-extension://fixture-extension/offscreen.html" }),
+  send({ type: "BANDCAMP_HUB_OFFSCREEN_STATE", state: { enabled: true, status: "playing", queue: playbackQueue } }, { url: "chrome-extension://fixture-extension/offscreen.html" })
+]);
+assert.equal(session.bandcampHubPlayback.status, "playing", "the newest offscreen state must win even when an earlier storage write is slower");
+assert.deepEqual(tabMessages
+  .filter(({ message }) => message.type === "BANDCAMP_HUB_SEAMLESS_STATE")
+  .map(({ message }) => message.state.status), ["loading", "playing"],
+"offscreen state broadcasts must preserve arrival order");
+chrome.storage.session.set = originalSessionSet;
 
 await actionListener({ id: 7, url: "https://artist.bandcamp.com/album/fixture" });
 assert.equal(injected, true);

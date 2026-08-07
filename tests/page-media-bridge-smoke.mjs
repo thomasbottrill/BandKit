@@ -26,8 +26,28 @@ class CustomEvent {
   }
 }
 
-class HTMLMediaElement {}
-HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
+class HTMLMediaElement extends EventTarget {
+  constructor() {
+    super();
+    this.paused = true;
+    this.ended = false;
+    this.currentTime = 0;
+    this.duration = 120;
+    this.playbackRate = 1;
+    this.volume = 1;
+    this.src = "";
+    this.currentSrc = "";
+  }
+  play() {
+    this.paused = false;
+    this.dispatchEvent(new Event("play"));
+    return Promise.resolve();
+  }
+  pause() {
+    this.paused = true;
+    this.dispatchEvent(new Event("pause"));
+  }
+}
 
 const nativeItem = {
   id: 321,
@@ -81,5 +101,15 @@ assert.equal(window.Sidecart.cart_items.length, 0, "native Sidecart should no lo
 assert.equal(result.requestId, "remove-test");
 assert.equal(result.removed, true);
 assert.equal(result.error, undefined);
+
+const firstAudio = new window.Audio();
+const secondAudio = new window.Audio();
+await firstAudio.play();
+await secondAudio.play();
+assert.equal(firstAudio.paused, false);
+assert.equal(secondAudio.paused, false);
+document.dispatchEvent(new CustomEvent("bandkit:media-command", { detail: { action: "pauseAll" } }));
+assert.equal(firstAudio.paused, true, "pauseAll should stop the first tracked native player");
+assert.equal(secondAudio.paused, true, "pauseAll should stop every tracked native player, not only the most recently active one");
 
 console.log("page media bridge cart removal smoke test passed");

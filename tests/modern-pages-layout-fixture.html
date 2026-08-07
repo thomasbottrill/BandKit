@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en" data-bandkit-modern-page="true" data-bandkit-modern-page-type="music">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BandKit modern pages layout fixture</title>
+  <link rel="stylesheet" href="/modern-release.css">
+  <style>
+    body { margin: 0; font: 14px/1.45 Arial, sans-serif; }
+    #pgBd { background: #fffefa; }
+    #centerWrapper { min-height: 2200px; position: relative; }
+    #propOpenWrapper { display: flex; position: absolute; width: 100%; }
+    #customHeader img { height: 180px; object-fit: cover; }
+    ol, ul { list-style: none; }
+    .cf::before, .cf::after { content: " "; display: table; }
+    .cf::after { clear: both; }
+    .fixture-switcher { background: #111827; display: flex; gap: 8px; padding: 10px 16px; position: sticky; top: 0; z-index: 10; }
+    .fixture-switcher a { color: #fff; }
+  </style>
+</head>
+<body>
+  <nav class="fixture-switcher" aria-label="Fixture pages">
+    <a href="?page=music">Music</a><a href="?page=merch">Merch</a><a href="?page=video">Video</a><a href="?page=community">Community</a><a href="?page=feed">Feed</a><a href="?page=collection">Collection</a>
+  </nav>
+  <div id="fixture-root"></div>
+  <script>
+    const art = ["clouds", "meridian", "remix", "velocity", "magma", "apophenia"];
+    const page = new URLSearchParams(location.search).get("page") || "music";
+    const root = document.querySelector("#fixture-root");
+    const artistHeader = `
+      <div id="centerWrapper"><div id="propOpenWrapper"><main id="pgBd">
+        <div id="customHeaderWrapper"><div id="customHeader"><div class="desktop-header"><a href="#"><picture><img src="/assets/art-clouds.png" width="975" height="180" alt="North Harbour"></picture></a></div></div>
+          <div class="band-navbar-wrapper"><ol id="band-navbar"><li><a href="?page=music">music</a></li><li><a href="?page=merch">merch</a></li><li><a href="?page=video">video</a></li><li><a href="?page=community">community</a></li></ol></div>
+        </div>`;
+    const artistFooter = `</main></div></div>`;
+
+    if (page === "music") {
+      document.documentElement.dataset.bandkitModernPage = "true";
+      document.documentElement.dataset.bandkitModernPageType = "music";
+      root.innerHTML = artistHeader + `
+        <div class="leftMiddleColumns"><ol id="music-grid" class="music-grid columns-4">${art.map((name, index) => `<li class="music-grid-item square"><a href="#"><div class="art"><img src="/assets/art-${name}.png" alt=""></div><p class="title">${["Cloud Studies", "Soft Current", "Afterimage", "Night Geometry", "Low Weather", "Signal Coast"][index]}</p></a></li>`).join("")}</ol></div>
+        <aside id="rightColumn"><div id="bio-container"><div class="artists-bio-pic"><img src="/assets/art-meridian.png" alt=""></div><h2 class="title">North Harbour</h2><p class="location secondaryText">Sydney, Australia</p><p id="bio-text">Low-light music for late hours and open rooms.</p><a href="#">Follow</a></div><div id="showography"><h3 class="title">shows</h3><p><strong>Aug 18</strong><br><span class="secondaryText">Marrickville, NSW</span></p></div></aside>` + artistFooter;
+      document.querySelector('#band-navbar a[href="?page=music"]').classList.add("active");
+    } else if (page === "merch") {
+      document.documentElement.dataset.bandkitModernPage = "true";
+      document.documentElement.dataset.bandkitModernPageType = "merch";
+      root.innerHTML = artistHeader + `
+        <div class="leftMiddleColumns"><ol id="merch-grid" class="merch-grid columns-2">${art.slice(0, 5).map((name, index) => `<li class="merch-grid-item"><a href="#"><div class="art"><img src="/assets/art-${name}.png" alt=""></div><p class="title">${["Cloud Studies LP", "Soft Current Cassette", "Afterimage 12-inch", "Night Geometry CD", "Signal Coast Print"][index]}</p></a><div class="merchtype secondaryText">${["Vinyl", "Cassette", "Vinyl", "Compact Disc", "Art Print"][index]}</div><p class="price"><span class="price">$${[32, 18, 28, 16, 24][index]}</span> <span class="currency">AUD</span></p></li>`).join("")}</ol></div>
+        <aside id="rightColumn"><div id="bio-container"><div class="artists-bio-pic"><img src="/assets/art-meridian.png" alt=""></div><h2 class="title">North Harbour</h2><p class="location secondaryText">Sydney, Australia</p><p id="bio-text">Physical editions and small-run objects.</p><a href="#">Follow</a></div><div id="discography" class="sidebar"><h3>discography</h3><p>Six releases</p></div></aside>` + artistFooter;
+      document.querySelector('#band-navbar a[href="?page=merch"]').classList.add("active");
+    } else if (page === "video") {
+      document.documentElement.dataset.bandkitModernPage = "true";
+      document.documentElement.dataset.bandkitModernPageType = "video";
+      root.innerHTML = artistHeader + `
+        <div class="leftMiddleColumns"><dl class="video-list def-grid">${art.slice(0, 3).map((name, index) => {
+          const artist = ["North Harbour", "Pale Index", "Mira Vale"][index];
+          const title = ["Low Weather", "Signal Coast", "Night Geometry"][index];
+          return `<dt class="video-wrapper"><div class="video-generic-iframe placeholder"><img src="/assets/art-${name}.png" alt=""><button class="video-play-button" aria-label="Play ${title}">▶</button></div></dt><dd class="video-caption"><p class="caption-proper">A film by ${artist}.</p><a href="#"><div class="tralbum-art"><img src="/assets/art-${art[index + 2]}.png" alt=""></div></a><div class="video-associated-tralbum-info"><b>${title}</b> from the album <a href="#">Cloud Studies</a><br>by ${artist}<p><a class="sub-vid-action-link button" href="#">Buy Now</a><span class="collect-item"><a class="wishlist-msg sub-vid-action-link" href="#">Wishlist</a></span><a class="sub-vid-action-link" href="#">Hear More</a></p></div></dd>`;
+        }).join("")}</dl></div><aside id="rightColumn" class="rightColumn video-page"><div id="bio-container"><div class="artists-bio-pic"><img src="/assets/art-meridian.png" alt=""></div><h2 class="title">North Harbour</h2><p class="location secondaryText">Sydney, Australia</p><p id="bio-text">Low-light music and moving images for late hours.</p><a href="#">Follow</a></div><div id="discography" class="sidebar"><h3>discography</h3><p>Six releases</p></div></aside>` + artistFooter;
+      document.querySelector('#band-navbar a[href="?page=video"]').classList.add("active");
+    } else if (page === "community") {
+      document.documentElement.dataset.bandkitModernPage = "true";
+      document.documentElement.dataset.bandkitModernPageType = "community";
+      root.innerHTML = artistHeader + `
+        <section id="community" class="community"><div id="community-inner"><div class="community-view feed active"><div class="community-default-column">
+          <div class="community-follow-banner"><h2>Follow North Harbour to join the conversation.</h2><div>Get new music, messages, and supporter updates.</div></div>
+          <div class="community-feed"><h3 class="messages">Messages</h3><ol class="stories">
+            <li class="story message locked"><div class="lock-banner"><div class="lock-banner-inner"><div class="lock-banner-heading">Follow North Harbour to see this message</div><button class="lock-follow">Follow</button></div></div><div class="main-section"><div class="story-heading"><div class="story-band-name">North Harbour</div><div class="story-date">August 8, 2026</div></div><div class="story-body"><h2>Studio notes</h2><p>We finished a new set of deep electronic sketches this week. Thanks for listening with us.</p><img src="/assets/art-apophenia.png" alt="Studio artwork" style="display:block;max-width:100%;margin-top:16px"></div></div><div class="actions">♡ 12 &nbsp; · &nbsp; 4 comments</div></li>
+            <li class="story message"><div class="main-section"><div class="story-heading"><div class="story-band-name">North Harbour</div><div class="story-date">July 22, 2026</div></div><div class="story-body"><h2>New pressing</h2><p>The first copies have arrived and will begin shipping tomorrow.</p></div></div></li>
+          </ol></div></div><aside class="community-default-column"><div class="community-band-info"><div class="band-photo"><img src="/assets/art-meridian.png" alt=""></div><h2 class="name">North Harbour</h2><h3 class="location">Sydney, Australia</h3><button class="follow-unfollow">Follow</button></div><div class="community-recent-release"><h2 class="heading">Latest Release</h2><a class="tralbum-link" href="#"><div class="art"><img src="/assets/art-clouds.png" alt=""></div><div class="title">Cloud Studies</div></a><div class="item-collection-controls"><span class="collection-btn"><a href="#">buy now</a></span><span class="collection-btn"><a href="#">wishlist</a></span></div></div><div class="community-recent-supporters"><h2 class="heading">Recent Supporters</h2><ol class="supporters">${art.slice(0, 4).map((name) => `<li><img src="/assets/art-${name}.png" alt=""></li>`).join("")}</ol></div></aside></div></div></section>` + artistFooter;
+      document.querySelector('#band-navbar a[href="?page=community"]').classList.add("active");
+    } else if (page === "feed") {
+      document.documentElement.dataset.bandkitModernPage = "true";
+      document.documentElement.dataset.bandkitModernPageType = "feed";
+      document.documentElement.dataset.bandkitPageTheme = "false";
+      document.body.classList.add("feed");
+      root.innerHTML = `<div id="centerWrapper"><div id="propOpenWrapper"><main id="pgBd"><div id="dash-container"><aside id="sidebar"><h2>New Releases from artists you follow</h2><div class="collection-grid"><div class="collection-item-container"><img src="/assets/art-velocity.png" alt="" width="112" height="112"><h3 class="collection-item-title">Low Weather</h3><div class="collection-item-artist">by Signal Coast</div></div></div></aside><div id="stories-vm"><h2>Fan Activity</h2><div id="stories"><ol id="story-list" class="story-list">${art.slice(0, 3).map((name, index) => {
+        const artist = ["North Harbour", "Pale Index", "Mira Vale"][index];
+        const title = ["Cloud Studies", "Soft Current", "Night Geometry"][index];
+        const followState = index === 1 ? '<span class="unfollow-msg">Unfollow</span>' : '<span class="following-msg">Following</span>';
+        return `<li class="story nr"><div class="story-sidebar"><a class="pic" href="#"><img class="band-image thumb" src="/assets/art-${art[index + 2]}.png" alt="${artist}"></a><a class="follow-band following" href="#">${followState}</a></div><div class="story-innards collection-item-container"><div class="story-body"><div class="story-title"><div class="story-date">${index + 2} hours ago</div><a class="artist-name" href="#">${artist}</a> released an album.</div><div class="tralbum-wrapper cf"><div class="tralbum-wrapper-col1"><div class="tralbum-art-container track_play_auxiliary"><img class="tralbum-art-large" src="/assets/art-${name}.png" alt=""><div class="play-button">▶</div></div><div class="tralbum-details"><a class="item-link" href="#"><div class="collection-item-title">${title}</div><div class="collection-item-artist">by ${artist}</div></a><div class="collection-item-fav-track cf"><span class="favoriteTrackLabel">featured track:<span class="fav-track-title">A new release from an artist you follow.</span></span></div></div></div><div class="tralbum-wrapper-col2 tralbum-owners"><div class="collected-by"><div class="collected-by-header">supported by</div><div class="deets populated"><img class="thumb" src="/assets/art-${art[index + 3]}.png" alt="" width="42" height="42"></div></div></div></div></div><div class="tralbum-wrapper-collect-controls"><ul class="bandkit-feed-action-row"><li><a href="#">wishlist</a></li><li><a href="#">hear more</a></li></ul></div><div class="story-footer"><div class="collection-item-tags">tags: ambient, electronic, experimental</div></div></div></li>`;
+      }).join("")}</ol></div></div></div></main></div></div>`;
+    } else {
+      document.documentElement.dataset.bandkitModernPage = "false";
+      delete document.documentElement.dataset.bandkitModernPageType;
+      root.innerHTML = `<main id="fan-container" style="margin:40px auto;max-width:980px"><h1>Collection remains unchanged</h1><ol id="collection-grid" class="collection-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px">${art.slice(0, 4).map((name) => `<li><img src="/assets/art-${name}.png" alt="" style="width:100%"><p>Collected release</p></li>`).join("")}</ol></main>`;
+    }
+  </script>
+</body>
+</html>

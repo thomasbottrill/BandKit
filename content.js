@@ -5,6 +5,8 @@
 
   const asset = (name) => chrome.runtime.getURL(`assets/${name}`);
   const cartAutosave = globalThis.BandKitCartAutosave;
+  const MAX_PLAYLIST_ITEMS = 500;
+  const THEME_COLOR_KEYS = ["accent", "surface", "card", "background", "pageSurface", "navbar", "text", "secondaryText"];
   const BUILT_IN_THEMES = [
     { id: "studio", label: "Studio", accent: "#1da0c3", surface: "#ffffff", background: "#eef2f4", pageSurface: "#ffffff", text: "#111827" },
     { id: "midnight", label: "Midnight", accent: "#8b7cff", surface: "#18181f", background: "#0d0d12", pageSurface: "#18181f", text: "#f8fafc" },
@@ -24,10 +26,13 @@
     launcherPosition: null,
     openHomeToFeed: true,
     feedUrl: "",
+    recordPlaylistMetadata: true,
+    scrubberStyle: "waveform",
+    musicBarSize: "standard",
     appearance: {
       pageAware: true,
       applyToPage: false,
-      modernReleasePages: false,
+      modernReleasePages: true,
       hidePageCart: true,
       hideHeaderCart: true,
       hideBandcampPlayer: true,
@@ -67,6 +72,7 @@
     cartView: "current",
     selectedSavedCartId: null,
     playlist: [],
+    playlistMode: "browse",
     savedPlaylists: [],
     playlistView: "current",
     selectedSavedPlaylistId: null,
@@ -78,6 +84,7 @@
   let state = structuredClone(defaultState);
   let layoutRevision = 0;
   let clearedPageQueueSignature = "";
+  let nowPlayingExplicitlyCleared = false;
   let live = {
     available: false,
     isPlaying: false,
@@ -136,17 +143,41 @@
   let lastRecordedTrack = "";
   let lastPageItem = null;
   let modernHandoffBusy = false;
+  let modernHandoffRequest = 0;
+  let modernHandoffTrackKey = "";
+  let modernHandoffPendingIndex = null;
+  let modernHandoffSuperseded = false;
   let discoverHandoffBusy = false;
+  let discoverHandoffTrackKey = "";
+  let discoverHandoffPending = false;
+  let discoverSwitchPendingDisable = false;
   let feedHandoffBusy = false;
+  let feedHandoffTrackId = "";
+  let mutedFeedAudio = null;
+  let mutedFeedAudioWasMuted = false;
+  let mutedFeedTrackId = "";
+  let playlistPlaybackStarting = false;
+  let playlistPlaybackStartingRequest = 0;
+  let playlistPlayRequest = 0;
+  let pendingPlaylistItemId = "";
   let feedSwitchPendingDisable = false;
   let pendingFeedTrackId = "";
+  let suppressedFeedTrackId = "";
   let feedHandoffTimer = 0;
   let suppressModernControl = false;
+  let recommendationHandoffRequest = 0;
+  let suppressRecommendationControl = false;
+  let collectionHandoffRequest = 0;
+  let suppressCollectionControl = false;
+  let collectionNativeFallbackUntil = 0;
   let scrubbing = false;
   let pendingSeekTimer = 0;
   let scrubReleaseTimer = 0;
   let playerActionSignature = "";
   let scrubRevision = 0;
+  let scrubWaveformSignature = "";
+  let scrubWaveformWidth = 0;
+  let scrubWaveformResizeObserver = null;
   let bpmTapTimes = [];
   let resizeCursorStyle = null;
   const observedAudio = new WeakSet();
@@ -222,6 +253,14 @@
       playbackRate: Number(next.playbackRate) || 1,
       volume: Number(next.volume) || 1
     };
+    if (seamless.enabled
+      && !bridgedMedia.paused
+      && !feedSwitchPendingDisable
+      && !pendingFeedTrackId
+      && !discoverSwitchPendingDisable
+      && Date.now() >= collectionNativeFallbackUntil) {
+      silenceNativePagePlayback();
+    }
   });
 
   document.addEventListener("bandkit:cart-state", (event) => {
@@ -318,7 +357,14 @@
         </div>
         <div class="hub-scrub-row">
           <span class="hub-current-time">0:00</span>
-          <input class="hub-scrub-slider" type="range" min="0" max="1000" step="1" value="0" aria-label="Playback position">
+          <div class="hub-scrub-control">
+            <input class="hub-scrub-slider" type="range" min="0" max="1000" step="1" value="0" aria-label="Playback position">
+            <svg class="hub-scrub-waveform" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+              <path class="hub-scrub-waveform-remaining"></path>
+              <path class="hub-scrub-waveform-played"></path>
+            </svg>
+            <span class="hub-scrub-playhead" aria-hidden="true"></span>
+          </div>
           <span class="hub-duration">0:00</span>
         </div>
       </div>
@@ -405,10 +451,97 @@
   const headerResetButton = panel.querySelector(".hub-reset");
   const layoutToggleButton = panel.querySelector(".hub-layout-toggle");
   const djDrawer = player.querySelector(".hub-dj-drawer");
+  const scrubControl = player.querySelector(".hub-scrub-control");
   const scrubSlider = player.querySelector(".hub-scrub-slider");
+  const scrubWaveform = player.querySelector(".hub-scrub-waveform");
+  const scrubWaveformRemaining = player.querySelector(".hub-scrub-waveform-remaining");
+  const scrubWaveformPlayed = player.querySelector(".hub-scrub-waveform-played");
   const currentTimeLabel = player.querySelector(".hub-current-time");
   const durationLabel = player.querySelector(".hub-duration");
   const toast = player.querySelector(".hub-toast");
+
+  function waveformSeed(value) {
+    let seed = 2166136261;
+    for (const character of value) {
+      seed ^= character.charCodeAt(0);
+      seed = Math.imul(seed, 16777619);
+    }
+    return seed >>> 0;
+  }
+
+  function waveformPathData(signature, width) {
+    const pixelWidth = Math.max(80, Math.round(width));
+    const barCount = Math.max(28, Math.min(180, Math.round(pixelWidth / 4)));
+    const step = pixelWidth / barCount;
+    let randomState = waveformSeed(signature || "bandkit-waveform") || 1;
+    const samples = [];
+    for (let index = 0; index < barCount + 4; index += 1) {
+      randomState ^= randomState << 13;
+      randomState ^= randomState >>> 17;
+      randomState ^= randomState << 5;
+      samples.push((randomState >>> 0) / 4294967295);
+    }
+    const path = [];
+    for (let index = 0; index < barCount; index += 1) {
+      const localEnergy = samples[index] * 0.2 + samples[index + 1] * 0.45 + samples[index + 2] * 0.35;
+      const phrase = 0.78 + 0.22 * Math.sin((index / barCount) * Math.PI * 7 + samples[0] * Math.PI);
+      const edgeEnvelope = Math.min(1, (index + 3) / 9, (barCount - index + 2) / 9);
+      const height = Math.max(3, Math.min(20, (4 + localEnergy * 16) * phrase * edgeEnvelope));
+      const x = (index + 0.5) * step;
+      path.push(`M${x.toFixed(2)} ${(12 - height / 2).toFixed(2)}V${(12 + height / 2).toFixed(2)}`);
+    }
+    return { pathData: path.join(""), pixelWidth };
+  }
+
+  function buildScrubWaveform(signature, width) {
+    const { pathData, pixelWidth } = waveformPathData(signature, width);
+    scrubWaveform.setAttribute("viewBox", `0 0 ${pixelWidth} 24`);
+    scrubWaveformRemaining.setAttribute("d", pathData);
+    scrubWaveformPlayed.setAttribute("d", pathData);
+    scrubWaveformSignature = signature;
+    scrubWaveformWidth = pixelWidth;
+  }
+
+  function refreshScrubWaveform(force = false, observedWidth = 0) {
+    const signature = `${live.title || ""}\u0000${live.artist || ""}\u0000${live.pageUrl || ""}`;
+    if (!force && signature === scrubWaveformSignature) return;
+    const width = Math.max(80, Math.round(observedWidth || scrubControl.getBoundingClientRect().width));
+    if (signature === scrubWaveformSignature && Math.abs(width - scrubWaveformWidth) < 4) return;
+    buildScrubWaveform(signature, width);
+  }
+
+  function syncScrubVisual(value = Number(scrubSlider.value) || 0) {
+    const progress = Math.max(0, Math.min(1, value / 1000));
+    scrubControl.style.setProperty("--hub-scrub-progress", `${(progress * 100).toFixed(2)}%`);
+  }
+
+  function usesTraditionalScrubber() {
+    return state.scrubberStyle === "traditional";
+  }
+
+  function syncScrubberStyles() {
+    const traditional = usesTraditionalScrubber();
+    scrubControl.classList.toggle("is-traditional", traditional);
+    for (const control of document.querySelectorAll(".bandkit-page-scrub-control")) {
+      control.classList.toggle("is-traditional", traditional);
+    }
+  }
+
+  function syncMusicBarSize() {
+    const compact = state.musicBarSize === "compact";
+    const changed = player.classList.contains("is-compact") !== compact;
+    player.classList.toggle("is-compact", compact);
+    host.style.setProperty("--hub-player-height", compact ? "72px" : "96px");
+    if (changed) window.requestAnimationFrame(syncPlayerPageSpace);
+  }
+
+  refreshScrubWaveform(true);
+  if (typeof ResizeObserver === "function") {
+    scrubWaveformResizeObserver = new ResizeObserver((entries) => {
+      refreshScrubWaveform(true, entries[0]?.contentRect.width || 0);
+    });
+    scrubWaveformResizeObserver.observe(scrubControl);
+  }
 
   function toggleSectionPanel(tabId) {
     const currentPanelVisible = state.activeTab === tabId && !panel.classList.contains("is-hidden");
@@ -426,7 +559,7 @@
     button.dataset.tab = tab.id;
     button.title = tab.label;
     button.setAttribute("aria-label", tab.label);
-    button.innerHTML = `<span class="hub-tab-icon" style="--hub-icon:url('${asset(tab.icon)}')"></span><span class="hub-tab-dot"></span>`;
+    button.innerHTML = `<span class="hub-tab-icon" style="--hub-icon:url('${asset(tab.icon)}')"></span><span class="hub-tab-dot" aria-hidden="true"></span>`;
     button.addEventListener("click", () => {
       state.activeTab = tab.id;
       saveState();
@@ -440,7 +573,12 @@
     shortcut.dataset.tab = tab.id;
     shortcut.title = tab.label;
     shortcut.setAttribute("aria-label", tab.label);
-    shortcut.innerHTML = `<span class="hub-header-shortcut-icon" style="--hub-icon:url('${asset(tab.icon)}')"></span>${tab.id === "cart" ? '<span class="hub-now-playing-count hub-cart-shortcut-count">0</span>' : '<span class="hub-header-shortcut-dot"></span>'}`;
+    const shortcutCounter = tab.id === "cart"
+      ? '<span class="hub-header-shortcut-count hub-cart-shortcut-count" aria-hidden="true">0</span>'
+      : tab.id === "playlist"
+        ? '<span class="hub-header-shortcut-count hub-playlist-shortcut-count" aria-hidden="true">0</span>'
+        : '<span class="hub-header-shortcut-dot" aria-hidden="true"></span>';
+    shortcut.innerHTML = `<span class="hub-header-shortcut-icon" style="--hub-icon:url('${asset(tab.icon)}')"></span>${shortcutCounter}`;
     shortcut.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -463,7 +601,15 @@
   }
 
   function resolveImage(source) {
-    return /^https?:/.test(source || "") ? source : "";
+    try {
+      const sourceValue = String(source || "").trim();
+      if (!sourceValue) return "";
+      const value = sourceValue.startsWith("//") ? `https:${sourceValue}` : sourceValue;
+      const url = new URL(value, location.href);
+      return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+    } catch {
+      return "";
+    }
   }
 
   function createArt(source, small = false) {
@@ -525,11 +671,44 @@
     }
   }
 
+  function safeBandcampReleaseUrl(value) {
+    const bandcampUrl = safeBandcampUrl(value);
+    if (bandcampUrl) return bandcampUrl;
+    try {
+      const url = new URL(value);
+      const hostname = url.hostname.toLowerCase();
+      const ipv4 = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)?.slice(1).map(Number);
+      const privateIpv4 = ipv4 && (ipv4.some((part) => part > 255)
+        || ipv4[0] === 10
+        || ipv4[0] === 127
+        || (ipv4[0] === 169 && ipv4[1] === 254)
+        || (ipv4[0] === 172 && ipv4[1] >= 16 && ipv4[1] <= 31)
+        || (ipv4[0] === 192 && ipv4[1] === 168));
+      const publicHost = hostname
+        && hostname !== "localhost"
+        && !hostname.endsWith(".localhost")
+        && !hostname.endsWith(".local")
+        && !hostname.includes(":")
+        && !privateIpv4;
+      return url.protocol === "https:"
+        && !url.username
+        && !url.password
+        && (!url.port || url.port === "443")
+        && publicHost
+        && /^\/(?:album|track)\/[^/]+/.test(url.pathname)
+        ? url.href
+        : "";
+    } catch {
+      return "";
+    }
+  }
+
   function resolvedTrackPageUrl(track) {
     try {
-      const value = track?.title_link || track?.pageUrl || location.href;
+      const rawValue = track?.title_link || track?.pageUrl || location.href;
+      const value = String(rawValue).startsWith("//") ? `https:${rawValue}` : rawValue;
       const url = new URL(value, location.href);
-      return url.protocol === "https:" && (url.hostname === "bandcamp.com" || url.hostname.endsWith(".bandcamp.com")) ? url.href : "";
+      return safeBandcampReleaseUrl(url.href);
     } catch {
       return "";
     }
@@ -702,17 +881,16 @@
     if (action === "wishlist") {
       const key = wishlistTrackKey(track);
       target.searchParams.set("bandkit_wishlist_key", key);
-      const response = await runtimeMessage({ type: "BANDCAMP_HUB_OPEN_BACKGROUND_TAB", url: target.href });
-      if (!response?.ok) {
-        showToast(response?.error || "Bandcamp could not open the wishlist action.");
-        return;
-      }
-      markWishlistTrack(track, true);
-      showToast(`Adding “${track.title}” to your Bandcamp wishlist…`);
+    }
+    const response = await runtimeMessage({ type: "BANDCAMP_HUB_OPEN_BACKGROUND_TAB", url: target.href });
+    if (!response?.ok) {
+      showToast(response?.error || `Bandcamp could not open the ${action} action.`);
       return;
     }
-    window.open(target.href, "_blank", "noopener");
-    showToast("Opened the track's Bandcamp purchase action");
+    if (action === "wishlist") markWishlistTrack(track, true);
+    showToast(action === "wishlist"
+      ? `Opened “${track.title}” on Bandcamp for your wishlist.`
+      : `Opened “${track.title}” on Bandcamp for purchase.`);
   }
 
   function wishlistTrackKey(track) {
@@ -733,11 +911,13 @@
   }
 
   function artistUrlFromPageUrl(value) {
-    const pageUrl = safeBandcampUrl(value);
+    const pageUrl = safeBandcampReleaseUrl(value);
     if (!pageUrl) return "";
     try {
       const url = new URL(pageUrl);
-      return url.hostname === "bandcamp.com" ? pageUrl : `${url.origin}/`;
+      return url.hostname === "bandcamp.com"
+        ? pageUrl
+        : url.hostname.endsWith(".bandcamp.com") ? `${url.origin}/` : pageUrl;
     } catch {
       return pageUrl;
     }
@@ -745,7 +925,7 @@
 
   function createPageLink(text, url, className = "") {
     const link = createElement("a", className, text);
-    const safeUrl = safeBandcampUrl(url);
+    const safeUrl = safeBandcampReleaseUrl(url);
     if (safeUrl) {
       link.href = safeUrl;
       link.target = "_blank";
@@ -758,7 +938,7 @@
   }
 
   function updatePageLink(link, value) {
-    const safeUrl = safeBandcampUrl(value);
+    const safeUrl = safeBandcampReleaseUrl(value);
     if (safeUrl) {
       link.href = safeUrl;
       link.target = "_blank";
@@ -781,7 +961,10 @@
     window.clearTimeout(toastTimer);
     toast.textContent = message;
     toast.classList.add("is-visible");
-    toastTimer = window.setTimeout(() => toast.classList.remove("is-visible"), 2200);
+    toastTimer = window.setTimeout(() => {
+      toast.classList.remove("is-visible");
+      toast.textContent = "";
+    }, 2200);
   }
 
   function storageGet(key) {
@@ -848,14 +1031,82 @@
     }
   }
 
+  function canonicalPlaylistPageUrl(track) {
+    let pageUrl = resolvedTrackPageUrl(track);
+    try {
+      const canonical = new URL(pageUrl);
+      canonical.hash = "";
+      canonical.search = "";
+      canonical.pathname = canonical.pathname.replace(/\/+$/, "") || "/";
+      pageUrl = canonical.href;
+    } catch {
+      pageUrl = "";
+    }
+    return pageUrl;
+  }
+
+  function stablePlaylistTrackId(track) {
+    const id = String(track?.id || "").trim();
+    return /^(?:track-)?\d+$/i.test(id) ? id.replace(/^track-/i, "") : "";
+  }
+
   function playlistTrackKey(track) {
-    const pageUrl = safeBandcampUrl(track?.pageUrl);
-    return `${pageUrl}|${String(track?.id || "")}|${String(track?.title || "").replace(/\s+/g, " ").trim().toLowerCase()}`;
+    const stableId = stablePlaylistTrackId(track);
+    if (stableId) return `id:${stableId}`;
+    const pageUrl = canonicalPlaylistPageUrl(track);
+    const title = normalizedTrackTitle(track?.title);
+    const artist = normalizedTrackTitle(track?.artist);
+    return `${pageUrl}|${title}|${artist}`;
+  }
+
+  function playlistTracksMatch(left, right) {
+    if (!left || !right) return false;
+    const leftStream = String(left.url || "");
+    const rightStream = String(right.url || "");
+    if (leftStream && rightStream && leftStream === rightStream) return true;
+    const leftStableId = stablePlaylistTrackId(left);
+    const rightStableId = stablePlaylistTrackId(right);
+    if (leftStableId && rightStableId) return leftStableId === rightStableId;
+    if (playlistTrackKey(left) === playlistTrackKey(right)) return true;
+    const leftPage = canonicalPlaylistPageUrl(left);
+    const rightPage = canonicalPlaylistPageUrl(right);
+    const leftTitle = normalizedTrackTitle(left.title);
+    const rightTitle = normalizedTrackTitle(right.title);
+    const leftArtist = normalizedTrackTitle(left.artist);
+    const rightArtist = normalizedTrackTitle(right.artist);
+    return Boolean(leftPage && leftPage === rightPage
+      && leftTitle && leftTitle === rightTitle
+      && (!leftArtist || !rightArtist || leftArtist === "bandcamp" || rightArtist === "bandcamp" || leftArtist === rightArtist));
+  }
+
+  function normalizePlaylistBpm(value) {
+    const bpm = Number(value);
+    return Number.isFinite(bpm) && bpm >= 40 && bpm <= 300 ? Math.round(bpm * 10) / 10 : null;
+  }
+
+  function normalizePlaylistKey(value) {
+    if (!value || typeof value !== "object") return null;
+    const camelot = String(value.camelot || "").trim().slice(0, 12);
+    const shortName = String(value.shortName || "").trim().slice(0, 32);
+    const name = String(value.name || "").trim().slice(0, 80);
+    return camelot || shortName || name ? { camelot, shortName, name } : null;
+  }
+
+  function activePlaylistAnalysis(track) {
+    if (state.recordPlaylistMetadata === false || !seamless.track || !matchingQueueTrack([seamless.track], track)) return null;
+    const bpm = normalizePlaylistBpm(seamless.detectedBpm);
+    const key = normalizePlaylistKey(seamless.detectedKey);
+    return bpm || key ? { bpm, key } : null;
+  }
+
+  function capturePlaylistAnalysis(track) {
+    const analysis = activePlaylistAnalysis(track);
+    return analysis ? { ...track, ...analysis } : track;
   }
 
   function normalizePlaylistItem(track, index = 0) {
     if (!track || typeof track !== "object" || !String(track.title || "").trim()) return null;
-    const pageUrl = safeBandcampUrl(track.pageUrl);
+    const pageUrl = resolvedTrackPageUrl(track);
     if (!pageUrl) return null;
     const fallbackId = `${track.id || pageUrl}|${track.title}|${index}`;
     return {
@@ -864,11 +1115,13 @@
       title: String(track.title || "Untitled").slice(0, 500),
       artist: String(track.artist || "Bandcamp").slice(0, 500),
       album: String(track.album || "").slice(0, 500),
-      art: /^https?:/.test(track.art || "") ? String(track.art).slice(0, 4000) : "",
+      art: resolveImage(track.art).slice(0, 4000),
       pageUrl,
       artistUrl: safeBandcampUrl(track.artistUrl),
       duration: Math.max(0, Number(track.duration) || 0),
       url: isReusableStreamUrl(track.url) ? track.url : "",
+      bpm: normalizePlaylistBpm(track.bpm ?? track.detectedBpm),
+      key: normalizePlaylistKey(track.key ?? track.detectedKey),
       addedAt: String(track.addedAt || ""),
       restoreError: String(track.restoreError || "").slice(0, 500)
     };
@@ -877,7 +1130,7 @@
   function normalizePlaylist(items) {
     const normalized = [];
     const itemIds = new Set();
-    for (const [index, source] of (Array.isArray(items) ? items : []).slice(0, 500).entries()) {
+    for (const [index, source] of (Array.isArray(items) ? items : []).slice(0, MAX_PLAYLIST_ITEMS).entries()) {
       const item = normalizePlaylistItem(source, index);
       if (!item) continue;
       if (itemIds.has(item.playlistItemId)) item.playlistItemId = `playlist-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`;
@@ -898,7 +1151,7 @@
   }
 
   function playlistIsActive() {
-    return Boolean(seamless.enabled && seamless.track?.playlistItemId && seamless.queue?.some((track) => track.playlistItemId === seamless.track.playlistItemId));
+    return Boolean(seamless.enabled && seamless.track && matchingQueueTrack(seamless.queue, seamless.track));
   }
 
   async function syncActivePlaylistQueue() {
@@ -907,26 +1160,111 @@
     await seamlessCommand("BANDCAMP_HUB_SEAMLESS_UPDATE_QUEUE", { queue: playable });
   }
 
-  function addTracksToPlaylist(tracks, { quiet = false } = {}) {
+  function resetLoadedPlayback() {
+    live = {
+      available: false,
+      isPlaying: false,
+      hasPlaybackStarted: false,
+      title: "",
+      artist: "",
+      art: "",
+      pageUrl: "",
+      artistUrl: "",
+      currentTime: 0,
+      duration: 0,
+      progress: 0,
+      tracks: []
+    };
+    seamless = {
+      ...seamless,
+      enabled: false,
+      status: "idle",
+      error: "",
+      isPlaying: false,
+      currentTime: 0,
+      duration: 0,
+      progress: 0,
+      index: -1,
+      track: null,
+      queue: []
+    };
+  }
+
+  function clearLocalPlaybackState({ persist = true } = {}) {
+    clearedPageQueueSignature ||= `${live.pageUrl}|${live.title}`;
+    nowPlayingExplicitlyCleared = true;
+    playlistPlayRequest += 1;
+    playlistPlaybackStartingRequest = 0;
+    playlistPlaybackStarting = false;
+    pendingPlaylistItemId = "";
+    state.playlist = [];
+    state.playlistMode = "browse";
+    if (persist) saveState();
+
+    pageMediaCommand("pause");
+    stopModernPagePlayer();
+    for (const audio of document.querySelectorAll("audio")) {
+      if (!audio.paused) audio.pause();
+      try {
+        audio.currentTime = 0;
+      } catch {
+        // Some page audio elements are not seekable until metadata is loaded.
+      }
+    }
+    resetLoadedPlayback();
+    syncPagePlayerUi();
+    syncRecommendationPlaybackUi();
+    render();
+    injectPlaylistButtons();
+  }
+
+  function releaseExplicitPlaybackClear() {
+    nowPlayingExplicitlyCleared = false;
     clearedPageQueueSignature = "";
-    const incoming = normalizePlaylist(tracks);
-    const existingKeys = new Set(state.playlist.map(playlistTrackKey));
+  }
+
+  async function clearNowPlayingPlayback({ notify = true } = {}) {
+    clearedPageQueueSignature = `${live.pageUrl}|${live.title}`;
+    clearLocalPlaybackState();
+    await runtimeMessage({ type: "BANDCAMP_HUB_CLEAR_PLAYBACK" });
+
+    // Apply the empty state last so a delayed pre-clear playback broadcast
+    // cannot leave stale metadata in the persistent footer.
+    clearLocalPlaybackState();
+    if (notify) showToast("Now Playing cleared");
+  }
+
+  function addTracksToPlaylist(tracks, { quiet = false } = {}) {
+    releaseExplicitPlaybackClear();
+    const incoming = normalizePlaylist((Array.isArray(tracks) ? tracks : []).map(capturePlaylistAnalysis));
+    if (incoming.length) state.playlistMode = "manual";
     let added = 0;
     let refreshed = 0;
+    let atCapacity = false;
     for (const source of incoming) {
-      const key = playlistTrackKey(source);
-      const existingIndex = state.playlist.findIndex((item) => playlistTrackKey(item) === key);
+      const existingIndex = state.playlist.findIndex((item) => playlistTracksMatch(item, source));
       if (existingIndex >= 0) {
-        if (source.url && state.playlist[existingIndex].url !== source.url) {
-          state.playlist[existingIndex] = { ...state.playlist[existingIndex], ...source, playlistItemId: state.playlist[existingIndex].playlistItemId };
+        const existing = state.playlist[existingIndex];
+        const replacement = {
+          ...existing,
+          ...source,
+          playlistItemId: existing.playlistItemId,
+          bpm: source.bpm ?? existing.bpm,
+          key: source.key ?? existing.key
+        };
+        if (JSON.stringify(replacement) !== JSON.stringify(existing)) {
+          state.playlist[existingIndex] = replacement;
           refreshed += 1;
         }
+        continue;
+      }
+      if (state.playlist.length >= MAX_PLAYLIST_ITEMS) {
+        atCapacity = true;
         continue;
       }
       source.playlistItemId = `playlist-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       source.addedAt ||= new Date().toISOString();
       state.playlist.push(source);
-      existingKeys.add(key);
       added += 1;
     }
     if (added || refreshed) {
@@ -936,7 +1274,10 @@
       if (state.activeTab === "nowPlaying") render();
       injectPlaylistButtons();
     }
-    if (!quiet) showToast(added ? `Added ${added} track${added === 1 ? "" : "s"} to Now Playing` : "Already in Now Playing");
+    const capacitySuffix = atCapacity ? ` · ${MAX_PLAYLIST_ITEMS}-track limit reached` : "";
+    if (!quiet) showToast(added
+      ? `Added ${added} track${added === 1 ? "" : "s"} to Now Playing${capacitySuffix}`
+      : atCapacity ? `Now Playing can hold up to ${MAX_PLAYLIST_ITEMS} tracks` : "Already in Now Playing");
     return added;
   }
 
@@ -945,7 +1286,7 @@
   }
 
   function createSavedPlaylistWithTracks(tracks, suggestedName = "New playlist") {
-    const items = normalizePlaylist(tracks);
+    const items = normalizePlaylist((Array.isArray(tracks) ? tracks : []).map(capturePlaylistAnalysis));
     if (!items.length) return null;
     const name = window.prompt("Name this playlist", suggestedName)?.trim();
     if (!name) return null;
@@ -966,10 +1307,14 @@
 
   function addTrackToSavedPlaylist(track, snapshotId) {
     const snapshot = state.savedPlaylists.find((entry) => entry.id === snapshotId);
-    const item = normalizePlaylistItem(track);
+    const item = normalizePlaylistItem(capturePlaylistAnalysis(track));
     if (!snapshot || !item) return false;
-    if (snapshot.items.some((entry) => playlistTrackKey(entry) === playlistTrackKey(item))) {
+    if (snapshot.items.some((entry) => playlistTracksMatch(entry, item))) {
       showToast(`Already in “${snapshot.name}”`);
+      return false;
+    }
+    if (snapshot.items.length >= MAX_PLAYLIST_ITEMS) {
+      showToast(`“${snapshot.name}” can hold up to ${MAX_PLAYLIST_ITEMS} tracks`);
       return false;
     }
     item.playlistItemId = `playlist-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -993,58 +1338,286 @@
     };
   }
 
-  async function playPlaylistAt(requestedIndex = 0) {
+  function mergeHydratedPlaylist(currentItems, hydratedItems) {
+    const hydrated = normalizePlaylist(hydratedItems);
+    const byItemId = new Map(hydrated.map((item) => [item.playlistItemId, item]));
+    return normalizePlaylist(normalizePlaylist(currentItems).map((current) => {
+      const refreshed = byItemId.get(current.playlistItemId)
+        || hydrated.find((item) => playlistTracksMatch(item, current));
+      return refreshed ? {
+        ...current,
+        ...refreshed,
+        playlistItemId: current.playlistItemId,
+        addedAt: current.addedAt || refreshed.addedAt
+      } : current;
+    }));
+  }
+
+  function playlistItemNeedsMetadata(item) {
+    return !resolveImage(item?.art) || !String(item?.artist || "").trim() || String(item.artist).trim().toLowerCase() === "bandcamp";
+  }
+
+  async function refreshIncompletePlaylistMetadata() {
+    const candidates = [
+      ...state.playlist,
+      ...state.savedPlaylists.flatMap((snapshot) => snapshot.items || [])
+    ].filter((item) => playlistItemNeedsMetadata(item));
+    const unique = [...new Map(candidates.map((item) => [playlistTrackKey(item), item])).values()];
+    if (!unique.length) return false;
+    const response = await runtimeMessage({ type: "BANDCAMP_HUB_RESOLVE_PLAYLIST_ITEMS", items: unique });
+    if (!response?.ok || !Array.isArray(response.items)) return false;
+    const refreshed = normalizePlaylist(response.items);
+    const byKey = new Map(refreshed.map((item) => [playlistTrackKey(item), item]));
+    let changed = false;
+    const repair = (item) => {
+      const replacement = byKey.get(playlistTrackKey(item)) || refreshed.find((candidate) => playlistTracksMatch(candidate, item));
+      if (!replacement) return item;
+      const currentArtist = String(item.artist || "").trim();
+      const replacementArtist = String(replacement.artist || "").trim();
+      const artist = (!currentArtist || currentArtist.toLowerCase() === "bandcamp") && replacementArtist.toLowerCase() !== "bandcamp"
+        ? replacementArtist
+        : currentArtist || replacementArtist || "Bandcamp";
+      const art = resolveImage(item.art) || resolveImage(replacement.art);
+      const repaired = {
+        ...item,
+        artist,
+        album: item.album || replacement.album,
+        art,
+        duration: Number(item.duration) || Number(replacement.duration) || 0,
+        url: isReusableStreamUrl(replacement.url) ? replacement.url : item.url,
+        restoreError: isReusableStreamUrl(replacement.url) ? "" : item.restoreError
+      };
+      if (JSON.stringify(repaired) !== JSON.stringify(item)) changed = true;
+      return repaired;
+    };
+    state.playlist = normalizePlaylist(state.playlist.map(repair));
+    state.savedPlaylists = normalizeSavedPlaylists(state.savedPlaylists.map((snapshot) => ({
+      ...snapshot,
+      items: (snapshot.items || []).map(repair)
+    })));
+    if (!changed) return false;
+    saveState();
+    void syncActivePlaylistQueue();
+    if (["playlist", "nowPlaying"].includes(state.activeTab)) render();
+    return true;
+  }
+
+  async function prepareExternalNowPlaying(track, sourceQueue = [], { trustProvidedStreams = false } = {}) {
+    releaseExplicitPlaybackClear();
+    const incoming = normalizePlaylistItem(track);
+    if (!incoming) return { queue: [], index: -1, error: "This Bandcamp track could not be added to Now Playing." };
+    const prepareRequest = ++playlistPlayRequest;
+    playlistPlaybackStartingRequest = 0;
+    playlistPlaybackStarting = false;
+    pendingPlaylistItemId = "";
+    syncCurrentPlaylistPlaybackUi();
+    const preserveQueue = state.playlistMode === "manual";
+    if (!preserveQueue) state.playlist = [];
+    if (!state.playlist.length) {
+      let initialQueue = normalizePlaylist(preserveQueue && sourceQueue.length ? sourceQueue : [incoming]);
+      if (!initialQueue.some((item) => playlistTracksMatch(item, incoming))) {
+        initialQueue = normalizePlaylist([...initialQueue.slice(0, MAX_PLAYLIST_ITEMS - 1), incoming]);
+      }
+      if (trustProvidedStreams && isReusableStreamUrl(incoming.url)) {
+        const queue = initialQueue.filter((item) => isReusableStreamUrl(item.url));
+        const index = queue.findIndex((item) => Boolean(matchingQueueTrack([item], incoming)));
+        if (index >= 0) {
+          state.playlist = initialQueue;
+          saveState();
+          if (state.activeTab === "nowPlaying") render();
+          injectPlaylistButtons();
+          return { queue, index, error: "", request: prepareRequest, usedFreshStreams: true };
+        }
+      }
+      const hydrated = await hydratePlaylist(initialQueue);
+      if (prepareRequest !== playlistPlayRequest) return { queue: [], index: -1, error: "Playback request was replaced.", cancelled: true, request: prepareRequest };
+      const mergedItems = mergeHydratedPlaylist(state.playlist.length ? state.playlist : initialQueue, hydrated.items);
+      const queue = mergedItems.filter((item) => isReusableStreamUrl(item.url));
+      const index = queue.findIndex((item) => Boolean(matchingQueueTrack([item], incoming)));
+      if (index >= 0) {
+        state.playlist = mergedItems;
+        saveState();
+        if (state.activeTab === "nowPlaying") render();
+        injectPlaylistButtons();
+      }
+      return {
+        queue,
+        index,
+        error: index >= 0 ? "" : hydrated.error || "This Bandcamp track is not currently streamable.",
+        request: prepareRequest
+      };
+    }
+    const currentItems = state.playlist;
+    const existingIndex = currentItems.findIndex((item) => Boolean(matchingQueueTrack([item], incoming)));
+    if (existingIndex < 0 && currentItems.length >= MAX_PLAYLIST_ITEMS) {
+      const error = `Now Playing can hold up to ${MAX_PLAYLIST_ITEMS} tracks.`;
+      showToast(error);
+      return { queue: [], index: -1, error, capacity: true, request: prepareRequest };
+    }
+    const existing = existingIndex >= 0 ? currentItems[existingIndex] : null;
+    const promoted = {
+      ...(existing || {}),
+      ...incoming,
+      playlistItemId: existing?.playlistItemId || `playlist-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      addedAt: existing?.addedAt || incoming.addedAt || new Date().toISOString()
+    };
+    const nextItems = [...currentItems];
+    if (existingIndex >= 0) nextItems[existingIndex] = promoted;
+    else nextItems.push(promoted);
+    state.playlist = normalizePlaylist(nextItems);
+    saveState();
+    if (state.activeTab === "nowPlaying") render();
+    injectPlaylistButtons();
+
+    if (trustProvidedStreams && isReusableStreamUrl(promoted.url)) {
+      const queue = state.playlist.filter((item) => isReusableStreamUrl(item.url));
+      const index = queue.findIndex((item) => item.playlistItemId === promoted.playlistItemId);
+      if (index >= 0) {
+        return { queue, index, error: "", request: prepareRequest, usedFreshStreams: true };
+      }
+    }
+
+    const hydrated = await hydratePlaylist(state.playlist);
+    if (prepareRequest !== playlistPlayRequest) return { queue: [], index: -1, error: "Playback request was replaced.", cancelled: true, request: prepareRequest };
+    state.playlist = mergeHydratedPlaylist(state.playlist, hydrated.items);
+    saveState();
+    if (!state.playlist.some((item) => item.playlistItemId === promoted.playlistItemId)) {
+      return { queue: [], index: -1, error: "Playback request was removed.", cancelled: true, request: prepareRequest };
+    }
+    const queue = state.playlist.filter((item) => isReusableStreamUrl(item.url));
+    const index = queue.findIndex((item) => item.playlistItemId === promoted.playlistItemId);
+    if (state.activeTab === "nowPlaying") render();
+    return {
+      queue,
+      index,
+      error: index >= 0 ? "" : hydrated.error || "This Bandcamp track is not currently streamable.",
+      request: prepareRequest
+    };
+  }
+
+  async function playPlaylistAt(requestedIndex = 0, { forceRefresh = false } = {}) {
+    releaseExplicitPlaybackClear();
     if (!state.playlist.length) {
       showToast("Add a streamable Bandcamp track to the playlist first.");
       return false;
     }
     const target = state.playlist[Math.max(0, Math.min(state.playlist.length - 1, Number(requestedIndex) || 0))];
-    const activeIndex = seamless.queue?.findIndex((track) => track.playlistItemId === target.playlistItemId) ?? -1;
-    if (playlistIsActive() && activeIndex >= 0) {
-      await seamlessCommand("BANDCAMP_HUB_SEAMLESS_PLAY_INDEX", { index: activeIndex, autoplay: true });
-      return true;
+    state.playlistMode = "manual";
+    saveState();
+    if (String(target.id || "") === suppressedFeedTrackId) suppressedFeedTrackId = "";
+    const playRequest = ++playlistPlayRequest;
+    pendingPlaylistItemId = target.playlistItemId;
+    syncCurrentPlaylistPlaybackUi();
+    const activeQueueTrack = matchingQueueTrack(seamless.queue, target);
+    const activeIndex = activeQueueTrack ? seamless.queue.indexOf(activeQueueTrack) : -1;
+    if (!forceRefresh && playlistIsActive() && activeIndex >= 0) {
+      const nextState = await seamlessCommand("BANDCAMP_HUB_SEAMLESS_PLAY_INDEX", { index: activeIndex, autoplay: true });
+      if (playRequest !== playlistPlayRequest) return false;
+      if (!nextState && pendingPlaylistItemId === target.playlistItemId) pendingPlaylistItemId = "";
+      syncCurrentPlaylistPlaybackUi();
+      return Boolean(nextState);
     }
     showToast("Refreshing the playlist from Bandcamp…");
     const hydrated = await hydratePlaylist(state.playlist);
-    state.playlist = hydrated.items;
+    if (playRequest !== playlistPlayRequest) return false;
+    state.playlist = mergeHydratedPlaylist(state.playlist, hydrated.items);
     saveState();
     const queue = state.playlist.filter((track) => isReusableStreamUrl(track.url));
     if (!queue.length) {
+      if (pendingPlaylistItemId === target.playlistItemId) pendingPlaylistItemId = "";
+      syncCurrentPlaylistPlaybackUi();
       render();
       showToast(hydrated.error || "None of these tracks are currently streamable.");
       return false;
     }
-    const index = Math.max(0, queue.findIndex((track) => track.playlistItemId === target.playlistItemId));
-    const response = await runtimeMessage({
-      type: "BANDCAMP_HUB_SEAMLESS_ENABLE",
-      queue,
-      index,
-      currentTime: 0,
-      autoplay: true,
-      rate: state.dj.rate,
-      preservePitch: state.dj.preservePitch,
-      filterValue: state.dj.filterValue,
-      gainDb: state.dj.gainDb,
-      eqLowDb: state.dj.eqLowDb,
-      eqMidDb: state.dj.eqMidDb,
-      eqHighDb: state.dj.eqHighDb
-    });
-    if (!response?.ok) {
-      showToast(response?.error || "The playlist could not start.");
+    const index = queue.findIndex((track) => track.playlistItemId === target.playlistItemId);
+    if (index < 0) {
+      if (pendingPlaylistItemId === target.playlistItemId) pendingPlaylistItemId = "";
+      syncCurrentPlaylistPlaybackUi();
+      render();
+      showToast(`${target.title} is not currently streamable.`);
       return false;
     }
+    playlistPlaybackStartingRequest = playRequest;
+    playlistPlaybackStarting = true;
     stopModernPagePlayer();
     pageMediaCommand("pause");
     const pageAudio = getAudio();
     if (pageAudio && !pageAudio.paused) pageAudio.pause();
-    applySeamlessState(response.state);
-    state.open = true;
-    state.activeTab = "nowPlaying";
-    state.playlistView = "current";
-    saveState();
-    render();
-    showToast(`Playing ${queue.length} playlist track${queue.length === 1 ? "" : "s"}${hydrated.failed ? ` · ${hydrated.failed} unavailable` : ""}`);
-    return true;
+    try {
+      const response = await runtimeMessage({
+        type: "BANDCAMP_HUB_SEAMLESS_ENABLE",
+        queue,
+        index,
+        currentTime: 0,
+        autoplay: true,
+        rate: state.dj.rate,
+        preservePitch: state.dj.preservePitch,
+        filterValue: state.dj.filterValue,
+        gainDb: state.dj.gainDb,
+        eqLowDb: state.dj.eqLowDb,
+        eqMidDb: state.dj.eqMidDb,
+        eqHighDb: state.dj.eqHighDb
+      });
+      if (!response?.ok) {
+        if (pendingPlaylistItemId === target.playlistItemId) pendingPlaylistItemId = "";
+        syncCurrentPlaylistPlaybackUi();
+        showToast(response?.error || "The playlist could not start.");
+        return false;
+      }
+      if (playRequest !== playlistPlayRequest) return false;
+      applySeamlessState(response.state);
+      if (pendingPlaylistItemId === target.playlistItemId) pendingPlaylistItemId = "";
+      state.open = true;
+      state.activeTab = "nowPlaying";
+      state.playlistView = "current";
+      saveState();
+      render();
+      showToast(`Playing ${queue.length} playlist track${queue.length === 1 ? "" : "s"}${hydrated.failed ? ` · ${hydrated.failed} unavailable` : ""}`);
+      return true;
+    } finally {
+      if (playlistPlaybackStartingRequest === playRequest) {
+        playlistPlaybackStartingRequest = 0;
+        playlistPlaybackStarting = false;
+      }
+    }
+  }
+
+  async function navigatePlayerQueue(direction) {
+    const step = direction < 0 ? -1 : 1;
+    if (!seamless.enabled) return false;
+
+    const seamlessIndex = Math.max(0, Number(seamless.index) || 0);
+    const seamlessQueue = Array.isArray(seamless.queue) ? seamless.queue : [];
+    const playlistIndex = seamless.track
+      ? state.playlist.findIndex((item) => Boolean(matchingQueueTrack([item], seamless.track)))
+      : -1;
+
+    // The visible Now Playing list can be larger than the currently hydrated
+    // offscreen queue. Navigate that list so an expired/missing stream is
+    // refreshed on demand instead of making the footer controls appear inert.
+    if (playlistIndex >= 0 && state.playlist.length > seamlessQueue.length) {
+      let targetIndex = playlistIndex + step;
+      while (targetIndex >= 0 && targetIndex < state.playlist.length) {
+        const targetItemId = state.playlist[targetIndex]?.playlistItemId;
+        if (await playPlaylistAt(targetIndex)) return true;
+        const refreshedTarget = state.playlist.find((item) => item.playlistItemId === targetItemId);
+        if (refreshedTarget && isReusableStreamUrl(refreshedTarget.url)) return false;
+        targetIndex += step;
+      }
+    }
+
+    const targetIndex = seamlessIndex + step;
+    if (targetIndex >= 0 && targetIndex < seamlessQueue.length) {
+      return Boolean(await seamlessCommand("BANDCAMP_HUB_SEAMLESS_PLAY_INDEX", { index: targetIndex, autoplay: true }));
+    }
+
+    if (step < 0) {
+      await seamlessCommand("BANDCAMP_HUB_SEAMLESS_SEEK", { currentTime: 0 });
+      return true;
+    }
+    showToast("You’re at the end of Now Playing.");
+    return false;
   }
 
   function savePlaylistSnapshot(items = state.playlist) {
@@ -1070,22 +1643,72 @@
     showToast(`Saved “${name}” locally`);
   }
 
-  function restoreSavedPlaylist(snapshot, mode = "replace") {
+  function restoreSavedPlaylist(snapshot, mode = "replace", { syncPlayback = true } = {}) {
     const incoming = normalizePlaylist(snapshot?.items);
     if (!incoming.length) return;
+    playlistPlayRequest += 1;
+    playlistPlaybackStartingRequest = 0;
+    playlistPlaybackStarting = false;
+    pendingPlaylistItemId = "";
+    state.playlistMode = "manual";
+    let addedCount = incoming.length;
     if (mode === "replace") {
       state.playlist = incoming;
     } else {
-      addTracksToPlaylist(incoming, { quiet: true });
+      addedCount = addTracksToPlaylist(incoming, { quiet: true });
     }
     state.playlistView = "current";
     saveState();
     render();
-    void syncActivePlaylistQueue();
-    showToast(mode === "replace" ? `Loaded “${snapshot.name}” into Now Playing` : `Added “${snapshot.name}” to Now Playing`);
+    if (syncPlayback) void syncActivePlaylistQueue();
+    showToast(mode === "replace"
+      ? `Loaded “${snapshot.name}” into Now Playing`
+      : addedCount
+        ? `Added ${addedCount} track${addedCount === 1 ? "" : "s"} from “${snapshot.name}” to Now Playing`
+        : `No new tracks from “${snapshot.name}” were added`);
   }
 
-  function exportPlaylist(items = state.playlist, playlistName = "BandKit playlist") {
+  function shareFileName(value, fallback) {
+    const name = String(value || "").trim().toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 72);
+    return name || fallback;
+  }
+
+  function sharedCollectionDocument({ title, eyebrow, summary, rows, embeddedPayload, embeddedId }) {
+    const emptyState = '<div class="empty">There are no items in this collection.</div>';
+    return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    :root{color-scheme:light;--ink:#17202a;--muted:#66737f;--line:#dfe5e8;--accent:#1687a7;--surface:#fff;--wash:#f3f6f7}
+    *{box-sizing:border-box}body{background:var(--wash);color:var(--ink);font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:0;padding:42px 20px}main{margin:auto;max-width:820px}header{margin-bottom:24px}.eyebrow{color:var(--accent);font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}h1{font-size:clamp(28px,5vw,44px);letter-spacing:-.035em;line-height:1.05;margin:7px 0 10px}.summary{color:var(--muted);margin:0}.collection{display:grid;gap:12px}.item{align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;display:grid;gap:18px;grid-template-columns:96px minmax(0,1fr);padding:14px}.art,.art-placeholder{aspect-ratio:1;background:#e9eef0;border-radius:8px;display:block;object-fit:cover;overflow:hidden;width:96px}.art-placeholder{align-items:center;color:#8a969f;display:flex;font-size:11px;font-weight:700;justify-content:center;text-align:center}.kind{color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.item h2{font-size:19px;line-height:1.2;margin:2px 0}.item a{color:inherit;text-decoration-color:color-mix(in srgb,var(--accent) 55%,transparent);text-underline-offset:3px}.item h2 a{text-decoration:none}.item h2 a:hover{color:var(--accent)}.byline,.album{color:var(--muted);margin:3px 0}.album strong{color:var(--ink)}.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.chip{background:#edf6f8;border:1px solid #cbe3e9;border-radius:999px;color:#226477;font-size:11px;font-weight:700;padding:2px 8px}.empty{background:var(--surface);border:1px solid var(--line);border-radius:12px;color:var(--muted);padding:28px;text-align:center}.footer{color:var(--muted);font-size:11px;margin-top:22px}.footer a{color:var(--accent)}
+    @media(max-width:520px){body{padding:24px 12px}.item{align-items:start;gap:12px;grid-template-columns:72px minmax(0,1fr);padding:11px}.art,.art-placeholder{width:72px}.item h2{font-size:16px}}
+  </style>
+</head>
+<body>
+  <main>
+    <header><div class="eyebrow">${escapeHtml(eyebrow)}</div><h1>${escapeHtml(title)}</h1><p class="summary">${escapeHtml(summary)}</p></header>
+    <section class="collection">${rows || emptyState}</section>
+    <p class="footer">Shared from Bandcamp with BandKit. Open any title to view it on Bandcamp.</p>
+  </main>
+  <script type="application/json" id="${embeddedId}">${embeddedPayload}<\/script>
+</body>
+</html>`;
+  }
+
+  function collectionArtwork(imageUrl, title, pageUrl) {
+    const art = resolveImage(imageUrl);
+    if (!art) return '<div class="art-placeholder">No artwork</div>';
+    const image = `<img class="art" src="${escapeHtml(art)}" alt="Artwork for ${escapeHtml(title)}" loading="lazy">`;
+    return pageUrl ? `<a href="${escapeHtml(pageUrl)}">${image}</a>` : image;
+  }
+
+  function createPlaylistDocument(items = state.playlist, playlistName = "BandKit playlist") {
     const playlistItems = normalizePlaylist(items);
     const exportedAt = new Date();
     const safeName = String(playlistName || "BandKit playlist").trim().slice(0, 120) || "BandKit playlist";
@@ -1098,15 +1721,67 @@
       items: playlistItems
     };
     const embeddedPayload = JSON.stringify(payload).replace(/</g, "\\u003c");
-    const rows = playlistItems.map((item) => `<li><strong>${escapeHtml(item.title)}</strong> by ${escapeHtml(item.artist)}${item.album ? ` — ${escapeHtml(item.album)}` : ""}${item.duration ? ` (${escapeHtml(formatDuration(item.duration))})` : ""}<br><a href="${escapeHtml(item.pageUrl)}">${escapeHtml(item.pageUrl)}</a></li>`).join("");
-    const documentText = `<!doctype html><html lang="en"><meta charset="utf-8"><title>${escapeHtml(safeName)}</title><style>body{font:16px/1.5 system-ui,sans-serif;max-width:800px;margin:48px auto;padding:0 24px;color:#17202a}li{margin:0 0 18px}a{color:#1687a7;overflow-wrap:anywhere}</style><h1>${escapeHtml(safeName)}</h1><p>Exported ${escapeHtml(exportedAt.toLocaleString())}. ${playlistItems.length} tracks.</p><ol>${rows}</ol><script type="application/json" id="bandkit-playlist-data">${embeddedPayload}<\/script></html>`;
-    const blobUrl = URL.createObjectURL(new Blob([documentText], { type: "text/html" }));
+    const rows = playlistItems.map((item) => {
+      const pageUrl = safeBandcampReleaseUrl(item.pageUrl);
+      const artistUrl = safeBandcampUrl(item.artistUrl) || pageUrl;
+      const title = pageUrl ? `<a href="${escapeHtml(pageUrl)}">${escapeHtml(item.title)}</a>` : escapeHtml(item.title);
+      const artist = artistUrl ? `<a href="${escapeHtml(artistUrl)}">${escapeHtml(item.artist)}</a>` : escapeHtml(item.artist);
+      const chips = [
+        item.duration ? formatDuration(item.duration) : "",
+        formatPlaylistBpm(item.bpm),
+        [item.key?.camelot, item.key?.shortName].filter(Boolean).join(" · ")
+      ].filter(Boolean).map((value) => `<span class="chip">${escapeHtml(value)}</span>`).join("");
+      return `<article class="item">${collectionArtwork(item.art, item.title, pageUrl)}<div><div class="kind">Track</div><h2>${title}</h2><p class="byline">by ${artist}</p>${item.album ? `<p class="album"><strong>Album:</strong> ${escapeHtml(item.album)}</p>` : ""}${chips ? `<div class="chips">${chips}</div>` : ""}</div></article>`;
+    }).join("");
+    return {
+      count: playlistItems.length,
+      filename: `${shareFileName(safeName, "bandkit-playlist")}.html`,
+      title: safeName,
+      text: `${playlistItems.length} track${playlistItems.length === 1 ? "" : "s"} shared from BandKit`,
+      html: sharedCollectionDocument({
+        title: safeName,
+        eyebrow: "Shared playlist",
+        summary: `${playlistItems.length} track${playlistItems.length === 1 ? "" : "s"} · Shared ${exportedAt.toLocaleString()}`,
+        rows,
+        embeddedPayload,
+        embeddedId: "bandkit-playlist-data"
+      })
+    };
+  }
+
+  function downloadHtmlDocument(documentData, message) {
+    const blobUrl = URL.createObjectURL(new Blob([documentData.html], { type: "text/html" }));
     const link = document.createElement("a");
     link.href = blobUrl;
-    link.download = `bandkit-playlist-${exportedAt.toISOString().slice(0, 10)}.html`;
+    link.download = documentData.filename;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-    showToast(`Downloaded ${playlistItems.length} playlist track${playlistItems.length === 1 ? "" : "s"}`);
+    showToast(message);
+  }
+
+  async function shareHtmlDocument(documentData, label) {
+    const file = new File([documentData.html], documentData.filename, { type: "text/html" });
+    try {
+      const canShareFile = typeof navigator.canShare !== "function" || navigator.canShare({ files: [file] });
+      if (typeof navigator.share === "function" && canShareFile) {
+        await navigator.share({ title: documentData.title, text: documentData.text, files: [file] });
+        showToast(`Shared ${label}`);
+        return;
+      }
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+    downloadHtmlDocument(documentData, `Sharing is unavailable here · downloaded ${label} instead`);
+  }
+
+  function exportPlaylist(items = state.playlist, playlistName = "BandKit playlist") {
+    const documentData = createPlaylistDocument(items, playlistName);
+    downloadHtmlDocument(documentData, `Downloaded ${documentData.count} playlist track${documentData.count === 1 ? "" : "s"}`);
+  }
+
+  function sharePlaylist(items = state.playlist, playlistName = "BandKit playlist") {
+    const documentData = createPlaylistDocument(items, playlistName);
+    return shareHtmlDocument(documentData, `“${documentData.title}”`);
   }
 
   function parsePlaylistBackup(text) {
@@ -1118,8 +1793,51 @@
     } else {
       const documentNode = new DOMParser().parseFromString(source, "text/html");
       const embedded = documentNode.querySelector("#bandkit-playlist-data")?.textContent;
-      if (!embedded) throw new Error("This HTML file does not contain a BandKit playlist.");
-      payload = JSON.parse(embedded);
+      if (embedded) {
+        payload = JSON.parse(embedded);
+      } else {
+        const heading = documentNode.querySelector("h1")?.textContent?.trim() || documentNode.title.trim();
+        const legacyRows = [...documentNode.querySelectorAll("ol > li, ul > li")];
+        const items = legacyRows.map((row, index) => {
+          const title = row.querySelector("strong")?.textContent?.trim() || "";
+          let pageUrl = row.querySelector("a[href]")?.href || "";
+          try {
+            const candidate = new URL(pageUrl);
+            if (candidate.protocol === "http:" && (candidate.hostname === "bandcamp.com" || candidate.hostname.endsWith(".bandcamp.com"))) {
+              candidate.protocol = "https:";
+              pageUrl = candidate.href;
+            }
+          } catch {
+            pageUrl = "";
+          }
+          const safePageUrl = safeBandcampReleaseUrl(pageUrl);
+          if (!title || !safePageUrl) return null;
+          const details = row.cloneNode(true);
+          details.querySelectorAll("strong, a, br").forEach((node) => node.remove());
+          let byline = details.textContent.replace(/\s+/g, " ").trim().replace(/^by\s+/i, "");
+          const durationMatch = byline.match(/\s*\((\d+):(\d{2})\)\s*$/);
+          const duration = durationMatch ? (Number(durationMatch[1]) * 60) + Number(durationMatch[2]) : 0;
+          if (durationMatch) byline = byline.slice(0, durationMatch.index).trim();
+          const [artist = "Bandcamp", ...albumParts] = byline.split(/\s+—\s+/);
+          return {
+            id: `legacy-import-${index}-${safePageUrl}`,
+            title,
+            artist: artist.trim() || "Bandcamp",
+            album: albumParts.join(" — ").trim(),
+            pageUrl: safePageUrl,
+            duration
+          };
+        }).filter(Boolean);
+        if (!items.length) throw new Error("This HTML file does not contain recognizable BandKit playlist tracks.");
+        payload = {
+          format: "bandkit-playlist",
+          version: 1,
+          name: heading || "BandKit playlist",
+          exportedAt: new Date().toISOString(),
+          sourcePage: "",
+          items
+        };
+      }
     }
     if (payload?.format !== "bandkit-playlist" || Number(payload.version) !== 1 || !Array.isArray(payload.items)) {
       throw new Error("This is not a supported BandKit playlist.");
@@ -1232,6 +1950,33 @@
     return { color: target, adjusted: true };
   }
 
+  function accessibleControlPalette(backgrounds, preferredBackground) {
+    const surfaces = (Array.isArray(backgrounds) ? backgrounds : [backgrounds]).filter(Boolean);
+    const white = { r: 255, g: 255, b: 255, a: 1 };
+    const black = { r: 17, g: 24, b: 39, a: 1 };
+    const foregroundFor = (background) => contrast(background, white) >= contrast(background, black) ? white : black;
+    const passes = (background) => surfaces.every((surface) => contrast(background, surface) >= 3)
+      && contrast(background, foregroundFor(background)) >= 4.5;
+    let background = preferredBackground;
+    if (!background || !passes(background)) {
+      background = [black, white]
+        .sort((first, second) => (
+          Math.min(...surfaces.map((surface) => contrast(second, surface)))
+          - Math.min(...surfaces.map((surface) => contrast(first, surface)))
+        ))[0];
+    }
+    return { background, foreground: foregroundFor(background) };
+  }
+
+  function accessibleScrubberPalette(preferredAccent, surface) {
+    const white = { r: 255, g: 255, b: 255, a: 1 };
+    const black = { r: 17, g: 24, b: 39, a: 1 };
+    const background = surface || white;
+    const accent = readableColor(preferredAccent || { r: 29, g: 160, b: 195, a: 1 }, [background], 3).color;
+    const halo = contrast(background, white) >= contrast(background, black) ? white : black;
+    return { accent, surface: background, halo };
+  }
+
   function selectedAppearanceTheme() {
     const selectedTheme = [...BUILT_IN_THEMES, ...(state.appearance.savedThemes || [])].find((theme) => theme.id === state.appearance.preset);
     if (state.appearance.preset === "custom") {
@@ -1249,6 +1994,106 @@
       };
     }
     return selectedTheme || BUILT_IN_THEMES[0];
+  }
+
+  function portableAppearanceTheme(theme = selectedAppearanceTheme()) {
+    const surfaceColor = hexColor(theme.surface, { r: 255, g: 255, b: 255, a: 1 });
+    const pageSurface = theme.pageSurface || theme.surface;
+    const text = theme.text || (luminance(hexColor(pageSurface, surfaceColor)) < 0.34 ? "#f8fafc" : "#111827");
+    return {
+      label: String(theme.label || "Custom").trim().slice(0, 28) || "Custom",
+      accent: theme.accent,
+      surface: theme.surface,
+      card: theme.card || hexString(luminance(surfaceColor) < 0.34
+        ? mixColor(surfaceColor, { r: 255, g: 255, b: 255, a: 1 }, 0.07)
+        : mixColor(surfaceColor, { r: 255, g: 255, b: 255, a: 1 }, 0.4)),
+      background: theme.background || theme.surface,
+      pageSurface,
+      navbar: theme.navbar || pageSurface,
+      text,
+      secondaryText: theme.secondaryText || hexString(mixColor(
+        hexColor(text, { r: 17, g: 24, b: 39, a: 1 }),
+        hexColor(pageSurface, surfaceColor),
+        luminance(hexColor(pageSurface, surfaceColor)) < 0.34 ? 0.35 : 0.42
+      ))
+    };
+  }
+
+  function validThemeHex(value) {
+    return typeof value === "string" && /^#[\da-f]{6}$/i.test(value);
+  }
+
+  function parseThemeBackup(text) {
+    const source = String(text || "").trim();
+    if (!source) throw new Error("The selected theme file is empty.");
+    let payload;
+    try {
+      payload = JSON.parse(source);
+    } catch {
+      throw new Error("The selected file is not valid JSON.");
+    }
+    if (payload?.format !== "bandkit-theme" || Number(payload.version) !== 1 || !payload.theme || typeof payload.theme !== "object") {
+      throw new Error("This is not a supported BandKit theme.");
+    }
+    const label = String(payload.name || payload.theme.label || "Imported theme").trim().slice(0, 28) || "Imported theme";
+    const theme = { label };
+    for (const key of THEME_COLOR_KEYS) {
+      if (!validThemeHex(payload.theme[key])) throw new Error(`The theme has an invalid ${key} colour.`);
+      theme[key] = payload.theme[key].toLowerCase();
+    }
+    return theme;
+  }
+
+  function exportAppearanceTheme() {
+    const theme = portableAppearanceTheme();
+    const exportedAt = new Date();
+    const payload = {
+      format: "bandkit-theme",
+      version: 1,
+      name: theme.label,
+      exportedAt: exportedAt.toISOString(),
+      theme: Object.fromEntries(THEME_COLOR_KEYS.map((key) => [key, theme[key]]))
+    };
+    const blobUrl = URL.createObjectURL(new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json" }));
+    const link = document.createElement("a");
+    const slug = theme.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "custom";
+    link.href = blobUrl;
+    link.download = `bandkit-theme-${slug}.json`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    showToast(`Downloaded theme “${theme.label}”`);
+  }
+
+  async function importAppearanceTheme(file, button) {
+    if (!file) return;
+    button.disabled = true;
+    try {
+      if (file.size > 128 * 1024) throw new Error("Theme files must be smaller than 128 KB.");
+      const imported = parseThemeBackup(await file.text());
+      const savedTheme = {
+        id: `saved-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        ...imported
+      };
+      state.appearance.savedThemes = [...(state.appearance.savedThemes || []), savedTheme].slice(-12);
+      state.appearance.preset = savedTheme.id;
+      state.appearance.pageAware = false;
+      state.appearance.customAccent = savedTheme.accent;
+      state.appearance.customSurface = savedTheme.surface;
+      state.appearance.customCard = savedTheme.card;
+      state.appearance.customPageBackground = savedTheme.background;
+      state.appearance.customPageSurface = savedTheme.pageSurface;
+      state.appearance.customNavbar = savedTheme.navbar;
+      state.appearance.customText = savedTheme.text;
+      state.appearance.customSecondaryText = savedTheme.secondaryText;
+      applyAppearance();
+      saveState();
+      render();
+      showToast(`Imported and saved theme “${savedTheme.label}”`);
+    } catch (error) {
+      showToast(error?.message || "The theme could not be imported.");
+    } finally {
+      button.disabled = false;
+    }
   }
 
   function accessibleAppearanceTheme(theme = selectedAppearanceTheme()) {
@@ -1308,6 +2153,13 @@
       html[data-bandkit-page-theme="true"] .follow-unfollow * { background-color: var(--bandkit-page-accent) !important; background-image: none !important; border-color: transparent !important; box-shadow: none !important; color: var(--bandkit-page-on-accent) !important; }
       html[data-bandkit-page-theme="true"] .follow-unfollow { border: 0 !important; }
       html[data-bandkit-page-theme="true"] :is(hr, .track_row_view, .collection-item-container, section.floating-player) { border-color: var(--bandkit-page-border) !important; }
+      html[data-bandkit-page-theme="true"] body.tralbum-page :is(#buyItemModal, .buyItemModal, .buy-item-modal, .purchase-modal, .purchase-dialog, [role="dialog"])
+        :is(input[type="text"], input[type="number"], input:not([type]), select, textarea) {
+        background-color: #fff !important;
+        border-color: #aaa !important;
+        color: #333 !important;
+        color-scheme: light;
+      }
       html[data-bandkit-page-theme="true"] ::selection { background: var(--bandkit-page-accent); color: var(--bandkit-page-on-accent); }
     `;
     document.head.append(pageThemeStyle);
@@ -1348,6 +2200,23 @@
       && document.querySelector("#tralbumArt")
       && document.querySelector(".trackView")
     );
+  }
+
+  function modernBandcampPageType() {
+    const pathname = location.pathname.replace(/\/+$/, "") || "/";
+    const isBandcampHome = location.hostname === "bandcamp.com" && pathname === "/";
+    const isDiscover = Boolean(document.querySelector("#DiscoverApp")) || /^\/discover(?:\/|$)/.test(pathname);
+    const isFanCollection = Boolean(document.querySelector("#fan-container, #collection-grid"))
+      && !document.body?.classList.contains("feed")
+      && !/\/feed$/.test(pathname);
+    if (isBandcampHome || isDiscover || isFanCollection) return "";
+    if (isClassicReleasePage()) return "release";
+    if (document.body?.classList.contains("feed") || /\/feed$/.test(pathname)) return "feed";
+    if (document.querySelector(".video-list") || pathname === "/video") return "video";
+    if (document.querySelector("#community")) return "community";
+    if (document.querySelector("#music-grid")) return "music";
+    if (document.querySelector("#merch-grid, .merch-grid")) return "merch";
+    return "";
   }
 
   function moveModernReleaseNode(node, destination) {
@@ -1401,6 +2270,23 @@
     const rightColumn = document.querySelector("#rightColumn");
     const trackTable = document.querySelector("#track_table");
     if (!release || !trackInfoInner || !rightColumn) return;
+    if (commands) {
+      const addToLabel = createModernReleaseShell("li", "bandkit-modern-add-to-label");
+      addToLabel.textContent = "add to...";
+      addToLabel.setAttribute("aria-hidden", "true");
+      commands.prepend(addToLabel);
+
+      const addTrigger = [...commands.querySelectorAll("button, a")].find((control) => {
+        const text = control.textContent?.trim() || "";
+        const accessibleName = `${control.getAttribute("aria-label") || ""} ${control.getAttribute("title") || ""}`.trim();
+        return text === "+" || /^add to(?: collection)?$/i.test(accessibleName);
+      });
+      if (addTrigger) {
+        const hiddenTrigger = addTrigger.closest("li") || addTrigger;
+        hiddenTrigger.classList.add("bandkit-modern-add-trigger");
+        modernReleaseCleanups.push(() => hiddenTrigger.classList.remove("bandkit-modern-add-trigger"));
+      }
+    }
 
     const purchasePanel = createModernReleaseShell("section", "bandkit-modern-purchase-panel", "Buy & collect");
     const purchaseList = createModernReleaseShell("ul", "bandkit-modern-purchase-list");
@@ -1595,6 +2481,23 @@
       const recommendationsTitle = createModernReleaseShell("h2", "bandkit-modern-recommendations-title");
       recommendationsTitle.textContent = "More to explore";
       recommendations.prepend(recommendationsTitle);
+
+      const activateRecommendationCard = (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        const card = target?.closest(".recommended-album");
+        if (!card || !recommendations.contains(card)) return;
+        recommendations.querySelectorAll(".recommended-album.selected").forEach((candidate) => {
+          candidate.classList.toggle("selected", candidate === card);
+        });
+        card.classList.add("selected");
+        card.closest(".first-row")?.classList.add("expanded");
+      };
+      recommendations.addEventListener("pointerover", activateRecommendationCard);
+      recommendations.addEventListener("focusin", activateRecommendationCard);
+      modernReleaseCleanups.push(() => {
+        recommendations.removeEventListener("pointerover", activateRecommendationCard);
+        recommendations.removeEventListener("focusin", activateRecommendationCard);
+      });
     }
 
     modernReleaseLayoutPrepared = true;
@@ -1619,12 +2522,13 @@
     const fallbackBackground = { r: 255, g: 255, b: 255, a: 1 };
     const fallbackText = { r: 17, g: 24, b: 39, a: 1 };
     const background = firstComputedColor(["body"], "backgroundColor") || fallbackBackground;
-    const surface = firstComputedColor(["#pgBd", "body"], "backgroundColor") || background;
-    const text = firstComputedColor([".primaryText", "#name-section .trackTitle", "#pgBd", "body"], "color") || fallbackText;
-    const secondary = firstComputedColor([".secondaryText", ".track-number", ".time"], "color") || text;
-    const link = firstComputedColor(["#trackInfo a:not(.notSkinnable)", "#name-section a", "#rightColumn a", "a"], "color") || text;
+    const surface = firstComputedColor(["#pgBd", "main", "body"], "backgroundColor") || background;
+    const text = firstComputedColor([".primaryText", "#name-section .trackTitle", ".collection-item-title", ".story", "#pgBd", "body"], "color") || fallbackText;
+    const secondary = firstComputedColor([".secondaryText", ".collection-item-artist", ".story-date", ".track-number", ".time"], "color") || text;
+    const link = firstComputedColor(["#trackInfo a:not(.notSkinnable)", "#name-section a", "#community a", "#music-grid a", ".story a", "#rightColumn a", "a"], "color") || text;
     const navbar = firstComputedColor(["#band-navbar"], "backgroundColor") || surface;
     const navbarText = firstComputedColor(["#band-navbar a.active", "#band-navbar a"], "color") || text;
+    const footerBackground = firstComputedColor(["#pgFt", "#recommendations_container"], "backgroundColor") || background;
     const dark = luminance(surface) < 0.34;
     const white = { r: 255, g: 255, b: 255, a: 1 };
     const black = { r: 17, g: 24, b: 39, a: 1 };
@@ -1636,6 +2540,7 @@
       link,
       navbar,
       navbarText,
+      footerBackground,
       line: { ...text, a: dark ? 0.24 : 0.18 },
       accentSoft: { ...link, a: dark ? 0.16 : 0.1 },
       onAccent: contrast(link, white) >= contrast(link, black) ? white : black,
@@ -1656,6 +2561,7 @@
       "--bandkit-release-on-accent": colorString(palette.onAccent || palette.surface),
       "--bandkit-release-navbar": colorString(palette.navbar),
       "--bandkit-release-navbar-text": colorString(palette.navbarText),
+      "--bandkit-release-footer-bg": colorString(palette.footerBackground || palette.background),
       "--bandkit-release-scheme": palette.scheme
     };
     for (const [name, value] of Object.entries(variables)) document.documentElement.style.setProperty(name, value);
@@ -1687,19 +2593,26 @@
       "--bandkit-release-bg", "--bandkit-release-surface", "--bandkit-release-surface-raised",
       "--bandkit-release-ink", "--bandkit-release-muted", "--bandkit-release-line",
       "--bandkit-release-accent", "--bandkit-release-accent-soft", "--bandkit-release-on-accent",
-      "--bandkit-release-navbar", "--bandkit-release-navbar-text", "--bandkit-release-scheme"
+      "--bandkit-release-navbar", "--bandkit-release-navbar-text", "--bandkit-release-footer-bg",
+      "--bandkit-release-scheme"
     ]) document.documentElement.style.removeProperty(name);
   }
 
   function applyModernReleaseLayout() {
-    const enabled = Boolean(state.appearance.modernReleasePages && isClassicReleasePage());
+    const pageType = modernBandcampPageType();
+    const enabled = Boolean(state.appearance.modernReleasePages && pageType);
     if (enabled) {
       if (!modernReleaseLayoutPrepared) modernReleasePalette = captureModernReleasePalette();
-      prepareModernReleaseLayout();
+      if (pageType === "release") prepareModernReleaseLayout();
+      else restoreModernReleaseLayout();
       if (modernReleasePalette) setModernReleasePalette(themedModernReleasePalette(modernReleasePalette));
-      document.documentElement.dataset.bandkitModernRelease = "true";
+      document.documentElement.dataset.bandkitModernPage = "true";
+      document.documentElement.dataset.bandkitModernPageType = pageType;
+      document.documentElement.dataset.bandkitModernRelease = String(pageType === "release");
       return;
     }
+    document.documentElement.dataset.bandkitModernPage = "false";
+    delete document.documentElement.dataset.bandkitModernPageType;
     document.documentElement.dataset.bandkitModernRelease = "false";
     restoreModernReleaseLayout();
     clearModernReleasePalette();
@@ -1759,6 +2672,10 @@
     const hoverColor = mixColor(cardColor, inkColor, darkPage ? 0.13 : 0.07);
     const onAccent = contrast(pageAccent, white) >= contrast(pageAccent, black) ? white : black;
     const tabForeground = contrast(headerColor, white) >= contrast(headerColor, black) ? white : black;
+    const activeCardColor = mixColor(cardColor, pageAccent, 0.18);
+    const controlPalette = accessibleControlPalette([cardColor, activeCardColor], pageAccent);
+    const scrubberPalette = accessibleScrubberPalette(pageAccent, cardColor);
+    const scrubberRemaining = mixColor(cardColor, mutedColor, 0.35);
 
     const variables = {
       "--hub-accent": colorString(pageAccent),
@@ -1775,6 +2692,14 @@
       "--hub-tab-active-bg": colorString(tabForeground, darkPage ? 0.16 : 0.08),
       "--hub-hover": colorString(hoverColor),
       "--hub-on-accent": colorString(onAccent),
+      "--hub-control-bg": colorString(controlPalette.background),
+      "--hub-control-fg": colorString(controlPalette.foreground),
+      "--hub-control-border": colorString(controlPalette.background),
+      "--hub-control-focus": colorString(controlPalette.background),
+      "--hub-scrub-accent": colorString(scrubberPalette.accent),
+      "--hub-scrub-remaining": colorString(scrubberRemaining),
+      "--hub-scrub-surface": colorString(scrubberPalette.surface),
+      "--hub-scrub-halo": colorString(scrubberPalette.halo, 0.62),
       "--hub-wash": colorString(washColor, 0.96)
     };
     setThemeVariables(variables);
@@ -1792,6 +2717,10 @@
     const tabForeground = contrast(header, { r: 255, g: 255, b: 255, a: 1 }) >= contrast(header, { r: 17, g: 24, b: 39, a: 1 })
       ? { r: 255, g: 255, b: 255, a: 1 }
       : { r: 17, g: 24, b: 39, a: 1 };
+    const activeCard = mixColor(card, accent, 0.18);
+    const controlPalette = accessibleControlPalette([card, activeCard], accent);
+    const scrubberPalette = accessibleScrubberPalette(accent, card);
+    const scrubberRemaining = mixColor(card, muted, 0.35);
     setThemeVariables({
       "--hub-accent": colorString(accent),
       "--hub-accent-soft": colorString(accent, dark ? 0.24 : 0.13),
@@ -1807,6 +2736,14 @@
       "--hub-tab-active-bg": colorString(tabForeground, dark ? 0.16 : 0.08),
       "--hub-hover": colorString(mixColor(card, ink, dark ? 0.13 : 0.07)),
       "--hub-on-accent": colorString(accessible.panelOnAccent),
+      "--hub-control-bg": colorString(controlPalette.background),
+      "--hub-control-fg": colorString(controlPalette.foreground),
+      "--hub-control-border": colorString(controlPalette.background),
+      "--hub-control-focus": colorString(controlPalette.background),
+      "--hub-scrub-accent": colorString(scrubberPalette.accent),
+      "--hub-scrub-remaining": colorString(scrubberRemaining),
+      "--hub-scrub-surface": colorString(scrubberPalette.surface),
+      "--hub-scrub-halo": colorString(scrubberPalette.halo, 0.62),
       "--hub-wash": colorString(mixColor(surface, card, 0.25), 0.96)
     });
   }
@@ -1818,6 +2755,7 @@
     applyModernReleaseLayout();
     applyNativeCartVisibility();
     applyNativePlayerVisibility();
+    ensurePagePlayerWaveforms();
   }
 
   function applyNativeCartVisibility() {
@@ -2005,34 +2943,56 @@
     headerResetButton.title = label;
   }
 
-  function exportCart() {
+  function createCartDocument(items = state.cart, cartName = "Bandcamp cart", summary = state.cartSummary) {
+    const cartItems = Array.isArray(items) ? items : [];
     const exportedAt = new Date();
+    const safeName = String(cartName || "Bandcamp cart").trim().slice(0, 120) || "Bandcamp cart";
     const payload = {
       format: "bandkit-cart",
       version: 1,
       exportedAt: exportedAt.toISOString(),
       sourcePage: location.href,
-      summary: state.cartSummary,
-      items: structuredClone(state.cart)
+      summary,
+      items: structuredClone(cartItems)
     };
     const serializedPayload = JSON.stringify(payload).replaceAll("<", "\\u003c");
-    const rows = state.cart.map((item) => {
-      const itemUrl = safeBandcampUrl(item.url);
-      return `
-      <li>
-        <strong>${escapeHtml(item.title)}</strong>${item.artist ? ` by ${escapeHtml(item.artist)}` : ""}
-        ${item.price ? ` — ${escapeHtml(formatCartPrice(item.price, item.currency))}` : ""}<br>
-        ${itemUrl ? `<a href="${escapeHtml(itemUrl)}">${escapeHtml(itemUrl)}</a>` : "No saved Bandcamp link"}
-      </li>`;
+    const rows = cartItems.map((item) => {
+      const itemUrl = safeBandcampReleaseUrl(item.url) || safeBandcampUrl(item.url);
+      const artistUrl = artistUrlFromPageUrl(itemUrl) || itemUrl;
+      const title = itemUrl ? `<a href="${escapeHtml(itemUrl)}">${escapeHtml(item.title)}</a>` : escapeHtml(item.title);
+      const artist = item.artist
+        ? artistUrl ? `<a href="${escapeHtml(artistUrl)}">${escapeHtml(item.artist)}</a>` : escapeHtml(item.artist)
+        : "Unknown artist";
+      const chips = [
+        item.kind,
+        Number(item.price) ? formatCartPrice(item.price, item.currency) : ""
+      ].filter(Boolean).map((value) => `<span class="chip">${escapeHtml(value)}</span>`).join("");
+      return `<article class="item">${collectionArtwork(cartItemArt(item), item.title, itemUrl)}<div><div class="kind">${escapeHtml(item.kind || "Bandcamp release")}</div><h2>${title}</h2><p class="byline">by ${artist}</p>${item.album && item.album !== item.title ? `<p class="album"><strong>Album:</strong> ${escapeHtml(item.album)}</p>` : ""}${chips ? `<div class="chips">${chips}</div>` : ""}</div></article>`;
     }).join("");
-    const documentText = `<!doctype html><html lang="en"><meta charset="utf-8"><title>Bandcamp cart backup</title><style>body{font:16px/1.5 system-ui,sans-serif;max-width:800px;margin:48px auto;padding:0 24px;color:#17202a}li{margin:0 0 18px}a{color:#1687a7;overflow-wrap:anywhere}</style><h1>Bandcamp cart backup</h1><p>Saved by BandKit on ${escapeHtml(exportedAt.toLocaleString())}. This file can be imported back into BandKit.</p><ol>${rows || "<li>The cart was empty when this file was created.</li>"}</ol><script id="bandkit-cart-data" type="application/json">${serializedPayload}</script></html>`;
-    const blobUrl = URL.createObjectURL(new Blob([documentText], { type: "text/html" }));
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = `bandcamp-cart-${exportedAt.toISOString().slice(0, 10)}.html`;
-    link.click();
-    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-    showToast(`Downloaded an importable backup with ${state.cart.length} item${state.cart.length === 1 ? "" : "s"}`);
+    return {
+      count: cartItems.length,
+      filename: `${shareFileName(safeName, "bandcamp-cart")}.html`,
+      title: safeName,
+      text: `${cartItems.length} item${cartItems.length === 1 ? "" : "s"} shared from BandKit`,
+      html: sharedCollectionDocument({
+        title: safeName,
+        eyebrow: "Shared Bandcamp cart",
+        summary: `${cartItems.length} item${cartItems.length === 1 ? "" : "s"} · ${cartTotalLabel(cartItems, summary)} · Shared ${exportedAt.toLocaleString()}`,
+        rows,
+        embeddedPayload: serializedPayload,
+        embeddedId: "bandkit-cart-data"
+      })
+    };
+  }
+
+  function exportCart(items = state.cart, cartName = "Bandcamp cart", summary = state.cartSummary) {
+    const documentData = createCartDocument(items, cartName, summary);
+    downloadHtmlDocument(documentData, `Downloaded an importable backup with ${documentData.count} item${documentData.count === 1 ? "" : "s"}`);
+  }
+
+  function shareCart(items = state.cart, cartName = "Bandcamp cart", summary = state.cartSummary) {
+    const documentData = createCartDocument(items, cartName, summary);
+    return shareHtmlDocument(documentData, `“${documentData.title}”`);
   }
 
   function sanitizeImportedRestore(restore) {
@@ -2246,20 +3206,21 @@
     }
     const label = requestedItemType === "a" ? "album" : "track";
     button.disabled = true;
-    showToast(`Adding the ${label} to your Bandcamp cart…`);
+    showToast(`Opening the ${label} on Bandcamp…`);
     try {
-      const result = await addResolvedItemsToCart([{
+      const resolved = await runtimeMessage({ type: "BANDCAMP_HUB_RESOLVE_CART_ITEMS", items: [{
         title: track.title,
         album: track.album,
         artist: track.artist,
         url: pageUrl,
         requestedItemType
-      }]);
-      const failed = result.failed?.length || 0;
-      if (result.error) showToast(result.error);
-      else if (failed) showToast(`Bandcamp does not offer this ${label} as a separate digital purchase.`);
-      else if (result.alreadyPresent) showToast(`This ${label} is already in your Bandcamp cart.`);
-      else showToast(`Added the ${label} to your Bandcamp cart.`);
+      }] });
+      const actionUrl = safeBandcampUrl(resolved?.items?.[0]?.restore?.url) || pageUrl;
+      const target = new URL(actionUrl);
+      target.hash = "bandkit-cart";
+      const response = await runtimeMessage({ type: "BANDCAMP_HUB_OPEN_BACKGROUND_TAB", url: target.href });
+      if (!response?.ok) showToast(response?.error || `Bandcamp could not open this ${label}.`);
+      else showToast(`Opened the ${label} on Bandcamp for purchase.`);
     } finally {
       button.disabled = false;
     }
@@ -2287,7 +3248,7 @@
         createSavedPlaylistWithTracks([track], `${track.artist || "Bandcamp"} playlist`);
       }));
       for (const snapshot of state.savedPlaylists) {
-        const alreadyAdded = snapshot.items.some((item) => playlistTrackKey(item) === playlistTrackKey(track));
+        const alreadyAdded = snapshot.items.some((item) => playlistTracksMatch(item, track));
         menu.append(createPlaylistMenuOption(`${alreadyAdded ? "✓" : "＋"} ${snapshot.name}`, () => {
           close();
           addTrackToSavedPlaylist(track, snapshot.id);
@@ -2295,7 +3256,7 @@
       }
       if (!state.savedPlaylists.length) menu.append(createElement("div", "hub-playlist-menu-empty", "No playlists yet"));
     } else {
-      const inPlaying = state.playlist.some((item) => playlistTrackKey(item) === playlistTrackKey(track));
+      const inPlaying = state.playlist.some((item) => playlistTracksMatch(item, track));
       menu.append(
         createPlaylistMenuOption(inPlaying ? "✓ In Now Playing" : "＋ Add to Now Playing", () => {
           close();
@@ -2433,7 +3394,7 @@
 
   function renderPlayerMoreActions() {
     const track = currentLiveTrack();
-    const inPlaylist = state.playlist.some((item) => playlistTrackKey(item) === playlistTrackKey(track));
+    const inPlaylist = state.playlist.some((item) => playlistTracksMatch(item, track));
     const signature = live.hasPlaybackStarted ? `${track.title}|${track.pageUrl}|${inPlaylist}` : "";
     playerMoreButton.disabled = !signature || !resolvedTrackPageUrl(track);
     if (signature === playerActionSignature) return;
@@ -2464,19 +3425,33 @@
     panelHeader.setAttribute("aria-label", `${panelTitle.textContent} panel header`);
     for (const button of headerShortcuts.querySelectorAll(".hub-header-shortcut")) {
       const active = state.open && button.dataset.tab === state.activeTab;
+      const count = button.dataset.tab === "cart"
+        ? state.cart.length
+        : button.dataset.tab === "playlist" ? state.savedPlaylists.length : 0;
       button.classList.toggle("is-active", active);
       button.setAttribute("aria-pressed", String(active));
-      button.classList.toggle("has-dot", button.dataset.tab === "cart" && state.cart.length > 0);
-      if (button.dataset.tab === "playlist") button.classList.toggle("has-dot", state.playlist.length > 0);
+      button.classList.toggle("has-dot", count > 0);
+      const counter = button.querySelector(".hub-header-shortcut-count");
+      if (counter) counter.textContent = count > 99 ? "99+" : String(count);
+      if (button.dataset.tab === "playlist") {
+        button.setAttribute("aria-label", count ? `Playlists, ${count} saved` : "Playlists");
+        button.title = button.getAttribute("aria-label");
+      }
     }
-    const cartShortcutCount = headerShortcuts.querySelector(".hub-cart-shortcut-count");
-    if (cartShortcutCount) cartShortcutCount.textContent = String(state.cart.length);
     for (const button of tabBar.querySelectorAll(".hub-tab")) {
       const active = button.dataset.tab === state.activeTab;
+      const count = button.dataset.tab === "cart"
+        ? state.cart.length
+        : button.dataset.tab === "playlist" ? state.savedPlaylists.length : 0;
       button.classList.toggle("is-active", active);
       button.setAttribute("aria-current", active ? "page" : "false");
-      button.classList.toggle("has-dot", button.dataset.tab === "cart" && state.cart.length > 0);
-      if (button.dataset.tab === "playlist") button.classList.toggle("has-dot", state.playlist.length > 0);
+      button.classList.toggle("has-dot", count > 0);
+      const counter = button.querySelector(".hub-tab-dot");
+      if (counter) counter.textContent = count > 99 ? "99+" : String(count);
+      if (button.dataset.tab === "playlist") {
+        button.setAttribute("aria-label", count ? `Playlists, ${count} saved` : "Playlists");
+        button.title = button.getAttribute("aria-label");
+      }
     }
 
     content.replaceChildren();
@@ -2569,28 +3544,30 @@
     renderPageDjTools();
   }
 
-  function createDjToolsCard() {
+  function createDjToolsCard({ includeWaveform = true } = {}) {
     const card = createElement("section", "hub-card hub-dj-card");
     card.setAttribute("aria-label", "DJ playback tools");
 
     const bpm = Number(seamless.detectedBpm) || null;
     const tempoPercent = (state.dj.rate - 1) * 100;
 
-    const waveformButton = createElement("button", "hub-dj-waveform");
-    waveformButton.type = "button";
-    waveformButton.disabled = !seamless.enabled || !seamless.waveform?.length;
-    waveformButton.setAttribute("aria-label", "Track waveform. Click to seek.");
-    const waveformCanvas = createElement("canvas", "hub-dj-waveform-canvas");
-    waveformButton.append(waveformCanvas);
-    waveformButton.addEventListener("click", (event) => {
-      const duration = Number(seamless.duration) || 0;
-      if (!duration) return;
-      const bounds = waveformButton.getBoundingClientRect();
-      const progress = Math.max(0, Math.min(1, (event.clientX - bounds.left) / Math.max(1, bounds.width)));
-      void seamlessCommand("BANDCAMP_HUB_SEAMLESS_SEEK", { currentTime: duration * progress });
-    });
-    card.append(waveformButton);
-    drawDjWaveform(waveformCanvas);
+    if (includeWaveform) {
+      const waveformButton = createElement("button", "hub-dj-waveform");
+      waveformButton.type = "button";
+      waveformButton.disabled = !seamless.enabled || !seamless.waveform?.length;
+      waveformButton.setAttribute("aria-label", "Track waveform. Click to seek.");
+      const waveformCanvas = createElement("canvas", "hub-dj-waveform-canvas");
+      waveformButton.append(waveformCanvas);
+      waveformButton.addEventListener("click", (event) => {
+        const duration = Number(seamless.duration) || 0;
+        if (!duration) return;
+        const bounds = waveformButton.getBoundingClientRect();
+        const progress = Math.max(0, Math.min(1, (event.clientX - bounds.left) / Math.max(1, bounds.width)));
+        void seamlessCommand("BANDCAMP_HUB_SEAMLESS_SEEK", { currentTime: duration * progress });
+      });
+      card.append(waveformButton);
+      drawDjWaveform(waveformCanvas);
+    }
 
     const analysisRow = createElement("div", "hub-dj-analysis-row");
     const bpmEditor = createElement("div", "hub-dj-bpm-editor");
@@ -3269,8 +4246,35 @@
     return (state.dj.rate - 1) * 100;
   }
 
+  function recordActivePlaylistAnalysis() {
+    if (state.recordPlaylistMetadata === false || !seamless.track) return false;
+    const bpm = normalizePlaylistBpm(seamless.detectedBpm);
+    const key = normalizePlaylistKey(seamless.detectedKey);
+    if (!bpm && !key) return false;
+    let changed = false;
+    const record = (item) => {
+      if (!playlistTracksMatch(item, seamless.track)) return item;
+      const next = {
+        ...item,
+        bpm: bpm ?? item.bpm,
+        key: key ?? item.key
+      };
+      if (JSON.stringify(next) === JSON.stringify(item)) return item;
+      changed = true;
+      return next;
+    };
+    state.playlist = state.playlist.map(record);
+    state.savedPlaylists = state.savedPlaylists.map((snapshot) => ({
+      ...snapshot,
+      items: (snapshot.items || []).map(record)
+    }));
+    if (changed) saveState();
+    return changed;
+  }
+
   function applySeamlessState(nextState) {
     if (!nextState || typeof nextState !== "object") return;
+    if (nowPlayingExplicitlyCleared && nextState.enabled) return;
     const wasEnabled = seamless.enabled;
     const incomingState = { ...nextState };
     if (pendingLoopBeats !== null) {
@@ -3283,6 +4287,11 @@
       }
     }
     seamless = { ...seamless, ...incomingState };
+    if (seamless.enabled && !pendingFeedTrackId) silenceNativePagePlayback();
+    if (pendingPlaylistItemId && seamless.status !== "loading") {
+      const pendingItem = state.playlist.find((item) => item.playlistItemId === pendingPlaylistItemId);
+      if (pendingItem && playlistItemMatchesActiveTrack(pendingItem)) pendingPlaylistItemId = "";
+    }
 
     if (seamless.enabled && seamless.track) {
       if (Number.isFinite(Number(seamless.rate))) state.dj.rate = Number(seamless.rate);
@@ -3308,11 +4317,17 @@
         tracks: (seamless.queue || []).slice(Math.max(0, Number(seamless.index) + 1))
       };
       if (live.isPlaying) recordListeningActivity();
+    } else if (nowPlayingExplicitlyCleared) {
+      resetLoadedPlayback();
     } else if (wasEnabled) {
+      resetLoadedPlayback();
       window.setTimeout(scanLivePlayer, 0);
     }
 
+    const playlistAnalysisChanged = recordActivePlaylistAnalysis();
+
     syncPagePlayerUi();
+    syncRecommendationPlaybackUi();
     const activeDjControl = shadow.activeElement;
     const activePageDjControl = pageDjShadow?.activeElement;
     const editingDjControl = bpmEditing
@@ -3322,9 +4337,16 @@
     const activeDjGesture = djDrawer.querySelector(gestureSelector) || pageDjSurface?.querySelector(gestureSelector);
     if ((state.dj.open || pageDjOpen) && !editingDjControl && !activeDjGesture) renderDjTools();
     renderPlayer();
-    if (state.activeTab === "nowPlaying" && !(shadow.activeElement && content.contains(shadow.activeElement))) {
-      content.replaceChildren();
-      renderCurrentPlaylist();
+    if (playlistAnalysisChanged && ["playlist", "nowPlaying"].includes(state.activeTab)) {
+      render();
+      return;
+    }
+    if (state.activeTab === "nowPlaying") {
+      if (state.playlist.length && content.querySelector(".hub-playlist-stack")) syncCurrentPlaylistPlaybackUi();
+      else if (!(shadow.activeElement && content.contains(shadow.activeElement))) {
+        content.replaceChildren();
+        renderCurrentPlaylist();
+      }
     }
   }
 
@@ -3378,10 +4400,13 @@
       const idMatch = tracks.find((track) => String(track.id || "") === requestedId);
       if (idMatch) return idMatch;
     }
-    const requestedPageUrl = safeBandcampUrl(requested.pageUrl);
+    const identityMatch = tracks.find((track) => playlistTracksMatch(track, requested));
+    if (identityMatch) return identityMatch;
+    const requestedPageUrl = resolvedTrackPageUrl(requested);
     const requestedTitle = normalizedTrackTitle(requested.title);
     if (requestedPageUrl) {
-      const pageMatch = tracks.find((track) => safeBandcampUrl(track.pageUrl) === requestedPageUrl
+      const requestedKeyUrl = canonicalPlaylistPageUrl(requested);
+      const pageMatch = tracks.find((track) => canonicalPlaylistPageUrl(track) === requestedKeyUrl
         && (!requestedTitle || normalizedTrackTitle(track.title) === requestedTitle));
       if (pageMatch) return pageMatch;
     }
@@ -3399,14 +4424,32 @@
   }
 
   async function handoffPageAudio(pageAudio, requestedTitle = "") {
-    const queue = buildSeamlessQueue();
-    if (!queue.length) return false;
+    const pageQueue = buildSeamlessQueue();
+    if (!pageQueue.length) return false;
     const currentTitle = requestedTitle || document.querySelector(".inline_player .title")?.textContent?.trim() || live.title;
-    const currentIndex = Math.max(0, queue.findIndex((track) => track.title === currentTitle));
+    const matchedIndex = pageQueue.findIndex((track) => track.title === currentTitle);
+    const pageIndex = matchedIndex >= 0 ? matchedIndex : currentTitle ? -1 : 0;
+    if (pageIndex < 0) return false;
+    silenceNativePagePlayback();
+    const activeIndex = seamless.enabled
+      ? (seamless.queue || []).findIndex((track) => Boolean(matchingQueueTrack([track], pageQueue[pageIndex])))
+      : -1;
+    if (activeIndex >= 0) {
+      const response = await runtimeMessage({
+        type: "BANDCAMP_HUB_SEAMLESS_PLAY_INDEX",
+        index: activeIndex,
+        autoplay: true
+      });
+      if (!response?.ok) return false;
+      applySeamlessState(response.state);
+      return true;
+    }
+    const prepared = await prepareExternalNowPlaying(pageQueue[pageIndex], pageQueue, { trustProvidedStreams: true });
+    if (prepared.index < 0) return false;
     const response = await runtimeMessage({
       type: "BANDCAMP_HUB_SEAMLESS_ENABLE",
-      queue,
-      index: currentIndex,
+      queue: prepared.queue,
+      index: prepared.index,
       currentTime: Number(pageAudio?.currentTime) || 0,
       autoplay: true,
       rate: state.dj.rate,
@@ -3420,6 +4463,7 @@
     if (!response?.ok) {
       return false;
     }
+    if (prepared.request !== playlistPlayRequest) return false;
     if (pageAudio && !pageAudio.paused) pageAudio.pause();
     applySeamlessState(response.state);
     return true;
@@ -3533,35 +4577,23 @@
     const savedText = state.cartSavedAt ? `Auto-saved ${new Date(state.cartSavedAt).toLocaleString()}` : "Not captured yet";
     backup.append(createElement("div", "hub-cart-backup-time", savedText));
     const backupActions = createElement("div", "hub-toolbar");
-    const saveButton = createElement("button", "hub-text-button is-accent", "Save");
-    saveButton.type = "button";
+    const saveButton = createPlaylistToolbarButton("Save cart", "icon-save.svg", saveCartSnapshot);
     saveButton.disabled = !state.cart.length;
-    saveButton.addEventListener("click", saveCartSnapshot);
-    const saveIcon = createElement("span", "hub-button-icon");
-    saveIcon.style.setProperty("--hub-icon", `url('${asset("icon-save.svg")}')`);
-    saveButton.prepend(saveIcon);
-    const exportButton = createElement("button", "hub-text-button is-accent", "Download");
-    exportButton.type = "button";
-    exportButton.addEventListener("click", exportCart);
-    const downloadIcon = createElement("span", "hub-button-icon");
-    downloadIcon.style.setProperty("--hub-icon", `url('${asset("icon-download-all.svg")}')`);
-    exportButton.prepend(downloadIcon);
+    const exportButton = createPlaylistToolbarButton("Download cart HTML", "icon-download-all.svg", () => exportCart());
+    exportButton.disabled = !state.cart.length;
+    const shareButton = createPlaylistToolbarButton("Share cart HTML", "icon-share.svg", () => void shareCart());
+    shareButton.disabled = !state.cart.length;
     const importInput = document.createElement("input");
     importInput.type = "file";
     importInput.accept = ".html,.htm,.json,text/html,application/json";
     importInput.hidden = true;
-    const importButton = createElement("button", "hub-text-button is-accent", "Import");
-    importButton.type = "button";
-    const importIcon = createElement("span", "hub-button-icon");
-    importIcon.style.setProperty("--hub-icon", `url('${asset("icon-import.svg")}')`);
-    importButton.prepend(importIcon);
-    importButton.addEventListener("click", () => importInput.click());
+    const importButton = createPlaylistToolbarButton("Import cart HTML", "icon-import.svg", () => importInput.click());
     importInput.addEventListener("change", () => {
       const file = importInput.files?.[0];
       importInput.value = "";
       void importAndRestoreCart(file, importButton);
     });
-    backupActions.append(saveButton, exportButton, importButton, importInput);
+    backupActions.append(saveButton, exportButton, shareButton, importButton, importInput);
     backup.append(backupActions);
     content.append(backup);
 
@@ -3607,6 +4639,7 @@
     const actions = createElement("div", "hub-saved-playlist-icon-actions hub-saved-cart-icon-actions");
     actions.append(
       createSavedItemActionButton(`Restore ${snapshot.name || "saved cart"}`, "icon-restore.svg", () => void restoreSavedCart(snapshot.items || [])),
+      createSavedItemActionButton(`Share ${snapshot.name || "saved cart"} as HTML`, "icon-share.svg", () => void shareCart(snapshot.items || [], snapshot.name || "Bandcamp cart", snapshot.summary)),
       createSavedItemActionButton(`Delete ${snapshot.name || "saved cart"}`, "icon-trash.svg", () => deleteSavedCart(snapshot), "is-delete")
     );
     actions.firstElementChild.disabled = !snapshot.items?.length;
@@ -3732,20 +4765,45 @@
     if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= state.playlist.length || toIndex >= state.playlist.length) return;
     const [item] = state.playlist.splice(fromIndex, 1);
     state.playlist.splice(toIndex, 0, item);
+    state.playlistMode = "manual";
     saveState();
     void syncActivePlaylistQueue();
     render();
   }
 
-  function renderPlaylistTrack(item, index) {
-    const card = createElement("article", `hub-card hub-playlist-track${seamless.track?.playlistItemId === item.playlistItemId ? " is-playing" : ""}`);
+  function moveSavedPlaylistItem(snapshot, fromIndex, toIndex) {
+    if (!snapshot || fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= snapshot.items.length || toIndex >= snapshot.items.length) return;
+    const [item] = snapshot.items.splice(fromIndex, 1);
+    snapshot.items.splice(toIndex, 0, item);
+    snapshot.items = normalizePlaylist(snapshot.items);
+    saveState();
+    render();
+  }
+
+  function bindPlaylistCardReordering(card, item, index, items, moveItem) {
     card.draggable = true;
     card.tabIndex = 0;
     card.dataset.playlistItemId = item.playlistItemId;
-    card.title = "Drag to reorder. Press Option/Alt + Up or Down to reorder with the keyboard.";
-    card.setAttribute("aria-label", `${item.title}, position ${index + 1} of ${state.playlist.length}. Drag to reorder.`);
+    card.setAttribute("aria-label", `${item.title}, position ${index + 1} of ${items.length}. Drag or press Option/Alt plus Up or Down to reorder.`);
+    card.addEventListener("pointerdown", (event) => {
+      if (!(event.target instanceof Element) || !event.target.closest(".hub-playlist-position, a, button, input, select, textarea")) {
+        card.draggable = true;
+        return;
+      }
+      // A draggable ancestor can claim a slight pointer movement before its
+      // button receives click. Suspend native dragging for this gesture so
+      // card controls remain reliable physical click targets.
+      card.draggable = false;
+      const restoreDragging = () => {
+        window.removeEventListener("pointerup", restoreDragging);
+        window.removeEventListener("pointercancel", restoreDragging);
+        window.setTimeout(() => { card.draggable = true; }, 0);
+      };
+      window.addEventListener("pointerup", restoreDragging);
+      window.addEventListener("pointercancel", restoreDragging);
+    }, true);
     card.addEventListener("dragstart", (event) => {
-      if (event.target instanceof Element && event.target.closest("a, button")) {
+      if (event.target instanceof Element && event.target.closest(".hub-playlist-position, a, button, input, select, textarea")) {
         event.preventDefault();
         return;
       }
@@ -3772,27 +4830,135 @@
       const dropAfter = card.classList.contains("is-drop-after");
       card.classList.remove("is-drag-target", "is-drop-before", "is-drop-after");
       const sourceId = draggingPlaylistId || event.dataTransfer?.getData("text/plain");
-      const sourceIndex = state.playlist.findIndex((entry) => entry.playlistItemId === sourceId);
+      const sourceIndex = items.findIndex((entry) => entry.playlistItemId === sourceId);
       const destinationIndex = sourceIndex < index
         ? index - (dropAfter ? 0 : 1)
         : index + (dropAfter ? 1 : 0);
-      movePlaylistItem(sourceIndex, Math.max(0, Math.min(state.playlist.length - 1, destinationIndex)));
+      moveItem(sourceIndex, Math.max(0, Math.min(items.length - 1, destinationIndex)));
     });
     card.addEventListener("keydown", (event) => {
       if (!event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
       event.preventDefault();
       const destination = index + (event.key === "ArrowUp" ? -1 : 1);
-      if (destination < 0 || destination >= state.playlist.length) return;
-      movePlaylistItem(index, destination);
+      if (destination < 0 || destination >= items.length) return;
+      moveItem(index, destination);
       requestAnimationFrame(() => content.querySelector(`[data-playlist-item-id="${CSS.escape(item.playlistItemId)}"]`)?.focus());
     });
+  }
 
-    const isCurrentPlaylistTrack = seamless.track?.playlistItemId === item.playlistItemId;
-    const number = createElement("span", "hub-playlist-number", isCurrentPlaylistTrack ? "" : String(index + 1));
-    if (isCurrentPlaylistTrack) number.append(createElement("span", "hub-playing-icon"));
-    const artLink = createPageLink("", item.pageUrl, "hub-art-link hub-queue-art-link");
-    artLink.setAttribute("aria-label", `Open ${item.title}`);
-    artLink.append(createArt(item.art, true));
+  function activePlaylistItemId() {
+    if (pendingPlaylistItemId) return pendingPlaylistItemId;
+    if (!seamless.enabled || !seamless.track) return "";
+    const activeItem = state.playlist.find((item) => playlistItemMatchesActiveTrack(item));
+    return activeItem?.playlistItemId || seamless.track.playlistItemId || "";
+  }
+
+  function playlistItemMatchesActiveTrack(item) {
+    if (!item || !seamless.enabled || !seamless.track) return false;
+    return Boolean(
+      (item.playlistItemId && seamless.track.playlistItemId === item.playlistItemId)
+      || matchingQueueTrack([seamless.track], item)
+    );
+  }
+
+  function syncCurrentPlaylistPlaybackUi() {
+    const activeId = activePlaylistItemId();
+    const activeIsPlaying = !pendingPlaylistItemId && Boolean(seamless.isPlaying);
+    for (const card of content.querySelectorAll(".hub-playlist-track[data-playlist-item-id]")) {
+      const isCurrent = Boolean(activeId && card.dataset.playlistItemId === activeId);
+      const isPlaying = isCurrent && activeIsPlaying;
+      card.classList.toggle("is-playing", isCurrent);
+      card.classList.toggle("is-actively-playing", isPlaying);
+      card.setAttribute("aria-current", isCurrent ? "true" : "false");
+      const toggle = card.querySelector(".hub-playlist-position-play");
+      if (!toggle) continue;
+      const item = state.playlist.find((track) => track.playlistItemId === card.dataset.playlistItemId);
+      const activeTrackMatch = playlistItemMatchesActiveTrack(item);
+      const isActuallyLoading = Boolean(pendingPlaylistItemId && isCurrent && !activeTrackMatch);
+      const label = isActuallyLoading
+        ? `Loading ${item?.title || "track"}`
+        : isCurrent
+          ? isPlaying ? `Pause ${item?.title || "track"}` : `Resume ${item?.title || "track"}`
+        : `Play ${item?.title || "track"}`;
+      toggle.title = label;
+      toggle.setAttribute("aria-label", label);
+      // Keep this control physically clickable even while a prior playback
+      // request is settling. A second click can then recover/retry instead of
+      // leaving the user with a permanently disabled Now Playing card.
+      toggle.disabled = false;
+      toggle.setAttribute("aria-busy", String(isActuallyLoading));
+      toggle.replaceChildren(createButtonIcon(isPlaying ? "icon-pause.svg" : "icon-play.svg"));
+    }
+  }
+
+  function formatPlaylistBpm(value) {
+    const bpm = normalizePlaylistBpm(value);
+    return bpm ? `${Number.isInteger(bpm) ? bpm : bpm.toFixed(1)} BPM` : "";
+  }
+
+  function createPlaylistAnalysisMeta(item) {
+    if (state.recordPlaylistMetadata === false) return null;
+    const bpm = formatPlaylistBpm(item.bpm);
+    const key = normalizePlaylistKey(item.key);
+    if (!bpm && !key) return null;
+    const meta = createElement("div", "hub-playlist-analysis");
+    const accessibleParts = [];
+    if (bpm) {
+      meta.append(createElement("span", "hub-playlist-analysis-chip is-bpm", bpm));
+      accessibleParts.push(bpm);
+    }
+    if (key) {
+      const keyLabel = [key.camelot, key.shortName].filter(Boolean).join(" · ") || key.name;
+      const chip = createElement("span", "hub-playlist-analysis-chip is-key", keyLabel);
+      if (key.name) chip.title = key.name;
+      meta.append(chip);
+      accessibleParts.push(key.name || keyLabel);
+    }
+    meta.setAttribute("aria-label", `Track analysis: ${accessibleParts.join(", ")}`);
+    return meta;
+  }
+
+  function renderPlaylistTrack(item, index) {
+    const isCurrentPlaylistTrack = activePlaylistItemId() === item.playlistItemId;
+    const isCurrentLoading = isCurrentPlaylistTrack
+      && pendingPlaylistItemId === item.playlistItemId
+      && !playlistItemMatchesActiveTrack(item);
+    const isCurrentPlaying = isCurrentPlaylistTrack && !isCurrentLoading && Boolean(seamless.isPlaying);
+    const card = createElement("article", `hub-card hub-playlist-track${isCurrentPlaylistTrack ? " is-playing" : ""}${isCurrentPlaying ? " is-actively-playing" : ""}`);
+    bindPlaylistCardReordering(card, item, index, state.playlist, movePlaylistItem);
+    card.setAttribute("aria-current", isCurrentPlaylistTrack ? "true" : "false");
+
+    const position = createElement("div", "hub-playlist-position");
+    const number = createElement("span", "hub-playlist-number", String(index + 1));
+    const positionPlay = createElement("button", "hub-playlist-position-play");
+    positionPlay.type = "button";
+    positionPlay.title = isCurrentLoading
+      ? `Loading ${item.title}`
+      : isCurrentPlaylistTrack
+      ? isCurrentPlaying ? `Pause ${item.title}` : `Resume ${item.title}`
+      : `Play ${item.title}`;
+    positionPlay.setAttribute("aria-label", positionPlay.title);
+    positionPlay.disabled = false;
+    positionPlay.setAttribute("aria-busy", String(isCurrentLoading));
+    positionPlay.append(createButtonIcon(isCurrentPlaying ? "icon-pause.svg" : "icon-play.svg"));
+    const activatePositionPlayback = () => {
+      if (playlistItemMatchesActiveTrack(item)) void seamlessCommand("BANDCAMP_HUB_SEAMLESS_PLAY_PAUSE");
+      else void playPlaylistAt(index);
+    };
+    positionPlay.addEventListener("pointerdown", (event) => event.stopPropagation());
+    positionPlay.addEventListener("mousedown", (event) => event.stopPropagation());
+    positionPlay.addEventListener("click", (event) => {
+      event.stopPropagation();
+      activatePositionPlayback();
+    });
+    position.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (event.target === positionPlay || positionPlay.contains(event.target)) return;
+      activatePositionPlayback();
+    });
+    position.append(number, positionPlay);
+    const artwork = createElement("div", "hub-art-link hub-queue-art-link hub-playlist-drag-art");
+    artwork.append(createArt(item.art, true));
     const copy = createElement("div", "hub-track-copy");
     copy.append(
       createPageLink(item.title, item.pageUrl, "hub-track-title hub-inline-link"),
@@ -3800,28 +4966,35 @@
     );
     const details = [item.album, item.duration ? formatDuration(item.duration) : "", item.restoreError].filter(Boolean).join(" · ");
     if (details) copy.append(createElement("span", `hub-playlist-meta${item.restoreError ? " is-error" : ""}`, details));
+    const analysisMeta = createPlaylistAnalysisMeta(item);
+    if (analysisMeta) copy.append(analysisMeta);
 
     const actions = createElement("div", "hub-playlist-track-actions");
-    const play = createElement("button", "hub-playlist-icon-button");
-    play.type = "button";
-    play.title = `Play ${item.title}`;
-    play.setAttribute("aria-label", `Play ${item.title}`);
-    play.append(createButtonIcon("icon-play.svg"));
-    play.addEventListener("click", () => void playPlaylistAt(index));
     const remove = createElement("button", "hub-playlist-icon-button");
     remove.type = "button";
     remove.title = "Remove from playlist";
     remove.setAttribute("aria-label", `Remove ${item.title} from playlist`);
     remove.append(createButtonIcon("icon-close.svg"));
     remove.addEventListener("click", () => {
+      suppressRemovedFeedTrack(item);
+      if (pendingPlaylistItemId === item.playlistItemId) {
+        playlistPlayRequest += 1;
+        playlistPlaybackStartingRequest = 0;
+        playlistPlaybackStarting = false;
+        pendingPlaylistItemId = "";
+      }
       state.playlist.splice(index, 1);
+      if (!state.playlist.length) {
+        void clearNowPlayingPlayback();
+        return;
+      }
       saveState();
       void syncActivePlaylistQueue();
       render();
       injectPlaylistButtons();
     });
-    actions.append(play, remove);
-    card.append(number, artLink, copy, actions);
+    actions.append(remove);
+    card.append(position, artwork, copy, actions);
     return card;
   }
 
@@ -3922,18 +5095,14 @@
     save.disabled = !toolbarItems.length;
     const download = createPlaylistToolbarButton("Download queue", "icon-download-all.svg", () => exportPlaylist(toolbarItems));
     download.disabled = !toolbarItems.length;
+    const share = createPlaylistToolbarButton("Share queue as HTML", "icon-share.svg", () => void sharePlaylist(toolbarItems, "Now Playing"));
+    share.disabled = !toolbarItems.length;
     const clear = createPlaylistToolbarButton("Clear Now Playing", "icon-clear.svg", async () => {
       if (!window.confirm("Clear Now Playing? Your saved playlists will not be affected.")) return;
-      clearedPageQueueSignature = `${live.pageUrl}|${live.title}`;
-      state.playlist = [];
-      saveState();
-      await syncActivePlaylistQueue();
-      render();
-      injectPlaylistButtons();
-      showToast("Now Playing cleared");
+      await clearNowPlayingPlayback();
     });
     clear.disabled = !state.playlist.length && !toolbarItems.length && !live.hasPlaybackStarted;
-    actions.append(addPage, save, download, clear);
+    actions.append(addPage, save, download, share, clear);
     toolbar.append(actions);
     content.append(toolbar);
 
@@ -3981,13 +5150,14 @@
     const actions = createElement("div", "hub-saved-playlist-icon-actions");
     if (includePlay) {
       actions.append(createSavedItemActionButton(`Play ${snapshot.name}`, "icon-play.svg", () => {
-        restoreSavedPlaylist(snapshot, "replace");
-        void playPlaylistAt(0);
+        restoreSavedPlaylist(snapshot, "replace", { syncPlayback: false });
+        void playPlaylistAt(0, { forceRefresh: true });
       }));
     }
     actions.append(
       createSavedItemActionButton(`Add ${snapshot.name} to Now Playing`, "icon-plus.svg", () => restoreSavedPlaylist(snapshot, "append")),
-      createSavedItemActionButton(`Rename ${snapshot.name}`, "icon-edit.svg", () => renameSavedPlaylist(snapshot))
+      createSavedItemActionButton(`Rename ${snapshot.name}`, "icon-edit.svg", () => renameSavedPlaylist(snapshot)),
+      createSavedItemActionButton(`Share ${snapshot.name} as HTML`, "icon-share.svg", () => void sharePlaylist(snapshot.items, snapshot.name))
     );
     if (includeDownload) {
       actions.append(createSavedItemActionButton(`Download ${snapshot.name}`, "icon-download-all.svg", () => exportPlaylist(snapshot.items, snapshot.name)));
@@ -4006,8 +5176,8 @@
     button.setAttribute("aria-label", button.title);
     button.append(createButtonIcon("icon-play.svg"), document.createTextNode("Play"));
     button.addEventListener("click", () => {
-      restoreSavedPlaylist(snapshot, "replace");
-      void playPlaylistAt(0);
+      restoreSavedPlaylist(snapshot, "replace", { syncPlayback: false });
+      void playPlaylistAt(0, { forceRefresh: true });
     });
     return button;
   }
@@ -4080,22 +5250,24 @@
 
     const list = createElement("div", "hub-stack hub-saved-playlist-track-list");
     snapshot.items.forEach((item, index) => {
-      const row = createElement("article", "hub-card hub-queue-item hub-saved-playlist-track");
+      const row = createElement("article", "hub-card hub-queue-item hub-playlist-track hub-saved-playlist-track");
+      bindPlaylistCardReordering(row, item, index, snapshot.items, (fromIndex, toIndex) => moveSavedPlaylistItem(snapshot, fromIndex, toIndex));
       row.append(createElement("div", "hub-queue-number", String(index + 1)));
-      const artLink = createPageLink("", item.pageUrl, "hub-art-link hub-queue-art-link");
-      artLink.setAttribute("aria-label", `Open ${item.title}`);
-      if (item.art) artLink.append(createArt(item.art, true));
+      const artwork = createElement("div", "hub-art-link hub-queue-art-link hub-playlist-drag-art");
+      if (item.art) artwork.append(createArt(item.art, true));
       else {
         const placeholder = createElement("span", "hub-queue-art-placeholder");
         placeholder.style.setProperty("--hub-icon", `url('${asset("icon-queue.svg")}')`);
-        artLink.append(placeholder);
+        artwork.append(placeholder);
       }
       const trackCopy = createElement("div", "hub-track-copy");
       trackCopy.append(
         createPageLink(item.title, item.pageUrl, "hub-track-title hub-inline-link"),
         createPageLink(item.artist, item.artistUrl || item.pageUrl, "hub-track-artist hub-inline-link")
       );
-      row.append(artLink, trackCopy, createTrackActionControls(item));
+      const analysisMeta = createPlaylistAnalysisMeta(item);
+      if (analysisMeta) trackCopy.append(analysisMeta);
+      row.append(artwork, trackCopy, createTrackActionControls(item));
       list.append(row);
     });
     content.append(list);
@@ -4220,6 +5392,7 @@
     content.append(createSectionHeading("Settings"));
 
     const playback = createElement("section", "hub-card hub-settings-card");
+    playback.append(createElement("h2", "hub-settings-heading", "Playback"));
     const knobRow = createElement("div", "hub-settings-row");
     const knobCopy = createElement("div", "hub-settings-copy");
     knobCopy.append(
@@ -4245,6 +5418,76 @@
     });
     knobRow.append(knobCopy, knobMode);
     playback.append(knobRow);
+
+    const scrubberRow = createElement("div", "hub-settings-row hub-settings-subrow");
+    const scrubberCopy = createElement("div", "hub-settings-copy");
+    scrubberCopy.append(
+      createElement("strong", "", "Scrubber style"),
+      createElement("span", "", "Use the same timeline in the page player and music bar.")
+    );
+    const scrubberStyle = createElement("select", "hub-settings-select");
+    scrubberStyle.setAttribute("aria-label", "Scrubber style");
+    for (const [value, label] of [["traditional", "Traditional scrub head"], ["waveform", "Waveform"]]) {
+      const option = createElement("option", "", label);
+      option.value = value;
+      option.selected = state.scrubberStyle === value;
+      scrubberStyle.append(option);
+    }
+    scrubberStyle.addEventListener("change", () => {
+      state.scrubberStyle = scrubberStyle.value === "traditional" ? "traditional" : "waveform";
+      syncScrubberStyles();
+      ensurePagePlayerWaveforms();
+      saveState();
+      showToast(state.scrubberStyle === "traditional" ? "Traditional scrub heads enabled" : "Waveform scrubbers enabled");
+    });
+    scrubberRow.append(scrubberCopy, scrubberStyle);
+    playback.append(scrubberRow);
+
+    const musicBarSizeRow = createElement("div", "hub-settings-row hub-settings-subrow");
+    const musicBarSizeCopy = createElement("div", "hub-settings-copy");
+    musicBarSizeCopy.append(
+      createElement("strong", "", "Music bar size"),
+      createElement("span", "", "Choose how much vertical space the player uses.")
+    );
+    const musicBarSize = createElement("select", "hub-settings-select");
+    musicBarSize.setAttribute("aria-label", "Music bar size");
+    for (const [value, label] of [["compact", "Compact"], ["standard", "Standard"]]) {
+      const option = createElement("option", "", label);
+      option.value = value;
+      option.selected = state.musicBarSize === value;
+      musicBarSize.append(option);
+    }
+    musicBarSize.addEventListener("change", () => {
+      state.musicBarSize = musicBarSize.value === "compact" ? "compact" : "standard";
+      syncMusicBarSize();
+      renderPlayer();
+      saveState();
+      showToast(state.musicBarSize === "compact" ? "Compact music bar enabled" : "Standard music bar enabled");
+    });
+    musicBarSizeRow.append(musicBarSizeCopy, musicBarSize);
+    playback.append(musicBarSizeRow);
+
+    const playlistMetadataRow = createElement("div", "hub-settings-row hub-settings-subrow");
+    const playlistMetadataCopy = createElement("div", "hub-settings-copy");
+    playlistMetadataCopy.append(
+      createElement("strong", "", "Playlist BPM and key"),
+      createElement("span", "", "Save detected analysis and show it on track cards.")
+    );
+    const recordPlaylistMetadata = state.recordPlaylistMetadata !== false;
+    const playlistMetadataToggle = createElement("button", `hub-settings-toggle hub-playlist-metadata-toggle${recordPlaylistMetadata ? " is-active" : ""}`);
+    playlistMetadataToggle.type = "button";
+    playlistMetadataToggle.setAttribute("role", "switch");
+    playlistMetadataToggle.setAttribute("aria-label", "Save BPM and key on playlists");
+    playlistMetadataToggle.setAttribute("aria-checked", String(recordPlaylistMetadata));
+    playlistMetadataToggle.append(createElement("span", "hub-settings-toggle-thumb"));
+    playlistMetadataToggle.addEventListener("click", () => {
+      state.recordPlaylistMetadata = !(state.recordPlaylistMetadata !== false);
+      saveState();
+      render();
+      showToast(state.recordPlaylistMetadata ? "Playlist BPM and key enabled" : "Playlist BPM and key disabled");
+    });
+    playlistMetadataRow.append(playlistMetadataCopy, playlistMetadataToggle);
+    playback.append(playlistMetadataRow);
     content.append(playback);
 
     const browsing = createElement("section", "hub-card hub-settings-card");
@@ -4349,6 +5592,27 @@
     }
     appearance.append(presetLabel, presets);
 
+    const themeSharing = createElement("div", "hub-theme-sharing-row");
+    const downloadTheme = createElement("button", "hub-settings-action hub-theme-sharing-action", "Download selected");
+    downloadTheme.type = "button";
+    downloadTheme.prepend(createButtonIcon("icon-download-all.svg"));
+    downloadTheme.addEventListener("click", exportAppearanceTheme);
+    const importThemeInput = document.createElement("input");
+    importThemeInput.type = "file";
+    importThemeInput.accept = ".json,application/json";
+    importThemeInput.hidden = true;
+    const importTheme = createElement("button", "hub-settings-action hub-theme-sharing-action", "Import theme");
+    importTheme.type = "button";
+    importTheme.prepend(createButtonIcon("icon-import.svg"));
+    importTheme.addEventListener("click", () => importThemeInput.click());
+    importThemeInput.addEventListener("change", () => {
+      const file = importThemeInput.files?.[0];
+      importThemeInput.value = "";
+      void importAppearanceTheme(file, importTheme);
+    });
+    themeSharing.append(downloadTheme, importTheme, importThemeInput);
+    appearance.append(themeSharing);
+
     if (!state.appearance.pageAware && state.appearance.preset === "custom") {
       const customPanel = createElement("div", "hub-custom-theme-panel");
       const customColours = createElement("div", "hub-custom-colours");
@@ -4435,13 +5699,13 @@
     const modernReleaseRow = createElement("div", "hub-settings-row hub-settings-subrow");
     const modernReleaseCopy = createElement("div", "hub-settings-copy");
     modernReleaseCopy.append(
-      createElement("strong", "", "Modern album & track pages"),
-      createElement("span", "", "Use the wider release layout.")
+      createElement("strong", "", "Modern Bandcamp pages"),
+      createElement("span", "", "Refresh legacy feeds and artist pages.")
     );
     const modernReleaseToggle = createElement("button", `hub-settings-toggle hub-modern-release-toggle${state.appearance.modernReleasePages ? " is-active" : ""}`);
     modernReleaseToggle.type = "button";
     modernReleaseToggle.setAttribute("role", "switch");
-    modernReleaseToggle.setAttribute("aria-label", "Use modern album and track pages");
+    modernReleaseToggle.setAttribute("aria-label", "Use modern Bandcamp pages");
     modernReleaseToggle.setAttribute("aria-checked", String(state.appearance.modernReleasePages));
     modernReleaseToggle.append(createElement("span", "hub-settings-toggle-thumb"));
     modernReleaseToggle.addEventListener("click", () => {
@@ -4449,7 +5713,7 @@
       applyModernReleaseLayout();
       saveState();
       render();
-      showToast(state.appearance.modernReleasePages ? "Modern release pages enabled" : "Classic release pages restored");
+      showToast(state.appearance.modernReleasePages ? "Modern Bandcamp pages enabled" : "Classic Bandcamp pages restored");
     });
     modernReleaseRow.append(modernReleaseCopy, modernReleaseToggle);
     appearance.append(modernReleaseRow);
@@ -4522,10 +5786,16 @@
   }
 
   function renderPlayer() {
+    syncMusicBarSize();
+    syncScrubberStyles();
     const sectionPanelRect = panel.getBoundingClientRect();
     player.style.setProperty("--hub-sections-center-x", `${Math.round(sectionPanelRect.left + sectionPanelRect.width / 2)}px`);
     player.style.setProperty("--hub-sections-panel-width", `${Math.round(sectionPanelRect.width)}px`);
     const hasCurrentTrack = Boolean(live.hasPlaybackStarted && live.title);
+    const playbackLoading = Boolean(seamless.enabled && seamless.status === "loading");
+    playButton.disabled = !hasCurrentTrack || playbackLoading;
+    playButton.setAttribute("aria-disabled", String(!hasCurrentTrack || playbackLoading));
+    playButton.setAttribute("aria-label", playbackLoading ? `Loading ${live.title || "track"}` : "Play or pause");
     playerTrack.classList.toggle("is-empty", !hasCurrentTrack);
     if (hasCurrentTrack) {
       const playerArtUrl = resolveImage(live.art);
@@ -4563,8 +5833,14 @@
       scrubSlider.value = String(duration ? Math.round(Math.max(0, Math.min(1, currentTime / duration)) * 1000) : 0);
       currentTimeLabel.textContent = formatDuration(currentTime);
     }
+    syncScrubVisual();
+    refreshScrubWaveform();
+    scrubSlider.setAttribute("aria-valuetext", `${formatDuration((Number(scrubSlider.value) / 1000) * duration)} of ${formatDuration(duration)}`);
+    scrubControl.classList.toggle("is-empty", !duration);
     durationLabel.textContent = formatDuration(duration);
-    const queuedTracks = seamless.enabled && Array.isArray(seamless.queue) && seamless.queue.length
+    const queuedTracks = state.playlist.length
+      ? state.playlist.length
+      : seamless.enabled && Array.isArray(seamless.queue) && seamless.queue.length
       ? seamless.queue.length
       : (live.hasPlaybackStarted ? 1 : 0) + (Array.isArray(live.tracks) ? live.tracks.length : 0);
     nowPlayingCount.textContent = String(queuedTracks);
@@ -4626,7 +5902,7 @@
     if (!pageDjHost?.isConnected || !pageDjSurface) return;
     pageDjHost.hidden = !pageDjOpen;
     pageDjSurface.replaceChildren();
-    if (pageDjOpen) pageDjSurface.append(createDjToolsCard());
+    if (pageDjOpen) pageDjSurface.append(createDjToolsCard({ includeWaveform: false }));
     syncPageDjToolsUi();
   }
 
@@ -4715,20 +5991,63 @@
     };
   }
 
+  function modernPlayerSourceContext(player, key) {
+    if (!key) return null;
+    const sourceControl = [...document.querySelectorAll(".play-pause-button[tracklistkey]")]
+      .find((control) => !player.contains(control) && control.getAttribute("tracklistkey") === key);
+    return sourceControl?.closest([
+      ".collection-item-container",
+      ".results-grid-item",
+      ".carousel-item",
+      ".story",
+      ".story-innards",
+      "li",
+      "article",
+      "section"
+    ].join(",")) || sourceControl?.parentElement || null;
+  }
+
+  function modernTrackPageUrl(node, sourceContext) {
+    const scopes = [node, node.closest("li"), sourceContext].filter(Boolean);
+    for (const scope of scopes) {
+      const metadataNode = scope.matches?.("[data-item-json]") ? scope : scope.querySelector?.("[data-item-json]");
+      const itemData = parseJsonAttribute(metadataNode, "data-item-json") || {};
+      const attributeUrl = itemData.item_url
+        || node.getAttribute("data-track-url")
+        || node.getAttribute("trackurl")
+        || node.getAttribute("data-item-url")
+        || node.getAttribute("itemurl");
+      const resolvedAttributeUrl = resolvedTrackPageUrl({ pageUrl: attributeUrl });
+      if (resolvedAttributeUrl) return resolvedAttributeUrl;
+      for (const link of scope.querySelectorAll?.("a[href]") || []) {
+        const resolvedLink = resolvedTrackPageUrl({ pageUrl: link.href });
+        if (resolvedLink) return resolvedLink;
+      }
+    }
+    return resolvedTrackPageUrl({ pageUrl: location.href });
+  }
+
   function getModernPlayerState() {
     const player = document.querySelector("section.floating-player.has-track");
     if (!player) return null;
+    const key = player.querySelector(".play-pause-button.outline[tracklistkey]")?.getAttribute("tracklistkey") || "";
+    const sourceContext = modernPlayerSourceContext(player, key);
+    const sourceMetadataNode = sourceContext?.matches?.("[data-item-json]") ? sourceContext : sourceContext?.querySelector?.("[data-item-json]");
+    const sourceItemData = parseJsonAttribute(sourceMetadataNode, "data-item-json") || {};
+    const sourceAlbum = sourceItemData.item_title
+      || (sourceContext ? elementText(sourceContext, [".collection-item-title", ".release-title", ".title"]) : "")
+      || "";
     const candidates = [...player.querySelectorAll(".meta-wrapper-wide .track-meta[streamurl], .track-meta[streamurl]")];
     const unique = [...new Map(candidates.map((node) => [node.getAttribute("streamurl"), node])).values()];
     const queue = unique.map((node, index) => {
-      const pageUrl = node.querySelector("a.meta[href]")?.href || node.closest("li")?.querySelector("a[href*='bandcamp.com']")?.href || location.href;
+      const pageUrl = modernTrackPageUrl(node, sourceContext);
       const artist = elementText(node, [".artist-name"]).replace(/^by\s+/i, "") || "Bandcamp";
       return {
         id: node.id || `${node.getAttribute("streamurl")}|${index}`,
         title: elementText(node, [".title-text", ".track-title", ".title"]) || `Bandcamp track ${index + 1}`,
         artist,
-        album: document.title,
-        art: node.querySelector("img")?.currentSrc || node.querySelector("img")?.src || "",
+        album: sourceAlbum || document.title,
+        art: node.querySelector("img")?.currentSrc || node.querySelector("img")?.src || sourceContext?.querySelector("img")?.currentSrc || sourceContext?.querySelector("img")?.src || "",
         pageUrl,
         artistUrl: artistUrlFromPageUrl(pageUrl),
         duration: Number(node.getAttribute("duration")) || 0,
@@ -4740,7 +6059,6 @@
     const currentUrl = currentNode?.getAttribute("streamurl") || "";
     const index = Math.max(0, queue.findIndex((track) => track.url === currentUrl));
     const timeline = player.querySelector("input[type='range']");
-    const key = player.querySelector(".play-pause-button.outline[tracklistkey]")?.getAttribute("tracklistkey") || "";
     const isPlaying = Boolean(player.querySelector(".play-pause-button[aria-label='Pause']"));
     return {
       player,
@@ -4851,6 +6169,36 @@
     };
   }
 
+  function suppressRemovedFeedTrack(item) {
+    const feed = getFeedPlayerState();
+    if (!feed?.track || !matchingQueueTrack([item], feed.track)) return;
+    suppressedFeedTrackId = String(feed.track.id || item?.id || "");
+    pendingFeedTrackId = "";
+    window.clearTimeout(feedHandoffTimer);
+    const audio = getAudio();
+    if (audio && !audio.paused) audio.pause();
+  }
+
+  function muteFeedAudioForHandoff(trackId) {
+    const audio = getAudio();
+    if (!audio) return;
+    if (mutedFeedAudio !== audio) {
+      if (mutedFeedAudio) mutedFeedAudio.muted = mutedFeedAudioWasMuted;
+      mutedFeedAudio = audio;
+      mutedFeedAudioWasMuted = Boolean(audio.muted);
+    }
+    mutedFeedTrackId = String(trackId || "");
+    audio.muted = true;
+  }
+
+  function restoreFeedAudioMute(trackId = "") {
+    if (!mutedFeedAudio || (trackId && mutedFeedTrackId && String(trackId) !== mutedFeedTrackId)) return;
+    mutedFeedAudio.muted = mutedFeedAudioWasMuted;
+    mutedFeedAudio = null;
+    mutedFeedAudioWasMuted = false;
+    mutedFeedTrackId = "";
+  }
+
   function stopModernPagePlayer() {
     const button = document.querySelector("section.floating-player .play-pause-button.outline[aria-label='Pause'], section.floating-player .player-controls .play-pause-button[aria-label='Pause']");
     if (!button) return;
@@ -4861,17 +6209,51 @@
     }, 0);
   }
 
+  function silenceNativePagePlayback() {
+    pageMediaCommand("pauseAll");
+    for (const media of document.querySelectorAll("audio, video")) {
+      if (!media.paused) media.pause();
+    }
+    stopModernPagePlayer();
+  }
+
   async function handoffModernPlayer(requestedIndex = null) {
-    if (modernHandoffBusy) return false;
     const modern = getModernPlayerState();
     if (!modern) return false;
-    modernHandoffBusy = true;
     const index = requestedIndex === null ? modern.index : Math.max(0, Math.min(modern.queue.length - 1, Number(requestedIndex) || 0));
+    const requestedTrackKey = playlistTrackKey(modern.queue[index]);
+    if (modernHandoffBusy) {
+      if (requestedTrackKey && (requestedTrackKey !== modernHandoffTrackKey || modernHandoffSuperseded)) {
+        if (!modernHandoffSuperseded) playlistPlayRequest += 1;
+        modernHandoffSuperseded = true;
+        modernHandoffPendingIndex = index;
+      }
+      return false;
+    }
+    modernHandoffBusy = true;
+    modernHandoffTrackKey = requestedTrackKey;
+    modernHandoffSuperseded = false;
+    silenceNativePagePlayback();
     try {
+      const activeIndex = seamless.enabled
+        ? (seamless.queue || []).findIndex((track) => Boolean(matchingQueueTrack([track], modern.queue[index])))
+        : -1;
+      if (activeIndex >= 0) {
+        const response = await runtimeMessage({
+          type: "BANDCAMP_HUB_SEAMLESS_PLAY_INDEX",
+          index: activeIndex,
+          autoplay: true
+        });
+        if (!response?.ok) return false;
+        applySeamlessState(response.state);
+        return true;
+      }
+      const prepared = await prepareExternalNowPlaying(modern.queue[index], modern.queue, { trustProvidedStreams: true });
+      if (prepared.index < 0) return false;
       const response = await runtimeMessage({
         type: "BANDCAMP_HUB_SEAMLESS_ENABLE",
-        queue: modern.queue,
-        index,
+        queue: prepared.queue,
+        index: prepared.index,
         currentTime: requestedIndex === null ? modern.currentTime : 0,
         autoplay: true,
         rate: state.dj.rate,
@@ -4883,12 +6265,36 @@
         eqHighDb: state.dj.eqHighDb
       });
       if (!response?.ok) return false;
+      if (prepared.request !== playlistPlayRequest) return false;
       stopModernPagePlayer();
       applySeamlessState(response.state);
       return true;
     } finally {
       modernHandoffBusy = false;
+      modernHandoffTrackKey = "";
+      modernHandoffSuperseded = false;
+      if (modernHandoffPendingIndex !== null) {
+        const pendingIndex = modernHandoffPendingIndex;
+        modernHandoffPendingIndex = null;
+        window.setTimeout(() => void handoffModernPlayer(pendingIndex), 0);
+      }
     }
+  }
+
+  function scheduleModernHandoff(requestedKey = "", requestedIndex = null) {
+    const request = ++modernHandoffRequest;
+    const poll = (attempt = 0) => {
+      window.setTimeout(() => {
+        if (request !== modernHandoffRequest) return;
+        const modern = getModernPlayerState();
+        if (modern && (!requestedKey || modern.key === requestedKey)) {
+          void handoffModernPlayer(requestedIndex);
+          return;
+        }
+        if (attempt < 6) poll(attempt + 1);
+      }, attempt ? Math.min(500, 100 + attempt * 75) : 40);
+    };
+    poll();
   }
 
   function isReusableStreamUrl(value) {
@@ -4907,11 +6313,15 @@
     const discover = getDiscoverPlayerState();
     if (!discover?.track || !isReusableStreamUrl(discover.track.url)) return false;
     discoverHandoffBusy = true;
+    discoverHandoffTrackKey = playlistTrackKey(discover.track);
     try {
+      const prepared = await prepareExternalNowPlaying(discover.track);
+      if (prepared.index < 0) return false;
+      silenceNativePagePlayback();
       const response = await runtimeMessage({
         type: "BANDCAMP_HUB_SEAMLESS_ENABLE",
-        queue: [discover.track],
-        index: 0,
+        queue: prepared.queue,
+        index: prepared.index,
         currentTime: discover.currentTime,
         autoplay: true,
         rate: state.dj.rate,
@@ -4923,32 +6333,51 @@
         eqHighDb: state.dj.eqHighDb
       });
       if (!response?.ok) return false;
+      if (prepared.request !== playlistPlayRequest) return false;
       pageMediaCommand("pause");
       applySeamlessState(response.state);
       return true;
     } finally {
       discoverHandoffBusy = false;
+      discoverHandoffTrackKey = "";
+      if (discoverHandoffPending) {
+        discoverHandoffPending = false;
+        window.setTimeout(scanLivePlayer, 0);
+      }
     }
   }
 
   async function handoffFeedPlayer(requestedTrackId = "") {
-    if (feedHandoffBusy) return false;
+    if (feedHandoffBusy) {
+      return Boolean(requestedTrackId && String(requestedTrackId) === feedHandoffTrackId);
+    }
     const feed = getFeedPlayerState(requestedTrackId);
     if (!feed?.track || !feed.isPlaying || !isReusableStreamUrl(feed.track.url)) return false;
-    const sameSeamlessTrack = seamless.enabled
-      && String(seamless.track?.id || "") === String(feed.track.id || "")
-      && seamless.track?.pageUrl === feed.track.pageUrl;
+    if (suppressedFeedTrackId && String(feed.track.id || requestedTrackId || "") === suppressedFeedTrackId) {
+      pendingFeedTrackId = "";
+      const suppressedAudio = getAudio();
+      if (suppressedAudio && !suppressedAudio.paused) suppressedAudio.pause();
+      restoreFeedAudioMute(feed.track.id || requestedTrackId);
+      return true;
+    }
+    const sameSeamlessTrack = Boolean(seamless.enabled && matchingQueueTrack([seamless.track], feed.track));
     if (sameSeamlessTrack) {
       const currentAudio = getAudio();
       if (currentAudio && !currentAudio.paused) currentAudio.pause();
+      restoreFeedAudioMute(feed.track.id || requestedTrackId);
       return true;
     }
     feedHandoffBusy = true;
+    feedHandoffTrackId = String(feed.track.id || requestedTrackId || "");
     try {
+      const prepared = await prepareExternalNowPlaying(feed.track, [], { trustProvidedStreams: true });
+      if (prepared.index < 0) return false;
+      if (prepared.request !== playlistPlayRequest) return false;
+      silenceNativePagePlayback();
       const response = await runtimeMessage({
         type: "BANDCAMP_HUB_SEAMLESS_ENABLE",
-        queue: [feed.track],
-        index: 0,
+        queue: prepared.queue,
+        index: prepared.index,
         currentTime: feed.currentTime,
         autoplay: true,
         rate: state.dj.rate,
@@ -4960,19 +6389,26 @@
         eqHighDb: state.dj.eqHighDb
       });
       if (!response?.ok) return false;
+      if (prepared.request !== playlistPlayRequest) return false;
       applySeamlessState(response.state);
       if (!requestedTrackId || pendingFeedTrackId === requestedTrackId) pendingFeedTrackId = "";
       const audio = getAudio();
       if (audio && !audio.paused) audio.pause();
+      restoreFeedAudioMute(feedHandoffTrackId);
       return true;
     } finally {
       feedHandoffBusy = false;
+      feedHandoffTrackId = "";
     }
   }
 
   function scheduleFeedHandoff(trackId, attempt = 0) {
     const requestedTrackId = String(trackId || "");
     if (!requestedTrackId) return;
+    if (requestedTrackId === suppressedFeedTrackId) {
+      pendingFeedTrackId = "";
+      return;
+    }
     pendingFeedTrackId = requestedTrackId;
     window.clearTimeout(feedHandoffTimer);
     feedHandoffTimer = window.setTimeout(async () => {
@@ -4982,8 +6418,12 @@
         return;
       }
       if (await handoffFeedPlayer(requestedTrackId)) return;
+      if (pendingFeedTrackId !== requestedTrackId) return;
       if (attempt < 15) scheduleFeedHandoff(requestedTrackId, attempt + 1);
-      else pendingFeedTrackId = "";
+      else {
+        pendingFeedTrackId = "";
+        restoreFeedAudioMute(requestedTrackId);
+      }
     }, attempt ? 90 : 40);
   }
 
@@ -5212,20 +6652,174 @@
       modernTimeline.max = String(Math.max(0, Number(seamless.duration) || 0));
       modernTimeline.value = String(Math.max(0, Number(seamless.currentTime) || 0));
     }
+    ensurePagePlayerWaveforms();
+  }
+
+  function populatePageWaveform(control, signature, width = 0) {
+    const svg = control.querySelector(":scope > .bandkit-page-scrub-waveform");
+    if (!svg) return;
+    const pixelWidth = Math.max(80, Math.round(width || control.getBoundingClientRect().width || 320));
+    if (control.dataset.bandkitWaveformSignature === signature
+      && Math.abs(Number(control.dataset.bandkitWaveformWidth) - pixelWidth) < 4) return;
+    const waveform = waveformPathData(signature, pixelWidth);
+    svg.setAttribute("viewBox", `0 0 ${waveform.pixelWidth} 24`);
+    for (const path of svg.querySelectorAll("path")) path.setAttribute("d", waveform.pathData);
+    control.dataset.bandkitWaveformSignature = signature;
+    control.dataset.bandkitWaveformWidth = String(waveform.pixelWidth);
+  }
+
+  function pageWaveformSvg() {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "bandkit-page-scrub-waveform");
+    svg.setAttribute("viewBox", "0 0 320 24");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    for (const className of ["bandkit-page-waveform-remaining", "bandkit-page-waveform-played"]) {
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("class", className);
+      svg.append(path);
+    }
+    return svg;
+  }
+
+  function finishPageWaveformControl(control) {
+    if (!control.querySelector(":scope > .bandkit-page-scrub-waveform")) control.append(pageWaveformSvg());
+    if (!control.querySelector(":scope > .bandkit-page-scrub-playhead")) {
+      const playhead = document.createElement("span");
+      playhead.className = "bandkit-page-scrub-playhead";
+      playhead.setAttribute("aria-hidden", "true");
+      control.append(playhead);
+    }
+  }
+
+  function ensureClassicTransportRow(inlinePlayer) {
+    const transportControls = [
+      inlinePlayer.querySelector(".prevbutton"),
+      inlinePlayer.querySelector(".nextbutton")
+    ].filter(Boolean).map((control) => control.closest("a, button, [role='button']") || control);
+    if (!transportControls.length) return;
+    let tools = inlinePlayer.querySelector(":scope > .bandcamp-hub-page-tools");
+    if (!tools) {
+      tools = document.createElement("div");
+      tools.className = "bandcamp-hub-page-tools";
+      inlinePlayer.append(tools);
+    }
+    let row = tools.querySelector(":scope > .bandkit-page-transport-row");
+    if (!row) {
+      row = document.createElement("div");
+      row.className = "bandkit-page-transport-row";
+      row.setAttribute("aria-label", "Track navigation");
+      tools.append(row);
+    }
+    transportControls.forEach((control, index) => {
+      const sourceCell = control.closest(".prev_cell, .next_cell");
+      if (sourceCell) sourceCell.classList.add("bandkit-page-transport-cell-empty");
+      if (!control.hasAttribute("aria-label")) control.setAttribute("aria-label", index ? "Next track" : "Previous track");
+      if (control.parentElement !== row) row.append(control);
+    });
+  }
+
+  function syncPageScrubberContrast(control) {
+    let surface = null;
+    for (let element = control; element && !surface; element = element.parentElement) {
+      const candidate = parseColor(getComputedStyle(element).backgroundColor);
+      if (candidate && candidate.a > 0.5) surface = candidate;
+    }
+    surface ||= luminance(parseColor(getComputedStyle(document.body).color) || { r: 17, g: 24, b: 39, a: 1 }) > 0.5
+      ? { r: 17, g: 24, b: 39, a: 1 }
+      : { r: 255, g: 255, b: 255, a: 1 };
+    const styles = getComputedStyle(control);
+    const playerStyles = getComputedStyle(host);
+    const sharedAccentValue = playerStyles.getPropertyValue("--hub-scrub-accent").trim();
+    const sharedRemainingValue = playerStyles.getPropertyValue("--hub-scrub-remaining").trim();
+    const sharedPlayerAccent = parseColor(sharedAccentValue) || hexColor(sharedAccentValue, null);
+    const preferredAccent = sharedPlayerAccent || parseColor(
+      styles.getPropertyValue("--hub-scrub-accent")
+      || styles.getPropertyValue("--hub-accent")
+      || styles.getPropertyValue("--bandkit-page-accent")
+      || styles.getPropertyValue("--link-color")
+    ) || firstComputedColor(["a.primaryText", ".download-link", ".buy-link", "a"], "color") || { r: 29, g: 160, b: 195, a: 1 };
+    const palette = accessibleScrubberPalette(preferredAccent, surface);
+    control.style.setProperty("--bandkit-scrub-accent", colorString(palette.accent));
+    control.style.setProperty("--bandkit-scrub-remaining", sharedRemainingValue || colorString(mixColor(surface, palette.halo, 0.22)));
+    control.style.setProperty("--bandkit-scrub-surface", colorString(palette.surface));
+    control.style.setProperty("--bandkit-scrub-halo", colorString(palette.halo, 0.62));
+  }
+
+  function ensurePagePlayerWaveforms() {
+    ensurePageStyles();
+
+    const modernPlayer = document.querySelector("section.floating-player.has-track");
+    const modernTimeline = modernPlayer?.querySelector("input[type='range']");
+    if (modernTimeline) {
+      let control = modernTimeline.closest(".bandkit-page-scrub-control");
+      if (!control) {
+        control = document.createElement("div");
+        control.className = "bandkit-page-scrub-control is-modern";
+        modernTimeline.before(control);
+        control.append(modernTimeline);
+      }
+      modernTimeline.classList.add("bandkit-page-scrub-slider");
+      if (!modernTimeline.hasAttribute("aria-label")) modernTimeline.setAttribute("aria-label", "Playback position");
+      finishPageWaveformControl(control);
+      control.classList.toggle("is-traditional", usesTraditionalScrubber());
+      syncPageScrubberContrast(control);
+      const modernState = getModernPlayerState();
+      const signature = `${modernState?.track?.title || ""}\u0000${modernState?.track?.artist || ""}\u0000${modernState?.track?.pageUrl || "modern-player"}`;
+      const maximum = Number(modernTimeline.max) || modernState?.duration || 1;
+      const progress = Math.max(0, Math.min(1, (Number(modernTimeline.value) || 0) / maximum));
+      control.style.setProperty("--bandkit-page-scrub-progress", `${(progress * 100).toFixed(2)}%`);
+      populatePageWaveform(control, signature);
+    }
+
+    const inlinePlayer = document.querySelector(".inline_player");
+    const classicControl = inlinePlayer?.querySelector(".progbar");
+    if (classicControl) {
+      classicControl.classList.add("bandkit-page-scrub-control", "is-classic");
+      finishPageWaveformControl(classicControl);
+      ensureClassicTransportRow(inlinePlayer);
+      classicControl.classList.toggle("is-traditional", usesTraditionalScrubber());
+      syncPageScrubberContrast(classicControl);
+      const track = currentInlinePlaylistTrack();
+      const signature = `${track?.title || elementText(inlinePlayer, [".title", ".track-title"])}\u0000${track?.artist || ""}\u0000${track?.pageUrl || location.href}`;
+      const fill = classicControl.querySelector(".progbar_fill");
+      const inlineProgress = fill?.style.width.endsWith("%") ? Number.parseFloat(fill.style.width) : NaN;
+      const controlWidth = classicControl.getBoundingClientRect().width;
+      const measuredProgress = controlWidth ? (fill?.getBoundingClientRect().width || 0) / controlWidth * 100 : 0;
+      const progress = Math.max(0, Math.min(100, Number.isFinite(inlineProgress) ? inlineProgress : measuredProgress));
+      classicControl.style.setProperty("--bandkit-page-scrub-progress", `${progress.toFixed(2)}%`);
+      populatePageWaveform(classicControl, signature);
+    }
   }
 
   function ensurePageStyles() {
     if (!document.querySelector("#bandcamp-hub-page-style")) {
       const pageStyle = document.createElement("style");
       pageStyle.id = "bandcamp-hub-page-style";
-      pageStyle.textContent = `.bandcamp-hub-page-dj{align-items:center;background:var(--hub-accent-soft,rgba(29,160,195,.12));border:1px solid var(--hub-line,rgba(127,127,127,.35));border-radius:999px;color:var(--hub-accent,var(--link-color,#1da0c3));cursor:pointer;display:flex;height:32px;justify-content:center;margin:8px 0 0;padding:0;width:32px}.bandcamp-hub-page-dj::before{background:currentColor;content:"";height:18px;mask:var(--hub-dj-icon) center/contain no-repeat;-webkit-mask:var(--hub-dj-icon) center/contain no-repeat;width:18px}.bandcamp-hub-page-dj:hover,.bandcamp-hub-page-dj:focus-visible{border-color:var(--hub-accent,var(--link-color,#1da0c3));outline:0}.bandcamp-hub-page-dj.is-active{background:var(--hub-accent,var(--link-color,#1da0c3));border-color:var(--hub-accent,var(--link-color,#1da0c3));color:var(--hub-on-accent,#fff)}.bandcamp-hub-page-dj-host{display:block;margin-top:8px;max-width:420px;width:100%}.bandcamp-hub-page-dj-host[hidden]{display:none!important}body.bandcamp-hub-remote-playing section.floating-player .play-pause-button.outline>svg{display:none!important}body.bandcamp-hub-remote-playing section.floating-player .play-pause-button.outline::after{background:linear-gradient(90deg,currentColor 0 34%,transparent 34% 66%,currentColor 66%);content:"";display:block;height:18px;width:14px}`;
+      pageStyle.textContent = `.bandcamp-hub-page-dj{align-items:center;background:var(--hub-accent-soft,rgba(29,160,195,.12));border:1px solid var(--hub-line,rgba(127,127,127,.35));border-radius:999px;color:var(--hub-accent,var(--link-color,#1da0c3));cursor:pointer;display:flex;height:32px;justify-content:center;margin:8px 0 0;padding:0;width:32px}.bandcamp-hub-page-dj::before{background:currentColor;content:"";height:18px;mask:var(--hub-dj-icon) center/contain no-repeat;-webkit-mask:var(--hub-dj-icon) center/contain no-repeat;width:18px}.bandcamp-hub-page-dj:hover,.bandcamp-hub-page-dj:focus-visible{border-color:var(--hub-accent,var(--link-color,#1da0c3));outline:0}.bandcamp-hub-page-dj.is-active{background:var(--hub-accent,var(--link-color,#1da0c3));border-color:var(--hub-accent,var(--link-color,#1da0c3));color:var(--hub-on-accent,#fff)}.bandcamp-hub-page-dj-host{box-sizing:border-box;display:block;margin-top:8px;min-width:0;width:100%}.bandcamp-hub-page-dj-host[hidden]{display:none!important}body.bandcamp-hub-remote-playing section.floating-player .play-pause-button.outline>svg{display:none!important}body.bandcamp-hub-remote-playing section.floating-player .play-pause-button.outline::after{background:linear-gradient(90deg,currentColor 0 34%,transparent 34% 66%,currentColor 66%);content:"";display:block;height:18px;width:14px}`;
+      pageStyle.textContent += `.bandkit-page-scrub-control{--bandkit-page-scrub-progress:0%;--bandkit-scrub-accent:#087f9e;--bandkit-scrub-remaining:#cbd0d5;--bandkit-scrub-surface:#fff;--bandkit-scrub-halo:rgba(17,24,39,.62);align-items:center;box-sizing:border-box;display:flex;height:28px;min-width:0;position:relative;touch-action:none;width:100%}.bandkit-page-scrub-control.is-modern{flex:1 1 240px;grid-column:1/-1}.bandkit-page-scrub-slider{appearance:none!important;background:transparent!important;cursor:pointer;height:28px!important;inset:0;margin:0!important;opacity:0;position:absolute!important;width:100%!important;z-index:3}.bandkit-page-scrub-waveform{display:block;height:24px;overflow:visible;pointer-events:none;width:100%}.bandkit-page-scrub-waveform path{fill:none;stroke-linecap:round;stroke-width:2.4}.bandkit-page-waveform-remaining{stroke:var(--bandkit-scrub-remaining)}.bandkit-page-waveform-played{clip-path:inset(0 calc(100% - var(--bandkit-page-scrub-progress)) 0 0);stroke:var(--bandkit-scrub-accent)}.bandkit-page-scrub-playhead{background:var(--bandkit-scrub-surface);border:2px solid var(--bandkit-scrub-accent);border-radius:999px;box-shadow:0 0 0 1px var(--bandkit-scrub-halo),0 1px 4px rgba(0,0,0,.22);height:8px;left:var(--bandkit-page-scrub-progress);opacity:0;pointer-events:none;position:absolute;top:50%;transform:translate(-50%,-50%) scale(.75);transition:opacity 120ms ease,transform 120ms ease;width:8px;z-index:2}.bandkit-page-scrub-control:hover>.bandkit-page-scrub-playhead,.bandkit-page-scrub-slider:focus-visible~.bandkit-page-scrub-playhead,.bandkit-page-scrub-slider:active~.bandkit-page-scrub-playhead{opacity:1;transform:translate(-50%,-50%) scale(1)}.inline_player .progbar.bandkit-page-scrub-control{height:28px!important;overflow:visible!important}.inline_player .progbar.bandkit-page-scrub-control :is(.progbar_empty,.progbar_fill,.thumb){background:transparent!important}.inline_player .progbar.bandkit-page-scrub-control>.progbar_empty{height:28px!important;inset:0;opacity:0!important;position:absolute;width:100%;z-index:3}.inline_player .progbar.bandkit-page-scrub-control .progbar_fill,.inline_player .progbar.bandkit-page-scrub-control .thumb{opacity:0!important}`;
+      pageStyle.textContent += `.bandkit-page-scrub-control.is-traditional::before,.bandkit-page-scrub-control.is-traditional::after{border-radius:999px;content:"";height:4px;left:0;pointer-events:none;position:absolute;top:50%;transform:translateY(-50%)}.bandkit-page-scrub-control.is-traditional::before{background:var(--bandkit-scrub-remaining);right:0}.bandkit-page-scrub-control.is-traditional::after{background:var(--bandkit-scrub-accent);width:var(--bandkit-page-scrub-progress)}.bandkit-page-scrub-control.is-traditional>.bandkit-page-scrub-waveform{opacity:0}.bandkit-page-scrub-control.is-traditional>.bandkit-page-scrub-playhead{box-sizing:border-box;height:12px;opacity:1;transform:translate(-50%,-50%) scale(1);width:12px}.bandkit-page-scrub-control.is-traditional:hover>.bandkit-page-scrub-playhead,.bandkit-page-scrub-control.is-traditional>.bandkit-page-scrub-slider:focus-visible~.bandkit-page-scrub-playhead,.bandkit-page-scrub-control.is-traditional>.bandkit-page-scrub-slider:active~.bandkit-page-scrub-playhead{transform:translate(-50%,-50%) scale(1.08)}`;
+      pageStyle.textContent += `.bandkit-page-scrub-playhead{background:var(--bandkit-scrub-accent);border:2px solid var(--bandkit-scrub-surface);height:18px;transition:box-shadow 140ms ease,height 140ms ease,opacity 120ms ease,transform 140ms ease,width 140ms ease;width:7px}.bandkit-page-scrub-control:hover>.bandkit-page-scrub-playhead,.bandkit-page-scrub-slider:focus-visible~.bandkit-page-scrub-playhead,.bandkit-page-scrub-slider:active~.bandkit-page-scrub-playhead{box-shadow:0 0 0 1px var(--bandkit-scrub-halo),0 2px 7px color-mix(in srgb,var(--bandkit-scrub-accent) 38%,transparent);height:22px;width:9px}.bandkit-page-scrub-control.is-traditional>.bandkit-page-scrub-playhead{height:18px;transform:translate(-50%,-50%) scale(1);width:7px}.bandkit-page-scrub-control.is-traditional:hover>.bandkit-page-scrub-playhead,.bandkit-page-scrub-control.is-traditional>.bandkit-page-scrub-slider:focus-visible~.bandkit-page-scrub-playhead,.bandkit-page-scrub-control.is-traditional>.bandkit-page-scrub-slider:active~.bandkit-page-scrub-playhead{height:22px;transform:translate(-50%,-50%) scale(1);width:9px}`;
+      pageStyle.textContent += `.bandkit-page-transport-row{align-items:center;display:flex;gap:10px;margin-left:auto;min-height:32px}.bandkit-page-transport-row>:is(a,button,[role="button"],.prevbutton,.nextbutton){align-items:center;display:inline-flex!important;height:32px;justify-content:center;margin:0!important;min-width:32px;top:auto!important}.bandkit-page-transport-cell-empty{display:none!important}`;
+      pageStyle.textContent += `[data-bandkit-extension-stacking]{z-index:2147483646!important}`;
       pageStyle.textContent += `#DiscoverApp .focused-result{scroll-padding-bottom:calc(var(--bandkit-player-reserved-height,84px) + 16px)}`;
       pageStyle.textContent += `html[data-bandkit-hide-bandcamp-player="true"] :is(.discover-player,section.floating-player){display:none!important}html[data-bandkit-feed-page="true"] :is(#track_play_waypoint,.track_play_waypoint){display:none!important}`;
       pageStyle.textContent += `html[data-bandkit-hide-page-cart="true"] #sidecart{display:none!important}html[data-bandkit-hide-header-cart="true"] :is(header,#menubar-wrapper,#user-nav,ul[role="menubar"].menu-items) :is(a[href*="/cart"],a[href*="bandcamp.com/cart"],[aria-label*="cart" i],[title*="cart" i],[data-testid*="cart" i],.cart-link,.cart-wrapper,.cart-wrapper-corp-lo,.menubar-cart-icon,#cart-link,#cart-control){display:none!important}html[data-bandkit-hide-header-cart="true"] :is(header,#menubar-wrapper,#user-nav,ul[role="menubar"].menu-items) :is(a,button,[role="button"],li):has(use[href$="#menubar-cart-icon"],use[xlink\\:href$="#menubar-cart-icon"],svg.menubar-cart-icon){display:none!important}html[data-bandkit-hide-header-cart="true"] :is(header,#menubar-wrapper,#user-nav,ul[role="menubar"].menu-items) li:has(> :is(a[href*="/cart"],a[href*="bandcamp.com/cart"],[aria-label*="cart" i],[title*="cart" i],[data-testid*="cart" i],.cart-link,.cart-wrapper,.cart-wrapper-corp-lo,#cart-link,#cart-control)){display:none!important}`;
       pageStyle.textContent += `.bandcamp-hub-page-tools{align-items:center;display:flex;gap:8px;margin:8px 0 0}.bandcamp-hub-page-tools .bandcamp-hub-page-dj{margin:0}.bandcamp-hub-page-playlist{align-items:center;background:var(--hub-accent-soft,rgba(29,160,195,.12));border:1px solid var(--hub-line,rgba(127,127,127,.35));border-radius:999px;box-sizing:border-box;color:var(--hub-accent,var(--link-color,#1da0c3));cursor:pointer;display:inline-flex;font-size:0;height:32px;justify-content:center;line-height:0;margin:8px 0 0;padding:0;text-decoration:none!important;vertical-align:middle;width:32px}.bandcamp-hub-page-playlist::before{background:currentColor;content:"";display:block;height:18px;mask:var(--hub-plus-icon) center/contain no-repeat;-webkit-mask:var(--hub-plus-icon) center/contain no-repeat;width:18px}.bandcamp-hub-page-playlist:hover,.bandcamp-hub-page-playlist:focus-visible{background:var(--hub-accent-soft,rgba(29,160,195,.12));border-color:var(--hub-accent,var(--link-color,#1da0c3));outline:0;text-decoration:none!important}.bandcamp-hub-page-playlist.is-added{background:var(--hub-accent,var(--link-color,#1da0c3));border-color:var(--hub-accent,var(--link-color,#1da0c3));color:var(--hub-on-accent,#fff)}.bandcamp-hub-page-playlist.is-player-control{margin:0}.bandcamp-hub-page-playlist.is-track-action{background:var(--hub-accent-soft,rgba(29,160,195,.12))!important;border-color:var(--hub-line,rgba(127,127,127,.35))!important;color:var(--hub-accent,var(--link-color,#1da0c3))!important;height:24px;margin:0 8px 0 0!important;opacity:0;pointer-events:none;text-decoration:none!important;width:24px}.bandcamp-hub-page-playlist.is-track-action::before{height:14px;width:14px}.bandcamp-hub-page-playlist.is-track-action:hover,.bandcamp-hub-page-playlist.is-track-action:focus-visible{border-color:var(--hub-accent,var(--link-color,#1da0c3))!important;text-decoration:none!important}.bandcamp-hub-page-playlist.is-track-action.is-added{background:var(--hub-accent,var(--link-color,#1da0c3))!important;border-color:var(--hub-accent,var(--link-color,#1da0c3))!important;color:var(--hub-on-accent,#fff)!important}.track_row_view:hover .bandcamp-hub-page-playlist.is-track-action,.track_row_view:focus-within .bandcamp-hub-page-playlist.is-track-action,.bandcamp-hub-page-playlist.is-track-action:focus-visible{opacity:1;pointer-events:auto}`;
+      pageStyle.textContent += `html[data-bandkit-feed-page="true"] .bandcamp-hub-page-playlist.is-feed-add-to{appearance:none;background:transparent!important;border:0!important;border-radius:0!important;color:var(--link-color,#0687f5)!important;font:inherit!important;font-weight:700!important;height:auto!important;line-height:inherit!important;margin:0 10px 0 0!important;padding:0!important;width:auto!important}html[data-bandkit-feed-page="true"] .bandcamp-hub-page-playlist.is-feed-add-to::before{display:none!important}html[data-bandkit-feed-page="true"] .bandcamp-hub-page-playlist.is-feed-add-to.is-added{background:transparent!important;color:var(--link-color,#0687f5)!important}`;
+      pageStyle.textContent += `html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-sidebar-actions{align-items:center!important;display:flex!important;gap:4px!important;margin-top:8px!important}html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-sidebar-actions>li{align-items:center!important;display:flex!important;gap:4px!important;margin:0!important;padding:0!important}html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-sidebar-actions>li::before{display:none!important}html[data-bandkit-feed-page="true"] .collection-grid :is(.bandcamp-hub-page-playlist.is-feed-sidebar-action,.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action,.bandkit-feed-wishlist-action .wishlist-msg,.bandkit-feed-wishlist-action .wishlisted-msg>span:first-child){align-items:center!important;appearance:none;background:transparent!important;border:1px solid rgba(127,127,127,.35)!important;border-radius:4px!important;box-sizing:border-box!important;color:var(--link-color,#0687f5)!important;cursor:pointer!important;display:inline-flex!important;height:28px!important;justify-content:center!important;margin:0!important;padding:0!important;text-decoration:none!important;width:28px!important}html[data-bandkit-feed-page="true"] .collection-grid :is(.bandcamp-hub-page-playlist.is-feed-sidebar-action,.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action):hover,html[data-bandkit-feed-page="true"] .collection-grid :is(.bandcamp-hub-page-playlist.is-feed-sidebar-action,.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action):focus-visible,html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-wishlist-action :is(.wishlist-msg,.wishlisted-msg>span:first-child):hover,html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-wishlist-action :is(.wishlist-msg,.wishlisted-msg>span:first-child):focus-visible{background:rgba(6,135,245,.1)!important;border-color:currentColor!important;outline:0!important}html[data-bandkit-feed-page="true"] .collection-grid .bandcamp-hub-page-playlist.is-feed-sidebar-action{font-size:0!important}html[data-bandkit-feed-page="true"] .collection-grid .bandcamp-hub-page-playlist.is-feed-sidebar-action::before{display:block!important;height:16px!important;width:16px!important}html[data-bandkit-feed-page="true"] .collection-grid :is(.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action){font-size:0!important}html[data-bandkit-feed-page="true"] .collection-grid :is(.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action)::before{background:currentColor;content:"";display:block;height:16px;mask:var(--bandkit-feed-action-icon) center/contain no-repeat;-webkit-mask:var(--bandkit-feed-action-icon) center/contain no-repeat;width:16px}html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-wishlist-action .wishlist-msg>span,html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-wishlist-action .wishlisted-msg>span:first-child>span{display:none!important}html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-wishlist-action :is(.wishlist-msg,.wishlisted-msg>span:first-child)::before{background:currentColor;content:"";display:block;height:16px;mask:var(--bandkit-feed-wishlist-icon) center/contain no-repeat;-webkit-mask:var(--bandkit-feed-wishlist-icon) center/contain no-repeat;width:16px}html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-wishlist-action .text{clip:rect(0 0 0 0)!important;clip-path:inset(50%)!important;height:1px!important;overflow:hidden!important;position:absolute!important;white-space:nowrap!important;width:1px!important}`;
+      pageStyle.textContent += `html[data-bandkit-feed-page="true"] .bandkit-feed-action-row{align-items:center!important;display:flex!important;gap:4px!important;margin-top:8px!important}html[data-bandkit-feed-page="true"] .bandkit-feed-action-row>li{align-items:center!important;display:flex!important;gap:4px!important;margin:0!important;padding:0!important}html[data-bandkit-feed-page="true"] .bandkit-feed-action-row>li::before{display:none!important}html[data-bandkit-feed-page="true"] .bandkit-feed-action-row :is(.bandcamp-hub-page-playlist.is-feed-compact-action,.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action,.bandkit-feed-wishlist-control){align-items:center!important;appearance:none;background:transparent!important;border:1px solid rgba(127,127,127,.35)!important;border-radius:4px!important;box-sizing:border-box!important;color:var(--link-color,#0687f5)!important;cursor:pointer!important;display:inline-flex!important;font-size:0!important;height:28px!important;justify-content:center!important;line-height:0!important;margin:0!important;padding:0!important;text-decoration:none!important;width:28px!important}html[data-bandkit-feed-page="true"] .bandkit-feed-action-row :is(.bandcamp-hub-page-playlist.is-feed-compact-action,.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action,.bandkit-feed-wishlist-control):is(:hover,:focus-visible){background:rgba(6,135,245,.1)!important;border-color:currentColor!important;outline:0!important}html[data-bandkit-feed-page="true"] .bandkit-feed-action-row .bandcamp-hub-page-playlist.is-feed-compact-action::before{display:block!important;height:16px!important;width:16px!important}html[data-bandkit-feed-page="true"] .bandkit-feed-action-row :is(.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action)::before{background:currentColor;content:"";display:block;height:16px;mask:var(--bandkit-feed-action-icon) center/contain no-repeat;-webkit-mask:var(--bandkit-feed-action-icon) center/contain no-repeat;width:16px}html[data-bandkit-feed-page="true"] .bandkit-feed-action-row .bandkit-feed-wishlist-control>*{display:none!important}html[data-bandkit-feed-page="true"] .bandkit-feed-action-row .bandkit-feed-wishlist-control::before{background:currentColor;content:"";display:block;height:16px;mask:var(--bandkit-feed-wishlist-icon) center/contain no-repeat;-webkit-mask:var(--bandkit-feed-wishlist-icon) center/contain no-repeat;width:16px}`;
+      pageStyle.textContent += `html[data-bandkit-collection-page="true"] .bandkit-collection-action-row{align-items:center!important;display:flex!important;gap:4px!important;margin-top:8px!important}html[data-bandkit-collection-page="true"] .bandkit-collection-action-row :is(.bandcamp-hub-page-playlist.is-feed-compact-action,.bandkit-collection-download-action){align-items:center!important;appearance:none;background:transparent!important;border:1px solid rgba(127,127,127,.35)!important;border-radius:4px!important;box-sizing:border-box!important;color:var(--link-color,#0687f5)!important;cursor:pointer!important;display:inline-flex!important;font-size:0!important;height:28px!important;justify-content:center!important;line-height:0!important;margin:0!important;padding:0!important;text-decoration:none!important;width:28px!important}html[data-bandkit-collection-page="true"] .bandkit-collection-action-row :is(.bandcamp-hub-page-playlist.is-feed-compact-action,.bandkit-collection-download-action):is(:hover,:focus-visible){background:rgba(6,135,245,.1)!important;border-color:currentColor!important;outline:0!important}html[data-bandkit-collection-page="true"] .bandkit-collection-action-row .bandcamp-hub-page-playlist.is-feed-compact-action::before{display:block!important;height:16px!important;width:16px!important}html[data-bandkit-collection-page="true"] .bandkit-collection-download-action::before{background:currentColor;content:"";display:block;height:16px;mask:var(--bandkit-feed-action-icon) center/contain no-repeat;-webkit-mask:var(--bandkit-feed-action-icon) center/contain no-repeat;width:16px}html[data-bandkit-collection-page="true"] #collection-items .collection-grid[data-ismain="true"][data-iswish="false"] .bottom-owner-controls .redownload-item{display:none!important}`;
+      pageStyle.textContent += `html[data-bandkit-feed-page="true"] .story-innards>.story-body{padding-bottom:6px!important}html[data-bandkit-feed-page="true"] .story-innards>.tralbum-wrapper-collect-controls{margin-bottom:18px!important}html[data-bandkit-feed-page="true"] .story-innards>.tralbum-wrapper-collect-controls .bandkit-feed-action-row{margin-top:4px!important}`;
+      pageStyle.textContent += `.bandcamp-hub-page-playlist.is-discover-add-to{background:rgba(20,20,20,.88)!important;border:1px solid rgba(255,255,255,.18)!important;color:#fff!important;height:28px!important;margin:0!important;position:absolute!important;width:28px!important;z-index:8}.bandcamp-hub-page-playlist.is-discover-add-to::before{height:14px!important;width:14px!important}.bandcamp-hub-page-playlist.is-discover-add-to:hover,.bandcamp-hub-page-playlist.is-discover-add-to:focus-visible,.bandcamp-hub-page-playlist.is-discover-add-to.is-added{background:rgba(20,20,20,.96)!important;border-color:#fff!important;color:#fff!important}`;
+      pageStyle.textContent += `.results-grid-item .bandcamp-hub-page-playlist.is-discover-add-to{opacity:0;pointer-events:none;transition:opacity .12s ease}.results-grid-item:hover .bandcamp-hub-page-playlist.is-discover-add-to,.results-grid-item:focus-within .bandcamp-hub-page-playlist.is-discover-add-to,.results-grid-item .bandcamp-hub-page-playlist.is-discover-add-to:focus-visible{opacity:1;pointer-events:auto}`;
+      pageStyle.textContent += `#recommendations_container .recommended-album .album-art-container{position:relative}#recommendations_container .recommended-album .bandcamp-hub-page-playlist.is-recommendation-add-to{opacity:0;pointer-events:none;transition:opacity .12s ease}#recommendations_container .recommended-album:is(:hover,:focus-within,.bandkit-recommendation-current) .bandcamp-hub-page-playlist.is-recommendation-add-to,#recommendations_container .recommended-album .bandcamp-hub-page-playlist.is-recommendation-add-to:focus-visible{opacity:1;pointer-events:auto}#recommendations_container .recommended-album.bandkit-recommendation-current .play-button{opacity:1!important}`;
       pageStyle.textContent += `.bandcamp-hub-page-cart{align-items:center;background:var(--hub-accent-soft,rgba(29,160,195,.12));border:1px solid var(--hub-line,rgba(127,127,127,.35));border-radius:999px;box-sizing:border-box;color:var(--hub-accent,var(--link-color,#1da0c3));cursor:pointer;display:inline-flex;height:32px;justify-content:center;margin:0;padding:0;width:32px}.bandcamp-hub-page-cart::before{background:currentColor;content:"";display:block;height:18px;mask:var(--hub-cart-icon) center/contain no-repeat;-webkit-mask:var(--hub-cart-icon) center/contain no-repeat;width:18px}.bandcamp-hub-page-cart:hover,.bandcamp-hub-page-cart:focus-visible{border-color:var(--hub-accent,var(--link-color,#1da0c3));outline:0}.bandcamp-hub-page-cart.is-active{background:var(--hub-accent,var(--link-color,#1da0c3));border-color:var(--hub-accent,var(--link-color,#1da0c3));color:var(--hub-on-accent,#fff)}.bandcamp-hub-page-cart:disabled{cursor:not-allowed;opacity:.45}`;
       pageStyle.textContent += `.bandcamp-hub-page-buy{align-items:center;background:var(--hub-accent-soft,rgba(29,160,195,.12))!important;border:1px solid var(--hub-line,rgba(127,127,127,.35))!important;border-radius:999px!important;box-sizing:border-box;color:var(--hub-accent,var(--link-color,#1da0c3))!important;display:inline-flex!important;flex:0 0 24px;font-size:0!important;height:24px;justify-content:center;line-height:0!important;margin:0!important;overflow:hidden;padding:0!important;text-decoration:none!important;vertical-align:middle;width:24px!important}.bandcamp-hub-page-buy::before{background:currentColor;content:"";display:block;height:14px;mask:var(--hub-buy-icon) center/contain no-repeat;-webkit-mask:var(--hub-buy-icon) center/contain no-repeat;width:14px}.bandcamp-hub-page-buy:hover,.bandcamp-hub-page-buy:focus-visible{background:var(--hub-accent-soft,rgba(29,160,195,.12))!important;border-color:var(--hub-accent,var(--link-color,#1da0c3))!important;outline:0;text-decoration:none!important}`;
+      pageStyle.textContent += `.track_row_view .bandkit-generated-track-buy{opacity:0;pointer-events:none}.track_row_view:hover .bandkit-generated-track-buy,.track_row_view:focus-within .bandkit-generated-track-buy,.bandkit-generated-track-buy:focus-visible{opacity:1;pointer-events:auto}`;
       pageStyle.textContent += `.bandcamp-hub-page-playlist-menu{background:var(--hub-card,#fff);border:1px solid var(--hub-line,rgba(127,127,127,.35));border-radius:5px;box-shadow:0 8px 24px rgba(0,0,0,.22);box-sizing:border-box;color:var(--hub-text,#111);font-family:var(--hub-font-family,"Helvetica Neue",Helvetica,Arial,sans-serif);min-width:180px;padding:4px;position:absolute;z-index:2147483647}.bandcamp-hub-page-playlist-menu button{background:transparent;border:0;border-radius:3px;color:inherit;cursor:pointer;display:block;font-family:inherit;font-size:11px;line-height:1.3;padding:8px;text-align:left;width:100%}.bandcamp-hub-page-playlist-menu button:hover:not(:disabled),.bandcamp-hub-page-playlist-menu button:focus-visible{background:var(--hub-accent-soft,rgba(29,160,195,.12));color:var(--hub-accent,var(--link-color,#1da0c3));outline:0}.bandcamp-hub-page-playlist-menu button:disabled{color:var(--hub-faint,#9ca3af);cursor:default}.bandcamp-hub-page-playlist-menu .is-back{border-bottom:1px solid var(--hub-line,rgba(127,127,127,.35));margin-bottom:3px}.bandcamp-hub-page-playlist-menu-empty{color:var(--hub-faint,#9ca3af);font-family:inherit;font-size:10px;line-height:1.3;padding:8px}`;
+      pageStyle.textContent += `.bandcamp-hub-page-tools :is(.bandcamp-hub-page-playlist,.bandcamp-hub-page-cart,.bandcamp-hub-page-dj),.bandcamp-hub-page-playlist.is-track-action,.bandcamp-hub-page-buy{border-radius:4px!important}.bandcamp-hub-page-tools :is(.bandcamp-hub-page-playlist,.bandcamp-hub-page-cart,.bandcamp-hub-page-dj):not(.is-active):not(.is-added){background:transparent!important}`;
       document.head.append(pageStyle);
     }
   }
@@ -5234,9 +6828,9 @@
     button._bandkitTrack = track || null;
     button.hidden = !track;
     if (!track) return;
-    const added = state.playlist.some((item) => playlistTrackKey(item) === playlistTrackKey(track));
-    button.textContent = "";
-    button.classList.toggle("is-added", added);
+    button.textContent = button.classList.contains("is-feed-add-to") ? "add to..." : "";
+    button.classList.remove("is-added");
+    button.removeAttribute("aria-pressed");
     button.setAttribute("aria-haspopup", "menu");
     button.setAttribute("aria-expanded", pagePlaylistMenuAnchor === button ? "true" : "false");
     button.setAttribute("aria-label", `Add ${track.title} to the queue or a playlist`);
@@ -5280,7 +6874,7 @@
         createSavedPlaylistWithTracks([track], `${track.artist || "Bandcamp"} playlist`);
       }));
       for (const snapshot of state.savedPlaylists) {
-        const alreadyAdded = snapshot.items.some((item) => playlistTrackKey(item) === playlistTrackKey(track));
+        const alreadyAdded = snapshot.items.some((item) => playlistTracksMatch(item, track));
         pagePlaylistMenu.append(option(`${alreadyAdded ? "✓" : "＋"} ${snapshot.name}`, () => {
           closePagePlaylistMenu();
           addTrackToSavedPlaylist(track, snapshot.id);
@@ -5293,7 +6887,7 @@
         pagePlaylistMenu.append(empty);
       }
     } else {
-      const inPlaying = state.playlist.some((item) => playlistTrackKey(item) === playlistTrackKey(track));
+      const inPlaying = state.playlist.some((item) => playlistTracksMatch(item, track));
       pagePlaylistMenu.append(
         option(inPlaying ? "✓ In Now Playing" : "＋ Add to Now Playing", () => {
           closePagePlaylistMenu();
@@ -5321,6 +6915,7 @@
     }
     document.body.append(pagePlaylistMenu);
     syncPageTypography();
+    anchor.classList.add("is-active");
     anchor.setAttribute("aria-expanded", "true");
     renderPagePlaylistMenu(track);
     window.setTimeout(() => document.addEventListener("click", closePagePlaylistMenu, { once: true }), 0);
@@ -5450,6 +7045,8 @@
       tools.append(button);
     }
     if (cartButton.nextElementSibling !== button) cartButton.after(button);
+    const transportRow = tools.querySelector(":scope > .bandkit-page-transport-row");
+    if (transportRow && tools.lastElementChild !== transportRow) tools.append(transportRow);
     let inlineHost = player.querySelector(":scope > .bandcamp-hub-page-dj-host");
     if (!inlineHost) {
       inlineHost = document.createElement("div");
@@ -5473,8 +7070,325 @@
     syncPageDjToolsUi();
   }
 
+  function feedTrackFromAction(action) {
+    const story = action.closest(".story-innards, .story, .story-container, .new-release, .collection-item-container");
+    if (!story) return null;
+    const metadataNode = story.matches("[data-item-json]") ? story : story.querySelector("[data-item-json]");
+    const itemData = parseJsonAttribute(metadataNode, "data-item-json") || {};
+    const releaseLink = story.querySelector("a.item-link[href], a[href*='.bandcamp.com/album/'], a[href*='.bandcamp.com/track/']");
+    let pageUrl = "";
+    try {
+      const rawPageUrl = itemData.item_url || releaseLink?.href || "";
+      pageUrl = safeBandcampUrl(new URL(String(rawPageUrl).startsWith("//") ? `https:${rawPageUrl}` : rawPageUrl, location.href).href);
+    } catch {
+      pageUrl = "";
+    }
+    const title = itemData.featured_track_title
+      || elementText(story, [".fav-track-title", ".featured-track .title", ".track-title", ".collection-item-title"]);
+    if (!pageUrl || !title) return null;
+    const trackId = String(metadataNode?.dataset.trackid
+      || story.querySelector("[data-trackid]")?.dataset.trackid
+      || itemData.featured_track_id
+      || title);
+    const liveFeedTrack = getFeedPlayerState()?.track;
+    return {
+      id: trackId,
+      title,
+      artist: itemData.band_name
+        || elementText(story, [".collection-item-artist", ".artist-name", ".band-name"]).replace(/^by\s+/i, "")
+        || "Bandcamp",
+      album: itemData.item_title || elementText(story, [".collection-item-title", ".release-title"]),
+      art: itemData.item_art_url || story.querySelector("img")?.currentSrc || story.querySelector("img")?.src || "",
+      pageUrl,
+      artistUrl: safeBandcampUrl(itemData.band_url) || artistUrlFromPageUrl(pageUrl),
+      duration: Number(itemData.featured_track_duration) || 0,
+      url: String(liveFeedTrack?.id) === trackId ? liveFeedTrack.url : ""
+    };
+  }
+
+  function discoverTrackFromCard(card) {
+    if (!card) return null;
+    const pageLink = card.querySelector(".content a.stretch-link[href], a.stretch-link[href], a[href*='.bandcamp.com/album/'], a[href*='.bandcamp.com/track/']");
+    const pageUrl = safeBandcampReleaseUrl(pageLink?.href);
+    const title = elementText(card, [".content .title", ".header .title", ".title"]);
+    if (!pageUrl || !title) return null;
+    const artist = elementText(card, [".attribution-meta", ".artist", ".subtitle"]).replace(/^by\s+/i, "") || "Bandcamp";
+    const track = {
+      id: `${pageUrl}|${title}`,
+      title,
+      artist,
+      album: title,
+      art: card.querySelector(".image-container img, img")?.currentSrc || card.querySelector(".image-container img, img")?.src || "",
+      pageUrl,
+      artistUrl: artistUrlFromPageUrl(pageUrl),
+      duration: 0,
+      url: ""
+    };
+    const liveTrack = getDiscoverPlayerState()?.track;
+    try {
+      const cardRelease = new URL(pageUrl);
+      const liveRelease = new URL(liveTrack?.pageUrl || "", location.href);
+      if (cardRelease.origin === liveRelease.origin && cardRelease.pathname === liveRelease.pathname) {
+        return { ...track, ...liveTrack, pageUrl, album: liveTrack.album || title };
+      }
+    } catch {}
+    return track;
+  }
+
+  function recommendationTrackFromCard(card) {
+    if (!card?.matches?.("#recommendations_container .recommended-album")) return null;
+    const pageLink = card.querySelector("a.album-link[href], a.go-to-album[href], a[href*='/album/'], a[href*='/track/']");
+    const pageUrl = resolvedTrackPageUrl({ pageUrl: pageLink?.href });
+    const album = String(card.dataset.albumtitle || elementText(card, [".release-title", ".title"])).replace(/\s+/g, " ").trim();
+    const title = String(card.dataset.tracktitle || album).replace(/\s+/g, " ").trim();
+    if (!pageUrl || !title) return null;
+    const streamData = parseJsonAttribute(card, "data-audiourl") || {};
+    const streamUrl = typeof streamData === "string" ? streamData : streamData["mp3-128"] || "";
+    const artist = String(card.dataset.artist || elementText(card, [".by-artist", ".artist"])).replace(/^by\s+/i, "").trim() || "Bandcamp";
+    return {
+      id: String(card.dataset.trackid || `${pageUrl}|${title}`),
+      title,
+      artist,
+      album,
+      art: card.querySelector(".album-art")?.currentSrc || card.querySelector(".album-art, img")?.src || "",
+      pageUrl,
+      artistUrl: artistUrlFromPageUrl(pageUrl),
+      duration: Math.max(0, Number(card.dataset.duration) || 0),
+      url: isReusableStreamUrl(streamUrl) ? streamUrl : ""
+    };
+  }
+
+  function recommendationPlayControl(card) {
+    return card?.querySelector?.(".album-art-container > .play-button, .album-art-container > .play-pause-button, .album-art-container > .playbutton, [aria-label^='Play' i], [aria-label^='Pause' i]") || null;
+  }
+
+  function syncRecommendationPlaybackUi() {
+    for (const card of document.querySelectorAll("#recommendations_container .recommended-album")) {
+      const track = recommendationTrackFromCard(card);
+      const current = Boolean(track && seamless.enabled && matchingQueueTrack([seamless.track], track));
+      const playing = current && Boolean(seamless.isPlaying);
+      card.classList.toggle("bandkit-recommendation-current", current);
+      card.classList.toggle("bandkit-recommendation-playing", playing);
+      const control = recommendationPlayControl(card);
+      if (!control || !track) continue;
+      control.setAttribute("role", "button");
+      if (!control.hasAttribute("tabindex")) control.tabIndex = 0;
+      control.setAttribute("aria-label", current ? (playing ? `Pause ${track.title}` : `Resume ${track.title}`) : `Play ${track.title}`);
+      control.setAttribute("aria-pressed", String(playing));
+    }
+  }
+
+  function injectRecommendationActions() {
+    for (const card of document.querySelectorAll("#recommendations_container .recommended-album")) {
+      const track = recommendationTrackFromCard(card);
+      const artContainer = card.querySelector(".album-art-container");
+      if (!track || !artContainer) continue;
+      const playControl = recommendationPlayControl(card);
+      if (playControl && playControl.dataset.bandkitKeyboardBound !== "true") {
+        playControl.dataset.bandkitKeyboardBound = "true";
+        playControl.addEventListener("keydown", (event) => {
+          if (!["Enter", " "].includes(event.key)) return;
+          event.preventDefault();
+          playControl.click();
+        });
+      }
+      let button = card.querySelector(".bandcamp-hub-page-playlist.is-recommendation-add-to");
+      if (!button) {
+        button = createPagePlaylistButton();
+        button.classList.add("is-discover-add-to", "is-recommendation-add-to");
+        artContainer.append(button);
+      } else if (button.parentElement !== artContainer) {
+        artContainer.append(button);
+      }
+      updatePagePlaylistButton(button, track);
+      const label = `Add ${track.title} to Now Playing or a playlist`;
+      button.setAttribute("aria-label", label);
+      button.title = label;
+      if (playControl) {
+        const controlWidth = playControl.offsetWidth || 36;
+        const controlHeight = playControl.offsetHeight || 36;
+        button.style.left = `${playControl.offsetLeft + controlWidth + 6}px`;
+        button.style.top = `${playControl.offsetTop + Math.max(0, (controlHeight - 28) / 2)}px`;
+        button.style.removeProperty("bottom");
+      } else {
+        button.style.left = "8px";
+        button.style.top = "auto";
+        button.style.bottom = "8px";
+      }
+    }
+    syncRecommendationPlaybackUi();
+  }
+
+  function runNativeRecommendationControl(control) {
+    if (!control) return;
+    suppressRecommendationControl = true;
+    control.click();
+    window.setTimeout(() => {
+      suppressRecommendationControl = false;
+      window.setTimeout(scanLivePlayer, 0);
+    }, 0);
+  }
+
+  async function playRecommendationCard(card, control) {
+    const track = recommendationTrackFromCard(card);
+    if (!track) return false;
+    const request = ++recommendationHandoffRequest;
+    showToast(`Preparing ${track.title}…`);
+    try {
+      const prepared = await prepareExternalNowPlaying(track);
+      if (prepared.cancelled || prepared.capacity || request !== recommendationHandoffRequest) return false;
+      if (prepared.index < 0) throw new Error(prepared.error || "This recommendation is not currently streamable.");
+      silenceNativePagePlayback();
+      const response = await runtimeMessage({
+        type: "BANDCAMP_HUB_SEAMLESS_ENABLE",
+        queue: prepared.queue,
+        index: prepared.index,
+        currentTime: 0,
+        autoplay: true,
+        rate: state.dj.rate,
+        preservePitch: state.dj.preservePitch,
+        filterValue: state.dj.filterValue,
+        gainDb: state.dj.gainDb,
+        eqLowDb: state.dj.eqLowDb,
+        eqMidDb: state.dj.eqMidDb,
+        eqHighDb: state.dj.eqHighDb
+      });
+      if (!response?.ok) throw new Error(response?.error || "BandKit could not start this recommendation.");
+      if (request !== recommendationHandoffRequest || prepared.request !== playlistPlayRequest) return false;
+      applySeamlessState(response.state);
+      return true;
+    } catch {
+      if (request !== recommendationHandoffRequest) return false;
+      showToast("Using Bandcamp's player for this recommendation.");
+      if (seamless.enabled) await seamlessCommand("BANDCAMP_HUB_SEAMLESS_DISABLE");
+      runNativeRecommendationControl(control);
+      return false;
+    }
+  }
+
+  function collectionTrackFromCard(card) {
+    if (!card) return null;
+    const metadataNode = card.matches("[data-item-json]") ? card : card.querySelector("[data-item-json]");
+    const itemData = parseJsonAttribute(metadataNode, "data-item-json") || {};
+    const itemLink = card.querySelector(".collection-item-gallery-container a.item-link[href]")
+      || card.querySelector("a.item-link[href*='.bandcamp.com/album/'], a.item-link[href*='.bandcamp.com/track/']");
+    const pageUrl = resolvedTrackPageUrl({ pageUrl: itemData.item_url || itemLink?.href });
+    const releaseTitle = card.dataset.title
+      || itemData.item_title
+      || elementText(card, [".collection-item-gallery-container .collection-item-title", ".collection-item-title"]);
+    const title = itemData.featured_track_title
+      || card.dataset.tracktitle
+      || elementText(card, [".fav-track-title", ".featured-track .title", ".track-title"])
+      || releaseTitle;
+    if (!pageUrl || !title) return null;
+    const artist = String(itemData.band_name || elementText(card, [".collection-item-gallery-container .collection-item-artist", ".collection-item-artist"]))
+      .replace(/^by\s+/i, "") || "Bandcamp";
+    const itemType = String(card.dataset.tralbumtype || card.dataset.itemtype || "").toLowerCase();
+    return {
+      id: String(itemData.featured_track_id || metadataNode?.dataset.trackid || card.dataset.trackid || title),
+      title,
+      artist,
+      album: itemData.item_title || (itemType === "a" || itemType === "album" ? releaseTitle : ""),
+      art: itemData.item_art_url || card.querySelector(".collection-item-art")?.currentSrc || card.querySelector(".collection-item-art")?.src || "",
+      pageUrl,
+      artistUrl: safeBandcampReleaseUrl(itemData.band_url) || safeBandcampUrl(itemData.band_url) || artistUrlFromPageUrl(pageUrl),
+      duration: Number(itemData.featured_track_duration) || 0,
+      url: ""
+    };
+  }
+
+  function runNativeCollectionControl(control) {
+    if (!control) return;
+    releaseExplicitPlaybackClear();
+    collectionNativeFallbackUntil = Date.now() + 5000;
+    suppressCollectionControl = true;
+    control.click();
+    window.setTimeout(() => {
+      suppressCollectionControl = false;
+    }, 0);
+  }
+
+  async function playCollectionCard(card, control) {
+    const track = collectionTrackFromCard(card);
+    if (!track) return false;
+    const request = ++collectionHandoffRequest;
+    showToast(`Preparing ${track.title}…`);
+    try {
+      const prepared = await prepareExternalNowPlaying(track);
+      if (prepared.cancelled || prepared.capacity) return false;
+      if (request !== collectionHandoffRequest) return false;
+      if (prepared.index < 0) throw new Error(prepared.error || "This collection item is not streamable.");
+      silenceNativePagePlayback();
+      const response = await runtimeMessage({
+        type: "BANDCAMP_HUB_SEAMLESS_ENABLE",
+        queue: prepared.queue,
+        index: prepared.index,
+        currentTime: 0,
+        autoplay: true,
+        rate: state.dj.rate,
+        preservePitch: state.dj.preservePitch,
+        filterValue: state.dj.filterValue,
+        gainDb: state.dj.gainDb,
+        eqLowDb: state.dj.eqLowDb,
+        eqMidDb: state.dj.eqMidDb,
+        eqHighDb: state.dj.eqHighDb
+      });
+      if (!response?.ok) throw new Error(response?.error || "BandKit could not start this collection item.");
+      if (request !== collectionHandoffRequest) return false;
+      if (prepared.request !== playlistPlayRequest) return false;
+      applySeamlessState(response.state);
+      return true;
+    } catch {
+      if (request !== collectionHandoffRequest) return false;
+      showToast("Using Bandcamp's player for this item.");
+      if (seamless.enabled) await seamlessCommand("BANDCAMP_HUB_SEAMLESS_DISABLE");
+      runNativeCollectionControl(control);
+      return false;
+    }
+  }
+
+  function injectCollectionItemActions() {
+    const collectionGrid = document.querySelector('#collection-items .collection-grid[data-ismain="true"][data-iswish="false"]');
+    document.documentElement.dataset.bandkitCollectionPage = String(Boolean(collectionGrid));
+    if (!collectionGrid) return;
+    for (const card of collectionGrid.querySelectorAll(".collection-item-container")) {
+      const track = collectionTrackFromCard(card);
+      const downloadSource = card.querySelector('.bottom-owner-controls .redownload-item a[href*="/download"]');
+      const titleDetails = card.querySelector(".collection-item-gallery-container .collection-title-details");
+      if (!track || !downloadSource || !titleDetails) continue;
+
+      let actionRow = titleDetails.querySelector(":scope > .bandkit-collection-action-row");
+      if (!actionRow) {
+        actionRow = document.createElement("div");
+        actionRow.className = "bandkit-feed-action-row bandkit-collection-action-row";
+        titleDetails.append(actionRow);
+      }
+
+      let playlistButton = card.querySelector(".bandcamp-hub-page-playlist");
+      if (!playlistButton) playlistButton = createPagePlaylistButton();
+      playlistButton.classList.add("is-feed-compact-action", "is-collection-action");
+      playlistButton.classList.remove("is-feed-add-to", "is-feed-sidebar-action");
+      updatePagePlaylistButton(playlistButton, track);
+      playlistButton.title = `Add ${track.title} to Now Playing or a playlist`;
+      if (playlistButton.parentElement !== actionRow) actionRow.append(playlistButton);
+
+      let downloadButton = actionRow.querySelector(".bandkit-collection-download-action");
+      if (!downloadButton) {
+        downloadButton = document.createElement("a");
+        downloadButton.className = "bandkit-feed-purchase-action bandkit-collection-download-action";
+        downloadButton.style.setProperty("--bandkit-feed-action-icon", `url('${asset("icon-downloads.svg")}')`);
+        actionRow.append(downloadButton);
+      }
+      downloadButton.href = downloadSource.href;
+      downloadButton.setAttribute("aria-label", `Download ${track.title}`);
+      downloadButton.title = `Download ${track.title}`;
+    }
+  }
+
   function injectPlaylistButtons() {
     ensurePageStyles();
+    injectCollectionItemActions();
+    injectRecommendationActions();
     const playerPlaylistButton = document.querySelector(".inline_player .bandcamp-hub-page-playlist.is-player-control");
     if (playerPlaylistButton) updatePagePlaylistButton(playerPlaylistButton, currentInlinePlaylistTrack());
     const available = [
@@ -5490,6 +7404,106 @@
     ];
     const discover = getDiscoverPlayerState();
     const feed = getFeedPlayerState();
+
+    if (document.documentElement.dataset.bandkitFeedPage === "true") {
+      const feedPurchaseActions = [...document.querySelectorAll("a, button")].filter((control) => /^(?:pre[- ]?order|buy now)$/i.test(control.textContent?.replace(/\s+/g, " ").trim() || ""));
+      for (const purchaseAction of feedPurchaseActions) {
+        const track = feedTrackFromAction(purchaseAction);
+        if (!track) continue;
+        const story = purchaseAction.closest(".story-innards, .story, .story-container, .new-release, .collection-item-container");
+        const existingButtons = [...(story?.querySelectorAll(".bandcamp-hub-page-playlist") || [])];
+        let button = existingButtons.find((candidate) => candidate.classList.contains("is-feed-add-to")) || existingButtons[0] || null;
+        if (!button) button = createPagePlaylistButton();
+        button.classList.add("is-feed-add-to");
+        updatePagePlaylistButton(button, track);
+        for (const duplicate of existingButtons) {
+          if (duplicate !== button) duplicate.remove();
+        }
+
+        const sidebarCard = purchaseAction.closest(".collection-grid .collection-item-container");
+        button.classList.add("is-feed-compact-action");
+        button.classList.toggle("is-feed-sidebar-action", Boolean(sidebarCard));
+        button.title = `Add ${track.title} to Now Playing or a playlist`;
+        purchaseAction.classList.add("bandkit-feed-purchase-action");
+        const purchaseLabel = /^pre[- ]?order$/i.test(purchaseAction.textContent?.replace(/\s+/g, " ").trim() || "") ? "Pre-order" : "Buy now";
+        purchaseAction.title = `${purchaseLabel} ${track.album || track.title}`;
+        purchaseAction.setAttribute("aria-label", purchaseAction.title);
+        purchaseAction.style.setProperty("--bandkit-feed-action-icon", `url('${asset(purchaseLabel === "Pre-order" ? "icon-preorder.svg" : "icon-cart.svg")}')`);
+        const actionList = purchaseAction.closest("ul");
+        actionList?.classList.add("bandkit-feed-action-row");
+        if (sidebarCard) actionList?.classList.add("bandkit-feed-sidebar-actions");
+        const hearMoreAction = [...(actionList?.querySelectorAll("a, button") || [])].find((control) => /^hear more$/i.test(control.textContent?.replace(/\s+/g, " ").trim() || ""));
+        if (hearMoreAction) {
+          hearMoreAction.classList.add("bandkit-feed-hear-more-action");
+          hearMoreAction.title = `Hear more from ${track.album || track.artist || track.title}`;
+          hearMoreAction.setAttribute("aria-label", hearMoreAction.title);
+          hearMoreAction.style.setProperty("--bandkit-feed-action-icon", `url('${asset("icon-hear-more.svg")}')`);
+        }
+        const wishlistItem = actionList?.querySelector("li[id^='collect-item_']")
+          || [...(actionList?.querySelectorAll("li") || [])].find((item) => /^(?:in )?wishlist$/i.test(item.textContent?.replace(/\s+/g, " ").trim() || ""));
+        wishlistItem?.classList.add("bandkit-feed-wishlist-action");
+        wishlistItem?.style.setProperty("--bandkit-feed-wishlist-icon", `url('${asset("icon-wishlist.svg")}')`);
+        const wishlistControl = wishlistItem?.querySelector(".wishlist-msg")
+          || [...(wishlistItem?.querySelectorAll("a, button") || [])].find((control) => /^wishlist$/i.test(control.textContent?.replace(/\s+/g, " ").trim() || ""));
+        const wishlistedControl = wishlistItem?.querySelector(".wishlisted-msg > span:first-child")
+          || [...(wishlistItem?.querySelectorAll("a, button") || [])].find((control) => /^in wishlist$/i.test(control.textContent?.replace(/\s+/g, " ").trim() || ""));
+        if (wishlistControl) {
+          wishlistControl.classList.add("bandkit-feed-wishlist-control");
+          wishlistControl.title = `Add ${track.album || track.title} to your wishlist`;
+          wishlistControl.setAttribute("aria-label", wishlistControl.title);
+        }
+        if (wishlistedControl) {
+          wishlistedControl.classList.add("bandkit-feed-wishlist-control");
+          wishlistedControl.title = `${track.album || track.title} is in your wishlist`;
+          wishlistedControl.setAttribute("aria-label", wishlistedControl.title);
+        }
+        if (purchaseAction.previousElementSibling !== button) purchaseAction.before(button);
+      }
+    }
+
+    if (document.querySelector("#DiscoverApp, .results-grid")) {
+      const visibleDiscoverPlayControls = document.querySelectorAll([
+        ".results-grid-item .image-container > .play-pause-button",
+        ".results-grid-item .image-container > .play-button",
+        ".focused-result .play-pause-button",
+        ".focused-result .play-button",
+        ".focused-result .playbutton",
+        ".discover-detail .play-pause-button",
+        ".discover-detail .play-button",
+        ".discover-detail .playbutton",
+        ".focused-result [aria-label^='Play' i]",
+        ".focused-result [aria-label^='Pause' i]",
+        ".discover-detail [aria-label^='Play' i]",
+        ".discover-detail [aria-label^='Pause' i]"
+      ].join(", "));
+      for (const playControl of visibleDiscoverPlayControls) {
+        if (playControl.closest(".bandcamp-hub-page-playlist")) continue;
+        const nativeDiscoverPlayer = playControl.closest(".discover-player");
+        if (nativeDiscoverPlayer && getComputedStyle(nativeDiscoverPlayer).display === "none") continue;
+        const resultCard = playControl.closest(".results-grid-item");
+        const cardTrack = resultCard ? discoverTrackFromCard(resultCard) : discover?.track;
+        if (!cardTrack) continue;
+        const parent = playControl.offsetParent instanceof HTMLElement ? playControl.offsetParent : playControl.parentElement;
+        if (!parent) continue;
+        const detail = playControl.closest(".results-grid-item, .focused-result, .discover-detail") || parent;
+        let button = detail.querySelector(".bandcamp-hub-page-playlist.is-discover-add-to");
+        if (!button) {
+          button = createPagePlaylistButton();
+          button.classList.add("is-discover-add-to");
+          parent.append(button);
+        } else if (button.parentElement !== parent) {
+          parent.append(button);
+        }
+        updatePagePlaylistButton(button, cardTrack);
+        button.setAttribute("aria-label", `Add ${cardTrack.title} to Now Playing or a playlist`);
+        button.title = button.getAttribute("aria-label");
+        const controlWidth = playControl.offsetWidth || 64;
+        const controlHeight = playControl.offsetHeight || 64;
+        button.style.left = `${playControl.offsetLeft + controlWidth + 8}px`;
+        button.style.top = `${playControl.offsetTop + Math.max(0, (controlHeight - 28) / 2)}px`;
+      }
+    }
+
     if (discover?.player) candidates.push(discover.player);
     if (feed?.player) candidates.push(feed.player);
 
@@ -5518,17 +7532,32 @@
         || feedTrack
         || (fallbackIsTrack ? { ...fallback, id: String(node.dataset.trackid || node.dataset.trackId || title), duration: 0, url: "" } : null);
       if (!track || !resolvedTrackPageUrl(track)) continue;
+      if (node.matches(".discover-player") && node.closest(".focused-result, .discover-detail")?.querySelector(".bandcamp-hub-page-playlist.is-discover-add-to")) continue;
       const isClassicTrackRow = node.matches(".track_row_view");
-      const buyTrack = isClassicTrackRow
+      let buyTrack = isClassicTrackRow
         ? [...node.querySelectorAll("a, button")].find((control) => /^buy track$/i.test(control.textContent?.replace(/\s+/g, " ").trim() || ""))
         : null;
       if (isClassicTrackRow) {
-        if (!buyTrack) continue;
+        const actionCell = node.querySelector(".download-col, .track-row-actions");
+        if (!actionCell) continue;
         let button = node.querySelector(".bandcamp-hub-page-playlist.is-track-action");
         if (!button) {
           button = createPagePlaylistButton("a");
-          button.className = `${buyTrack.className || ""} bandcamp-hub-page-playlist is-track-action`.trim();
-          buyTrack.before(button);
+          button.className = `${buyTrack?.className || ""} bandcamp-hub-page-playlist is-track-action`.trim();
+          if (buyTrack) buyTrack.before(button);
+          else actionCell.append(button);
+        }
+        if (!buyTrack) {
+          buyTrack = document.createElement("button");
+          buyTrack.type = "button";
+          buyTrack.className = "bandcamp-hub-page-buy bandkit-generated-track-buy";
+          buyTrack.textContent = "buy track";
+          buyTrack.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void openTrackAction(track, "cart");
+          });
+          button.after(buyTrack);
         }
         button.classList.remove("bandcamp-hub-page-buy");
         button.style.removeProperty("--hub-buy-icon");
@@ -5539,6 +7568,8 @@
         updatePagePlaylistButton(button, track);
         continue;
       }
+      if (node.matches(".collection-item-container") && document.documentElement.dataset.bandkitFeedPage === "true") continue;
+      if (node.closest('#collection-items .collection-grid[data-ismain="true"][data-iswish="false"]')) continue;
       const titleNode = node.querySelector(".track-title, .title-text, .player-info .title, .fav-track-title, .collection-item-title, .title");
       const target = titleNode?.closest("a")?.parentElement || titleNode?.parentElement || node;
       let button = target.querySelector(":scope > .bandcamp-hub-page-playlist");
@@ -5699,6 +7730,7 @@
 
   function scanLivePlayer() {
     scanLiveCart();
+    ensurePagePlayerWaveforms();
     injectPageDjToolsLink();
     injectPlaylistButtons();
     const data = getBandcampPageData();
@@ -5708,21 +7740,34 @@
       if (observedAudio.has(candidate)) continue;
       observedAudio.add(candidate);
       candidate.addEventListener("play", async () => {
+        if (nowPlayingExplicitlyCleared) {
+          candidate.pause();
+          return;
+        }
+        if (document.documentElement.dataset.bandkitCollectionPage === "true" && Date.now() < collectionNativeFallbackUntil) {
+          scanLivePlayer();
+          return;
+        }
         const requestedFeedTrackId = pendingFeedTrackId;
         const feedState = getFeedPlayerState(requestedFeedTrackId);
-        const sameSeamlessFeedTrack = Boolean(
-          feedState?.track
+        if (feedState && feedSwitchPendingDisable) {
+          if (requestedFeedTrackId) scheduleFeedHandoff(requestedFeedTrackId);
+          return;
+        }
+        const sameSeamlessFeedTrack = Boolean(feedState?.track
           && seamless.enabled
-          && String(feedState.track.id || "") === String(seamless.track?.id || "")
-          && feedState.track.pageUrl === seamless.track?.pageUrl
-        );
+          && matchingQueueTrack([seamless.track], feedState.track));
         if (sameSeamlessFeedTrack) {
           if (!candidate.paused) candidate.pause();
           return;
         }
-        const tookOver = feedState
-          ? await handoffFeedPlayer(requestedFeedTrackId)
-          : await handoffPageAudio(candidate);
+        if (feedState?.track) {
+          const feedTrackId = String(requestedFeedTrackId || feedState.track.id || "");
+          muteFeedAudioForHandoff(feedTrackId);
+          scheduleFeedHandoff(feedTrackId);
+          return;
+        }
+        const tookOver = await handoffPageAudio(candidate);
         if (!tookOver) {
           if (requestedFeedTrackId) scheduleFeedHandoff(requestedFeedTrackId);
           else scanLivePlayer();
@@ -5741,17 +7786,18 @@
     const modern = getModernPlayerState();
     const discover = getDiscoverPlayerState();
     const feed = getFeedPlayerState(pendingFeedTrackId);
-    if (modern?.isPlaying && modern.track?.url !== seamless.track?.url) {
-      void handoffModernPlayer();
-    } else if (modern?.isPlaying && seamless.enabled && modern.track?.url === seamless.track?.url) {
+    const sameModernTrack = Boolean(modern?.track && seamless.enabled && matchingQueueTrack([seamless.track], modern.track));
+    if (modern?.isPlaying && !sameModernTrack) {
+      scheduleModernHandoff(modern.key, modern.index);
+    } else if (modern?.isPlaying && sameModernTrack) {
       stopModernPagePlayer();
     }
 
     if (discover?.isPlaying) {
-      const sameDiscoverTrack = seamless.enabled
-        && seamless.track?.title === discover.track?.title
-        && seamless.track?.pageUrl === discover.track?.pageUrl;
-      if (sameDiscoverTrack) {
+      const sameDiscoverTrack = Boolean(seamless.enabled && matchingQueueTrack([seamless.track], discover.track));
+      if ((playlistPlaybackStarting || playlistIsActive()) && !discoverSwitchPendingDisable) {
+        pageMediaCommand("pause");
+      } else if (sameDiscoverTrack) {
         pageMediaCommand("pause");
       } else if (isReusableStreamUrl(discover.track?.url)) {
         void handoffDiscoverPlayer();
@@ -5764,14 +7810,14 @@
     }
 
     if (feed?.isPlaying) {
-      const sameFeedTrack = seamless.enabled
-        && seamless.track?.id === feed.track?.id
-        && seamless.track?.pageUrl === feed.track?.pageUrl;
+      const sameFeedTrack = Boolean(seamless.enabled && matchingQueueTrack([seamless.track], feed.track));
       if (sameFeedTrack) {
         const feedAudio = getAudio();
         if (feedAudio && !feedAudio.paused) feedAudio.pause();
       } else if (isReusableStreamUrl(feed.track?.url)) {
-        void handoffFeedPlayer();
+        const feedTrackId = String(pendingFeedTrackId || feed.track.id || "");
+        muteFeedAudioForHandoff(feedTrackId);
+        scheduleFeedHandoff(feedTrackId);
         return;
       } else if (seamless.enabled) {
         void seamlessCommand("BANDCAMP_HUB_SEAMLESS_DISABLE");
@@ -5783,6 +7829,16 @@
     if (seamless.enabled) {
       syncPagePlayerUi();
       renderPlayer();
+      return;
+    }
+
+    if (nowPlayingExplicitlyCleared) {
+      resetLoadedPlayback();
+      renderPlayer();
+      if (state.activeTab === "nowPlaying" && !(shadow.activeElement && content.contains(shadow.activeElement))) {
+        content.replaceChildren();
+        renderCurrentPlaylist();
+      }
       return;
     }
 
@@ -6086,7 +8142,66 @@
   }
 
   document.addEventListener("click", (event) => {
-    if (suppressModernControl || !(event.target instanceof Element)) return;
+    if (!(event.target instanceof Element)) return;
+    const onFeedPage = document.body.classList.contains("feed") || /\/feed\/?$/.test(location.pathname);
+    const feedControl = onFeedPage ? event.target.closest(".track_play_auxiliary") : null;
+    if (!feedControl) return;
+    if (feedControl.closest('#collection-items .collection-grid[data-ismain="true"][data-iswish="false"]')) return;
+    const clickedTrackId = String(feedControl.dataset.trackid || feedControl.closest("[data-trackid]")?.dataset.trackid || "");
+    if (!clickedTrackId) return;
+    suppressedFeedTrackId = "";
+    releaseExplicitPlaybackClear();
+    const controlsCurrentSeamlessTrack = Boolean(seamless.enabled && clickedTrackId === String(seamless.track?.id || ""));
+    if (controlsCurrentSeamlessTrack) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void seamlessCommand("BANDCAMP_HUB_SEAMLESS_PLAY_PAUSE");
+      return;
+    }
+    muteFeedAudioForHandoff(clickedTrackId);
+    pendingFeedTrackId = clickedTrackId;
+  }, true);
+
+  document.addEventListener("click", (event) => {
+    if (suppressModernControl || suppressRecommendationControl || suppressCollectionControl || !(event.target instanceof Element)) return;
+    if (event.target.closest(".track_play_auxiliary,.play-pause-button,.inline_player .playbutton,.inline_player [aria-label*='Play'],.track_row_view .play_status,.track_row_view .play_cell a,#recommendations_container .recommended-album .play-button")) {
+      suppressedFeedTrackId = "";
+      releaseExplicitPlaybackClear();
+      if (playlistPlaybackStarting) {
+        playlistPlayRequest += 1;
+        playlistPlaybackStartingRequest = 0;
+        playlistPlaybackStarting = false;
+        pendingPlaylistItemId = "";
+        syncCurrentPlaylistPlaybackUi();
+      }
+    }
+    const recommendationControl = event.target.closest("#recommendations_container .recommended-album .play-button, #recommendations_container .recommended-album .play-pause-button, #recommendations_container .recommended-album .playbutton, #recommendations_container .recommended-album [aria-label^='Play' i], #recommendations_container .recommended-album [aria-label^='Pause' i]");
+    if (recommendationControl && !recommendationControl.closest(".bandcamp-hub-page-playlist")) {
+      const card = recommendationControl.closest(".recommended-album");
+      const requestedTrack = recommendationTrackFromCard(card);
+      if (!requestedTrack) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const controlsCurrentTrack = Boolean(seamless.enabled && matchingQueueTrack([requestedTrack], seamless.track || {}));
+      if (controlsCurrentTrack) void seamlessCommand("BANDCAMP_HUB_SEAMLESS_PLAY_PAUSE");
+      else void playRecommendationCard(card, recommendationControl);
+      return;
+    }
+    const collectionControl = event.target.closest('#collection-items .collection-grid[data-ismain="true"][data-iswish="false"] .collection-item-container .track_play_auxiliary');
+    if (collectionControl) {
+      const card = collectionControl.closest(".collection-item-container");
+      const requestedTrack = collectionTrackFromCard(card);
+      if (!requestedTrack) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const controlsCurrentTrack = seamless.enabled && Boolean(matchingQueueTrack([requestedTrack], seamless.track || {}));
+      if (controlsCurrentTrack) {
+        void seamlessCommand("BANDCAMP_HUB_SEAMLESS_PLAY_PAUSE");
+      } else {
+        void playCollectionCard(card, collectionControl);
+      }
+      return;
+    }
     const onFeedPage = document.body.classList.contains("feed") || /\/feed\/?$/.test(location.pathname);
     const feedControl = onFeedPage ? event.target.closest(".track_play_auxiliary") : null;
     if (feedControl) {
@@ -6103,26 +8218,25 @@
         return;
       }
       if (clickedTrackId) pendingFeedTrackId = clickedTrackId;
-      if (seamless.enabled) {
-        feedSwitchPendingDisable = true;
-        void seamlessCommand("BANDCAMP_HUB_SEAMLESS_DISABLE").finally(() => {
-          feedSwitchPendingDisable = false;
-          if (clickedTrackId) scheduleFeedHandoff(clickedTrackId);
-        });
-      } else if (clickedTrackId) {
-        scheduleFeedHandoff(clickedTrackId);
+      if (feedHandoffBusy && clickedTrackId && clickedTrackId !== feedHandoffTrackId) {
+        playlistPlayRequest += 1;
       }
+      if (clickedTrackId) scheduleFeedHandoff(clickedTrackId);
       window.setTimeout(scanLivePlayer, 160);
       return;
     }
     const discoverControl = event.target.closest(".results-grid-item .play-pause-button, .discover-player .play-pause-button");
     if (discoverControl) {
       const discover = getDiscoverPlayerState();
+      const requestedDiscoverKey = discover?.track ? playlistTrackKey(discover.track) : "";
+      if (discoverHandoffBusy && requestedDiscoverKey && requestedDiscoverKey !== discoverHandoffTrackKey) {
+        playlistPlayRequest += 1;
+        discoverHandoffPending = true;
+      }
       const controlsCurrentSeamlessTrack = Boolean(
         discoverControl.closest(".discover-player")
         && seamless.enabled
-        && discover?.track?.title === seamless.track?.title
-        && discover?.track?.pageUrl === seamless.track?.pageUrl
+        && matchingQueueTrack([seamless.track], discover?.track)
       );
       if (controlsCurrentSeamlessTrack) {
         event.preventDefault();
@@ -6130,8 +8244,15 @@
         void seamlessCommand("BANDCAMP_HUB_SEAMLESS_PLAY_PAUSE");
         return;
       }
-      if (seamless.enabled) void seamlessCommand("BANDCAMP_HUB_SEAMLESS_DISABLE");
-      window.setTimeout(scanLivePlayer, 160);
+      if (seamless.enabled) {
+        discoverSwitchPendingDisable = true;
+        void seamlessCommand("BANDCAMP_HUB_SEAMLESS_DISABLE").finally(() => {
+          discoverSwitchPendingDisable = false;
+          window.setTimeout(scanLivePlayer, 0);
+        });
+      } else {
+        window.setTimeout(scanLivePlayer, 160);
+      }
       return;
     }
     const previous = event.target.closest("section.floating-player .prev-track");
@@ -6155,9 +8276,7 @@
       return;
     }
     if (seamless.enabled && seamless.isPlaying) void seamlessCommand("BANDCAMP_HUB_SEAMLESS_PLAY_PAUSE");
-    window.setTimeout(() => {
-      void handoffModernPlayer(requestedIndex);
-    }, 100);
+    scheduleModernHandoff(requestedKey, requestedIndex);
   }, true);
 
   document.addEventListener("change", (event) => {
@@ -6165,6 +8284,14 @@
     event.preventDefault();
     event.stopImmediatePropagation();
     void seamlessCommand("BANDCAMP_HUB_SEAMLESS_SEEK", { currentTime: Number(event.target.value) || 0 });
+  }, true);
+
+  document.addEventListener("input", (event) => {
+    if (!(event.target instanceof HTMLInputElement) || !event.target.matches("section.floating-player input[type='range']")) return;
+    const control = event.target.closest(".bandkit-page-scrub-control");
+    const maximum = Number(event.target.max) || 1;
+    const progress = Math.max(0, Math.min(1, (Number(event.target.value) || 0) / maximum));
+    control?.style.setProperty("--bandkit-page-scrub-progress", `${(progress * 100).toFixed(2)}%`);
   }, true);
 
   document.addEventListener("click", (event) => {
@@ -6207,6 +8334,7 @@
     window.setTimeout(scanLivePlayer, 250);
   }, true);
   playButton.addEventListener("click", async () => {
+    releaseExplicitPlaybackClear();
     if (seamless.enabled) {
       await seamlessCommand("BANDCAMP_HUB_SEAMLESS_PLAY_PAUSE");
       return;
@@ -6272,7 +8400,7 @@
 
   player.querySelector(".hub-previous-button").addEventListener("click", async () => {
     if (seamless.enabled) {
-      await seamlessCommand("BANDCAMP_HUB_SEAMLESS_PREVIOUS");
+      await navigatePlayerQueue(-1);
       return;
     }
     const audio = getAudio();
@@ -6281,7 +8409,7 @@
 
   player.querySelector(".hub-next-button").addEventListener("click", async () => {
     if (seamless.enabled) {
-      await seamlessCommand("BANDCAMP_HUB_SEAMLESS_NEXT");
+      await navigatePlayerQueue(1);
       return;
     }
     const next = document.querySelector('.inline_player a[aria-label="Next track"], [aria-label*="Next"], .nextbutton')?.closest("a, button, [role='button']") || document.querySelector(".nextbutton");
@@ -6345,6 +8473,8 @@
     beginScrub();
     const target = scrubTarget();
     currentTimeLabel.textContent = formatDuration(target.currentTime);
+    scrubSlider.setAttribute("aria-valuetext", `${formatDuration(target.currentTime)} of ${formatDuration(target.duration)}`);
+    syncScrubVisual();
     window.clearTimeout(pendingSeekTimer);
     pendingSeekTimer = window.setTimeout(() => {
       void seekToScrubTarget();
@@ -6371,12 +8501,13 @@
 
   const runtimeMessageHandler = (message, _sender, sendResponse) => {
     if (message?.type === "BANDCAMP_HUB_PING") {
-      sendResponse({ ok: true, version: chrome.runtime.getManifest().version, ready: hubReady, error: startupError });
+      sendResponse({ ok: true, version: chrome.runtime.getManifest().version, ready: hubReady, open: state.open, error: startupError });
       return false;
     }
     if (message?.type === "BANDCAMP_HUB_TOGGLE") setOpen(!state.open);
     if (message?.type === "BANDCAMP_HUB_OPEN") setOpen(true);
     if (message?.type === "BANDCAMP_HUB_SEAMLESS_STATE") applySeamlessState(message.state);
+    if (message?.type === "BANDCAMP_HUB_PLAYBACK_CLEARED") clearLocalPlaybackState({ persist: false });
     if (message?.type === "BANDCAMP_HUB_WISHLIST_UPDATED") {
       markWishlistTrack(message.key, message.success !== false);
     }
@@ -6404,7 +8535,11 @@
     if (!incoming) return;
     const savedCarts = cartAutosave.normalizeSavedCarts(incoming.savedCarts);
     const playlist = normalizePlaylist(incoming.playlist);
+    const playlistMode = incoming.playlistMode === "manual" ? "manual" : "browse";
     const savedPlaylists = normalizeSavedPlaylists(incoming.savedPlaylists);
+    const recordPlaylistMetadata = incoming.recordPlaylistMetadata !== false;
+    const scrubberStyle = incoming.scrubberStyle === "traditional" ? "traditional" : "waveform";
+    const musicBarSize = incoming.musicBarSize === "compact" ? "compact" : "standard";
     const appearance = {
       ...state.appearance,
       ...(incoming.appearance || {}),
@@ -6415,33 +8550,64 @@
     const appearanceChanged = JSON.stringify(appearance) !== JSON.stringify(state.appearance);
     if (JSON.stringify(savedCarts) === JSON.stringify(state.savedCarts)
       && JSON.stringify(playlist) === JSON.stringify(state.playlist)
+      && playlistMode === state.playlistMode
       && JSON.stringify(savedPlaylists) === JSON.stringify(state.savedPlaylists)
+      && recordPlaylistMetadata === (state.recordPlaylistMetadata !== false)
+      && scrubberStyle === state.scrubberStyle
+      && musicBarSize === state.musicBarSize
       && !appearanceChanged) return;
     state.savedCarts = savedCarts;
     state.playlist = playlist;
+    state.playlistMode = playlistMode;
     state.savedPlaylists = savedPlaylists;
+    state.recordPlaylistMetadata = recordPlaylistMetadata;
+    state.scrubberStyle = scrubberStyle;
+    state.musicBarSize = musicBarSize;
     state.appearance = appearance;
     if (!state.savedCarts.some((snapshot) => snapshot.id === state.selectedSavedCartId)) {
       state.selectedSavedCartId = null;
     }
-    if (["cart", "playlist", "settings"].includes(state.activeTab)) render();
+    if (["cart", "playlist", "settings", "nowPlaying"].includes(state.activeTab)) render();
+    else renderPlayer();
     if (appearanceChanged) applyAppearance();
+    syncScrubberStyles();
+    syncMusicBarSize();
+    ensurePagePlayerWaveforms();
     injectPlaylistButtons();
   });
 
   async function init() {
     document.documentElement.dataset.bandkitFeedPage = String(document.body.classList.contains("feed") || /\/feed\/?$/.test(location.pathname));
+    const earlyModernPageBootstrap = document.documentElement.dataset.bandkitModernBootstrap === "true"
+      ? globalThis.BandKitModernPagesBootstrap
+      : null;
+    const savedPromise = storageGet(["bandcampHubState", "bandcampHubLayout"]);
     const styleUrl = new URL(chrome.runtime.getURL("hub.css"));
     styleUrl.searchParams.set("v", chrome.runtime.getManifest().version);
     const modernStyleUrl = new URL(chrome.runtime.getURL("modern-release.css"));
     modernStyleUrl.searchParams.set("v", chrome.runtime.getManifest().version);
-    const [hubCss, modernCss] = await Promise.all([
-      fetch(styleUrl.href).then((response) => response.text()),
-      fetch(modernStyleUrl.href).then((response) => response.text())
-    ]);
+    const hubCssPromise = fetch(styleUrl.href).then((response) => response.text());
+    const modernCssPromise = earlyModernPageBootstrap
+      ? Promise.resolve("")
+      : fetch(modernStyleUrl.href).then((response) => response.text());
+    const saved = await savedPromise;
+    if (earlyModernPageBootstrap) {
+      state.appearance = {
+        ...state.appearance,
+        ...(saved.bandcampHubState?.appearance || {})
+      };
+      try {
+        applyModernReleaseLayout();
+      } finally {
+        earlyModernPageBootstrap.finish?.();
+      }
+    }
+    const [hubCss, modernCss] = await Promise.all([hubCssPromise, modernCssPromise]);
     style.textContent = hubCss;
-    modernReleaseStyle.textContent = modernCss;
-    document.head.append(modernReleaseStyle);
+    if (modernCss) {
+      modernReleaseStyle.textContent = modernCss;
+      document.head.append(modernReleaseStyle);
+    }
     let shadowHeaderObserver = null;
     let observedHeaderShadow = null;
     const nativeHeaderCartSelector = [
@@ -6491,6 +8657,35 @@
       }
       applyShadowHeaderCartVisibility(hideHeaderCart);
     }
+    let extensionStackingAncestor = null;
+    let extensionStackingOriginal = null;
+    function syncExtensionStackingAncestor() {
+      const shadowHost = root.getRootNode() instanceof ShadowRoot ? root.getRootNode().host : null;
+      const nextAncestor = root.closest("header, #menubar-wrapper")
+        || shadowHost?.closest?.("menu-bar, header, #menubar-wrapper")
+        || null;
+      if (extensionStackingAncestor === nextAncestor) return;
+      if (extensionStackingAncestor) {
+        extensionStackingAncestor.removeAttribute("data-bandkit-extension-stacking");
+        if (extensionStackingOriginal?.value) {
+          extensionStackingAncestor.style.setProperty("z-index", extensionStackingOriginal.value, extensionStackingOriginal.priority);
+        } else {
+          extensionStackingAncestor.style.removeProperty("z-index");
+        }
+      }
+      extensionStackingAncestor = nextAncestor;
+      extensionStackingOriginal = extensionStackingAncestor ? {
+        value: extensionStackingAncestor.style.getPropertyValue("z-index"),
+        priority: extensionStackingAncestor.style.getPropertyPriority("z-index")
+      } : null;
+      if (extensionStackingAncestor) {
+        extensionStackingAncestor.setAttribute("data-bandkit-extension-stacking", "");
+        // Bandcamp's scrolled Feed sidebar and header both use z-index:100
+        // !important. Inline priority is required so the visible fixed panel
+        // remains the actual pointer target after the sidebar becomes sticky.
+        extensionStackingAncestor.style.setProperty("z-index", "2147483646", "important");
+      }
+    }
     function mountLauncherInHeader({ allowFloating = false } = {}) {
       const pageFeedControl = document.querySelector('ul[role="menubar"] a[aria-label="Feed"], .menu-items a[aria-label="Feed"]');
       const menuBarShadow = document.querySelector("menu-bar")?.shadowRoot || null;
@@ -6510,6 +8705,7 @@
         root.className = "bandkit-menu-item";
         root.setAttribute("role", "none");
         if (feedItem.nextElementSibling !== root) feedItem.after(root);
+        syncExtensionStackingAncestor();
         launcher.classList.remove("is-floating");
         launcher.classList.add("is-header", "is-modern-header");
         const nativeIcon = feedControl.querySelector("svg");
@@ -6526,6 +8722,7 @@
         root.className = "";
         root.removeAttribute("role");
         if (root.parentElement !== legacyNav) legacyNav.prepend(root);
+        syncExtensionStackingAncestor();
         launcher.style.removeProperty("color");
         launcher.classList.remove("is-floating", "is-modern-header");
         launcher.classList.add("is-header");
@@ -6534,6 +8731,7 @@
       }
       if (allowFloating) {
         document.body.append(root);
+        syncExtensionStackingAncestor();
         launcher.style.removeProperty("color");
         launcher.classList.remove("is-header", "is-modern-header");
         launcher.classList.add("is-floating");
@@ -6563,7 +8761,6 @@
     headerObserver.observe(document.body, { childList: true, subtree: true });
     syncPageTypography();
 
-    const saved = await storageGet(["bandcampHubState", "bandcampHubLayout"]);
     if (saved.bandcampHubState) {
       state = {
         ...state,
@@ -6586,6 +8783,9 @@
         }
       };
     }
+    state.playlistMode = state.playlistMode === "manual" ? "manual" : "browse";
+    state.scrubberStyle = state.scrubberStyle === "traditional" ? "traditional" : "waveform";
+    state.musicBarSize = state.musicBarSize === "compact" ? "compact" : "standard";
     const discoveredFeedUrl = discoverBandcampFeedUrl();
     if (discoveredFeedUrl && discoveredFeedUrl !== state.feedUrl) {
       state.feedUrl = discoveredFeedUrl;
@@ -6623,6 +8823,7 @@
     }
     scanLivePlayer();
     render();
+    void refreshIncompletePlaylistMetadata();
     runPendingTrackAction();
     scanTimer = window.setInterval(scanLivePlayer, 1200);
     seamlessSyncTimer = window.setInterval(() => void syncSeamlessState(), 3000);

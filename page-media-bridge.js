@@ -226,6 +226,13 @@
   document.addEventListener("bandkit:media-command", (event) => {
     const command = event.detail || {};
     const media = activeMedia || [...tracked].find((candidate) => candidate.currentSrc || candidate.src);
+    if (command.action === "pauseAll") {
+      for (const candidate of tracked) {
+        if (!candidate.paused) candidate.pause();
+      }
+      if (activeMedia) emit(activeMedia, true);
+      return;
+    }
     if (!media) return;
     activeMedia = media;
     if (command.action === "getState") {

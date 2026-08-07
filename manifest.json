@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "BandKit",
-  "version": "0.7.5",
+  "version": "0.7.7",
   "minimum_chrome_version": "116",
   "description": "A floating Bandcamp toolkit with persistent playlists, seamless playback, DJ tools, and durable cart backups.",
   "permissions": [
@@ -19,7 +19,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Open BandKit",
+    "default_title": "Activate or deactivate BandKit",
     "default_popup": "popup.html"
   },
   "commands": {
@@ -38,6 +38,19 @@
       ],
       "js": [
         "feed-redirect.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://bandcamp.com/*",
+        "https://*.bandcamp.com/*"
+      ],
+      "css": [
+        "modern-release.css"
+      ],
+      "js": [
+        "modern-pages-bootstrap.js"
       ],
       "run_at": "document_start"
     },

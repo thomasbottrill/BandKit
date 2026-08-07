@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BandKit launcher</title>
+  <title>BandKit</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -11,34 +11,12 @@
     <div class="title-row">
       <div>
         <h1>BandKit</h1>
-        <p id="version"></p>
+        <p id="status" aria-live="polite">Checking this tab…</p>
       </div>
-      <span class="mark">♫</span>
+      <span class="mark" aria-hidden="true">♫</span>
     </div>
-    <section id="status" class="status is-loading" aria-live="polite">
-      <strong id="status-title">Checking this tab…</strong>
-      <p id="status-copy">Connecting to BandKit.</p>
-      <pre id="error-detail" hidden></pre>
-    </section>
-    <button id="primary-action" type="button" disabled>Open BandKit</button>
-    <button id="retry-action" class="secondary" type="button">Run check again</button>
-    <section class="cart-panel" aria-labelledby="current-cart-title">
-      <div class="section-heading">
-        <h2 id="current-cart-title">Current cart</h2>
-        <span id="cart-count">0</span>
-      </div>
-      <div id="current-cart" class="cart-list"></div>
-      <button id="save-cart" class="cart-action" type="button">Save current cart</button>
-    </section>
-    <section class="cart-panel" aria-labelledby="saved-carts-title">
-      <div class="section-heading">
-        <h2 id="saved-carts-title">Saved carts</h2>
-        <span id="saved-count">0</span>
-      </div>
-      <div id="saved-carts" class="saved-cart-list"></div>
-    </section>
+    <button id="toggle" type="button" disabled>Activate</button>
   </main>
-  <script src="cart-autosave.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

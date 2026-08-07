@@ -7,6 +7,7 @@ let playbackError = "";
 let preservePitch = true;
 let selectedRate = 1;
 let scratchActive = false;
+let autoplayRequested = false;
 let loopBeats = 0;
 let loopStart = 0;
 let loopEnd = 0;
@@ -41,6 +42,9 @@ let gainNode = null;
 let loadedAudioBytes = null;
 let loadedAudioTrackUrl = "";
 let loadedObjectUrl = "";
+let loadedAudioBytesPromise = null;
+let loadedMediaSource = null;
+let streamAbortController = null;
 
 function currentTrack() {
   return queue[currentIndex] || null;
@@ -52,15 +56,20 @@ function finiteNumber(value, fallback = 0) {
 
 function stateSnapshot() {
   const track = currentTrack();
-  const duration = Number.isFinite(audio.duration) ? audio.duration : finiteNumber(track?.duration);
+  const loading = status === "loading";
+  const sourceUnavailable = loading || (status === "error" && !audio.src);
+  const duration = sourceUnavailable
+    ? finiteNumber(track?.duration)
+    : Number.isFinite(audio.duration) ? audio.duration : finiteNumber(track?.duration);
+  const currentTime = sourceUnavailable ? 0 : finiteNumber(audio.currentTime);
   return {
     enabled,
     status,
     error: playbackError,
-    isPlaying: enabled && !audio.paused && !audio.ended,
-    currentTime: finiteNumber(audio.currentTime),
+    isPlaying: enabled && !loading && !audio.paused && !audio.ended,
+    currentTime,
     duration,
-    progress: duration > 0 ? Math.max(0, Math.min(1, audio.currentTime / duration)) : 0,
+    progress: duration > 0 ? Math.max(0, Math.min(1, currentTime / duration)) : 0,
     rate: selectedRate,
     preservePitch,
     scratchActive,
@@ -86,7 +95,20 @@ function stateSnapshot() {
 }
 
 function trackKey(track = currentTrack()) {
-  return String(track?.id || track?.url || "");
+  const id = String(track?.id || "").trim();
+  const stableId = id.match(/^(?:track-)?(\d+)$/i)?.[1]?.replace(/^0+(?=\d)/, "");
+  if (stableId) return `id:${stableId}`;
+  let pageUrl = String(track?.pageUrl || "");
+  try {
+    const canonical = new URL(pageUrl);
+    canonical.hash = "";
+    canonical.search = "";
+    canonical.pathname = canonical.pathname.replace(/\/+$/, "") || "/";
+    pageUrl = canonical.href;
+  } catch {
+    pageUrl = "";
+  }
+  return [pageUrl, id, track?.title, track?.artist].map((value) => String(value || "").trim().toLowerCase()).join("|");
 }
 
 async function loadBpmOverrides() {
@@ -368,6 +390,9 @@ async function analyzeCurrentTrack(force = false) {
     const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
     if (!AudioContextClass) throw new Error("Web Audio analysis is unavailable.");
     let encodedAudio = loadedAudioTrackUrl === track.url ? loadedAudioBytes : null;
+    if (!encodedAudio && loadedAudioTrackUrl === track.url && loadedAudioBytesPromise) {
+      encodedAudio = await loadedAudioBytesPromise;
+    }
     if (!encodedAudio) {
       const response = await fetch(track.url, { cache: "force-cache" });
       if (!response.ok) throw new Error(`Stream analysis request failed (${response.status}).`);
@@ -524,13 +549,134 @@ function waitForMetadata(token) {
       cleanup();
       reject(new Error(`Bandcamp stream failed to load (media error ${audio.error?.code || "unknown"}).`));
     };
+    const aborted = () => {
+      cleanup();
+      reject(new Error(token === loadToken ? "Bandcamp stream loading was aborted." : "Track load was replaced."));
+    };
     const cleanup = () => {
       audio.removeEventListener("loadedmetadata", loaded);
       audio.removeEventListener("error", failed);
+      audio.removeEventListener("abort", aborted);
     };
     audio.addEventListener("loadedmetadata", loaded);
     audio.addEventListener("error", failed);
+    audio.addEventListener("abort", aborted);
   });
+}
+
+function canProgressivelyStreamMp3() {
+  return typeof MediaSource === "function"
+    && typeof MediaSource.isTypeSupported === "function"
+    && MediaSource.isTypeSupported("audio/mpeg");
+}
+
+function waitForMediaSourceOpen(mediaSource, token) {
+  if (mediaSource.readyState === "open") return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const opened = () => {
+      cleanup();
+      if (token === loadToken) resolve();
+      else reject(new Error("Track load was replaced."));
+    };
+    const failed = () => {
+      cleanup();
+      reject(new Error(token === loadToken ? "The progressive audio source could not be opened." : "Track load was replaced."));
+    };
+    const cleanup = () => {
+      mediaSource.removeEventListener("sourceopen", opened);
+      mediaSource.removeEventListener("sourceclose", failed);
+    };
+    mediaSource.addEventListener("sourceopen", opened, { once: true });
+    mediaSource.addEventListener("sourceclose", failed, { once: true });
+  });
+}
+
+function appendMediaChunk(sourceBuffer, chunk, token) {
+  return new Promise((resolve, reject) => {
+    const updated = () => {
+      cleanup();
+      if (token === loadToken) resolve();
+      else reject(new Error("Track load was replaced."));
+    };
+    const failed = () => {
+      cleanup();
+      reject(new Error(token === loadToken ? "The progressive audio buffer rejected the stream." : "Track load was replaced."));
+    };
+    const cleanup = () => {
+      sourceBuffer.removeEventListener("updateend", updated);
+      sourceBuffer.removeEventListener("error", failed);
+      sourceBuffer.removeEventListener("abort", failed);
+    };
+    sourceBuffer.addEventListener("updateend", updated, { once: true });
+    sourceBuffer.addEventListener("error", failed, { once: true });
+    sourceBuffer.addEventListener("abort", failed, { once: true });
+    try {
+      sourceBuffer.appendBuffer(chunk);
+    } catch (error) {
+      cleanup();
+      reject(error);
+    }
+  });
+}
+
+function startProgressiveTrackStream(track, token) {
+  const mediaSource = new MediaSource();
+  const abortController = new AbortController();
+  loadedMediaSource = mediaSource;
+  streamAbortController = abortController;
+  loadedObjectUrl = URL.createObjectURL(mediaSource);
+  audio.src = loadedObjectUrl;
+  audio.load();
+  return (async () => {
+    await waitForMediaSourceOpen(mediaSource, token);
+    if (token !== loadToken) throw new Error("Track load was replaced.");
+    const sourceBuffer = mediaSource.addSourceBuffer("audio/mpeg");
+    const response = await fetch(track.url, {
+      cache: "force-cache",
+      signal: abortController.signal
+    });
+    if (!response.ok) throw new Error(`Bandcamp stream request failed (${response.status}).`);
+    const chunks = [];
+    let byteLength = 0;
+    if (response.body?.getReader) {
+      const reader = response.body.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (token !== loadToken) throw new Error("Track load was replaced.");
+        if (!value?.byteLength) continue;
+        const chunk = value instanceof Uint8Array ? value : new Uint8Array(value);
+        chunks.push(chunk);
+        byteLength += chunk.byteLength;
+        await appendMediaChunk(sourceBuffer, chunk, token);
+      }
+    } else {
+      const chunk = new Uint8Array(await response.arrayBuffer());
+      chunks.push(chunk);
+      byteLength = chunk.byteLength;
+      await appendMediaChunk(sourceBuffer, chunk, token);
+    }
+    if (token !== loadToken) throw new Error("Track load was replaced.");
+    if (mediaSource.readyState === "open") mediaSource.endOfStream();
+    const encodedAudio = new Uint8Array(byteLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      encodedAudio.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return encodedAudio.buffer;
+  })();
+}
+
+function releaseLoadedAudioSource() {
+  streamAbortController?.abort();
+  streamAbortController = null;
+  loadedMediaSource = null;
+  loadedAudioBytesPromise = null;
+  if (loadedObjectUrl) URL.revokeObjectURL(loadedObjectUrl);
+  loadedObjectUrl = "";
+  loadedAudioBytes = null;
+  loadedAudioTrackUrl = "";
 }
 
 async function loadTrack(index, currentTime = 0, autoplay = false) {
@@ -538,6 +684,7 @@ async function loadTrack(index, currentTime = 0, autoplay = false) {
   currentIndex = Math.max(0, Math.min(queue.length - 1, Number(index) || 0));
   const track = currentTrack();
   const token = ++loadToken;
+  autoplayRequested = Boolean(autoplay);
   clearBeatLoop();
   ++bpmAnalysisToken;
   detectedBpm = null;
@@ -550,34 +697,64 @@ async function loadTrack(index, currentTime = 0, autoplay = false) {
   playbackError = "";
   status = "loading";
   audio.pause();
+  audio.removeAttribute("src");
+  audio.load();
+  releaseLoadedAudioSource();
   updateMediaSession();
   sendState(true);
 
   try {
-    const response = await fetch(track.url, { cache: "force-cache" });
-    if (!response.ok) throw new Error(`Bandcamp stream request failed (${response.status}).`);
-    const encodedAudio = await response.arrayBuffer();
-    if (token !== loadToken) return stateSnapshot();
-    loadedAudioBytes = encodedAudio;
-    loadedAudioTrackUrl = track.url;
-    if (loadedObjectUrl) URL.revokeObjectURL(loadedObjectUrl);
-    loadedObjectUrl = URL.createObjectURL(new Blob([encodedAudio], {
-      type: response.headers?.get?.("content-type") || "audio/mpeg"
-    }));
-    audio.src = loadedObjectUrl;
+    let progressiveCompletion = null;
+    if (canProgressivelyStreamMp3()) {
+      loadedAudioTrackUrl = track.url;
+      progressiveCompletion = startProgressiveTrackStream(track, token);
+      loadedAudioBytesPromise = progressiveCompletion;
+      progressiveCompletion.then((encodedAudio) => {
+        if (token === loadToken && currentTrack()?.url === track.url) loadedAudioBytes = encodedAudio;
+      }).catch(() => {});
+      const progressiveFailure = progressiveCompletion.then(() => new Promise(() => {}));
+      await Promise.race([waitForMetadata(token), progressiveFailure]);
+    } else {
+      const response = await fetch(track.url, { cache: "force-cache" });
+      if (!response.ok) throw new Error(`Bandcamp stream request failed (${response.status}).`);
+      const encodedAudio = await response.arrayBuffer();
+      if (token !== loadToken) return stateSnapshot();
+      loadedAudioBytes = encodedAudio;
+      loadedAudioTrackUrl = track.url;
+      loadedAudioBytesPromise = Promise.resolve(encodedAudio);
+      loadedObjectUrl = URL.createObjectURL(new Blob([encodedAudio], {
+        type: response.headers?.get?.("content-type") || "audio/mpeg"
+      }));
+      audio.src = loadedObjectUrl;
+      audio.load();
+      await waitForMetadata(token);
+    }
     await applyDjOptions({ rate: audio.playbackRate || 1, preservePitch, filterValue, gainDb });
-    audio.load();
-    await waitForMetadata(token);
     if (token !== loadToken) return stateSnapshot();
     const seekTime = Math.max(0, finiteNumber(currentTime));
-    if (seekTime && Number.isFinite(audio.duration)) audio.currentTime = Math.min(seekTime, Math.max(0, audio.duration - 0.1));
+    if (Number.isFinite(audio.duration)) audio.currentTime = Math.min(seekTime, Math.max(0, audio.duration - 0.1));
     status = "paused";
-    if (autoplay) {
+    if (autoplayRequested) {
       await audio.play();
       status = "playing";
     }
+    if (progressiveCompletion) {
+      void progressiveCompletion.catch((error) => {
+        if (token !== loadToken || currentTrack()?.url !== track.url) return;
+        autoplayRequested = false;
+        status = "error";
+        playbackError = error.message || "The Bandcamp stream stopped loading.";
+        audio.pause();
+        audio.removeAttribute("src");
+        audio.load();
+        releaseLoadedAudioSource();
+        sendState(true);
+      });
+    }
     void analyzeCurrentTrack();
   } catch (error) {
+    if (token !== loadToken) return stateSnapshot();
+    autoplayRequested = false;
     status = "error";
     playbackError = error.message;
   }
@@ -645,16 +822,25 @@ async function handleCommand(message) {
     const wasPlaying = enabled && !audio.paused && !audio.ended;
     queue = Array.isArray(message.queue) ? message.queue : [];
     if (!queue.length) {
+      ++loadToken;
       enabled = false;
+      autoplayRequested = false;
       currentIndex = -1;
+      scratchActive = false;
       clearBeatLoop();
+      playbackError = "";
+      ++bpmAnalysisToken;
+      detectedBpm = null;
+      automaticBpm = null;
+      bpmSource = "auto";
+      bpmStatus = "idle";
+      bpmError = "";
+      detectedKey = null;
+      waveform = [];
       audio.pause();
       audio.removeAttribute("src");
       audio.load();
-      if (loadedObjectUrl) URL.revokeObjectURL(loadedObjectUrl);
-      loadedObjectUrl = "";
-      loadedAudioBytes = null;
-      loadedAudioTrackUrl = "";
+      releaseLoadedAudioSource();
       status = "idle";
       updateMediaSession();
       sendState(true);
@@ -681,7 +867,9 @@ async function handleCommand(message) {
   }
 
   if (message.type === "BANDCAMP_HUB_OFFSCREEN_DISABLE") {
+    ++loadToken;
     enabled = false;
+    autoplayRequested = false;
     scratchActive = false;
     clearBeatLoop();
     status = "idle";
@@ -697,10 +885,7 @@ async function handleCommand(message) {
     audio.pause();
     audio.removeAttribute("src");
     audio.load();
-    if (loadedObjectUrl) URL.revokeObjectURL(loadedObjectUrl);
-    loadedObjectUrl = "";
-    loadedAudioBytes = null;
-    loadedAudioTrackUrl = "";
+    releaseLoadedAudioSource();
     queue = [];
     currentIndex = -1;
     sendState(true);
@@ -709,9 +894,22 @@ async function handleCommand(message) {
 
   if (message.type === "BANDCAMP_HUB_OFFSCREEN_PLAY_PAUSE") {
     if (!enabled) throw new Error("Seamless playback is not enabled.");
-    if (!audio.src) return loadTrack(Math.max(0, currentIndex), 0, true);
-    if (audio.paused) await audio.play();
-    else audio.pause();
+    if (status === "loading") {
+      autoplayRequested = !autoplayRequested;
+      sendState(true);
+      return stateSnapshot();
+    }
+    if (!audio.src) {
+      autoplayRequested = true;
+      return loadTrack(Math.max(0, currentIndex), 0, true);
+    }
+    if (audio.paused) {
+      autoplayRequested = true;
+      await audio.play();
+    } else {
+      autoplayRequested = false;
+      audio.pause();
+    }
     status = audio.paused ? "paused" : "playing";
     sendState(true);
     return stateSnapshot();
@@ -797,12 +995,16 @@ async function handleCommand(message) {
 }
 
 audio.addEventListener("play", () => {
+  autoplayRequested = true;
   status = "playing";
   updateMediaSession();
   sendState(true);
 });
 audio.addEventListener("pause", () => {
-  if (enabled && status !== "loading" && status !== "error") status = "paused";
+  if (enabled && status !== "loading" && status !== "error") {
+    autoplayRequested = false;
+    status = "paused";
+  }
   updateMediaSession();
   sendState(true);
 });
@@ -818,14 +1020,21 @@ audio.addEventListener("ended", () => {
 });
 audio.addEventListener("error", () => {
   if (!audio.src) return;
+  autoplayRequested = false;
   status = "error";
   playbackError = `Bandcamp stream error ${audio.error?.code || "unknown"}`;
   sendState(true);
 });
 
 if ("mediaSession" in navigator) {
-  navigator.mediaSession.setActionHandler("play", () => audio.play());
-  navigator.mediaSession.setActionHandler("pause", () => audio.pause());
+  navigator.mediaSession.setActionHandler("play", () => {
+    autoplayRequested = true;
+    return audio.play();
+  });
+  navigator.mediaSession.setActionHandler("pause", () => {
+    autoplayRequested = false;
+    audio.pause();
+  });
   navigator.mediaSession.setActionHandler("nexttrack", () => nextTrack());
   navigator.mediaSession.setActionHandler("previoustrack", () => previousTrack());
   navigator.mediaSession.setActionHandler("seekto", (details) => {

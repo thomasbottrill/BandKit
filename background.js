@@ -2,6 +2,8 @@ const OFFSCREEN_PATH = "offscreen.html";
 const PLAYBACK_KEY = "bandcampHubPlayback";
 const BANDCAMP_MATCHES = ["https://bandcamp.com/*", "https://*.bandcamp.com/*"];
 let creatingOffscreen = null;
+let playbackStateUpdates = Promise.resolve();
+const canonicalReleaseCache = new Map();
 
 function isBandcampUrl(value) {
   try {
@@ -10,6 +12,63 @@ function isBandcampUrl(value) {
   } catch {
     return false;
   }
+}
+
+function isPublicReleaseUrl(value) {
+  if (isBandcampUrl(value)) return true;
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase();
+    const ipv4 = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)?.slice(1).map(Number);
+    const privateIpv4 = ipv4 && (ipv4.some((part) => part > 255)
+      || ipv4[0] === 10
+      || ipv4[0] === 127
+      || (ipv4[0] === 169 && ipv4[1] === 254)
+      || (ipv4[0] === 172 && ipv4[1] >= 16 && ipv4[1] <= 31)
+      || (ipv4[0] === 192 && ipv4[1] === 168));
+    return url.protocol === "https:"
+      && !url.username
+      && !url.password
+      && (!url.port || url.port === "443")
+      && hostname
+      && hostname !== "localhost"
+      && !hostname.endsWith(".localhost")
+      && !hostname.endsWith(".local")
+      && !hostname.includes(":")
+      && !privateIpv4
+      && /^\/(?:album|track)\/[^/]+/.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
+async function canonicalBandcampReleaseUrl(value) {
+  if (isBandcampUrl(value)) return new URL(value).href;
+  if (!isPublicReleaseUrl(value)) return "";
+  const sourceUrl = new URL(value).href;
+  if (canonicalReleaseCache.has(sourceUrl)) return canonicalReleaseCache.get(sourceUrl);
+  let tabId = null;
+  let canonicalUrl = "";
+  try {
+    const tab = await chrome.tabs.create({ url: sourceUrl, active: false });
+    tabId = tab.id || null;
+    for (let attempt = 0; tabId && attempt < 40; attempt += 1) {
+      const current = await chrome.tabs.get(tabId);
+      if (isBandcampUrl(current?.url)) {
+        canonicalUrl = new URL(current.url).href;
+        break;
+      }
+      if (current?.status === "complete" && attempt >= 8) break;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  } catch {
+    canonicalUrl = "";
+  } finally {
+    if (tabId) await chrome.tabs.remove(tabId).catch(() => {});
+  }
+  if (canonicalUrl) canonicalReleaseCache.set(sourceUrl, canonicalUrl);
+  else canonicalReleaseCache.delete(sourceUrl);
+  return canonicalUrl;
 }
 
 function sanitizeTrack(track) {
@@ -26,14 +85,19 @@ function sanitizeTrack(track) {
       artist: String(track.artist || "Bandcamp").slice(0, 500),
       album: String(track.album || "").slice(0, 500),
       art: typeof track.art === "string" ? track.art.slice(0, 4000) : "",
-      pageUrl: isBandcampUrl(track.pageUrl) ? track.pageUrl : "",
-      artistUrl: isBandcampUrl(track.artistUrl) ? track.artistUrl : "",
+      pageUrl: isPublicReleaseUrl(track.pageUrl) ? track.pageUrl : "",
+      artistUrl: isBandcampUrl(track.artistUrl) || isPublicReleaseUrl(track.artistUrl) ? track.artistUrl : "",
       duration: Number.isFinite(Number(track.duration)) ? Math.max(0, Number(track.duration)) : 0,
       url: stream.href
     };
   } catch {
     return null;
   }
+}
+
+function stableTrackId(value) {
+  const match = String(value || "").trim().match(/^(?:track-)?(\d+)$/i);
+  return match ? match[1].replace(/^0+(?=\d)/, "") : "";
 }
 
 function decodeHtmlAttribute(value) {
@@ -74,6 +138,21 @@ function artistNameFromHtml(html) {
   return "";
 }
 
+function metadataImageFromHtml(html) {
+  for (const tag of String(html || "").match(/<meta\b[^>]*>/gi) || []) {
+    const property = tag.match(/\b(?:property|name)\s*=\s*(["'])(.*?)\1/i)?.[2]?.toLowerCase();
+    if (!['og:image', 'twitter:image'].includes(property)) continue;
+    const content = decodeHtmlAttribute(tag.match(/\bcontent\s*=\s*(["'])(.*?)\1/i)?.[2] || "");
+    try {
+      const url = new URL(content.startsWith("//") ? `https:${content}` : content);
+      if (url.protocol === "https:") return url.href;
+    } catch {
+      // Try the next image metadata tag.
+    }
+  }
+  return "";
+}
+
 async function resolveCartMetadata(items) {
   const requests = new Map();
   const readArtist = (url) => {
@@ -103,7 +182,12 @@ async function resolvePlaylistItems(items) {
     if (!pageRequests.has(pageUrl)) {
       pageRequests.set(pageUrl, fetch(pageUrl, { credentials: "omit", redirect: "follow" }).then(async (response) => {
         if (!response.ok) throw new Error(`Bandcamp returned ${response.status}`);
-        return tralbumDataFromHtml(await response.text());
+        const html = await response.text();
+        return {
+          tralbum: tralbumDataFromHtml(html),
+          artist: artistNameFromHtml(html),
+          art: metadataImageFromHtml(html)
+        };
       }));
     }
     return pageRequests.get(pageUrl);
@@ -112,20 +196,44 @@ async function resolvePlaylistItems(items) {
   const resolved = [];
   for (let offset = 0; offset < sourceItems.length; offset += 6) {
     const batch = sourceItems.slice(offset, offset + 6).map(async (item) => {
-      const pageUrl = isBandcampUrl(item?.pageUrl) ? item.pageUrl : "";
+      const pageUrl = await canonicalBandcampReleaseUrl(item?.pageUrl);
       if (!pageUrl) return { ...item, restoreError: "missing Bandcamp track page" };
       try {
-        const tralbum = await readPage(pageUrl);
+        const page = await readPage(pageUrl);
+        const tralbum = page.tralbum;
         const tracks = Array.isArray(tralbum?.trackinfo) ? tralbum.trackinfo : [];
         const expectedId = String(item.id || "");
+        const expectedStableId = stableTrackId(expectedId);
         const expectedTitle = String(item.title || "").replace(/\s+/g, " ").trim().toLowerCase();
-        const match = tracks.find((track) => String(track.track_id || track.id || "") === expectedId)
-          || tracks.find((track) => String(track.title || "").replace(/\s+/g, " ").trim().toLowerCase() === expectedTitle);
+        const expectedAlbum = String(item.album || "").replace(/\s+/g, " ").trim().toLowerCase();
+        const releaseTitle = String(tralbum?.current?.title || "").replace(/\s+/g, " ").trim().toLowerCase();
+        const idMatch = expectedStableId
+          ? tracks.find((track) => stableTrackId(track.track_id || track.id) === expectedStableId)
+          : null;
+        const titleMatch = !expectedStableId && expectedTitle
+          ? tracks.find((track) => String(track.title || "").replace(/\s+/g, " ").trim().toLowerCase() === expectedTitle)
+          : null;
+        const allowReleaseFallback = !expectedStableId
+          && (!expectedTitle || expectedTitle === expectedAlbum || expectedTitle === releaseTitle);
+        const match = idMatch
+          || titleMatch
+          || (allowReleaseFallback
+            ? tracks.find((track) => String(track.track_id || track.id || "") === String(tralbum?.current?.featured_track_id || ""))
+              || tracks.find((track) => track?.file?.["mp3-128"])
+            : null);
         const streamUrl = match?.file?.["mp3-128"];
         if (streamUrl) {
+          const existingArtist = String(item.artist || "").trim();
+          const resolvedArtist = String(match.artist || tralbum?.current?.artist || tralbum?.artist || page.artist || existingArtist || "Bandcamp");
           return {
             ...item,
             id: String(match.track_id || match.id || item.id || item.title),
+            title: String(match.title || item.title || "Untitled"),
+            artist: resolvedArtist,
+            album: String(tralbum?.current?.title || item.album || ""),
+            art: String(item.art || page.art || ""),
+            pageUrl,
+            artistUrl: item.artistUrl && isBandcampUrl(item.artistUrl) ? item.artistUrl : `${new URL(pageUrl).origin}/`,
             duration: Number(match.duration) || Number(item.duration) || 0,
             url: streamUrl,
             restoreError: ""
@@ -238,6 +346,13 @@ async function broadcastPlaybackState(state) {
     .map((tab) => chrome.tabs.sendMessage(tab.id, { type: "BANDCAMP_HUB_SEAMLESS_STATE", state })));
 }
 
+async function broadcastPlaybackCleared() {
+  const tabs = await chrome.tabs.query({ url: BANDCAMP_MATCHES });
+  await Promise.allSettled(tabs
+    .filter((tab) => tab.id)
+    .map((tab) => chrome.tabs.sendMessage(tab.id, { type: "BANDCAMP_HUB_PLAYBACK_CLEARED" })));
+}
+
 async function ensureOffscreenDocument() {
   const offscreenUrl = chrome.runtime.getURL(OFFSCREEN_PATH);
   const contexts = await chrome.runtime.getContexts({
@@ -289,10 +404,10 @@ async function handlePlaybackRequest(message, sender) {
   }
 
   if (message.type === "BANDCAMP_HUB_OPEN_BACKGROUND_TAB") {
-    if (!isBandcampUrl(message.url)) throw new Error("Only Bandcamp wishlist pages can be opened.");
+    if (!isBandcampUrl(message.url)) throw new Error("Only Bandcamp action pages can be opened.");
     const target = new URL(message.url);
-    if (target.hash !== "#bandkit-wishlist") throw new Error("Invalid wishlist action.");
-    const tab = await chrome.tabs.create({ url: target.href, active: false });
+    if (!["#bandkit-wishlist", "#bandkit-cart"].includes(target.hash)) throw new Error("Invalid Bandcamp action.");
+    const tab = await chrome.tabs.create({ url: target.href, active: true });
     return { ok: true, tabId: tab.id };
   }
 
@@ -302,7 +417,6 @@ async function handlePlaybackRequest(message, sender) {
     await Promise.allSettled(tabs
       .filter((tab) => tab.id && tab.id !== sender.tab?.id)
       .map((tab) => chrome.tabs.sendMessage(tab.id, { type: "BANDCAMP_HUB_WISHLIST_UPDATED", key, success: message.success !== false })));
-    if (sender.tab?.id) setTimeout(() => chrome.tabs.remove(sender.tab.id).catch(() => {}), 1800);
     return { ok: true };
   }
 
@@ -325,6 +439,12 @@ async function handlePlaybackRequest(message, sender) {
     }
     const stored = await chrome.storage.session.get(PLAYBACK_KEY);
     return { ok: true, state: stored[PLAYBACK_KEY] || { enabled: false, status: "idle" } };
+  }
+
+  if (message.type === "BANDCAMP_HUB_CLEAR_PLAYBACK") {
+    const response = await sendOffscreen({ type: "BANDCAMP_HUB_OFFSCREEN_DISABLE" });
+    await broadcastPlaybackCleared();
+    return response;
   }
 
   if (message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE") {
@@ -399,8 +519,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "BANDCAMP_HUB_OFFSCREEN_STATE") {
     if (sender.url !== chrome.runtime.getURL(OFFSCREEN_PATH)) return false;
-    chrome.storage.session.set({ [PLAYBACK_KEY]: message.state })
-      .then(() => broadcastPlaybackState(message.state))
+    const update = playbackStateUpdates.then(async () => {
+      await chrome.storage.session.set({ [PLAYBACK_KEY]: message.state });
+      await broadcastPlaybackState(message.state);
+    });
+    playbackStateUpdates = update.catch(() => {});
+    update
       .then(() => sendResponse({ ok: true }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
