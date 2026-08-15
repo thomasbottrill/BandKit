@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BandKit modern release fixture</title>
+  <title>Bandkit modern release fixture</title>
   <style>
     body { margin: 0; }
     #pgFt { background: #ececec; }
@@ -23,6 +23,18 @@
     body.artist-theme .secondaryText { color: #9af31c; }
     body.artist-theme #band-navbar { background-color: #2f3133; }
     body.artist-theme #band-navbar a { color: #cfd6da; }
+    body.low-contrast-theme { background-color: #030303; color: #292929; }
+    body.low-contrast-theme #pgBd { background-color: #050505; color: #292929; }
+    body.low-contrast-theme .primaryText,
+    body.low-contrast-theme #name-section,
+    body.low-contrast-theme #name-section a,
+    body.low-contrast-theme #rightColumn a,
+    body.low-contrast-theme #trackInfo a { color: #292929; }
+    body.low-contrast-theme .secondaryText { color: #343434; }
+    body.low-contrast-theme #band-navbar { background-color: #111; }
+    body.low-contrast-theme #band-navbar a { color: #292929; }
+    body.low-contrast-theme .track_row_view { background-color: #fafafa; }
+    body.low-contrast-theme #pgFt { background-color: #f7f7f7; }
     #sidecart { background: #e5e5e5; color: #333; padding: 12px; }
     #sidecart .item-link { color: #333; }
     #sidecart .remove { color: #08f; }
@@ -56,24 +68,24 @@
         <div class="collected-by tralbum collectors"><div class="message">supported by</div><div class="deets populated">
           <div class="writing"><a class="pic" href="#fan-one"><img class="thumb" src="/assets/art-gaiko.png" alt="Fan one"></a><div class="text"><a class="name notSkinnable" href="#fan-one">Mira</a> Beautiful late-night record.<span class="fav-track">Favorite track: Signal Bloom.</span></div></div>
           <div class="writing"><a class="pic" href="#fan-two"><img class="thumb" src="/assets/art-meridian.png" alt="Fan two"></a><div class="text"><a class="name notSkinnable" href="#fan-two">Jon</a> On repeat all week.</div></div>
-          <div class="no-writing"><a class="fan pic" href="#fan-three"><img class="thumb" src="/assets/art-remix.png" alt="Fan three"></a><a class="fan pic" href="#fan-four"><img class="thumb" src="/assets/art-velocity.png" alt="Fan four"></a><a class="fan pic" href="#fan-five"><img class="thumb" src="/assets/art-magma.png" alt="Fan five"></a><a class="fan pic" href="#fan-six"><img class="thumb" src="/assets/art-apophenia.png" alt="Fan six"></a><a class="fan pic" href="#fan-seven"><img class="thumb" src="/assets/art-quack.png" alt="Fan seven"></a><a class="fan pic" href="#fan-eight"><img class="thumb" src="/assets/art-cobrastyle.png" alt="Fan eight"></a></div>
+          <div class="no-writing"><a class="fan pic" href="#fan-three"><img class="thumb" src="/assets/art-cobrastyle.png" alt="Fan three"></a><a class="fan pic" href="#fan-four"><img class="thumb" src="/assets/art-velocity.png" alt="Fan four"></a><a class="fan pic" href="#fan-five"><img class="thumb" src="/assets/art-magma.png" alt="Fan five"></a><a class="fan pic" href="#fan-six"><img class="thumb" src="/assets/art-apophenia.png" alt="Fan six"></a><a class="fan pic" href="#fan-seven"><img class="thumb" src="/assets/art-quack.png" alt="Fan seven"></a><a class="fan pic" href="#fan-eight"><img class="thumb" src="/assets/art-cobrastyle.png" alt="Fan eight"></a></div>
           <a class="more-thumbs">more...</a>
         </div></div>
       </div>
       <div id="trackInfo" class="leftColumn"><div id="trackInfoInner">
-        <div class="inline_player"><table><tr><td class="play_cell" rowspan="2"><a role="button" aria-label="Play/pause"><div class="playbutton"></div></a></td><td class="track_cell"><div class="track_info"><span class="title-section"><a class="title_link primaryText" href="#"><span class="title">Signal Bloom</span></a></span><span class="time secondaryText"><span>0:00</span> / <span>5:22</span></span></div></td></tr><tr><td class="progbar_cell"><div class="progbar"><div class="progbar_empty"><div class="progbar_fill"></div><div class="thumb"></div></div></div></td></tr></table></div>
+        <div class="inline_player"><table><tr><td class="play_cell" rowspan="2"><a role="button" aria-label="Play/pause"><div class="playbutton"></div></a></td><td class="track_cell" colspan="3"><div class="track_info"><span class="title-section"><a class="title_link primaryText" href="#"><span class="title">Signal Bloom</span></a></span><span class="time secondaryText"><span>0:00</span> / <span>5:22</span></span></div></td></tr><tr><td class="progbar_cell"><div class="progbar"><div class="progbar_empty"><div class="progbar_fill"></div><div class="thumb"></div></div></div></td><td class="prev_cell"><a role="button" aria-label="Previous track"><div class="prevbutton"></div></a></td><td class="next_cell"><a role="button" aria-label="Next track"><div class="nextbutton"></div></a></td></tr></table></div>
         <ul class="tralbumCommands">
           <li class="buyItem digital"><h3 class="hd"><button class="download-link buy-link"><span class="buyItemPackageTitle primaryText">Digital Album</span></button><span class="digitaldescription secondaryText">Streaming + Download</span></h3><div class="bd">Unlimited streaming plus a high-quality download.</div><div class="audio-quality">Download available in 24-bit/48kHz.</div><div class="ft"><h4 class="ft compound-button main-button"><button id="fixture-buy-digital" class="download-link buy-link">Buy Digital Album</button> <span>€8 EUR or more</span></h4><h4 class="ft compound-button send-as-gift"><button class="download-link buy-link">Send as Gift</button></h4></div></li>
-          <li class="buyItem package"><h3 class="hd"><button class="order_package_link buy-link"><span class="buyItemPackageTitle primaryText">Double CD</span></button><span class="merchtype secondaryText">Compact Disc + Digital Album</span></h3><ul class="popupImageGallery"><li class="gallery_item"><a href="#merch-art"><img src="/assets/art-purchase-gaiko.png" alt="Double CD"></a></li></ul><div class="bd">Ships within five days. Edition of 50.</div><div class="ft"><h4 class="compound-button main-button"><button class="order_package_link buy-link">Buy Compact Disc</button> <span>€10 EUR or more</span></h4></div></li>
-          <li class="buyItem buyFullDiscography"><h3 class="hd"><button class="buy-link"><span class="buyItemPackageTitle primaryText">Full Digital Discography</span></button></h3><div class="art compact"><a class="art-thumb thumb-glow" href="#release-one" style="z-index:4;background-image:url('/assets/art-clouds.png')"></a><a class="art-thumb thumb-glow" href="#release-two" style="z-index:3;background-image:url('/assets/art-meridian.png')"></a><a class="art-thumb thumb-glow" href="#release-three" style="z-index:2;background-image:url('/assets/art-remix.png')"></a><a class="art-thumb thumb-glow last-visible" href="#release-four" style="z-index:1;background-image:url('/assets/art-velocity.png')"></a><a class="more-button" href="#discography"><div class="count">650</div><div class="releases">releases</div></a></div><div class="bd"><p>Get all 650 North Harbour releases available on Bandcamp.</p></div><h4 class="ft compound-button main-button"><button class="buy-link">Buy Digital Discography</button> <span>€1,000 EUR or more</span></h4></li>
+          <li class="buyItem package"><h3 class="hd"><button class="order_package_link buy-link"><span class="buyItemPackageTitle primaryText">Double CD</span></button><span class="merchtype secondaryText">Compact Disc + Digital Album</span></h3><ul class="popupImageGallery"><li class="gallery_item"><a href="#merch-art"><img src="/assets/art-gaiko.png" alt="Double CD"></a></li></ul><div class="bd">Ships within five days. Edition of 50.</div><div class="ft"><h4 class="compound-button main-button"><button class="order_package_link buy-link">Buy Compact Disc</button> <span>€10 EUR or more</span></h4></div></li>
+          <li class="buyItem buyFullDiscography"><h3 class="hd"><button class="buy-link"><span class="buyItemPackageTitle primaryText">Full Digital Discography</span></button></h3><div class="art compact"><a class="art-thumb thumb-glow" href="#release-one" style="z-index:4;background-image:url('/assets/art-clouds.png')"></a><a class="art-thumb thumb-glow" href="#release-two" style="z-index:3;background-image:url('/assets/art-meridian.png')"></a><a class="art-thumb thumb-glow" href="#release-three" style="z-index:2;background-image:url('/assets/art-cobrastyle.png')"></a><a class="art-thumb thumb-glow last-visible" href="#release-four" style="z-index:1;background-image:url('/assets/art-velocity.png')"></a><a class="more-button" href="#discography"><div class="count">650</div><div class="releases">releases</div></a></div><div class="bd"><p>Get all 650 North Harbour releases available on Bandcamp.</p></div><h4 class="ft compound-button main-button"><button class="buy-link">Buy Digital Discography</button> <span>€1,000 EUR or more</span></h4></li>
           <li id="collect-item-placeholder"><button aria-label="Add to collection">+</button></li>
           <li><button>Pre-order</button></li>
           <li><button>Wishlist</button></li>
           <li class="share-link-container"><button id="share-link">Share / Embed</button></li>
         </ul>
         <table id="track_table" class="track_list track_table"><tbody>
-          <tr class="track_row_view linked"><td class="play-col"><a role="button" aria-label="Play Signal Bloom"><div class="play_status"></div></a></td><td class="track-number-col"><div class="track_number secondaryText">1.</div></td><td class="title-col"><div class="title"><a href="#track"><span class="track-title">Signal Bloom</span></a><span class="time secondaryText">05:22</span></div></td><td class="info-col"></td><td class="download-col"><a href="#buy-track">buy track</a></td></tr>
-          <tr class="track_row_view linked"><td class="play-col"><a role="button" aria-label="Play Glass Harbour"><div class="play_status"></div></a></td><td class="track-number-col"><div class="track_number secondaryText">2.</div></td><td class="title-col"><div class="title"><a href="#track-2"><span class="track-title">Glass Harbour</span></a><span class="time secondaryText">04:18</span></div></td><td class="info-col"></td><td class="download-col"><a href="#buy-track-2">buy track</a></td></tr>
+          <tr class="track_row_view linked"><td class="play-col"><a role="button" aria-label="Play Signal Bloom"><div class="play_status"></div></a></td><td class="track-number-col"><div class="track_number secondaryText">1.</div></td><td class="title-col"><div class="title"><a href="#track"><span class="track-title">Signal Bloom</span></a><span class="time secondaryText">05:22</span></div></td><td class="info-col"></td><td class="download-col"><div class="dl_link"><a href="#buy-track">buy track</a></div></td></tr>
+          <tr class="track_row_view linked"><td class="play-col"><a role="button" aria-label="Play Angle of Incidence"><div class="play_status"></div></a></td><td class="track-number-col"><div class="track_number secondaryText">2.</div></td><td class="title-col"><div class="title"><a href="#track-2"><span class="track-title">Angle of Incidence</span></a><span class="time secondaryText">04:18</span></div></td><td class="info-col"></td><td class="download-col"><div class="dl_link"><a href="#buy-track-2">buy track</a></div></td></tr>
         </tbody></table>
         <script data-tralbum='{"artist":"North Harbour","trackinfo":[{"track_id":1,"title":"Signal Bloom","title_link":"https://fixture.bandcamp.com/track/signal-bloom","duration":322,"file":{"mp3-128":"https://t4.bcbits.com/stream/fixture-signal"}},{"track_id":2,"title":"Glass Harbour","title_link":"https://fixture.bandcamp.com/track/glass-harbour","duration":258,"file":null}]}' data-embed='{"artist":"North Harbour"}'></script>
         <h3 class="about-label">about</h3><div class="tralbumData tralbum-about">A patient collection of deep electronic sketches.</div>
@@ -92,7 +104,7 @@
     <section class="recs-section artist-recs"><p class="section-title">North Harbour recommends:</p><ul class="horizontal">
       <li class="recommended-album" data-trackid="9101" data-audiourl='{"mp3-128":"https://bandcamp.com/stream_redirect?enc=mp3-128&amp;track_id=9101"}' data-albumtitle="Night Geometry" data-artist="Mira Vale"><div class="album-art-container"><picture><img class="album-art" src="/assets/art-gaiko.png" alt="Night Geometry"></picture><div class="play-button"><div class="play-icon"></div></div></div><p class="title-and-artist"><a class="album-link" href="https://mira-vale.bandcamp.com/album/night-geometry"><span class="release-title">Night Geometry</span><br><span class="by-artist">by Mira Vale</span></a></p><div class="album-details"><p class="comment">Deep listening for late hours.</p><a class="go-to-album album-link" href="https://mira-vale.bandcamp.com/album/night-geometry">go to album</a></div></li>
       <li class="recommended-album" data-trackid="9102" data-audiourl='{"mp3-128":"https://bandcamp.com/stream_redirect?enc=mp3-128&amp;track_id=9102"}' data-albumtitle="Soft Current" data-artist="Pale Index"><div class="album-art-container"><picture><img class="album-art" src="/assets/art-magma.png" alt="Soft Current"></picture><div class="play-button"><div class="play-icon"></div></div></div><p class="title-and-artist"><a class="album-link" href="https://pale-index.bandcamp.com/album/soft-current"><span class="release-title">Soft Current</span><br><span class="by-artist">by Pale Index</span></a></p></li>
-      <li class="recommended-album" data-trackid="9103" data-audiourl="{}" data-albumtitle="Afterimage" data-artist="Common Field"><div class="album-art-container"><picture><img class="album-art" src="/assets/art-remix.png" alt="Afterimage"></picture><div class="play-button"><div class="play-icon"></div></div></div><p class="title-and-artist"><a class="album-link" href="https://common-field.bandcamp.com/album/afterimage"><span class="release-title">Afterimage</span><br><span class="by-artist">by Common Field</span></a></p></li>
+      <li class="recommended-album" data-trackid="9103" data-audiourl="{}" data-albumtitle="Afterimage" data-artist="Common Field"><div class="album-art-container"><picture><img class="album-art" src="/assets/art-cobrastyle.png" alt="Afterimage"></picture><div class="play-button"><div class="play-icon"></div></div></div><p class="title-and-artist"><a class="album-link" href="https://common-field.bandcamp.com/album/afterimage"><span class="release-title">Afterimage</span><br><span class="by-artist">by Common Field</span></a></p></li>
     </ul></section>
     <section class="recs-section bc-recs"><p class="section-title">If you like Cloud Studies, you may also like:</p><ul class="horizontal">
       <li class="recommended-album" data-trackid="9104" data-audiourl='{"mp3-128":"https://bandcamp.com/stream_redirect?enc=mp3-128&amp;track_id=9104"}' data-albumtitle="Low Weather" data-artist="Glass Harbour"><div class="album-art-container"><picture><img class="album-art" src="/assets/art-velocity.png" alt="Low Weather"></picture><div class="play-button"><div class="play-icon"></div></div></div><p class="title-and-artist"><a class="album-link" href="https://glass-harbour.bandcamp.com/album/low-weather"><span class="release-title">Low Weather</span><br><span class="by-artist">by Glass Harbour</span></a></p><div class="album-details"><p class="supporters-text">supported by 42 fans</p></div></li>
@@ -123,6 +135,7 @@
     });
     const fixtureSingleTrack = location.search.includes("single-track");
     const fixtureArtistTheme = location.search.includes("artist-theme");
+    const fixtureLowContrastTheme = location.search.includes("low-contrast-theme");
     const fixtureCustomTheme = location.search.includes("custom-theme");
     const fixtureCart = location.search.includes("cart");
     const fixtureSingleRecommendations = location.search.includes("single-recommendations");
@@ -131,8 +144,12 @@
     const fixtureRecommendationRapid = location.search.includes("recommendation-rapid");
     const fixtureRecommendationUnavailable = location.search.includes("recommendation-unavailable");
     const fixtureNoNativeTrackBuy = location.search.includes("no-native-track-buy");
+    const fixtureThemeToggles = location.search.includes("theme-toggles");
+    const fixturePageScrubDrag = location.search.includes("page-scrub-drag");
+    const fixtureManualAnalysis = location.search.includes("manual-analysis");
     if (fixtureNoNativeTrackBuy) document.querySelectorAll("#track_table .download-col a").forEach((control) => control.remove());
     if (fixtureArtistTheme) document.body.classList.add("artist-theme");
+    if (fixtureLowContrastTheme) document.body.classList.add("low-contrast-theme");
     if (fixtureCart) document.querySelector("#sidecart").hidden = false;
     if (fixtureSingleTrack) document.querySelector("#track_table")?.remove();
     if (fixtureSingleRecommendations) document.querySelector("#recommendations_container .bc-recs")?.remove();
@@ -166,11 +183,31 @@
         activeTab: fixtureRecommendationMode ? "nowPlaying" : "settings",
         playlist: [],
         savedPlaylists: [],
+        autoAnalyzeTracks: !fixtureManualAnalysis,
         appearance: fixtureAppearance
       }
     };
     window.fixtureMessages = [];
-    window.fixturePlaybackState = { enabled: false, status: "idle", isPlaying: false, queue: [], index: -1, track: null };
+    window.fixturePlaybackState = fixturePageScrubDrag ? {
+      enabled: true,
+      status: "playing",
+      isPlaying: true,
+      currentTime: 32.2,
+      duration: 322,
+      progress: 0.1,
+      index: 0,
+      track: {
+        id: "1",
+        title: "Signal Bloom",
+        artist: "North Harbour",
+        album: "Cloud Studies",
+        pageUrl: "https://fixture.bandcamp.com/track/signal-bloom",
+        duration: 322,
+        url: "https://t4.bcbits.com/stream/fixture-signal"
+      },
+      queue: []
+    } : { enabled: false, status: "idle", isPlaying: false, queue: [], index: -1, track: null };
+    if (fixturePageScrubDrag) window.fixturePlaybackState.queue = [window.fixturePlaybackState.track];
     const fixtureChrome = {
       runtime: {
         lastError: null,
@@ -180,6 +217,28 @@
           window.fixtureMessages.push(structuredClone(message));
           if (message.type === "BANDCAMP_HUB_GET_SEAMLESS_STATE") {
             callback?.({ ok: true, state: window.fixturePlaybackState });
+            return;
+          }
+          if (message.type === "BANDCAMP_HUB_ANALYZE_TRACKS") {
+            callback?.({
+              ok: true,
+              results: message.tracks.map((track, index) => location.search.includes("analysis-failure")
+                ? { ...track, error: "No confident BPM detected." }
+                : ({
+                    ...track,
+                    bpm: index ? 97 : 90.8,
+                    key: index
+                      ? { camelot: "5A", name: "C min" }
+                      : { camelot: "11B", name: "A maj" }
+                  }))
+            });
+            return;
+          }
+          if (message.type === "BANDCAMP_HUB_RESOLVE_CART_METADATA") {
+            callback?.({
+              ok: true,
+              items: message.items.map((item) => ({ ...item, artist: "North Harbour", itemType: "track", minimumPrice: 0, currency: "USD" }))
+            });
             return;
           }
           if (message.type === "BANDCAMP_HUB_RESOLVE_PLAYLIST_ITEMS") {
@@ -232,6 +291,15 @@
             callback?.({ ok: true, state: window.fixturePlaybackState });
             return;
           }
+          if (message.type === "BANDCAMP_HUB_SEAMLESS_SEEK") {
+            window.fixturePlaybackState = {
+              ...window.fixturePlaybackState,
+              currentTime: Number(message.currentTime) || 0,
+              progress: (Number(message.currentTime) || 0) / (Number(window.fixturePlaybackState.duration) || 1)
+            };
+            callback?.({ ok: true, state: window.fixturePlaybackState });
+            return;
+          }
           callback?.({ ok: true, state: window.fixturePlaybackState });
         },
         onMessage: { addListener(listener) { window.fixtureRuntimeListener = listener; } }
@@ -252,6 +320,58 @@
       const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
       const toggle = root?.querySelector(".hub-modern-release-toggle");
       const buy = document.querySelector("#fixture-buy-digital");
+      if (fixturePageScrubDrag) {
+        const control = document.querySelector(".inline_player .bandkit-page-scrub-control");
+        const rect = control?.getBoundingClientRect();
+        const pointer = (type, fraction) => control?.dispatchEvent(new PointerEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          button: 0,
+          pointerId: 71,
+          pointerType: "mouse",
+          clientX: (rect?.left || 0) + (rect?.width || 0) * fraction,
+          clientY: (rect?.top || 0) + (rect?.height || 0) / 2
+        }));
+        pointer("pointerdown", 0.1);
+        pointer("pointermove", 0.76);
+        const previewPass = control?.classList.contains("is-scrubbing")
+          && control.style.getPropertyValue("--bandkit-page-scrub-progress") === "76.00%";
+        pointer("pointerup", 0.76);
+        await new Promise((resolve) => window.setTimeout(resolve, 80));
+        const seek = window.fixtureMessages.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_SEEK").at(-1);
+        const commitPass = !control?.classList.contains("is-scrubbing")
+          && Math.abs(Number(seek?.currentTime) - 244.72) < 0.1
+          && Math.abs(Number(window.fixturePlaybackState.currentTime) - 244.72) < 0.1;
+        document.title = previewPass && commitPass
+          ? "PASS: page scrubber freeform drag fixture"
+          : `FAIL: page scrubber drag ${previewPass}/${commitPass}/${control?.style.getPropertyValue("--bandkit-page-scrub-progress")}/${seek?.currentTime}`;
+        return;
+      }
+      if (fixtureThemeToggles) {
+        const matchBandcamp = root?.querySelector('[data-appearance-mode="match"]');
+        const themePages = root?.querySelector('[data-appearance-mode="theme"]');
+        const defaultStatesPass = matchBandcamp?.getAttribute("aria-checked") === "true"
+          && themePages?.getAttribute("aria-checked") === "false"
+          && !root?.querySelector(".hub-theme-picker")
+          && document.documentElement.dataset.bandkitPageTheme === "false";
+        themePages?.click();
+        const pageOptInPass = root?.querySelector('[data-appearance-mode="match"]')?.getAttribute("aria-checked") === "false"
+          && root?.querySelector('[data-appearance-mode="theme"]')?.getAttribute("aria-checked") === "true"
+          && root?.querySelector(".hub-theme-picker")
+          && document.documentElement.dataset.bandkitPageTheme === "true";
+        root?.querySelector('.hub-theme-option[data-theme-id="midnight"]')?.click();
+        const themeSelectionPass = root?.querySelector(".hub-theme-combobox")?.textContent.includes("Midnight")
+          && root?.querySelector('[data-appearance-mode="theme"]')?.getAttribute("aria-checked") === "true"
+          && document.documentElement.dataset.bandkitPageTheme === "true";
+        root?.querySelector('[data-appearance-mode="match"]')?.click();
+        const restoredPass = root?.querySelector('[data-appearance-mode="match"]')?.getAttribute("aria-checked") === "true"
+          && !root?.querySelector(".hub-theme-picker")
+          && document.documentElement.dataset.bandkitPageTheme === "false";
+        document.title = defaultStatesPass && pageOptInPass && themeSelectionPass && restoredPass
+          ? "PASS: exclusive appearance mode fixture"
+          : `FAIL: appearance mode ${defaultStatesPass}/${pageOptInPass}/${themeSelectionPass}/${restoredPass}`;
+        return;
+      }
       if (fixtureRecommendationMode) {
         const wait = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
         const cards = [...document.querySelectorAll("#recommendations_container .recommended-album")];
@@ -335,13 +455,51 @@
         document.title = passed ? "PASS: More to explore actions fixture" : `FAIL: More to explore ${commonControlsPass}/${destinationMenuPass}/${ids.join(",")}/${enableMessages().length}/${window.fixturePlaybackState.track?.id || "none"}/${window.fixturePlaybackState.isPlaying}`;
         return;
       }
-      const palettePreserved = fixtureCustomTheme ? (
+      const fixtureContrast = (foreground, background) => {
+        const parse = (value) => {
+          const channels = String(value).match(/[\d.]+/g)?.map(Number) || [];
+          return channels.slice(0, 3).map((channel) => {
+            const normalized = channel / 255;
+            return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+          });
+        };
+        const relative = (value) => {
+          const [red = 0, green = 0, blue = 0] = parse(value);
+          return red * 0.2126 + green * 0.7152 + blue * 0.0722;
+        };
+        const first = relative(foreground);
+        const second = relative(background);
+        return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+      };
+      const lowContrastCorrected = !fixtureLowContrastTheme || (
+        fixtureContrast(
+          getComputedStyle(document.querySelector("#name-section .trackTitle")).color,
+          getComputedStyle(document.querySelector("#pgBd")).backgroundColor
+        ) >= 4.5
+        && fixtureContrast(
+          getComputedStyle(document.querySelector(".inline_player .title")).color,
+          getComputedStyle(document.querySelector(".inline_player")).backgroundColor
+        ) >= 4.5
+        && fixtureContrast(
+          getComputedStyle(document.querySelector(".inline_player .time")).color,
+          getComputedStyle(document.querySelector(".inline_player")).backgroundColor
+        ) >= 4.5
+        && fixtureContrast(
+          getComputedStyle(document.querySelector("#band-navbar a")).color,
+          getComputedStyle(document.querySelector("#band-navbar")).backgroundColor
+        ) >= 4.5
+        && fixtureContrast(
+          getComputedStyle(document.querySelector("#recommendations_container .section-title")).color,
+          getComputedStyle(document.querySelector("#pgFt")).backgroundColor
+        ) >= 4.5
+      );
+      const palettePreserved = fixtureLowContrastTheme ? lowContrastCorrected : fixtureCustomTheme ? (
         getComputedStyle(document.body).backgroundColor === "rgb(74, 69, 111)"
         && getComputedStyle(document.querySelector("#pgBd")).backgroundColor === "rgb(49, 46, 73)"
         && getComputedStyle(document.querySelector("#band-navbar")).backgroundColor === "rgb(31, 41, 55)"
         && getComputedStyle(document.querySelector("#band-navbar a")).color === "rgb(248, 250, 252)"
-        && getComputedStyle(document.querySelector(".inline_player")).backgroundColor === "rgb(49, 46, 73)"
-        && getComputedStyle(document.querySelector(".inline_player .play_cell > a")).backgroundColor === "rgb(49, 46, 73)"
+        && getComputedStyle(document.querySelector(".inline_player")).backgroundColor === "rgb(34, 34, 43)"
+        && getComputedStyle(document.querySelector(".inline_player .play_cell > a")).backgroundColor === "rgb(34, 34, 43)"
         && getComputedStyle(document.querySelector(".inline_player .play_cell > a")).borderColor === "rgb(97, 95, 116)"
         && getComputedStyle(document.querySelector(".follow-unfollow")).backgroundColor === "rgb(145, 90, 240)"
         && getComputedStyle(document.querySelector(".following-label")).backgroundColor === "rgb(145, 90, 240)"
@@ -361,7 +519,7 @@
       const followStyled = fixtureCustomTheme
         ? getComputedStyle(document.querySelector(".follow-unfollow")).color === "rgb(255, 255, 255)"
         : getComputedStyle(document.querySelector(".follow-unfollow")).backgroundColor === "rgb(105, 169, 186)";
-      const nativeHeaderCartSuppressed = getComputedStyle(document.querySelector("#fixture-album-header-cart")).display === "none";
+      const nativeHeaderCartVisibilityCorrect = getComputedStyle(document.querySelector("#fixture-album-header-cart")).display !== "none";
       const customHeaderRect = document.querySelector("#customHeader").getBoundingClientRect();
       const customHeaderImageRect = document.querySelector("#customHeader img").getBoundingClientRect();
       const fullCustomHeaderVisible = Math.abs(customHeaderRect.height - customHeaderRect.width * 180 / 975) <= 2
@@ -376,7 +534,9 @@
       const footerRect = document.querySelector("#pgFt").getBoundingClientRect();
       const recommendationsUseNativeSection = Math.abs(footerRect.left) <= 2
         && Math.abs(footerRect.right - document.documentElement.clientWidth) <= 2
-        && getComputedStyle(document.querySelector("#pgFt")).backgroundColor === "rgb(236, 236, 236)";
+        && getComputedStyle(document.querySelector("#pgFt")).backgroundColor === (fixtureCustomTheme
+          ? "rgb(74, 69, 111)"
+          : fixtureLowContrastTheme ? "rgb(247, 247, 247)" : "rgb(236, 236, 236)");
       const recommendationCards = [...document.querySelectorAll("#recommendations_container .recommended-album")];
       recommendationCards[0]?.classList.add("selected");
       recommendationCards[1]?.dispatchEvent(new Event("pointerover", { bubbles: true }));
@@ -401,6 +561,14 @@
       const rowPauseStyle = rowPlayStatus ? getComputedStyle(rowPlayStatus, "::before") : null;
       const trackActionCell = document.querySelector("#track_table .download-col");
       const trackActionButtons = [...(trackActionCell?.querySelectorAll(":is(.bandcamp-hub-page-playlist.is-track-action, .bandcamp-hub-page-buy)") || [])];
+      const playerTrackAction = document.querySelector(".inline_player .bandcamp-hub-page-playlist.is-player-control");
+      const playerTrackActionStyle = playerTrackAction ? getComputedStyle(playerTrackAction) : null;
+      const trackActionColoursMatch = trackActionButtons.every((button) => {
+        const buttonStyle = getComputedStyle(button);
+        return buttonStyle.backgroundColor === playerTrackActionStyle?.backgroundColor
+          && buttonStyle.borderColor === playerTrackActionStyle?.borderColor
+          && buttonStyle.color === playerTrackActionStyle?.color;
+      });
       const generatedTrackBuy = trackActionCell?.querySelector(".bandkit-generated-track-buy");
       const generatedTrackBuyInitiallyHidden = !fixtureNoNativeTrackBuy || Boolean(generatedTrackBuy && getComputedStyle(generatedTrackBuy).opacity === "0");
       generatedTrackBuy?.focus();
@@ -419,6 +587,7 @@
         && generatedTrackBuyInitiallyHidden
         && generatedTrackBuyFocusVisible
         && trackActionButtons[1].getBoundingClientRect().width >= 58
+        && trackActionColoursMatch
         && trackActionButtons.every((button) => Math.round(button.getBoundingClientRect().height) === 24 && getComputedStyle(button).borderRadius === "4px")
         && trackActionButtons.every((button) => button.getBoundingClientRect().right <= (trackActionCellRect?.right || 0) + 1)
         && Math.abs((trackActionCellRect?.right || 0) - (trackTableRect?.right || 0)) <= 1
@@ -454,6 +623,65 @@
             && Math.abs(firstCard.left - row.left) <= 2
             && Math.abs(lastCard.right - row.right) <= 2;
         })();
+      const playerTools = document.querySelector("#trackInfoInner > .inline_player > .bandcamp-hub-page-tools");
+      const albumAddAll = playerTools?.querySelector(".bandcamp-hub-page-playlist.is-album-add-all");
+      const albumAddAllRect = albumAddAll?.getBoundingClientRect();
+      const albumAddAllIdleStyle = albumAddAll ? getComputedStyle(albumAddAll) : null;
+      const albumAddAllIdleAppearance = albumAddAllIdleStyle ? {
+        backgroundColor: albumAddAllIdleStyle.backgroundColor,
+        borderColor: albumAddAllIdleStyle.borderColor,
+        color: albumAddAllIdleStyle.color,
+        borderRadius: albumAddAllIdleStyle.borderRadius
+      } : null;
+      const playerAdd = document.querySelector(".inline_player .bandcamp-hub-page-playlist.is-player-control");
+      const playerAddStyle = playerAdd ? getComputedStyle(playerAdd) : null;
+      albumAddAll?.click();
+      const albumAddAllMenuLabels = [...document.querySelectorAll(".bandcamp-hub-page-playlist-menu button")].map((button) => button.textContent.trim());
+      const albumAddAllWorks = Boolean(albumAddAll
+        && albumAddAll.getAttribute("aria-label") === "Add all album tracks to Now Playing or a playlist"
+        && albumAddAll.title === albumAddAll.getAttribute("aria-label")
+        && albumAddAll.style.getPropertyValue("--hub-plus-icon").includes("icon-add-all.svg")
+        && Math.round(albumAddAllRect?.width || 0) === 32
+        && Math.round(albumAddAllRect?.height || 0) === 32
+        && albumAddAllIdleAppearance?.borderRadius === "4px"
+        && albumAddAllIdleAppearance?.backgroundColor === playerAddStyle?.backgroundColor
+        && albumAddAllIdleAppearance?.borderColor === playerAddStyle?.borderColor
+        && albumAddAllIdleAppearance?.color === playerAddStyle?.color
+        && getComputedStyle(playerTools).flexWrap === "nowrap"
+        && [...playerTools.children].filter((control) => !control.classList.contains("bandkit-page-transport-row")).every((control) => Math.abs(control.getBoundingClientRect().top - playerAdd.getBoundingClientRect().top) <= 1)
+        && albumAddAllMenuLabels.includes("＋ Add all to Now Playing")
+        && albumAddAllMenuLabels.includes("＋ Add all to Playlist…"));
+      const trackRows = [...document.querySelectorAll("#track_table .track_row_view")];
+      const trackRowsStaySingleLine = fixtureSingleTrack || trackRows.every((row) => {
+        const title = row.querySelector(".track-title");
+        const analysis = row.querySelector(".bandkit-track-analysis");
+        const lastAction = [...row.querySelectorAll(".download-col a, .download-col button")].at(-1);
+        return row.getBoundingClientRect().height <= 44
+          && getComputedStyle(title).whiteSpace === "nowrap"
+          && title.getBoundingClientRect().height <= 20
+          && analysis?.getBoundingClientRect().height <= 20
+          && Math.abs((lastAction?.getBoundingClientRect().right || 0) - row.getBoundingClientRect().right) <= 1;
+      });
+      const releaseColumnsFavorTracks = fixtureSingleTrack || document.querySelector(".bandkit-modern-music-column").getBoundingClientRect().width
+        > document.querySelector(".bandkit-modern-art-column").getBoundingClientRect().width;
+      const inlineTitleRect = document.querySelector(".inline_player .title")?.getBoundingClientRect();
+      const inlineTimeRect = document.querySelector(".inline_player .track_info > .time")?.getBoundingClientRect();
+      const inlineAnalysisRect = document.querySelector(".inline_player .bandkit-track-analysis.is-inline")?.getBoundingClientRect();
+      const inlinePlayRect = document.querySelector(".inline_player .play_cell > a")?.getBoundingClientRect();
+      const inlineScrubRect = document.querySelector(".inline_player .bandkit-page-scrub-control")?.getBoundingClientRect();
+      const inlineToolsRect = document.querySelector(".inline_player .bandcamp-hub-page-tools")?.getBoundingClientRect();
+      const inlineTransportRect = document.querySelector(".inline_player .bandkit-page-transport-row")?.getBoundingClientRect();
+      const inlineCartPrice = document.querySelector(".inline_player .bandcamp-hub-page-cart-price")?.textContent?.trim();
+      const inlinePlayerAligned = Boolean(inlineTitleRect && inlineTimeRect && inlineAnalysisRect && inlinePlayRect && inlineScrubRect && inlineToolsRect
+        && Math.abs(inlineTitleRect.left - inlineTimeRect.left) <= 1
+        && inlineAnalysisRect.left > inlineTimeRect.right
+        && Math.round(inlinePlayRect.width) === 72
+        && Math.round(inlinePlayRect.height) === 72
+        && inlineToolsRect.top - inlineScrubRect.bottom >= 12
+        && inlineTransportRect
+        && Math.abs(inlineTransportRect.right - inlineScrubRect.right) <= 1
+        && inlineCartPrice === "$0");
+      albumAddAll?.click();
       const modern = document.documentElement.dataset.bandkitModernRelease === "true"
         && document.querySelector("#rightColumn > .bandkit-modern-purchase-panel .buyItem.digital")
         && (fixtureSingleTrack
@@ -493,7 +721,11 @@
         && (fixtureSingleTrack || document.querySelector("#trackInfoInner > #track_table").getBoundingClientRect().top - document.querySelector("#trackInfoInner > .inline_player").getBoundingClientRect().bottom <= 16)
         && Math.round(document.querySelector(".inline_player .play_cell > a").getBoundingClientRect().width) === 56
         && Math.round(document.querySelector(".inline_player .play_cell > a").getBoundingClientRect().height) === 56
-        && document.querySelector("#trackInfoInner > .tralbumCommands > .bandkit-modern-add-to-label:first-child")?.textContent === "add to..."
+        && !document.querySelector("#trackInfoInner > .tralbumCommands > .bandkit-modern-add-to-label")
+        && albumAddAllWorks
+        && trackRowsStaySingleLine
+        && releaseColumnsFavorTracks
+        && inlinePlayerAligned
         && getComputedStyle(document.querySelector("#collect-item-placeholder")).display === "none"
         && Math.round(document.querySelector(".bandkit-modern-tags-panel").getBoundingClientRect().width) === Math.round(document.querySelector(".bandkit-modern-release-body > .collected-by").getBoundingClientRect().width)
         && document.querySelector(".bandkit-modern-tags-panel .tralbum-tags").getBoundingClientRect().right <= document.querySelector(".bandkit-modern-release-body > .collected-by").getBoundingClientRect().right + 1
@@ -501,7 +733,7 @@
         && toggle?.getAttribute("aria-checked") === "true"
         && palettePreserved
         && cartHidden
-        && nativeHeaderCartSuppressed
+        && nativeHeaderCartVisibilityCorrect
         && fullCustomHeaderVisible
         && followStyled;
       buy?.click();
@@ -520,13 +752,14 @@
         && (fixtureSingleTrack || document.querySelector("#trackInfoInner > #track_table"))
         && document.querySelector(".middleColumn > .collected-by")
         && !document.querySelector(".bandkit-modern-purchase-panel")
+        && !document.querySelector(".bandkit-modern-add-all-item")
         && !document.querySelector(".bandkit-modern-add-to-label")
         && !document.querySelector(".bandkit-modern-add-trigger")
         && !document.querySelector(".bandkit-modern-recommendations-title")
         && window.fixtureBuyClicks === 1
         && window.fixtureMoreClicks === 1
         && cartRestored
-        && nativeHeaderCartSuppressed;
+        && nativeHeaderCartVisibilityCorrect;
       const passed = modern && supportersExpanded && supportersCollapsed && restored;
       toggle?.click();
       document.title = passed

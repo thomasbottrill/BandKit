@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-await import(`../cart-autosave.js?smoke=${Date.now()}`);
+await import(`../src/content/cart-autosave.js?smoke=${Date.now()}`);
 const autosave = globalThis.BandKitCartAutosave;
 
 const item = (id, quantity = 1) => ({
@@ -54,7 +54,18 @@ const duplicates = autosave.normalizeSavedCarts([
   { id: "empty", name: "Ghost", items: [] }
 ]);
 assert.equal(duplicates.filter(autosave.isAutoSavedCart).length, 1);
-assert.equal(duplicates.some((snapshot) => snapshot.id === "empty"), false);
+assert.equal(duplicates.some((snapshot) => snapshot.id === "empty"), true, "named empty carts must remain available as destinations");
+
+const rejectedEmptyNamed = autosave.saveNamedCart([], [], "Empty without permission");
+assert.equal(rejectedEmptyNamed.snapshot, null, "ordinary save actions should still reject an empty live cart");
+const emptyNamed = autosave.saveNamedCart([], [], "Future purchases", {
+  id: "cart-empty",
+  savedAt: "2026-08-04T00:04:30.000Z",
+  allowEmpty: true
+});
+assert.equal(emptyNamed.snapshot?.id, "cart-empty");
+assert.deepEqual(emptyNamed.snapshot?.items, []);
+assert.equal(autosave.normalizeSavedCarts(emptyNamed.savedCarts).length, 1);
 
 const legacyDuplicates = autosave.normalizeSavedCarts([
   { id: "legacy-auto-older", name: "Auto saved cart", savedAt: "2026-08-01T00:00:00.000Z", items: [item(20)] },

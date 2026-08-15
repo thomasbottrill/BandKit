@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bandkit player layout fixture</title>
+  <link rel="stylesheet" href="/hub.css">
+  <style>
+    body {
+      --hub-accent: #1da0c3;
+      --hub-accent-soft: rgba(236, 254, 255, 0.55);
+      --hub-card: #fff;
+      --hub-control-bg: #111827;
+      --hub-control-border: #111827;
+      --hub-control-fg: #fff;
+      --hub-control-radius: 5px;
+      --hub-ink: #111827;
+      --hub-line: #e5e7eb;
+      --hub-muted: #6b7280;
+      --hub-panel: #fff;
+      --hub-panel-player-gap: 12px;
+      --hub-player-height: 72px;
+      --hub-scrub-accent: #087f9e;
+      --hub-scrub-remaining: #cbd0d5;
+      --hub-scrub-halo: rgba(17, 24, 39, 0.62);
+      --hub-scrub-surface: #fff;
+      background: #eef2f4;
+      margin: 0;
+      min-height: 100vh;
+    }
+    .fixture-page { color: #536065; font: 16px/1.5 Arial, sans-serif; margin: 48px; max-width: 720px; }
+    .hub-panel { --hub-section-panel-height: 360px; }
+    .hub-panel .hub-content { padding: 28px; }
+    .hub-panel .hub-content h2 { margin: 0 0 12px; }
+  </style>
+</head>
+<body>
+  <main class="fixture-page">
+    <h1>Bandcamp page fixture</h1>
+    <p>The player and panel below exercise the extension’s floating layout.</p>
+  </main>
+  <section class="hub-panel is-contextual" aria-label="Settings panel">
+    <main class="hub-content">
+      <h2>Settings</h2>
+      <p>Playback, appearance, and layout options.</p>
+    </main>
+  </section>
+  <footer class="hub-player is-compact" data-content-width="default">
+    <div class="hub-player-content">
+      <div class="hub-player-main">
+        <div class="hub-player-actions">
+          <button class="hub-skip-button hub-previous-button" type="button"><img src="/assets/icon-skip.svg" alt="Previous"></button>
+          <button class="hub-play-button" type="button"><span class="hub-play-glyph"></span></button>
+          <button class="hub-skip-button" type="button"><img src="/assets/icon-skip.svg" alt="Next"></button>
+        </div>
+        <div class="hub-player-track">
+          <a class="hub-player-art-link"><img class="hub-art hub-player-art" src="/assets/art-clouds.png" alt=""></a>
+          <div class="hub-track-copy">
+            <a class="hub-track-title hub-player-title">Pace &amp; Space I</a>
+            <a class="hub-track-artist hub-player-artist">DJ Strawberry</a>
+          </div>
+        </div>
+        <div class="hub-player-tools">
+          <button class="hub-player-more-button" type="button"><span class="hub-player-more-dots"><span></span><span></span><span></span></span></button>
+          <button class="hub-dj-player-button" type="button" style="--hub-dj-icon:url('/assets/icon-dj.svg')"></button>
+        </div>
+      </div>
+      <div class="hub-scrub-row">
+        <span class="hub-current-time">5:54</span>
+        <div class="hub-scrub-control" style="--hub-scrub-progress:82%">
+          <input class="hub-scrub-slider" type="range" value="820" min="0" max="1000">
+          <svg class="hub-scrub-waveform" viewBox="0 0 700 24" preserveAspectRatio="none" aria-hidden="true">
+            <path class="hub-scrub-waveform-remaining" d="M2 12 L2 9 M10 12 L10 5 M18 12 L18 8 M26 12 L26 3 M34 12 L34 7 M42 12 L42 1 M50 12 L50 6 M58 12 L58 9 M66 12 L66 4 M74 12 L74 8 M82 12 L82 2 M90 12 L90 7 M98 12 L98 5 M106 12 L106 9 M114 12 L114 3 M122 12 L122 7 M130 12 L130 5 M138 12 L138 8 M146 12 L146 2 M154 12 L154 6 M162 12 L162 9 M170 12 L170 4 M178 12 L178 7 M186 12 L186 1 M194 12 L194 8 M202 12 L202 5 M210 12 L210 9 M218 12 L218 3 M226 12 L226 7 M234 12 L234 4 M242 12 L242 8 M250 12 L250 2 M258 12 L258 6 M266 12 L266 9 M274 12 L274 4 M282 12 L282 7 M290 12 L290 1 M298 12 L298 8 M306 12 L306 5 M314 12 L314 9 M322 12 L322 3 M330 12 L330 7 M338 12 L338 5 M346 12 L346 8 M354 12 L354 2 M362 12 L362 6 M370 12 L370 9 M378 12 L378 4 M386 12 L386 7 M394 12 L394 1 M402 12 L402 8 M410 12 L410 5 M418 12 L418 9 M426 12 L426 3 M434 12 L434 7 M442 12 L442 4 M450 12 L450 8 M458 12 L458 2 M466 12 L466 6 M474 12 L474 9 M482 12 L482 4 M490 12 L490 7 M498 12 L498 1 M506 12 L506 8 M514 12 L514 5 M522 12 L522 9 M530 12 L530 3 M538 12 L538 7 M546 12 L546 5 M554 12 L554 8 M562 12 L562 2 M570 12 L570 6 M578 12 L578 9 M586 12 L586 4 M594 12 L594 7 M602 12 L602 1 M610 12 L610 8 M618 12 L618 5 M626 12 L626 9 M634 12 L634 3 M642 12 L642 7 M650 12 L650 4 M658 12 L658 8 M666 12 L666 2 M674 12 L674 6 M682 12 L682 9 M690 12 L690 5"></path>
+            <path class="hub-scrub-waveform-played" d="M2 12 L2 9 M10 12 L10 5 M18 12 L18 8 M26 12 L26 3 M34 12 L34 7 M42 12 L42 1 M50 12 L50 6 M58 12 L58 9 M66 12 L66 4 M74 12 L74 8 M82 12 L82 2 M90 12 L90 7 M98 12 L98 5 M106 12 L106 9 M114 12 L114 3 M122 12 L122 7 M130 12 L130 5 M138 12 L138 8 M146 12 L146 2 M154 12 L154 6 M162 12 L162 9 M170 12 L170 4 M178 12 L178 7 M186 12 L186 1 M194 12 L194 8 M202 12 L202 5 M210 12 L210 9 M218 12 L218 3 M226 12 L226 7 M234 12 L234 4 M242 12 L242 8 M250 12 L250 2 M258 12 L258 6 M266 12 L266 9 M274 12 L274 4 M282 12 L282 7 M290 12 L290 1 M298 12 L298 8 M306 12 L306 5 M314 12 L314 9 M322 12 L322 3 M330 12 L330 7 M338 12 L338 5 M346 12 L346 8 M354 12 L354 2 M362 12 L362 6 M370 12 L370 9 M378 12 L378 4 M386 12 L386 7 M394 12 L394 1 M402 12 L402 8 M410 12 L410 5 M418 12 L418 9 M426 12 L426 3 M434 12 L434 7 M442 12 L442 4 M450 12 L450 8 M458 12 L458 2 M466 12 L466 6 M474 12 L474 9 M482 12 L482 4 M490 12 L490 7 M498 12 L498 1 M506 12 L506 8 M514 12 L514 5 M522 12 L522 9 M530 12 L530 3 M538 12 L538 7 M546 12 L546 5 M554 12 L554 8 M562 12 L562 2 M570 12 L570 6 M578 12 L578 9 M586 12 L586 4 M594 12 L594 7 M602 12 L602 1 M610 12 L610 8 M618 12 L618 5 M626 12 L626 9 M634 12 L634 3 M642 12 L642 7 M650 12 L650 4 M658 12 L658 8 M666 12 L666 2 M674 12 L674 6 M682 12 L682 9 M690 12 L690 5"></path>
+          </svg>
+        </div>
+        <span class="hub-duration">7:00</span>
+      </div>
+    </div>
+    <div class="hub-player-sections" style="--hub-sections-center-x:1574px;--hub-sections-panel-width:420px">
+      <button class="hub-now-playing-button"><span class="hub-now-playing-icon" style="--hub-icon:url('/assets/icon-now-playing.svg')"></span><span class="hub-now-playing-count">1</span></button>
+      <button class="hub-now-playing-button"><span class="hub-now-playing-icon" style="--hub-icon:url('/assets/icon-playlist.svg')"></span></button>
+      <button class="hub-now-playing-button"><span class="hub-now-playing-icon" style="--hub-icon:url('/assets/icon-cart.svg')"></span></button>
+      <button class="hub-now-playing-button"><span class="hub-now-playing-icon" style="--hub-icon:url('/assets/icon-settings.svg')"></span></button>
+    </div>
+  </footer>
+  <script>
+    const fixtureParams = new URLSearchParams(location.search);
+    if (fixtureParams.get("mode") === "standard") {
+      document.querySelector(".hub-player").classList.remove("is-compact");
+      document.body.style.setProperty("--hub-player-height", "96px");
+    }
+    const fixtureWidth = fixtureParams.get("width");
+    if (["tight", "default", "wide", "full", "custom"].includes(fixtureWidth)) {
+      document.querySelector(".hub-player").dataset.contentWidth = fixtureWidth;
+    }
+    const fixtureCustomWidth = Number(fixtureParams.get("custom"));
+    if (fixtureCustomWidth) {
+      document.querySelector(".hub-player").style.setProperty("--hub-player-custom-width", `${fixtureCustomWidth}px`);
+    }
+  </script>
+</body>
+</html>

@@ -1,80 +1,86 @@
-/* BandKit's opt-in modern page palette. Every rule is scoped so disabling the
-   setting returns the untouched Bandcamp page immediately. */
-html[data-bandkit-modern-pending="true"] {
+/* src/styles/modern/base.css */
+html[data-bandkit-modern-pending=true] {
   background: #f3f1eb !important;
 }
-
-html[data-bandkit-modern-pending="true"] body {
+html[data-bandkit-modern-pending=true] body {
   opacity: 0 !important;
   pointer-events: none !important;
 }
-
-html[data-bandkit-modern-ready="true"] body {
+html[data-bandkit-modern-ready=true] body {
   animation: bandkit-modern-page-reveal 140ms ease-out both;
 }
-
 @keyframes bandkit-modern-page-reveal {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
-
 @media (prefers-reduced-motion: reduce) {
-  html[data-bandkit-modern-ready="true"] body {
+  html[data-bandkit-modern-ready=true] body {
     animation: none;
   }
 }
-
-html[data-bandkit-modern-release="true"],
-html[data-bandkit-modern-page="true"] {
+html[data-bandkit-modern-release=true],
+html[data-bandkit-modern-page=true] {
   --bandkit-release-accent: #1f5130;
   --bandkit-release-accent-soft: #e8f0ea;
   --bandkit-release-bg: #f3f1eb;
   --bandkit-release-surface: #fffefa;
   --bandkit-release-surface-raised: #ffffff;
+  --bandkit-release-background-ink: #161916;
   --bandkit-release-ink: #161916;
   --bandkit-release-muted: #666b66;
   --bandkit-release-line: #dcd9d0;
   --bandkit-release-on-accent: #ffffff;
+  --bandkit-release-raised-ink: #161916;
+  --bandkit-release-raised-muted: #666b66;
+  --bandkit-release-raised-line: #dcd9d0;
+  --bandkit-release-raised-accent: #1f5130;
+  --bandkit-release-raised-accent-soft: #e8f0ea;
+  --bandkit-release-raised-on-accent: #ffffff;
   --bandkit-release-navbar: #fffefa;
   --bandkit-release-navbar-text: #161916;
+  --bandkit-release-navbar-accent: #1f5130;
+  --bandkit-release-navbar-line: #dcd9d0;
   --bandkit-release-footer-bg: #f3f1eb;
+  --bandkit-release-footer-ink: #161916;
+  --bandkit-release-footer-muted: #666b66;
+  --bandkit-release-footer-line: #dcd9d0;
+  --bandkit-release-footer-accent: #1f5130;
+  --bandkit-release-footer-accent-soft: #e8f0ea;
+  --bandkit-release-footer-on-accent: #ffffff;
   --bandkit-release-scheme: light;
   --bandkit-release-danger: #bd372f;
   color-scheme: var(--bandkit-release-scheme);
 }
-
-/* Shared treatment for Bandcamp's remaining legacy surfaces. Collection,
-   Home, and Discover never receive data-bandkit-modern-page-type. */
-html[data-bandkit-modern-page="true"]:not([data-bandkit-modern-page-type="release"]) {
+html[data-bandkit-modern-page=true]:not([data-bandkit-modern-page-type=release]) {
   background: var(--bandkit-release-bg) !important;
   color-scheme: var(--bandkit-release-scheme);
 }
-
-html[data-bandkit-modern-page="true"]:not([data-bandkit-modern-page-type="release"]) body {
+html[data-bandkit-modern-page=true]:not([data-bandkit-modern-page-type=release]) body {
   background-color: var(--bandkit-release-bg) !important;
   background-image: none !important;
-  color: var(--bandkit-release-ink) !important;
+  color: var(--bandkit-release-background-ink) !important;
 }
-
-html[data-bandkit-modern-page="true"]:not([data-bandkit-modern-page-type="release"]) body,
-html[data-bandkit-modern-page="true"]:not([data-bandkit-modern-page-type="release"]) body *,
-html[data-bandkit-modern-page="true"]:not([data-bandkit-modern-page-type="release"]) body *::before,
-html[data-bandkit-modern-page="true"]:not([data-bandkit-modern-page-type="release"]) body *::after {
+html[data-bandkit-modern-page=true]:not([data-bandkit-modern-page-type=release]) body,
+html[data-bandkit-modern-page=true]:not([data-bandkit-modern-page-type=release]) body *,
+html[data-bandkit-modern-page=true]:not([data-bandkit-modern-page-type=release]) body *::before,
+html[data-bandkit-modern-page=true]:not([data-bandkit-modern-page-type=release]) body *::after {
   box-sizing: border-box;
 }
-
-html[data-bandkit-modern-page="true"]:not([data-bandkit-modern-page-type="release"]) :is(a, button) {
+html[data-bandkit-modern-page=true]:not([data-bandkit-modern-page-type=release]) :is(a, button) {
   text-underline-offset: 0.16em;
 }
-
-html[data-bandkit-modern-page="true"]:not([data-bandkit-modern-page-type="release"]) :focus-visible {
+html[data-bandkit-modern-page=true]:not([data-bandkit-modern-page-type=release]) :focus-visible {
   outline: 2px solid var(--bandkit-release-accent) !important;
   outline-offset: 2px;
 }
 
-/* Artist shell shared by Music, Merch, and Community. */
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #centerWrapper,
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #propOpenWrapper {
+/* src/styles/modern/artist-shell.css */
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=community], [data-bandkit-modern-page-type=video]) #centerWrapper,
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=community], [data-bandkit-modern-page-type=video]) #propOpenWrapper {
   background: transparent !important;
   margin: 0 !important;
   max-width: none !important;
@@ -82,8 +88,7 @@ html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"]
   padding: 0 !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #pgBd {
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=community], [data-bandkit-modern-page-type=video]) #pgBd {
   background: var(--bandkit-release-surface) !important;
   color: var(--bandkit-release-ink) !important;
   float: none !important;
@@ -96,40 +101,33 @@ html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"]
   position: relative;
   width: calc(100% - 48px) !important;
 }
-
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #customHeaderWrapper {
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=community], [data-bandkit-modern-page-type=video]) #customHeaderWrapper {
   margin: 0 -24px !important;
   overflow: hidden;
   width: calc(100% + 48px) !important;
 }
-
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #customHeader {
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=community], [data-bandkit-modern-page-type=video]) #customHeader {
   aspect-ratio: 975 / 180;
   display: block;
   height: auto !important;
   overflow: hidden;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #customHeader :is(.desktop-header, .desktop-header > a, picture),
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #customHeader img {
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=community], [data-bandkit-modern-page-type=video]) #customHeader :is(.desktop-header, .desktop-header > a, picture),
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=community], [data-bandkit-modern-page-type=video]) #customHeader img {
   display: block;
   height: 100% !important;
   max-width: none !important;
   object-fit: cover;
   width: 100% !important;
 }
-
-/* One artist/label navigation component across album, music, merch, and
-   community pages. This deliberately matches the redesigned album page. */
-html[data-bandkit-modern-page="true"] .band-navbar-wrapper {
+html[data-bandkit-modern-page=true] .band-navbar-wrapper {
   background: var(--bandkit-release-navbar) !important;
-  border-bottom: 1px solid var(--bandkit-release-line);
+  border-bottom: 1px solid var(--bandkit-release-navbar-line);
   min-height: 48px;
   padding: 0 24px;
 }
-
-html[data-bandkit-modern-page="true"] #band-navbar {
+html[data-bandkit-modern-page=true] #band-navbar {
   align-items: stretch;
   background: var(--bandkit-release-navbar) !important;
   display: flex !important;
@@ -141,13 +139,11 @@ html[data-bandkit-modern-page="true"] #band-navbar {
   padding: 0 !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"] #band-navbar li {
+html[data-bandkit-modern-page=true] #band-navbar li {
   display: flex;
   margin: 0 !important;
 }
-
-html[data-bandkit-modern-page="true"] #band-navbar a {
+html[data-bandkit-modern-page=true] #band-navbar a {
   align-items: center;
   border: 0 !important;
   color: var(--bandkit-release-navbar-text) !important;
@@ -160,14 +156,12 @@ html[data-bandkit-modern-page="true"] #band-navbar a {
   text-decoration: none !important;
   white-space: nowrap;
 }
-
-html[data-bandkit-modern-page="true"] #band-navbar a:is(.active, :hover) {
+html[data-bandkit-modern-page=true] #band-navbar a:is(.active, :hover) {
   color: var(--bandkit-release-navbar-text) !important;
   text-decoration: none !important;
 }
-
-html[data-bandkit-modern-page="true"] #band-navbar a.active::after {
-  background: var(--bandkit-release-accent);
+html[data-bandkit-modern-page=true] #band-navbar a.active::after {
+  background: var(--bandkit-release-navbar-accent);
   bottom: 0;
   content: "";
   height: 2px;
@@ -175,19 +169,25 @@ html[data-bandkit-modern-page="true"] #band-navbar a.active::after {
   position: absolute;
   right: 0;
 }
+html[data-bandkit-modern-page=true] :is(#rightColumn > #bio-container, #rightColumn > #showography, #rightColumn > #discography, #rightColumn > .sidebar, #rightColumn > .widget, .artists-grid > .artists-grid-item, #music-grid > .music-grid-item, #merch-grid > .merch-grid-item, .video-list > .video-caption, .community-feed .story, .community-feed .community-recent-release, .community-band-info .story, .community-band-info .community-recent-release, #community-inner > .community-view.feed > .community-default-column:nth-child(2) > .community-band-info, #community-inner > .community-view.feed > .community-default-column:nth-child(2) > .community-recent-release, #community-inner > .community-view.feed > .community-default-column:nth-child(2) > .community-recent-supporters, body.feed .story-innards, body.feed #sidebar, body.feed #sidebar .collection-grid > .collection-item-container, body.tralbum-page #track_table .track_row_view, body.tralbum-page .bandkit-modern-purchase-panel, body.tralbum-page #bio-container, body.tralbum-page #discography, body.tralbum-page #rightColumn > .sidebar, body.tralbum-page #rightColumn > #recommended, body.tralbum-page #recommendations_container .recommended-album) {
+  --bandkit-release-ink: var(--bandkit-release-raised-ink);
+  --bandkit-release-muted: var(--bandkit-release-raised-muted);
+  --bandkit-release-line: var(--bandkit-release-raised-line);
+  --bandkit-release-accent: var(--bandkit-release-raised-accent);
+  --bandkit-release-accent-soft: var(--bandkit-release-raised-accent-soft);
+  --bandkit-release-on-accent: var(--bandkit-release-raised-on-accent);
+}
 
-/* Artist Releases, Merch, and Video shell. */
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #pgBd {
+/* src/styles/modern/catalogue.css */
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #pgBd {
   display: grid !important;
   gap: 0 32px;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
 }
-
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #customHeaderWrapper {
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #customHeaderWrapper {
   grid-column: 1 / -1;
 }
-
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) .leftMiddleColumns {
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) .leftMiddleColumns {
   float: none !important;
   grid-column: 1;
   margin: 0 !important;
@@ -195,22 +195,23 @@ html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"]
   padding-top: 32px;
   width: auto !important;
 }
-
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] .leftMiddleColumns {
+  padding-top: 20px;
+}
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #rightColumn {
   align-self: start;
   color: var(--bandkit-release-ink) !important;
   display: flex !important;
   flex-direction: column;
   float: none !important;
-  gap: 16px;
+  gap: 0;
   grid-column: 2;
   margin: 32px 0 0 !important;
   min-width: 0;
   padding: 0 !important;
   width: auto !important;
 }
-
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn > :is(#bio-container, #showography, #discography, .sidebar, .widget) {
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #rightColumn > :is(#bio-container, #showography, #discography, .sidebar, .widget) {
   background: var(--bandkit-release-surface-raised) !important;
   border: 1px solid var(--bandkit-release-line) !important;
   border-radius: 8px;
@@ -221,9 +222,8 @@ html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"]
   padding: 20px !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #bio-container .artists-bio-pic,
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #bio-container .artists-bio-pic img {
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #bio-container .artists-bio-pic,
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #bio-container .artists-bio-pic img {
   border-radius: 6px;
   display: block;
   height: 72px !important;
@@ -232,47 +232,123 @@ html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"]
   object-fit: cover;
   width: 72px !important;
 }
-
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn > #bio-container {
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #rightColumn > #bio-container {
   display: grid !important;
   gap: 7px 14px;
   grid-template-columns: 72px minmax(0, 1fr);
+  margin-bottom: 28px !important;
 }
-
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #bio-container .artists-bio-pic {
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #bio-container .artists-bio-pic {
   grid-column: 1;
   grid-row: 1 / span 3;
 }
-
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #bio-container #band-name-location,
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #bio-container .following-actions-wrapper,
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #bio-container > .title,
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #bio-container > .location {
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #bio-container #band-name-location,
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #bio-container .following-actions-wrapper,
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #bio-container > .title,
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #bio-container > .location {
   grid-column: 2;
   margin: 0 !important;
   min-width: 0;
   width: auto !important;
 }
-
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #bio-container :is(.signed-out-artists-bio-text, #band-links, #recommended, #bio-text) {
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #bio-container :is(.signed-out-artists-bio-text, #band-links, #recommended, #bio-text) {
   grid-column: 1 / -1;
   margin: 3px 0 0 !important;
   width: auto !important;
 }
-
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn :is(h2, h3, .title, p, li) {
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #rightColumn :is(h2, h3, .title, p, li) {
   color: var(--bandkit-release-ink) !important;
 }
-
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn :is(.secondaryText, .location, .showDate, .showLoc, #bio-text) {
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #rightColumn :is(.secondaryText, .location, .showDate, .showLoc, #bio-text) {
   color: var(--bandkit-release-muted) !important;
 }
-
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn a {
-  color: var(--bandkit-release-accent) !important;
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #rightColumn a {
+  color: var(--bandkit-release-ink) !important;
+  color: color-mix(in srgb, var(--bandkit-release-ink) 82%, transparent) !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid {
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #rightColumn a:is(:hover, :focus-visible) {
+  color: var(--bandkit-release-ink) !important;
+}
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #rightColumn > #contact-help {
+  font-size: 14px !important;
+  line-height: 1.35 !important;
+  margin: 0 0 10px !important;
+}
+html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #rightColumn > #contact-help ~ p {
+  line-height: 1.35 !important;
+  margin: 0 0 10px !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] .artists-grid {
+  display: grid !important;
+  float: none !important;
+  gap: 32px 24px !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] .artists-grid > .artists-grid-item {
+  background: var(--bandkit-release-surface-raised) !important;
+  border: 1px solid color-mix(in srgb, var(--bandkit-release-line) 60%, transparent) !important;
+  border-radius: 8px;
+  display: block !important;
+  float: none !important;
+  margin: 0 !important;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 0 14px !important;
+  transition: border-color 140ms ease, transform 140ms ease;
+  width: auto !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] .artists-grid > .artists-grid-item:is(:hover, :focus-within) {
+  border-color: var(--bandkit-release-accent) !important;
+  transform: translateY(-2px);
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] .artists-grid > .artists-grid-item > a {
+  color: var(--bandkit-release-ink) !important;
+  display: block !important;
+  text-decoration: none !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] .artists-grid .artists-grid-pic {
+  aspect-ratio: 4 / 3 !important;
+  background: var(--bandkit-release-accent-soft);
+  height: auto !important;
+  overflow: hidden;
+  position: relative !important;
+  width: 100% !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] .artists-grid .artists-grid-pic img {
+  display: block !important;
+  height: 100% !important;
+  inset: 0;
+  max-width: none !important;
+  object-fit: cover;
+  position: absolute !important;
+  transition: transform 180ms ease;
+  width: 100% !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] .artists-grid > li:is(:hover, :focus-within) .artists-grid-pic img {
+  transform: scale(1.025);
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] .artists-grid :is(.artists-grid-name, .artists-grid-location) {
+  overflow-wrap: anywhere;
+  padding-inline: 14px !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] .artists-grid .artists-grid-name {
+  color: var(--bandkit-release-ink) !important;
+  font-size: 15px !important;
+  font-weight: 650 !important;
+  line-height: 1.35 !important;
+  margin: 0 !important;
+  padding-top: 12px !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] .artists-grid .artists-grid-location {
+  color: var(--bandkit-release-muted) !important;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+  margin: 2px 0 0 !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] #music-grid {
   display: grid !important;
   float: none !important;
   gap: 32px 24px !important;
@@ -281,10 +357,9 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #mu
   padding: 0 !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid > .music-grid-item {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] #music-grid > .music-grid-item {
   background: var(--bandkit-release-surface-raised) !important;
-  border: 1px solid var(--bandkit-release-line) !important;
+  border: 1px solid color-mix(in srgb, var(--bandkit-release-line) 60%, transparent) !important;
   border-radius: 8px;
   float: none !important;
   margin: 0 !important;
@@ -294,19 +369,16 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #mu
   transition: border-color 140ms ease, transform 140ms ease;
   width: auto !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid > .music-grid-item:is(:hover, :focus-within) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] #music-grid > .music-grid-item:is(:hover, :focus-within) {
   border-color: var(--bandkit-release-accent) !important;
   transform: translateY(-2px);
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid > .music-grid-item > a {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] #music-grid > .music-grid-item > a {
   color: var(--bandkit-release-ink) !important;
   display: block !important;
   text-decoration: none !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid .art {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] #music-grid .art {
   aspect-ratio: 1 / 1 !important;
   background: var(--bandkit-release-accent-soft);
   height: auto !important;
@@ -314,8 +386,7 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #mu
   position: relative !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid .art img {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] #music-grid .art img {
   display: block;
   height: 100% !important;
   inset: 0;
@@ -325,12 +396,10 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #mu
   transition: transform 180ms ease;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid > li:is(:hover, :focus-within) .art img {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] #music-grid > li:is(:hover, :focus-within) .art img {
   transform: scale(1.025);
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid > li .title {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] #music-grid > li .title {
   color: var(--bandkit-release-ink) !important;
   font-size: 14px !important;
   font-weight: 650 !important;
@@ -340,8 +409,8 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #mu
   padding: 12px 14px 14px !important;
 }
 
-/* Artist Vinyl / Merch. Merch metadata needs a denser card than releases. */
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid {
+/* src/styles/modern/merch-video-community.css */
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=merch] #merch-grid {
   align-items: start;
   display: grid !important;
   float: none !important;
@@ -351,11 +420,10 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #me
   padding: 0 !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid > .merch-grid-item {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=merch] #merch-grid > .merch-grid-item {
   align-self: start;
   background: var(--bandkit-release-surface-raised) !important;
-  border: 1px solid var(--bandkit-release-line) !important;
+  border: 1px solid color-mix(in srgb, var(--bandkit-release-line) 60%, transparent) !important;
   border-radius: 8px;
   display: flex !important;
   flex-direction: column;
@@ -369,19 +437,16 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #me
   transition: border-color 140ms ease, transform 140ms ease;
   width: auto !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid > .merch-grid-item:is(:hover, :focus-within) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=merch] #merch-grid > .merch-grid-item:is(:hover, :focus-within) {
   border-color: var(--bandkit-release-accent) !important;
   transform: translateY(-2px);
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid > .merch-grid-item > a {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=merch] #merch-grid > .merch-grid-item > a {
   color: var(--bandkit-release-ink) !important;
   display: block !important;
   text-decoration: none !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid .art {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=merch] #merch-grid .art {
   aspect-ratio: 1 / 1 !important;
   background: var(--bandkit-release-surface-raised);
   height: auto !important;
@@ -389,8 +454,7 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #me
   position: relative !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid .art img {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=merch] #merch-grid .art img {
   display: block;
   height: 100% !important;
   inset: 0;
@@ -400,12 +464,10 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #me
   transition: opacity 140ms ease;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid > li:is(:hover, :focus-within) .art img {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=merch] #merch-grid > li:is(:hover, :focus-within) .art img {
   opacity: 0.94;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid .title {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=merch] #merch-grid .title {
   color: var(--bandkit-release-ink) !important;
   font-size: 14px !important;
   font-weight: 650 !important;
@@ -413,34 +475,27 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #me
   margin: 0 !important;
   padding: 12px 14px 4px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid :is(.merchtype, .price) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=merch] #merch-grid :is(.merchtype, .price) {
   color: var(--bandkit-release-muted) !important;
   font-size: 12px !important;
   line-height: 1.45 !important;
   margin: 0 !important;
   padding: 2px 14px 0 !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid > .merch-grid-item > .price {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=merch] #merch-grid > .merch-grid-item > .price {
   color: var(--bandkit-release-ink) !important;
   font-weight: 650 !important;
   margin-top: 8px !important;
   padding-top: 10px !important;
 }
-
-/* Artist Videos. Bandcamp alternates each player <dt> with its caption <dd>;
-   matching borders make the pair read as one media card without changing the
-   native player lifecycle. */
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-list {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=video] .video-list {
   color: var(--bandkit-release-ink) !important;
   display: block !important;
   margin: 0 !important;
   padding: 0 !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-list > .video-wrapper {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=video] .video-list > .video-wrapper {
   aspect-ratio: 16 / 9;
   background: #000 !important;
   border: 1px solid var(--bandkit-release-line) !important;
@@ -454,8 +509,7 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .vi
   position: relative !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-list > .video-wrapper > :is(.video-generic-iframe, .playerframe, iframe, video) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=video] .video-list > .video-wrapper > :is(.video-generic-iframe, .playerframe, iframe, video) {
   height: 100% !important;
   inset: 0;
   margin: 0 !important;
@@ -463,22 +517,19 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .vi
   position: absolute !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-generic-iframe img {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=video] .video-generic-iframe img {
   display: block;
   height: 100% !important;
   object-fit: cover;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-play-button {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=video] .video-play-button {
   left: 50% !important;
   margin: 0 !important;
   top: 50% !important;
   transform: translate(-50%, -50%);
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-list > .video-caption {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=video] .video-list > .video-caption {
   background: var(--bandkit-release-surface-raised) !important;
   border: 1px solid var(--bandkit-release-line) !important;
   border-radius: 0 0 10px 10px;
@@ -494,23 +545,20 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .vi
   position: relative;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-caption > .caption-proper {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=video] .video-caption > .caption-proper {
   color: var(--bandkit-release-muted) !important;
   grid-column: 1 / -1;
   line-height: 1.5 !important;
   margin: 0 0 14px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-caption > a:has(.tralbum-art) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=video] .video-caption > a:has(.tralbum-art) {
   display: block !important;
   grid-column: 1;
   height: 64px;
   width: 64px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-caption .tralbum-art,
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-caption .tralbum-art img {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=video] .video-caption .tralbum-art,
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=video] .video-caption .tralbum-art img {
   border-radius: 5px;
   display: block;
   float: none !important;
@@ -519,8 +567,7 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .vi
   object-fit: cover;
   width: 64px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-associated-tralbum-info {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=video] .video-associated-tralbum-info {
   color: var(--bandkit-release-muted) !important;
   font-size: 14px !important;
   grid-column: 2;
@@ -529,29 +576,24 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .vi
   min-width: 0;
   width: auto !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-associated-tralbum-info > b {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=video] .video-associated-tralbum-info > b {
   color: var(--bandkit-release-ink) !important;
   font-size: 16px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-caption:not(:has(.tralbum-art)) .video-associated-tralbum-info {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=video] .video-caption:not(:has(.tralbum-art)) .video-associated-tralbum-info {
   grid-column: 1 / -1;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-associated-tralbum-info > p {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=video] .video-associated-tralbum-info > p {
   align-items: center;
   display: flex !important;
   flex-wrap: wrap;
   gap: 8px;
   margin: 12px 0 0 !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-associated-tralbum-info .collect-item {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=video] .video-associated-tralbum-info .collect-item {
   display: contents !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .sub-vid-action-link {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=video] .sub-vid-action-link {
   align-items: center;
   background: var(--bandkit-release-accent-soft) !important;
   border: 1px solid var(--bandkit-release-line) !important;
@@ -566,29 +608,24 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .su
   padding: 6px 10px !important;
   text-decoration: none !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .sub-vid-action-link:is(:hover, :focus-visible) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=video] .sub-vid-action-link:is(:hover, :focus-visible) {
   border-color: var(--bandkit-release-accent) !important;
 }
-
-/* Artist Community. */
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] #community {
   color: var(--bandkit-release-ink) !important;
   margin: 0 auto !important;
   max-width: none !important;
   padding: 32px 0 0 !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community-inner {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] #community-inner {
   background: transparent !important;
   color: var(--bandkit-release-ink) !important;
   margin: 0 !important;
   max-width: none !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community-inner > .community-view.feed {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] #community-inner > .community-view.feed {
   align-items: start;
   background: transparent !important;
   color: var(--bandkit-release-ink) !important;
@@ -599,15 +636,13 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"]
   max-width: none !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community-inner > .community-view.feed > .community-default-column:first-child {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] #community-inner > .community-view.feed > .community-default-column:first-child {
   margin: 0 !important;
   max-width: none !important;
   min-width: 0;
   width: auto !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community-inner > .community-view.feed > .community-default-column:nth-child(2) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] #community-inner > .community-view.feed > .community-default-column:nth-child(2) {
   display: flex !important;
   flex-direction: column;
   gap: 16px;
@@ -616,8 +651,7 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"]
   min-width: 0;
   width: auto !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-follow-banner {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-follow-banner {
   background: var(--bandkit-release-accent-soft) !important;
   border: 1px solid color-mix(in srgb, var(--bandkit-release-accent) 42%, var(--bandkit-release-line)) !important;
   border-radius: 8px;
@@ -625,28 +659,24 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"]
   margin: 0 0 28px !important;
   padding: 24px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-follow-banner h2 {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-follow-banner h2 {
   font-size: 22px !important;
   letter-spacing: -0.02em;
   line-height: 1.15 !important;
   margin: 0 0 10px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-follow-banner > div {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-follow-banner > div {
   color: var(--bandkit-release-muted) !important;
   font-size: 14px !important;
   line-height: 1.55 !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-feed > .messages {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-feed > .messages {
   color: var(--bandkit-release-ink) !important;
   font-size: 24px !important;
   line-height: 1.2 !important;
   margin: 0 0 18px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] :is(.community-feed, .community-band-info) :is(.story, .community-recent-release) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] :is(.community-feed, .community-band-info) :is(.story, .community-recent-release) {
   background: var(--bandkit-release-surface-raised) !important;
   border: 1px solid var(--bandkit-release-line) !important;
   border-radius: 8px;
@@ -654,34 +684,29 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"]
   margin: 0 0 18px !important;
   overflow: hidden;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-feed .stories {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-feed .stories {
   margin: 0 !important;
   padding: 0 !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-feed .story {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-feed .story {
   list-style: none !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .story .lock-banner {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .story .lock-banner {
   background: var(--bandkit-release-accent-soft) !important;
   border: 0 !important;
   border-bottom: 1px solid var(--bandkit-release-line) !important;
   color: var(--bandkit-release-ink) !important;
   margin: 0 !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .story .lock-banner-inner {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .story .lock-banner-inner {
   align-items: center;
   display: flex !important;
   gap: 16px;
   justify-content: space-between;
   padding: 16px 22px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .story .lock-follow,
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-band-info .follow-unfollow {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .story .lock-follow,
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-band-info .follow-unfollow {
   background: var(--bandkit-release-accent) !important;
   border: 1px solid var(--bandkit-release-accent) !important;
   color: var(--bandkit-release-on-accent) !important;
@@ -689,40 +714,32 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"]
   min-height: 36px;
   padding: 0 18px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .story .main-section {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .story .main-section {
   padding: 24px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .story .actions {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .story .actions {
   border-top: 1px solid var(--bandkit-release-line) !important;
   margin: 0 !important;
   padding: 12px 24px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .story :is(.story-band-bio-pic, .fan-photo-container, .fan-photo),
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .story :is(.story-band-bio-pic, .fan-photo-container, .fan-photo) img {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .story :is(.story-band-bio-pic, .fan-photo-container, .fan-photo),
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .story :is(.story-band-bio-pic, .fan-photo-container, .fan-photo) img {
   border-radius: 50%;
   overflow: hidden;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community :is(.story-band-name, .story-body, h2, h3, p) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] #community :is(.story-band-name, .story-body, h2, h3, p) {
   color: var(--bandkit-release-ink) !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community :is(.story-meta-secondary, .story-date, .pinned-post-text) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] #community :is(.story-meta-secondary, .story-date, .pinned-post-text) {
   color: var(--bandkit-release-muted) !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community a {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] #community a {
   color: var(--bandkit-release-accent) !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community :is(button, .lock-follow) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] #community :is(button, .lock-follow) {
   border-radius: 6px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community-inner > .community-view.feed > .community-default-column:nth-child(2) > :is(.community-band-info, .community-recent-release, .community-recent-supporters) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] #community-inner > .community-view.feed > .community-default-column:nth-child(2) > :is(.community-band-info, .community-recent-release, .community-recent-supporters) {
   background: var(--bandkit-release-surface-raised) !important;
   border: 1px solid var(--bandkit-release-line) !important;
   border-radius: 8px;
@@ -732,16 +749,14 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"]
   padding: 20px !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-band-info {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-band-info {
   align-items: center;
   display: flex !important;
   flex-direction: column;
   text-align: center;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-band-info .band-photo,
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-band-info .band-photo img {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-band-info .band-photo,
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-band-info .band-photo img {
   border-radius: 50%;
   display: block;
   height: 96px !important;
@@ -750,42 +765,36 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"]
   overflow: hidden;
   width: 96px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-band-info :is(.name, .location) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-band-info :is(.name, .location) {
   color: var(--bandkit-release-ink) !important;
   margin: 0 !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-band-info .name {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-band-info .name {
   font-size: 18px !important;
   line-height: 1.3 !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-band-info .location {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-band-info .location {
   color: var(--bandkit-release-muted) !important;
   font-size: 12px !important;
   font-weight: 400 !important;
   line-height: 1.4 !important;
   padding-top: 3px;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] :is(.community-recent-release, .community-recent-supporters) > .heading {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] :is(.community-recent-release, .community-recent-supporters) > .heading {
   color: var(--bandkit-release-ink) !important;
   font-size: 13px !important;
   font-weight: 700 !important;
   line-height: 1.4 !important;
   margin: 0 0 14px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-release .tralbum-link {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-recent-release .tralbum-link {
   color: var(--bandkit-release-ink) !important;
   display: block !important;
   text-decoration: none !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-release .art,
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-release .art img {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-recent-release .art,
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-recent-release .art img {
   aspect-ratio: 1;
   border-radius: 6px;
   display: block;
@@ -794,16 +803,14 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"]
   overflow: hidden;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-release .title {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-recent-release .title {
   color: var(--bandkit-release-ink) !important;
   font-size: 14px !important;
   font-weight: 650 !important;
   line-height: 1.4 !important;
   padding-top: 10px;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-release .item-collection-controls {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-recent-release .item-collection-controls {
   align-items: center;
   border-top: 1px solid var(--bandkit-release-line);
   display: flex !important;
@@ -812,53 +819,44 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"]
   margin: 14px -20px -20px !important;
   padding: 12px 20px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-release .collection-btn {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-recent-release .collection-btn {
   float: none !important;
   margin: 0 !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-supporters .supporters {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-recent-supporters .supporters {
   display: grid !important;
   gap: 10px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 0 !important;
   padding: 0 !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-supporters .supporters > li {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-recent-supporters .supporters > li {
   margin: 0 !important;
   min-width: 0;
   width: auto !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-supporters img {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-recent-supporters img {
   border-radius: 50%;
   display: block;
   height: auto !important;
   width: 100% !important;
 }
 
-/* Fan Feed. Collection grids are intentionally excluded. */
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] {
+/* src/styles/modern/feed.css */
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] {
   --bandkit-feed-card: #ffffff;
-  --bandkit-feed-card-footer: #fafbf9;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"][data-bandkit-page-theme="true"] {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed][data-bandkit-page-theme=true] {
   --bandkit-feed-card: var(--bandkit-release-surface-raised);
-  --bandkit-feed-card-footer: var(--bandkit-release-surface);
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed :is(#centerWrapper, #propOpenWrapper) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed :is(#centerWrapper, #propOpenWrapper) {
   background: transparent !important;
   margin-inline: 0 !important;
   max-width: none !important;
   min-width: 0 !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed :is(#pgBd, main) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed :is(#pgBd, main) {
   color: var(--bandkit-release-ink) !important;
   float: none !important;
   margin-inline: auto !important;
@@ -867,8 +865,7 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   padding-inline: 24px !important;
   width: calc(100% - 48px) !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #dash-container {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #dash-container {
   align-items: start;
   display: grid !important;
   gap: 32px;
@@ -876,33 +873,32 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   min-height: 1px;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed :is(#stories-vm, #stories, #story-list) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed :is(#stories-vm, #stories, #story-list) {
   float: none !important;
   margin-inline: 0 !important;
   min-width: 0;
   padding-inline: 0 !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #stories-vm {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #stories-vm {
   grid-column: 1;
   grid-row: 1;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #story-list {
-  margin-top: 20px !important;
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #stories-vm > h2,
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #stories > h2 {
+  display: none !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #story-list {
+  margin-top: 0 !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar {
   float: none !important;
   grid-column: 2;
   grid-row: 1;
   min-width: 0;
   width: 300px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story {
   align-items: start;
   display: grid !important;
   gap: 16px;
@@ -912,8 +908,7 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   padding: 0 !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-sidebar {
   align-items: center;
   display: flex !important;
   flex-direction: column;
@@ -923,29 +918,26 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   text-align: center;
   width: 72px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar .pic,
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar .band-image.thumb {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-sidebar .pic,
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-sidebar .band-image.thumb {
   display: block !important;
   height: 56px !important;
   width: 56px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar .pic {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-sidebar .pic {
   margin-inline: auto;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar .band-image.thumb {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-sidebar .band-image.thumb {
   border-radius: 8px;
   object-fit: cover;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar .follow-band {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-sidebar .follow-band {
   align-items: center;
   background: var(--bandkit-release-accent) !important;
   border: 1px solid var(--bandkit-release-accent) !important;
-  border-radius: 999px;
+  border-radius: 999px !important;
   color: var(--bandkit-release-on-accent) !important;
+  -webkit-text-fill-color: var(--bandkit-release-on-accent) !important;
   display: inline-flex !important;
   font-size: 11px !important;
   font-weight: 700 !important;
@@ -959,20 +951,32 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   white-space: nowrap;
   width: max-content !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar .follow-band :is(.following-msg, .unfollow-msg) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-sidebar .follow-band :is(.following-msg, .unfollow-msg) {
   background: transparent !important;
   color: inherit !important;
+  -webkit-text-fill-color: inherit !important;
   line-height: inherit !important;
   margin: 0 !important;
+  opacity: 1 !important;
   padding: 0 !important;
+  visibility: visible !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed][data-bandkit-page-theme=true] body.feed .story-sidebar .follow-band {
+  background: var(--bandkit-page-accent) !important;
+  border-color: var(--bandkit-page-accent) !important;
+  color: var(--bandkit-page-on-accent) !important;
+  -webkit-text-fill-color: var(--bandkit-page-on-accent) !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed][data-bandkit-page-theme=true] body.feed .story-sidebar .follow-band * {
+  background: transparent !important;
+  color: inherit !important;
+  -webkit-text-fill-color: inherit !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-innards {
   background: var(--bandkit-feed-card) !important;
-  border: 1px solid var(--bandkit-release-line) !important;
+  border: 0 !important;
   border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(22, 25, 22, 0.04);
+  box-shadow: none;
   color: var(--bandkit-release-ink) !important;
   margin: 0 !important;
   min-width: 0;
@@ -980,35 +984,29 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   padding: 0 !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story :is(.story-body, .collection-item-container) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story :is(.story-body, .collection-item-container) {
   color: var(--bandkit-release-ink) !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #story-list .story-innards > .story-body {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #story-list .story-innards > .story-body {
   padding: 24px 24px 16px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-title {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-title {
   font-size: 16px !important;
   line-height: 1.45 !important;
   margin: 0 0 18px !important;
   min-height: 23px;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-title .artist-name {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-title .artist-name {
   font-weight: 700 !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-title .story-date {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-title .story-date {
   float: right !important;
   font-size: 13px !important;
   line-height: 23px !important;
   margin-left: 20px !important;
   white-space: nowrap;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-wrapper {
   align-items: start;
   display: grid !important;
   gap: 28px;
@@ -1016,26 +1014,20 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   min-width: 0;
   width: 100% !important;
 }
-
-/* Bandcamp's legacy clearfix pseudo-elements become real grid items. Remove
-   them so the release artwork cannot be auto-placed into the owners column. */
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper::before,
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper::after {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-wrapper::before,
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-wrapper::after {
   content: none !important;
   display: none !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper > .tralbum-wrapper-col1 {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-wrapper > .tralbum-wrapper-col1 {
   grid-column: 1 !important;
   grid-row: 1 !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper > .tralbum-wrapper-col2 {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-wrapper > .tralbum-wrapper-col2 {
   grid-column: 2 !important;
   grid-row: 1 !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper-col1 {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-wrapper-col1 {
   display: grid !important;
   float: none !important;
   gap: 24px;
@@ -1043,18 +1035,15 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   min-width: 0;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper-col1 > .tralbum-art-container {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-wrapper-col1 > .tralbum-art-container {
   grid-column: 1 !important;
   grid-row: 1 !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper-col1 > .tralbum-details {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-wrapper-col1 > .tralbum-details {
   grid-column: 2 !important;
   grid-row: 1 !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-art-container {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-art-container {
   background: transparent !important;
   border: 0 !important;
   border-radius: 8px;
@@ -1065,15 +1054,13 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   position: relative !important;
   width: 280px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-art-container .play-button {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-art-container .play-button {
   left: 50% !important;
   margin: 0 !important;
   top: 50% !important;
   transform: translate(-50%, -50%);
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-art-large {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-art-large {
   border-radius: 8px;
   display: block !important;
   height: 280px !important;
@@ -1081,92 +1068,79 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   object-fit: cover;
   width: 280px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-details {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-details {
   align-self: start;
   min-width: 0;
   width: auto !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .item-link {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .item-link {
   display: block !important;
   width: auto !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .collection-item-title {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .collection-item-title {
   font-size: 20px !important;
   font-weight: 700 !important;
   line-height: 1.2 !important;
   margin-bottom: 4px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .collection-item-artist {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .collection-item-artist {
   font-size: 14px !important;
   line-height: 1.4 !important;
   margin-bottom: 18px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .collection-item-fav-track {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .collection-item-fav-track {
   margin: 0 !important;
   width: auto !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .favoriteTrackLabel,
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .fav-track-title {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .favoriteTrackLabel,
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .fav-track-title {
   display: block !important;
   line-height: 1.45 !important;
   width: auto !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .track_play_time {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .track_play_time {
   float: none !important;
   margin: 10px 0 0 !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper-col2 {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-wrapper-col2 {
   float: none !important;
   margin: 0 !important;
   min-width: 0;
   width: 156px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .collected-by-header {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .collected-by-header {
   font-size: 12px !important;
   font-weight: 700 !important;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-owners .deets {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-owners .deets {
   margin-top: 12px !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story :is(.collection-item-title, .artist-name) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story :is(.collection-item-title, .artist-name) {
   color: var(--bandkit-release-ink) !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story :is(.collection-item-artist, .fav-track-title, .time_elapsed, .time_total, .story-date) {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story :is(.collection-item-artist, .fav-track-title, .time_elapsed, .time_total, .story-date) {
   color: var(--bandkit-release-muted) !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story a,
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story button {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story a:not(.follow-band),
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story button {
   color: var(--bandkit-release-accent) !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #story-list .story-innards > .tralbum-wrapper-collect-controls {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .story-title .artist-name {
+  color: var(--bandkit-release-ink) !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #story-list .story-innards > .tralbum-wrapper-collect-controls {
   margin: 0 !important;
   padding: 0 24px 18px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .collection-item-actions {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .collection-item-actions {
   border-top: 1px solid var(--bandkit-release-line) !important;
   margin: 18px 0 0 !important;
   padding: 14px 24px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .collection-item-actions ul {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .collection-item-actions ul {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
@@ -1174,207 +1148,282 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   margin: 0 !important;
   padding: 0 !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .story-footer {
-  background: var(--bandkit-feed-card-footer) !important;
-  border-top: 1px solid var(--bandkit-release-line) !important;
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .story-footer {
+  background: var(--bandkit-feed-card) !important;
+  border-top: 0 !important;
   margin: 0 !important;
-  padding: 13px 24px !important;
+  padding: 0 24px 24px !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar {
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .collection-item-tags {
+  align-items: center;
+  display: flex !important;
+  flex-wrap: wrap;
+  font-size: 0 !important;
+  gap: 6px;
+  line-height: 0 !important;
+  margin: 0 !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .collection-item-tags a {
+  background: var(--bandkit-release-accent-soft) !important;
+  border: 1px solid transparent !important;
+  border-radius: 999px;
+  color: var(--bandkit-release-accent) !important;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 11px !important;
+  line-height: 1 !important;
+  padding: 7px 10px !important;
+  text-decoration: none !important;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .collection-item-tags a:hover,
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .collection-item-tags a:focus-visible {
+  background: var(--bandkit-release-accent) !important;
+  border-color: var(--bandkit-release-accent) !important;
+  color: var(--bandkit-release-on-accent) !important;
+  outline: 0;
+  transform: translateY(-1px);
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar {
   background: var(--bandkit-feed-card) !important;
-  border: 1px solid var(--bandkit-release-line) !important;
+  border: 0 !important;
   border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(22, 25, 22, 0.04);
+  box-shadow: none;
   overflow: hidden;
   padding: 20px !important;
 }
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed > :is(main, #pgBd) > .collection-grid:not([data-ismain]),
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed :is(.feed-sidebar, .sidebar) > .collection-grid:not([data-ismain]) {
-  background: var(--bandkit-release-surface-raised) !important;
-  border: 1px solid var(--bandkit-release-line) !important;
-  border-radius: 8px;
-  color: var(--bandkit-release-ink) !important;
-  padding: 16px !important;
-}
-
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .collection-grid:not([data-ismain]) .collection-item-container {
-  border-bottom: 1px solid var(--bandkit-release-line) !important;
-  color: var(--bandkit-release-ink) !important;
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar #new-releases-vm,
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar .collection-grid {
+  display: grid !important;
+  gap: 14px !important;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: stretch !important;
   margin: 0 !important;
-  padding: 14px 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
 }
-
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar .collection-grid > .collection-item-container {
+  background: var(--bandkit-release-surface-raised) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  color: var(--bandkit-release-ink) !important;
+  display: grid !important;
+  gap: 5px 12px;
+  grid-template-columns: 88px minmax(0, 1fr);
+  margin: 0 !important;
+  max-width: none !important;
+  outline: 0 !important;
+  overflow: hidden !important;
+  padding: 10px !important;
+  width: 100% !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar .collection-grid > .collection-item-container::before,
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar .collection-grid > .collection-item-container::after {
+  border: 0 !important;
+  display: none !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar .collection-item-gallery-container {
+  display: contents !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar .collection-item-art-container {
+  aspect-ratio: 1;
+  border: 0 !important;
+  border-radius: 6px;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  height: auto !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  width: 88px !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar .collection-item-art-container img {
+  display: block !important;
+  height: 100% !important;
+  object-fit: cover;
+  width: 100% !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar .collection-item-gallery-container > .item-link {
+  align-self: end;
+  display: block !important;
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar .collection-item-details-container {
+  align-self: start;
+  display: block !important;
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  width: 100% !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar :is(.collection-item-title, .collection-item-artist) {
+  overflow-wrap: anywhere;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar .collection-item-title {
+  font-size: 13px !important;
+  line-height: 1.25 !important;
+  margin: 0 0 3px !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar .collection-item-artist {
+  font-size: 12px !important;
+  line-height: 1.3 !important;
+  margin: 0 !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed][data-bandkit-page-theme=true] body.feed #sidebar .bandkit-feed-sidebar-actions :is(.bandcamp-hub-page-playlist.is-feed-sidebar-action, .bandkit-feed-purchase-action, .bandkit-feed-hear-more-action, .wishlist-msg, .wishlisted-msg > span:first-child) {
+  background: transparent !important;
+  border-color: var(--bandkit-page-card-border) !important;
+  color: var(--bandkit-page-card-accent) !important;
+}
+html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed][data-bandkit-page-theme=true] body.feed #sidebar .bandkit-feed-sidebar-actions :is(.bandcamp-hub-page-playlist.is-feed-sidebar-action, .bandkit-feed-purchase-action, .bandkit-feed-hear-more-action, .wishlist-msg, .wishlisted-msg > span:first-child):is(:hover, :focus-visible) {
+  background: var(--bandkit-page-card-accent-soft) !important;
+  border-color: var(--bandkit-page-card-accent) !important;
+  color: var(--bandkit-page-card-accent) !important;
+}
 @media (max-width: 1180px) {
-  html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #pgBd {
+  html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #pgBd {
     gap: 32px;
     grid-template-columns: minmax(0, 1fr) 280px;
     padding-inline: 24px !important;
   }
-
-  html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #customHeaderWrapper {
+  html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #customHeaderWrapper {
     margin-inline: -24px !important;
     width: calc(100% + 48px) !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] #music-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=merch] #merch-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-
 @media (max-width: 900px) {
-  html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #pgBd {
+  html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #pgBd {
     display: block !important;
   }
-
-  html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn {
-    display: grid !important;
-    gap: 16px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #rightColumn {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0;
     margin-top: 32px !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community-inner > .community-view.feed {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] #community-inner > .community-view.feed {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community-inner > .community-view.feed > .community-default-column:nth-child(2) {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] #community-inner > .community-view.feed > .community-default-column:nth-child(2) {
     display: grid !important;
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #dash-container {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #dash-container {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar {
     grid-column: 1;
     grid-row: 2;
     margin-left: 88px !important;
     width: calc(100% - 88px) !important;
   }
 }
-
 @media (max-width: 720px) {
-  html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #pgBd {
+  html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=community], [data-bandkit-modern-page-type=video]) #pgBd {
     display: block !important;
     padding: 0 16px 48px !important;
     width: 100% !important;
   }
-
-  html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #customHeaderWrapper {
+  html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=community], [data-bandkit-modern-page-type=video]) #customHeaderWrapper {
     margin-inline: -16px !important;
     width: calc(100% + 32px) !important;
   }
-
-  html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) .leftMiddleColumns {
+  html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) .leftMiddleColumns {
     padding-top: 24px;
   }
-
-  html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn {
-    display: grid;
-    gap: 14px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #rightColumn {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0;
     margin-top: 32px !important;
   }
-
-  html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn > :is(#bio-container, #showography, #discography, .sidebar, .widget) {
+  html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #rightColumn > :is(#bio-container, #showography, #discography, .sidebar, .widget) {
     margin: 0 !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community {
+  html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #rightColumn > #bio-container {
+    margin-bottom: 28px !important;
+  }
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] #community {
     padding-top: 24px !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community-inner > .community-view.feed > .community-default-column:nth-child(2) {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] #community-inner > .community-view.feed > .community-default-column:nth-child(2) {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed :is(#pgBd, main) {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed :is(#pgBd, main) {
     padding-inline: 16px !important;
     width: 100% !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story {
     gap: 12px;
     grid-template-columns: 60px minmax(0, 1fr);
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-sidebar {
     width: 60px !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar .pic,
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar .band-image.thumb {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-sidebar .pic,
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-sidebar .band-image.thumb {
     height: 48px !important;
     width: 48px !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #story-list .story-innards > .story-body {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #story-list .story-innards > .story-body {
     padding: 20px 20px 14px !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-wrapper {
     gap: 20px;
     grid-template-columns: minmax(0, 1fr) 128px;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper-col1 {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-wrapper-col1 {
     grid-template-columns: 240px minmax(0, 1fr);
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story :is(.tralbum-art-container, .tralbum-art-large) {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story :is(.tralbum-art-container, .tralbum-art-large) {
     height: 240px !important;
     width: 240px !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper-col2 {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-wrapper-col2 {
     width: 128px !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #story-list .story-innards > .tralbum-wrapper-collect-controls {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #story-list .story-innards > .tralbum-wrapper-collect-controls {
     padding: 0 20px 16px !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .story-footer {
-    padding: 12px 20px !important;
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .story-footer {
+    padding: 0 20px 20px !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar {
     margin-left: 72px !important;
     width: calc(100% - 72px) !important;
   }
 }
-
 @media (max-width: 480px) {
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid,
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid,
-  html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] #music-grid,
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=music] .artists-grid,
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=merch] #merch-grid,
+  html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch], [data-bandkit-modern-page-type=video]) #rightColumn {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"]) :is(#music-grid, #merch-grid) > li .title {
+  html[data-bandkit-modern-page=true]:is([data-bandkit-modern-page-type=music], [data-bandkit-modern-page-type=merch]) :is(#music-grid, #merch-grid) > li .title {
     min-height: 0;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-follow-banner,
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .story .main-section {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .community-follow-banner,
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=community] .story .main-section {
     padding: 18px !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story {
     display: block !important;
     width: 100% !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-sidebar {
     align-items: center;
     display: flex !important;
     flex-direction: row;
@@ -1383,81 +1432,74 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
     text-align: left;
     width: 100% !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar .pic,
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar .band-image.thumb {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-sidebar .pic,
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-sidebar .band-image.thumb {
     height: 40px !important;
     margin: 0 !important;
     width: 40px !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar .follow-band {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-sidebar .follow-band {
     margin: 0 !important;
     width: auto !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-title .story-date {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story-title .story-date {
     display: block;
     float: none !important;
     margin: 0 0 4px !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper,
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper-col1 {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-wrapper,
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-wrapper-col1 {
     display: block !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story :is(.tralbum-art-container, .tralbum-art-large) {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story :is(.tralbum-art-container, .tralbum-art-large) {
     height: auto !important;
     max-width: 320px !important;
     width: 100% !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-art-container {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-art-container {
     aspect-ratio: 1;
     margin-bottom: 18px !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-art-large {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-art-large {
     aspect-ratio: 1;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper-col2 {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed .story .tralbum-wrapper-col2 {
     border-top: 1px solid var(--bandkit-release-line);
     margin-top: 18px !important;
     padding-top: 16px;
     width: 100% !important;
   }
-
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar {
+  html[data-bandkit-modern-page=true][data-bandkit-modern-page-type=feed] body.feed #sidebar {
     margin-left: 0 !important;
     width: 100% !important;
   }
 }
 
-html[data-bandkit-modern-release="true"] body.tralbum-page {
+/* src/styles/modern/release.css */
+html[data-bandkit-modern-release=true] body.tralbum-page {
   background-color: var(--bandkit-release-bg) !important;
-  color: var(--bandkit-release-ink) !important;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  color: var(--bandkit-release-background-ink) !important;
+  font-family:
+    "Helvetica Neue",
+    Helvetica,
+    Arial,
+    sans-serif !important;
   min-width: 0 !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page *,
-html[data-bandkit-modern-release="true"] body.tralbum-page *::before,
-html[data-bandkit-modern-release="true"] body.tralbum-page *::after {
+html[data-bandkit-modern-release=true] body.tralbum-page *,
+html[data-bandkit-modern-release=true] body.tralbum-page *::before,
+html[data-bandkit-modern-release=true] body.tralbum-page *::after {
   box-sizing: border-box;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #centerWrapper,
-html[data-bandkit-modern-release="true"] body.tralbum-page #propOpenWrapper {
+html[data-bandkit-modern-release=true] body.tralbum-page #centerWrapper,
+html[data-bandkit-modern-release=true] body.tralbum-page #propOpenWrapper {
   background: transparent !important;
   margin: 0 !important;
   max-width: none !important;
   min-width: 0 !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #pgBd {
+html[data-bandkit-modern-release=true] body.tralbum-page #pgBd {
   align-items: start;
   background-color: var(--bandkit-release-surface) !important;
   color: var(--bandkit-release-ink) !important;
@@ -1472,15 +1514,13 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #pgBd {
   position: relative;
   width: calc(100% - 48px) !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #customHeaderWrapper {
+html[data-bandkit-modern-release=true] body.tralbum-page #customHeaderWrapper {
   grid-column: 1 / -1;
   margin-inline: -24px;
   margin-top: 0 !important;
   width: calc(100% + 48px) !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #customHeader {
+html[data-bandkit-modern-release=true] body.tralbum-page #customHeader {
   aspect-ratio: 975 / 180;
   display: block;
   height: auto;
@@ -1488,70 +1528,58 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #customHeader {
   overflow: hidden;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #customHeader .desktop-header,
-html[data-bandkit-modern-release="true"] body.tralbum-page #customHeader .desktop-header > a,
-html[data-bandkit-modern-release="true"] body.tralbum-page #customHeader picture {
+html[data-bandkit-modern-release=true] body.tralbum-page #customHeader .desktop-header,
+html[data-bandkit-modern-release=true] body.tralbum-page #customHeader .desktop-header > a,
+html[data-bandkit-modern-release=true] body.tralbum-page #customHeader picture {
   display: block;
   height: 100%;
   max-width: none !important;
   overflow: hidden;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #customHeader img {
+html[data-bandkit-modern-release=true] body.tralbum-page #customHeader img {
   display: block;
   height: 100% !important;
   max-width: none !important;
   object-fit: contain;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .trackView {
+html[data-bandkit-modern-release=true] body.tralbum-page .trackView {
   display: grid !important;
   float: none !important;
   gap: 24px 36px;
-  grid-template-areas:
-    "title art"
-    "player art"
-    "body body";
+  grid-template-areas: "title art" "player art" "body body";
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0 !important;
   min-width: 0 !important;
   padding: 32px 0 0 !important;
   width: auto !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .trackView:has(> .bandkit-modern-release-primary) {
+html[data-bandkit-modern-release=true] body.tralbum-page .trackView:has(> .bandkit-modern-release-primary) {
   display: block !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-primary {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-release-primary {
   align-items: start;
   display: grid;
   gap: 36px;
   grid-template-areas: "music art";
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 5fr) minmax(320px, 4fr);
   width: 100%;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-music-column,
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-art-column {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-music-column,
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-art-column {
   display: flex;
   flex-direction: column;
   gap: 24px;
   min-width: 0;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-music-column {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-music-column {
   grid-area: music;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-art-column {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-art-column {
   grid-area: art;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #name-section {
+html[data-bandkit-modern-release=true] body.tralbum-page #name-section {
   align-self: stretch;
   grid-area: title;
   left: auto !important;
@@ -1563,8 +1591,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #name-section {
   text-align: left !important;
   width: auto !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #name-section .trackTitle {
+html[data-bandkit-modern-release=true] body.tralbum-page #name-section .trackTitle {
   color: var(--bandkit-release-ink) !important;
   font-size: clamp(34px, 3vw, 48px) !important;
   font-weight: 500 !important;
@@ -1573,8 +1600,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #name-section .trackT
   margin: 0 0 8px !important;
   overflow-wrap: anywhere;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #name-section h3 {
+html[data-bandkit-modern-release=true] body.tralbum-page #name-section h3 {
   color: var(--bandkit-release-ink) !important;
   font-size: 18px !important;
   font-weight: 400 !important;
@@ -1582,18 +1608,15 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #name-section h3 {
   margin-left: 0 !important;
   text-align: left !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #name-section a {
+html[data-bandkit-modern-release=true] body.tralbum-page #name-section a {
   color: var(--bandkit-release-ink) !important;
   text-decoration-color: transparent !important;
   text-underline-offset: 3px;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #name-section a:hover {
+html[data-bandkit-modern-release=true] body.tralbum-page #name-section a:hover {
   text-decoration-color: currentColor !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .middleColumn {
+html[data-bandkit-modern-release=true] body.tralbum-page .middleColumn {
   float: none !important;
   grid-area: art;
   margin: 0 !important;
@@ -1602,30 +1625,26 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .middleColumn {
   position: static !important;
   width: auto !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #tralbumArt,
-html[data-bandkit-modern-release="true"] body.tralbum-page #tralbumArt > a,
-html[data-bandkit-modern-release="true"] body.tralbum-page #tralbumArt picture {
+html[data-bandkit-modern-release=true] body.tralbum-page #tralbumArt,
+html[data-bandkit-modern-release=true] body.tralbum-page #tralbumArt > a,
+html[data-bandkit-modern-release=true] body.tralbum-page #tralbumArt picture {
   display: block;
   height: auto !important;
   max-width: none !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #tralbumArt {
+html[data-bandkit-modern-release=true] body.tralbum-page #tralbumArt {
   background: var(--bandkit-release-surface);
   border-radius: 3px;
   overflow: hidden;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #tralbumArt img {
+html[data-bandkit-modern-release=true] body.tralbum-page #tralbumArt img {
   display: block;
   height: auto !important;
   max-width: none !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #trackInfo {
+html[data-bandkit-modern-release=true] body.tralbum-page #trackInfo {
   float: none !important;
   grid-area: player;
   margin: 0 !important;
@@ -1634,50 +1653,44 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #trackInfo {
   position: static !important;
   width: auto !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #trackInfoInner {
+html[data-bandkit-modern-release=true] body.tralbum-page #trackInfoInner {
   margin: 0 !important;
   min-width: 0;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player {
-  background: var(--bandkit-release-surface-raised) !important;
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player {
+  background: transparent !important;
   border: 0 !important;
-  border-radius: 10px;
+  border-radius: 0;
   margin: 0 !important;
-  min-height: 112px;
-  padding: 22px !important;
+  min-height: 0;
+  padding: 0 !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player table {
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player table {
   border-collapse: separate !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .play_cell {
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .play_cell {
   padding: 0 18px 0 0 !important;
-  width: 56px !important;
+  width: 72px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .play_cell > a {
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .play_cell > a {
   align-items: center;
   background: var(--bandkit-release-surface-raised) !important;
   border: 1px solid var(--bandkit-release-line) !important;
   border-radius: 3px !important;
   display: flex !important;
-  height: 56px !important;
+  height: 72px !important;
   justify-content: center;
-  max-height: 56px !important;
-  max-width: 56px !important;
-  min-height: 56px !important;
-  min-width: 56px !important;
+  max-height: 72px !important;
+  max-width: 72px !important;
+  min-height: 72px !important;
+  min-width: 72px !important;
   padding: 0 !important;
-  width: 56px !important;
+  width: 72px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .playbutton {
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .playbutton {
   background: none !important;
   border: 0 !important;
   display: block !important;
@@ -1685,8 +1698,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .playb
   position: relative;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .playbutton::before {
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .playbutton::before {
   border-bottom: 11px solid transparent;
   border-left: 18px solid var(--bandkit-release-ink);
   border-top: 11px solid transparent;
@@ -1698,76 +1710,97 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .playb
   transform: translate(-42%, -50%);
   width: 0;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .playbutton::after {
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .playbutton::after {
   content: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .playbutton.playing::before {
-  background: linear-gradient(90deg, var(--bandkit-release-ink) 0 35%, transparent 35% 65%, var(--bandkit-release-ink) 65% 100%);
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .playbutton.playing::before {
+  background:
+    linear-gradient(
+      90deg,
+      var(--bandkit-release-ink) 0 35%,
+      transparent 35% 65%,
+      var(--bandkit-release-ink) 65% 100%);
   border: 0;
   height: 24px;
   transform: translate(-50%, -50%);
   width: 18px;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .track_info {
-  min-height: 28px;
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .track_info {
+  align-items: baseline;
+  column-gap: 12px;
+  display: grid !important;
+  grid-template-columns: max-content max-content minmax(0, 1fr);
+  min-height: 0;
+  width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .title,
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .title_link {
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .title,
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .title_link {
   color: var(--bandkit-release-ink) !important;
   font-size: 16px !important;
   font-weight: 600;
+  line-height: 20px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .title-section {
-  margin-right: 10px !important;
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .title-section {
+  grid-column: 1 / -1;
+  margin-right: 0 !important;
+  min-width: 0;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .track_info > .time {
-  margin-left: 8px !important;
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .title_link,
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .title {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .time {
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .track_info > .time {
+  grid-column: 1;
+  grid-row: 2;
+  margin-left: 0 !important;
+  white-space: nowrap;
+}
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .track_info > .bandkit-track-analysis.is-inline {
+  grid-column: 2;
+  grid-row: 2;
+  margin-left: 0 !important;
+}
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .track_info > .message {
+  grid-column: 1 / -1;
+}
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .time {
   color: var(--bandkit-release-muted) !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player :is(.progbar_cell, .prev_cell, .next_cell) {
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player :is(.progbar_cell, .prev_cell, .next_cell) {
   padding-bottom: 0 !important;
   padding-top: 0 !important;
   vertical-align: middle !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player :is(.prevbutton, .nextbutton) {
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player :is(.prevbutton, .nextbutton) {
   margin-bottom: 0 !important;
   margin-top: 0 !important;
   top: auto !important;
   vertical-align: middle !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .progbar_empty {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandcamp-hub-page-tools :is(.bandcamp-hub-page-playlist, .bandcamp-hub-page-cart, .bandcamp-hub-page-dj, .bandcamp-hub-page-analyze) {
+  color: var(--bandkit-release-ink) !important;
+}
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .progbar_empty {
   background: var(--bandkit-release-line) !important;
   border-radius: 999px;
   height: 6px !important;
   overflow: visible;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .progbar_fill {
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .progbar_fill {
   background: var(--bandkit-release-muted) !important;
   border-radius: 999px;
   height: 6px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .progbar .thumb {
+html[data-bandkit-modern-release=true] body.tralbum-page .inline_player .progbar .thumb {
   background: var(--bandkit-release-accent) !important;
   border: 3px solid var(--bandkit-release-surface-raised);
   border-radius: 999px;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #trackInfoInner > .tralbumCommands {
+html[data-bandkit-modern-release=true] body.tralbum-page #trackInfoInner > .tralbumCommands {
   align-items: center;
   display: flex !important;
   flex-wrap: wrap;
@@ -1777,27 +1810,45 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #trackInfoInner > .tr
   padding: 0 !important;
   list-style: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #trackInfoInner > .tralbumCommands > li {
+html[data-bandkit-modern-release=true] body.tralbum-page #trackInfoInner > .tralbumCommands.bandkit-modern-commands-empty {
+  display: none !important;
+}
+html[data-bandkit-modern-release=true] body.tralbum-page #trackInfoInner > .tralbumCommands > li {
   border: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #trackInfoInner > .tralbumCommands > .bandkit-modern-add-to-label {
-  color: var(--bandkit-release-ink) !important;
-  font-size: 13px !important;
-  font-weight: 600;
-  line-height: 34px;
-  white-space: nowrap;
-}
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #trackInfoInner > .tralbumCommands .bandkit-modern-add-trigger {
+html[data-bandkit-modern-release=true] body.tralbum-page #trackInfoInner > .tralbumCommands .bandkit-modern-add-trigger {
   display: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #trackInfoInner > .tralbumCommands button,
-html[data-bandkit-modern-release="true"] body.tralbum-page #trackInfoInner > .tralbumCommands a {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandcamp-hub-page-tools .bandcamp-hub-page-playlist.is-album-add-all {
+  background: transparent !important;
+  border: 1px solid var(--hub-line, var(--bandkit-release-line)) !important;
+  border-radius: 4px !important;
+  color: var(--bandkit-release-ink) !important;
+  height: 32px;
+  margin: 0 !important;
+  min-height: 32px;
+  padding: 0 !important;
+  width: 32px;
+}
+html[data-bandkit-modern-release=true] body.tralbum-page .bandcamp-hub-page-tools .bandcamp-hub-page-playlist.is-album-add-all:is(:hover, :focus-visible, .is-active) {
+  background: var(--hub-accent-soft, var(--bandkit-release-accent-soft)) !important;
+  border-color: var(--hub-accent, var(--bandkit-release-accent)) !important;
+  outline: 0;
+}
+html[data-bandkit-modern-release=true] body.tralbum-page .bandcamp-hub-page-tools .bandcamp-hub-page-playlist.is-album-add-all::before {
+  height: 16px;
+  width: 16px;
+}
+html[data-bandkit-modern-release=true][data-bandkit-page-action-labels=true] body.tralbum-page .bandcamp-hub-page-tools .bandcamp-hub-page-playlist.is-album-add-all {
+  flex: 0 0 auto !important;
+  min-width: max-content !important;
+  padding: 0 8px !important;
+  width: auto !important;
+}
+html[data-bandkit-modern-release=true] body.tralbum-page #trackInfoInner > .tralbumCommands button,
+html[data-bandkit-modern-release=true] body.tralbum-page #trackInfoInner > .tralbumCommands a {
   border-radius: 999px !important;
   color: var(--bandkit-release-ink) !important;
   font-size: 13px !important;
@@ -1806,8 +1857,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #trackInfoInner > .tr
   padding: 7px 12px !important;
   text-decoration: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-body {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-release-body {
   border-top: 1px solid var(--bandkit-release-line);
   display: grid;
   gap: 28px;
@@ -1815,12 +1865,10 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-relea
   margin-top: 28px;
   padding-top: 28px;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-body:empty {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-release-body:empty {
   display: none;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-section-title {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-section-title {
   color: var(--bandkit-release-ink) !important;
   font-size: 20px !important;
   font-weight: 600 !important;
@@ -1828,19 +1876,16 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-secti
   line-height: 1.3 !important;
   margin: 0 0 14px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-notes-panel {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-notes-panel {
   border-top: 0;
   min-width: 0;
   padding-top: 0;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-body > .collected-by {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-release-body > .collected-by {
   grid-column: 1 / -1;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table {
   border-collapse: collapse !important;
   color: var(--bandkit-release-ink) !important;
   display: table !important;
@@ -1848,30 +1893,26 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #track_table {
   table-layout: fixed;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .track_row_view {
+  background: var(--bandkit-release-surface-raised) !important;
   border-bottom: 1px solid var(--bandkit-release-line) !important;
   height: 43px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view:last-child {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .track_row_view:last-child {
   border-bottom: 0 !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table td {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table td {
   color: var(--bandkit-release-ink) !important;
   padding-bottom: 7px !important;
   padding-top: 7px !important;
   vertical-align: middle !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play-col {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .play-col {
   padding-left: 0 !important;
   padding-right: 8px !important;
   width: 32px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play-col > a {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .play-col > a {
   align-items: center;
   aspect-ratio: 1;
   background: var(--bandkit-release-surface-raised) !important;
@@ -1888,12 +1929,10 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play-co
   padding: 0 !important;
   width: 24px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view.bandkit-modern-track-unplayable .play-col > a {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .track_row_view.bandkit-modern-track-unplayable .play-col > a {
   display: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_status {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .play_status {
   background: none !important;
   border: 0 !important;
   display: block !important;
@@ -1901,8 +1940,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_st
   position: relative;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_status::before {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .play_status::before {
   border-bottom: 5px solid transparent;
   border-left: 8px solid currentColor;
   border-top: 5px solid transparent;
@@ -1914,93 +1952,102 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_st
   transform: translate(-42%, -50%);
   width: 0;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_status::after {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .play_status::after {
   content: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_status.playing::before,
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view.bandcamp-hub-is-playing .play_status::before {
-  background: linear-gradient(90deg, currentColor 0 34%, transparent 34% 66%, currentColor 66% 100%);
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .play_status.playing::before,
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .track_row_view.bandcamp-hub-is-playing .play_status::before {
+  background:
+    linear-gradient(
+      90deg,
+      currentColor 0 34%,
+      transparent 34% 66%,
+      currentColor 66% 100%);
   border: 0;
   height: 12px;
   transform: translate(-50%, -50%);
   width: 10px;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track-number-col {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .track-number-col {
   width: 28px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_number,
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .time {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .track_number,
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .time {
   color: var(--bandkit-release-muted) !important;
   font-size: 12px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .title-col {
   min-width: 0;
   width: auto !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col .title {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .title-col .title {
   align-items: center;
   display: flex;
   gap: 8px;
   min-width: 0;
+  width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track-title {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .title-col .title > a {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  width: 100%;
+}
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .track-title {
   color: var(--bandkit-release-ink) !important;
+  display: block;
   font-size: 13px !important;
   line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col .time {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .title-col .time {
   margin-left: auto;
   white-space: nowrap;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .info-col {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .info-col {
   display: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .download-col {
   box-sizing: border-box;
   padding: 7px 0 7px 8px !important;
   text-align: right !important;
   white-space: nowrap;
-  width: 124px !important;
+  width: 104px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col a {
-  color: var(--bandkit-release-accent) !important;
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .download-col .dl_link {
+  align-items: center;
+  display: flex !important;
+  gap: 4px;
+  justify-content: flex-end;
+  width: 100% !important;
+}
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .download-col a {
+  color: var(--hub-accent, var(--bandkit-release-accent)) !important;
   font-size: 11px !important;
   font-weight: 600;
   text-decoration: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col :is(.bandcamp-hub-page-playlist.is-track-action, .bandcamp-hub-page-buy) {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .download-col :is(.bandcamp-hub-page-playlist.is-track-action, .bandcamp-hub-page-buy) {
   background: transparent !important;
-  border: 1px solid var(--bandkit-release-line) !important;
+  border: 1px solid var(--hub-line, var(--bandkit-release-line)) !important;
   border-radius: 4px !important;
   box-sizing: border-box !important;
-  color: var(--bandkit-release-accent) !important;
+  color: var(--hub-accent, var(--bandkit-release-accent)) !important;
   height: 24px !important;
   margin: 0 !important;
   max-height: 24px !important;
   min-height: 24px !important;
   vertical-align: middle !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .bandcamp-hub-page-playlist.is-track-action {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .download-col .bandcamp-hub-page-playlist.is-track-action {
   margin-right: 4px !important;
   max-width: 24px !important;
   min-width: 24px !important;
   width: 24px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .bandcamp-hub-page-buy {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .download-col .bandcamp-hub-page-buy {
   flex: 0 0 auto !important;
   font-size: 11px !important;
   line-height: 1 !important;
@@ -2010,18 +2057,37 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .downloa
   padding: 0 8px !important;
   width: auto !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .bandcamp-hub-page-buy::before {
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .download-col .bandcamp-hub-page-buy::before {
   content: none !important;
   display: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col :is(.bandcamp-hub-page-playlist.is-track-action, .bandcamp-hub-page-buy):is(:hover, :focus-visible) {
-  background: color-mix(in srgb, var(--bandkit-release-accent) 10%, transparent) !important;
-  border-color: var(--bandkit-release-accent) !important;
+html[data-bandkit-modern-release=true][data-bandkit-page-action-labels=true] body.tralbum-page #track_table .download-col {
+  width: 132px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-notes-panel > h3 {
+html[data-bandkit-modern-release=true][data-bandkit-page-action-labels=true] body.tralbum-page #track_table .download-col .bandcamp-hub-page-playlist.is-track-action {
+  flex: 0 0 auto !important;
+  max-width: none !important;
+  min-width: max-content !important;
+  padding: 0 8px !important;
+  width: auto !important;
+}
+html[data-bandkit-modern-release=true][data-bandkit-page-action-labels=true] body.tralbum-page #track_table .download-col .bandcamp-hub-page-buy {
+  font-size: 0 !important;
+  gap: 6px !important;
+  min-width: max-content !important;
+  padding: 0 8px !important;
+  width: auto !important;
+}
+html[data-bandkit-modern-release=true][data-bandkit-page-action-labels=true] body.tralbum-page #track_table .download-col .bandcamp-hub-page-buy::before {
+  content: "" !important;
+  display: block !important;
+  flex: 0 0 14px;
+}
+html[data-bandkit-modern-release=true] body.tralbum-page #track_table .download-col :is(.bandcamp-hub-page-playlist.is-track-action, .bandcamp-hub-page-buy):is(:hover, :focus-visible) {
+  background: var(--hub-accent-soft, var(--bandkit-release-accent-soft)) !important;
+  border-color: var(--hub-accent, var(--bandkit-release-accent)) !important;
+}
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-notes-panel > h3 {
   clear: none !important;
   color: var(--bandkit-release-ink) !important;
   display: block !important;
@@ -2035,21 +2101,18 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-notes
   text-transform: uppercase;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-notes-panel > h3:first-of-type {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-notes-panel > h3:first-of-type {
   margin-top: 0 !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-notes-panel .tralbumData,
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-notes-panel #license {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-notes-panel .tralbumData,
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-notes-panel #license {
   color: var(--bandkit-release-ink) !important;
   font-size: 13px !important;
   line-height: 1.62 !important;
   margin: 0 !important;
   width: auto !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-panel {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-tags-panel {
   border-top: 0;
   box-sizing: border-box;
   height: auto !important;
@@ -2061,17 +2124,14 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-
   max-width: 100%;
   width: 100%;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-panel > .bandkit-modern-section-title {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-tags-panel > .bandkit-modern-section-title {
   margin-bottom: 14px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-panel > .tags-label {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-tags-panel > .tags-label {
   display: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-panel .tralbum-tags,
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-panel .tralbum-tags.hidden {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-tags-panel .tralbum-tags,
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-tags-panel .tralbum-tags.hidden {
   align-items: center;
   box-sizing: border-box;
   clear: none !important;
@@ -2093,12 +2153,10 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-
   white-space: normal !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-panel .tralbum-tags h3 {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-tags-panel .tralbum-tags h3 {
   display: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-panel .tag {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-tags-panel .tag {
   background: var(--bandkit-release-accent-soft);
   border: 1px solid transparent;
   border-radius: 999px;
@@ -2108,18 +2166,20 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-
   line-height: 1;
   padding: 7px 10px;
   text-decoration: none !important;
-  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-panel .tag:hover,
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-panel .tag:focus-visible {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-tags-panel .tag:hover,
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-tags-panel .tag:focus-visible {
   background: var(--bandkit-release-accent) !important;
   border-color: var(--bandkit-release-accent) !important;
   color: var(--bandkit-release-on-accent) !important;
   transform: translateY(-1px);
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by {
   border: 0 !important;
   border-bottom: 1px solid var(--bandkit-release-line) !important;
   color: var(--bandkit-release-ink) !important;
@@ -2134,8 +2194,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by {
   position: static !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .message {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .message {
   color: var(--bandkit-release-ink) !important;
   font-size: 20px !important;
   font-weight: 600;
@@ -2145,8 +2204,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .messag
   margin: 0 0 12px !important;
   text-transform: capitalize;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .deets {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .deets {
   align-items: start;
   display: grid !important;
   float: none !important;
@@ -2159,28 +2217,24 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .deets 
   overflow: visible !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporter-reviews,
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporter-grid {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-supporter-reviews,
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-supporter-grid {
   align-self: start;
   min-width: 0;
   width: 100%;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporter-reviews {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-supporter-reviews {
   grid-column: 1;
   grid-row: 1;
   justify-self: stretch;
   min-height: 72px;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporter-grid {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-supporter-grid {
   grid-column: 2;
   grid-row: 1;
   justify-self: stretch;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporters-toggle {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-supporters-toggle {
   align-self: start;
   background: transparent !important;
   border: 1px solid var(--bandkit-release-line) !important;
@@ -2194,18 +2248,15 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-suppo
   min-height: 30px;
   padding: 6px 12px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporters-toggle[hidden] {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-supporters-toggle[hidden] {
   display: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporters-toggle:hover,
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporters-toggle:focus-visible {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-supporters-toggle:hover,
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-supporters-toggle:focus-visible {
   background: var(--bandkit-release-accent-soft) !important;
   border-color: var(--bandkit-release-accent) !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writing {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .writing {
   align-items: start;
   display: none !important;
   float: none !important;
@@ -2215,22 +2266,18 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writin
   min-height: 44px;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writing.is-active {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .writing.is-active {
   animation: bandkit-modern-review-in 180ms ease-out;
   display: grid !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by[data-bandkit-expanded="true"] .bandkit-modern-supporter-reviews {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by[data-bandkit-expanded=true] .bandkit-modern-supporter-reviews {
   display: grid;
   gap: 16px;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by[data-bandkit-expanded="true"] .writing {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by[data-bandkit-expanded=true] .writing {
   animation: none !important;
   display: grid !important;
 }
-
 @keyframes bandkit-modern-review-in {
   from {
     opacity: 0;
@@ -2241,22 +2288,19 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by[data-ba
     transform: translateX(0);
   }
 }
-
 @media (prefers-reduced-motion: reduce) {
-  html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writing.is-active {
+  html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .writing.is-active {
     animation: none;
   }
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writing > .pic {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .writing > .pic {
   display: block !important;
   float: none !important;
   height: 44px !important;
   margin: 0 !important;
   width: 44px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writing > .pic > .thumb {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .writing > .pic > .thumb {
   border: 0 !important;
   border-radius: 5px !important;
   display: block !important;
@@ -2264,8 +2308,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writin
   object-fit: cover;
   width: 44px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writing > .text {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .writing > .text {
   color: var(--bandkit-release-ink) !important;
   display: -webkit-box !important;
   float: none !important;
@@ -2278,24 +2321,20 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writin
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by[data-bandkit-expanded="true"] .writing > .text {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by[data-bandkit-expanded=true] .writing > .text {
   display: block !important;
   overflow: visible;
   -webkit-line-clamp: unset;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writing .name {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .writing .name {
   font-weight: 700 !important;
   margin-right: 4px;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writing .fav-track {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .writing .fav-track {
   display: block;
   margin-top: 1px;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .no-writing {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .no-writing {
   display: grid !important;
   float: none !important;
   gap: 8px;
@@ -2305,20 +2344,17 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .no-wri
   overflow: visible !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by[data-bandkit-expanded="false"] .no-writing > .fan.pic.bandkit-modern-supporter-overflow {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by[data-bandkit-expanded=false] .no-writing > .fan.pic.bandkit-modern-supporter-overflow {
   display: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .no-writing > .fan.pic {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .no-writing > .fan.pic {
   display: block !important;
   float: none !important;
   height: 42px !important;
   margin: 0 !important;
   width: 42px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .no-writing > .fan.pic > .thumb {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .no-writing > .fan.pic > .thumb {
   border: 0 !important;
   border-radius: 4px !important;
   display: block !important;
@@ -2327,14 +2363,12 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .no-wri
   transition: opacity 140ms ease, transform 140ms ease;
   width: 42px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .no-writing > .fan.pic:hover > .thumb,
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .no-writing > .fan.pic:focus-visible > .thumb {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .no-writing > .fan.pic:hover > .thumb,
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .no-writing > .fan.pic:focus-visible > .thumb {
   opacity: 0.82;
   transform: translateY(-1px);
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .more-thumbs {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .more-thumbs {
   background: transparent;
   border: 1px solid var(--bandkit-release-line);
   border-radius: 999px;
@@ -2347,31 +2381,25 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .more-t
   text-decoration: none !important;
   text-transform: capitalize;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporter-grid .more-thumbs {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-supporter-grid .more-thumbs {
   margin-left: 0 !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by[data-bandkit-expanded="true"] .more-thumbs {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by[data-bandkit-expanded=true] .more-thumbs {
   display: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .more-thumbs:hover,
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .more-thumbs:focus-visible {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .more-thumbs:hover,
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .more-thumbs:focus-visible {
   background: var(--bandkit-release-accent-soft);
   border-color: var(--bandkit-release-accent);
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by a,
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .more-thumbs {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by a,
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .more-thumbs {
   color: var(--bandkit-release-accent) !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by img {
+html[data-bandkit-modern-release=true] body.tralbum-page .collected-by img {
   border-color: var(--bandkit-release-surface) !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn {
+html[data-bandkit-modern-release=true] body.tralbum-page #rightColumn {
   color: var(--bandkit-release-ink) !important;
   float: none !important;
   margin: 0 !important;
@@ -2380,12 +2408,11 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn {
   position: static !important;
   width: auto !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-panel,
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container,
-html[data-bandkit-modern-release="true"] body.tralbum-page #discography,
-html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn > .sidebar,
-html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn > #recommended {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-panel,
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container,
+html[data-bandkit-modern-release=true] body.tralbum-page #discography,
+html[data-bandkit-modern-release=true] body.tralbum-page #rightColumn > .sidebar,
+html[data-bandkit-modern-release=true] body.tralbum-page #rightColumn > #recommended {
   background: var(--bandkit-release-surface-raised) !important;
   border: 1px solid var(--bandkit-release-line) !important;
   border-radius: 8px;
@@ -2394,14 +2421,12 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn > #recom
   padding: 20px !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list > .buyItem {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list > .buyItem {
   border: 0 !important;
   border-top: 1px solid var(--bandkit-release-line) !important;
   color: var(--bandkit-release-ink) !important;
@@ -2409,66 +2434,57 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purch
   padding: 18px 0 0 !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list > .buyItem:first-child {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list > .buyItem:first-child {
   border-top: 0 !important;
   margin-top: 0 !important;
   padding-top: 0 !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .hd,
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .ft,
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list h4 {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .hd,
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .ft,
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list h4 {
   color: var(--bandkit-release-ink) !important;
   margin-left: 0 !important;
   margin-right: 0 !important;
   width: auto !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyItemPackageTitle {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .buyItemPackageTitle {
   color: var(--bandkit-release-ink) !important;
   font-size: 17px !important;
   font-weight: 600 !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .digitaldescription,
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .merchtype,
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyItemEdition,
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyItemExtra {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .digitaldescription,
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .merchtype,
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .buyItemEdition,
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .buyItemExtra {
   color: var(--bandkit-release-muted) !important;
   font-size: 11px !important;
   line-height: 1.5;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .audio-quality,
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .listing-purchasable-with-gift-card {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .audio-quality,
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .listing-purchasable-with-gift-card {
   color: var(--bandkit-release-ink) !important;
   font-size: 11px !important;
   line-height: 1.5;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .digitaldescription,
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .merchtype {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .digitaldescription,
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .merchtype {
   display: block !important;
   margin-top: 3px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bd {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .bd {
   color: var(--bandkit-release-ink) !important;
   font-size: 12px !important;
   line-height: 1.55 !important;
   margin: 10px 0 !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .compound-button.main-button {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .compound-button.main-button {
   align-items: center;
   display: flex !important;
   flex-wrap: wrap;
   gap: 3px;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .compound-button button,
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list button.buy-link {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .compound-button button,
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list button.buy-link {
   background: var(--bandkit-release-accent) !important;
   border: 1px solid var(--bandkit-release-accent) !important;
   border-radius: 5px !important;
@@ -2480,8 +2496,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purch
   padding: 8px 12px !important;
   text-decoration: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .hd button.buy-link {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .hd button.buy-link {
   background: transparent !important;
   border: 0 !important;
   color: var(--bandkit-release-ink) !important;
@@ -2489,14 +2504,12 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purch
   padding: 0 !important;
   text-align: left;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .send-as-gift button {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .send-as-gift button {
   background: transparent !important;
   border-color: var(--bandkit-release-line) !important;
   color: var(--bandkit-release-accent) !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .popupImageGallery {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .popupImageGallery {
   display: grid !important;
   gap: 6px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2505,8 +2518,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purch
   padding: 0 !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .popupImageGallery .gallery_item {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .popupImageGallery .gallery_item {
   display: block !important;
   height: 74px !important;
   margin: 0 !important;
@@ -2514,16 +2526,14 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purch
   position: static !important;
   width: auto !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .popupImageGallery a,
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .popupImageGallery img {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .popupImageGallery a,
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .popupImageGallery img {
   display: block;
   height: 100% !important;
   object-fit: cover;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography > .art.compact {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography > .art.compact {
   box-sizing: border-box;
   display: flex !important;
   height: 65px !important;
@@ -2533,8 +2543,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purch
   position: relative !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .art-thumb {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .art-thumb {
   background-position: center;
   background-size: cover;
   display: block;
@@ -2544,8 +2553,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purch
   position: relative;
   width: 65px;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .more-button {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .more-button {
   align-items: center;
   background: var(--bandkit-release-surface-raised) !important;
   box-sizing: border-box;
@@ -2561,155 +2569,137 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purch
   width: 65px;
   z-index: 20;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .more-button .count {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .more-button .count {
   font-size: 24px;
   line-height: 1;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .more-button .releases {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .more-button .releases {
   font-size: 11px;
   line-height: 1.3;
   margin-top: 5px;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container {
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container {
   display: grid !important;
   gap: 6px 12px;
   grid-template-columns: 64px minmax(0, 1fr);
   padding: 14px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .artists-bio-pic {
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container .artists-bio-pic {
   grid-column: 1;
   grid-row: 1 / span 2;
   margin: 0 !important;
   width: 64px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .artists-bio-pic img {
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container .artists-bio-pic img {
   border-radius: 4px;
   display: block;
   height: 64px !important;
   object-fit: cover;
   width: 64px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container:not(:has(.artists-bio-pic img)) {
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container:not(:has(.artists-bio-pic img)) {
   grid-template-columns: minmax(0, 1fr);
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container:not(:has(.artists-bio-pic img)) .artists-bio-pic {
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container:not(:has(.artists-bio-pic img)) .artists-bio-pic {
   display: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #band-name-location,
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .following-actions-wrapper {
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container #band-name-location,
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container .following-actions-wrapper {
   grid-column: 2;
   margin: 0 !important;
   width: auto !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container:not(:has(.artists-bio-pic img)) #band-name-location,
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container:not(:has(.artists-bio-pic img)) .following-actions-wrapper {
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container:not(:has(.artists-bio-pic img)) #band-name-location,
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container:not(:has(.artists-bio-pic img)) .following-actions-wrapper {
   grid-column: 1;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .signed-out-artists-bio-text,
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #band-links,
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #recommended {
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container .signed-out-artists-bio-text,
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container #band-links,
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container #recommended {
   grid-column: 1 / -1;
   margin: 2px 0 0 !important;
   width: auto !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #band-name-location .title {
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container #band-name-location .title {
   color: var(--bandkit-release-ink) !important;
   display: block;
   font-size: 16px !important;
   font-weight: 600;
 }
-
-html[data-bandkit-modern-release="true"][data-bandkit-page-theme="true"] body.tralbum-page #bio-container .follow-unfollow {
+html[data-bandkit-modern-release=true][data-bandkit-page-theme=true] body.tralbum-page #bio-container .follow-unfollow {
   background: var(--bandkit-release-accent) !important;
   border: 0 !important;
   box-shadow: none !important;
   color: var(--bandkit-release-on-accent) !important;
 }
-
-html[data-bandkit-modern-release="true"][data-bandkit-page-theme="true"] body.tralbum-page #bio-container .follow-unfollow * {
+html[data-bandkit-modern-release=true][data-bandkit-page-theme=true] body.tralbum-page #bio-container .follow-unfollow * {
   background: var(--bandkit-release-accent) !important;
   border-color: transparent !important;
   box-shadow: none !important;
   color: var(--bandkit-release-on-accent) !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .location,
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #bio-text {
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container .location,
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container #bio-text {
   color: var(--bandkit-release-muted) !important;
   font-size: 12px !important;
   line-height: 1.45;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .signed-out-artists-bio-text p,
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #bio-text {
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container .signed-out-artists-bio-text p,
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container #bio-text {
   margin: 0 !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #band-links {
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container #band-links {
   display: flex;
   flex-wrap: wrap;
   gap: 3px 10px;
   list-style: none;
   padding: 0 !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container a,
-html[data-bandkit-modern-release="true"] body.tralbum-page #discography a,
-html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn > .sidebar a,
-html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn > #recommended a {
+html[data-bandkit-modern-release=true] body.tralbum-page #bio-container a,
+html[data-bandkit-modern-release=true] body.tralbum-page #discography a,
+html[data-bandkit-modern-release=true] body.tralbum-page #rightColumn > .sidebar a,
+html[data-bandkit-modern-release=true] body.tralbum-page #rightColumn > #recommended a {
   color: var(--bandkit-release-accent) !important;
 }
-
-html[data-bandkit-modern-release="true"][data-bandkit-hide-page-cart="true"] body.tralbum-page #sidecart {
+html[data-bandkit-modern-release=true][data-bandkit-hide-page-cart=true] body.tralbum-page #sidecart {
   display: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #discography h3,
-html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn .sidebar h3 {
+html[data-bandkit-modern-release=true] body.tralbum-page #discography h3,
+html[data-bandkit-modern-release=true] body.tralbum-page #rightColumn .sidebar h3 {
   color: var(--bandkit-release-ink) !important;
   font-size: 16px !important;
   margin: 0 0 12px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #discography ul {
+html[data-bandkit-modern-release=true] body.tralbum-page #discography ul {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0 !important;
   padding: 0 !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #discography li {
+html[data-bandkit-modern-release=true] body.tralbum-page #discography li {
   margin: 0 !important;
   min-width: 0;
   width: auto !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #discography img {
+html[data-bandkit-modern-release=true] body.tralbum-page #discography img {
   display: block;
   height: auto !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #discography .trackTitle,
-html[data-bandkit-modern-release="true"] body.tralbum-page #discography .trackYear {
+html[data-bandkit-modern-release=true] body.tralbum-page #discography .trackTitle,
+html[data-bandkit-modern-release=true] body.tralbum-page #discography .trackYear {
   font-size: 11px !important;
   line-height: 1.35;
   margin-top: 4px;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #pgFt {
+html[data-bandkit-modern-release=true] body.tralbum-page #pgFt {
+  --bandkit-release-ink: var(--bandkit-release-footer-ink);
+  --bandkit-release-muted: var(--bandkit-release-footer-muted);
+  --bandkit-release-line: var(--bandkit-release-footer-line);
+  --bandkit-release-accent: var(--bandkit-release-footer-accent);
+  --bandkit-release-accent-soft: var(--bandkit-release-footer-accent-soft);
+  --bandkit-release-on-accent: var(--bandkit-release-footer-on-accent);
   background: var(--bandkit-release-footer-bg) !important;
   color: var(--bandkit-release-ink) !important;
   margin: 0 !important;
@@ -2717,17 +2707,15 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #pgFt {
   padding: 0 0 64px !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container {
   background: transparent !important;
-  border-top: 1px solid var(--bandkit-release-line) !important;
+  border-top: 0 !important;
   margin: 0 auto !important;
   max-width: 1432px !important;
   padding: 32px 0 0 !important;
   width: calc(100% - 96px) !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-recommendations-title {
+html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-recommendations-title {
   color: var(--bandkit-release-ink) !important;
   font-size: 24px !important;
   font-weight: 600 !important;
@@ -2735,37 +2723,32 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-recom
   line-height: 1.25 !important;
   margin: 0 0 22px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommendations-content,
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .first-row {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .recommendations-content,
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .first-row {
   margin: 0 !important;
   max-width: none !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .first-row {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .first-row {
   align-items: start;
   display: grid !important;
   gap: 36px;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr));
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recs-section {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .recs-section {
   float: none !important;
   margin: 0 !important;
   min-width: 0;
   width: auto !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .section-title {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .section-title {
   color: var(--bandkit-release-ink) !important;
   font-size: 16px !important;
   font-weight: 600 !important;
   line-height: 1.35 !important;
   margin: 0 0 14px !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container ul.horizontal {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container ul.horizontal {
   align-items: start;
   display: grid !important;
   gap: 16px;
@@ -2775,13 +2758,11 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_cont
   padding: 0 !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .first-row:has(> .recs-section:only-of-type) ul.horizontal {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .first-row:has(> .recs-section:only-of-type) ul.horizontal {
   grid-template-columns: repeat(auto-fit, minmax(140px, 180px));
   justify-content: space-between;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .recommended-album {
   align-self: start;
   background: var(--bandkit-release-surface-raised) !important;
   border: 1px solid var(--bandkit-release-line) !important;
@@ -2800,48 +2781,42 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_cont
   transition: border-color 140ms ease;
   width: auto !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album:hover,
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album:focus-within,
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album.selected {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .recommended-album:hover,
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .recommended-album:focus-within,
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .recommended-album.selected {
   border-color: var(--bandkit-release-accent) !important;
   box-shadow: none !important;
   transform: none !important;
   z-index: 2;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .album-art-container,
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .album-art-container picture,
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .album-art {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .album-art-container,
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .album-art-container picture,
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .album-art {
   display: block;
   height: auto !important;
   margin: 0 !important;
   max-width: none !important;
   width: 100% !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .album-art-container {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .album-art-container {
   aspect-ratio: 1;
   border-radius: 7px 7px 0 0;
   flex: 0 0 auto;
   overflow: hidden;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .album-art {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .album-art {
   height: 100% !important;
   object-fit: cover;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .title-and-artist,
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .album-details {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .title-and-artist,
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .album-details {
   color: var(--bandkit-release-ink) !important;
   font-size: 12px !important;
   line-height: 1.45 !important;
   margin: 12px 12px 0 !important;
   width: auto !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .title-and-artist {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .title-and-artist {
   display: block !important;
   flex: 0 0 66px;
   height: 66px !important;
@@ -2852,8 +2827,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_cont
   position: static !important;
   visibility: visible !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .album-details {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .album-details {
   display: none !important;
   height: auto !important;
   margin: 0 !important;
@@ -2861,193 +2835,157 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_cont
   padding: 0 12px 14px !important;
   position: static !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album:hover .album-details,
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album:focus-within .album-details,
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album.selected .album-details {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .recommended-album:hover .album-details,
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .recommended-album:focus-within .album-details,
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .recommended-album.selected .album-details {
   display: block !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .album-link,
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .go-to-album {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .album-link,
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .go-to-album {
   color: var(--bandkit-release-accent) !important;
   text-decoration: none !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .release-title {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .release-title {
   color: var(--bandkit-release-ink) !important;
   font-weight: 600 !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .by-artist,
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .supporters-text,
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .comment,
-html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .bcw-featured-text {
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .by-artist,
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .supporters-text,
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .comment,
+html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .bcw-featured-text {
   color: var(--bandkit-release-muted) !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .secondaryText {
+html[data-bandkit-modern-release=true] body.tralbum-page .secondaryText {
   color: var(--bandkit-release-muted) !important;
 }
-
-html[data-bandkit-modern-release="true"] body.tralbum-page :focus-visible {
+html[data-bandkit-modern-release=true] body.tralbum-page :focus-visible {
   outline: 2px solid var(--bandkit-release-accent) !important;
   outline-offset: 2px;
 }
 
+/* src/styles/modern/responsive.css */
 @media (max-width: 1120px) {
-  html[data-bandkit-modern-release="true"] body.tralbum-page #pgBd {
+  html[data-bandkit-modern-release=true] body.tralbum-page #pgBd {
     gap: 0 24px;
     grid-template-columns: minmax(0, 1fr) 300px;
     padding-inline: 20px !important;
     width: calc(100% - 24px) !important;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page #customHeaderWrapper {
+  html[data-bandkit-modern-release=true] body.tralbum-page #customHeaderWrapper {
     margin-inline: -20px;
     width: calc(100% + 40px) !important;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-primary {
+  html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-release-primary {
     gap: 26px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-body {
+  html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-release-body {
     gap: 26px;
   }
 }
-
 @media (max-width: 900px) {
-  html[data-bandkit-modern-release="true"] body.tralbum-page #pgBd {
+  html[data-bandkit-modern-release=true] body.tralbum-page #pgBd {
     display: block !important;
     padding-bottom: 48px !important;
     width: 100% !important;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-primary {
+  html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-release-primary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn {
+  html[data-bandkit-modern-release=true] body.tralbum-page #rightColumn {
     display: grid;
     gap: 14px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     padding-top: 28px !important;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn > * {
+  html[data-bandkit-modern-release=true] body.tralbum-page #rightColumn > * {
     min-width: 0;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-panel {
+  html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-panel {
     grid-row: span 2;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .first-row {
+  html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container .first-row {
     gap: 28px;
     grid-template-columns: minmax(0, 1fr);
   }
 }
-
 @media (max-width: 680px) {
-  html[data-bandkit-modern-page="true"] .band-navbar-wrapper {
+  html[data-bandkit-modern-page=true] .band-navbar-wrapper {
     overflow-x: auto;
     overflow-y: hidden;
     padding-inline: 16px;
     scrollbar-width: none;
   }
-
-  html[data-bandkit-modern-page="true"] .band-navbar-wrapper::-webkit-scrollbar {
+  html[data-bandkit-modern-page=true] .band-navbar-wrapper::-webkit-scrollbar {
     display: none;
   }
-
-  html[data-bandkit-modern-page="true"] #band-navbar {
+  html[data-bandkit-modern-page=true] #band-navbar {
     gap: 24px;
     width: max-content !important;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page #pgBd {
+  html[data-bandkit-modern-release=true] body.tralbum-page #pgBd {
     padding-inline: 16px !important;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page #pgFt {
+  html[data-bandkit-modern-release=true] body.tralbum-page #pgFt {
     padding-inline: 0 !important;
     width: 100% !important;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container {
+  html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container {
     width: calc(100% - 32px) !important;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page #customHeaderWrapper {
+  html[data-bandkit-modern-release=true] body.tralbum-page #customHeaderWrapper {
     margin-inline: -16px;
     width: calc(100% + 32px) !important;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page .trackView {
+  html[data-bandkit-modern-release=true] body.tralbum-page .trackView {
     gap: 18px;
     grid-template-areas: "title" "player" "art" "body";
     grid-template-columns: minmax(0, 1fr);
     padding-top: 24px !important;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page .trackView:has(> .bandkit-modern-release-primary) {
+  html[data-bandkit-modern-release=true] body.tralbum-page .trackView:has(> .bandkit-modern-release-primary) {
     display: block !important;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-primary {
+  html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-release-primary {
     gap: 28px;
     grid-template-areas: "music" "art";
     grid-template-columns: minmax(0, 1fr);
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page #name-section {
+  html[data-bandkit-modern-release=true] body.tralbum-page #name-section {
     padding-bottom: 2px !important;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page #name-section .trackTitle {
+  html[data-bandkit-modern-release=true] body.tralbum-page #name-section .trackTitle {
     font-size: 34px !important;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page .middleColumn {
+  html[data-bandkit-modern-release=true] body.tralbum-page .middleColumn {
     margin-inline: auto !important;
     max-width: 480px;
     width: 100% !important;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-body,
-  html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn {
+  html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-release-body,
+  html[data-bandkit-modern-release=true] body.tralbum-page #rightColumn {
     display: grid;
     gap: 28px;
     grid-template-columns: minmax(0, 1fr);
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-panel {
+  html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-purchase-panel {
     grid-row: auto;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .deets {
+  html[data-bandkit-modern-release=true] body.tralbum-page .collected-by .deets {
     gap: 24px;
     grid-template-columns: minmax(0, 1fr);
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporter-reviews {
+  html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-supporter-reviews {
     grid-column: 1;
     grid-row: 1;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporter-grid {
+  html[data-bandkit-modern-release=true] body.tralbum-page .bandkit-modern-supporter-grid {
     grid-column: 1;
     grid-row: 2;
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container ul.horizontal {
+  html[data-bandkit-modern-release=true] body.tralbum-page #recommendations_container ul.horizontal {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player {
-    padding: 16px !important;
-  }
-
 }
+
+/* src/styles/modern/index.css */

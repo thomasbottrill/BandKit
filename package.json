@@ -1,0 +1,18 @@
+{
+  "name": "bandkit-extension",
+  "version": "0.7.7",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:release": "node scripts/build.mjs --release",
+    "lint": "eslint . --cache --cache-location .cache/eslint",
+    "test:smoke": "for test_file in tests/*-smoke.mjs; do node \"$test_file\" || exit 1; done",
+    "test": "npm run lint && npm run build && npm run test:smoke",
+    "package": "scripts/package-release.sh"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "eslint": "10.0.3"
+  }
+}

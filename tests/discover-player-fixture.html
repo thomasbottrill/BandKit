@@ -21,12 +21,13 @@
   <ul id="user-nav"></ul>
   <div id="DiscoverApp"><div class="full-page-app-wrapper discover-app"><main class="app">
     <ul class="results-grid"><li class="results-grid-item"><div class="card">
-      <div class="image-container"><img src="/assets/art-remix.png" alt=""><button class="g-button play-pause-button play-button" aria-label="Play">Play</button></div>
+      <div class="image-container"><img src="/assets/art-cobrastyle.png" alt=""><button class="g-button play-pause-button play-button" aria-label="Play">Play</button></div>
       <div class="content"><div class="header"><a class="stretch-link" href="https://grid-artist.bandcamp.com/album/grid-album"><div class="title">Grid Fixture Album</div><div class="attribution-meta">by Grid Fixture Artist</div></a></div></div>
     </div></li><li class="results-grid-item custom-domain-card"><div class="card">
       <div class="image-container"><img src="/assets/art-clouds.png" alt=""><button class="g-button play-pause-button play-button" aria-label="Play">Play</button></div>
       <div class="content"><div class="header"><a class="stretch-link" href="https://custom-label.example/album/custom-album"><div class="title">Custom Domain Album</div><div class="attribution-meta">by Custom Domain Artist</div></a></div></div>
     </div></li></ul>
+    <button id="append-discover-results" type="button">Append Discover results</button>
     <div class="focused-result">
       <button class="g-button play-pause-button artwork-play-button" aria-label="Pause">Pause</button>
       <img src="/assets/art-clouds.png" alt="View Fixture Album">
@@ -64,6 +65,17 @@
         url: "https://t4.bcbits.com/stream/queued-before-discover"
       }]
     } } : fixtureNativePlayerVisible ? { bandcampHubState: { appearance: { hideBandcampPlayer: false } } } : {};
+    if (location.search.includes("appearance-reskin")) {
+      window.fixtureStored = { bandcampHubState: {
+        appearance: {
+          pageAware: false,
+          applyToPage: true,
+          hideBandcampPlayer: true,
+          preset: "midnight",
+          savedThemes: []
+        }
+      } };
+    }
     window.fixtureMessages = [];
     window.fixtureSeamlessState = { enabled: false, status: "idle" };
     const nativeControl = document.querySelector(".discover-player .play-pause-button");
@@ -74,6 +86,20 @@
     }
     document.querySelector("#simulate-next-track").addEventListener("click", () => {
       document.querySelector(".discover-player .player-info .title").textContent = "Second Live Fixture Track";
+    });
+    document.querySelector("#append-discover-results").addEventListener("click", () => {
+      const grid = document.querySelector(".results-grid");
+      const source = grid.querySelector(".results-grid-item");
+      const fragment = document.createDocumentFragment();
+      for (let index = 0; index < 80; index += 1) {
+        const card = source.cloneNode(true);
+        card.querySelectorAll(".bandcamp-hub-page-playlist").forEach((control) => control.remove());
+        card.querySelectorAll("[data-bandkit-discover-action-scanned]").forEach((control) => control.removeAttribute("data-bandkit-discover-action-scanned"));
+        card.querySelector(".title").textContent = `Stress Fixture Album ${index + 1}`;
+        card.querySelector(".stretch-link").href = `https://stress-${index + 1}.bandcamp.com/album/stress-fixture`;
+        fragment.append(card);
+      }
+      grid.append(fragment);
     });
     nativeControl.addEventListener("click", () => {
       const playing = nativeControl.getAttribute("aria-label") === "Pause";
@@ -152,7 +178,7 @@
       if (location.search.includes("queue-to-discover-switch")) {
         window.setTimeout(() => {
           const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
-          root?.querySelector(".hub-playlist-position-play")?.click();
+          root?.querySelector(".hub-playlist-media-toggle")?.click();
           window.setTimeout(() => {
             hiddenDiscoverPaused = false;
             nativeControl.setAttribute("aria-label", "Play");
@@ -208,9 +234,9 @@
         const queuedCard = root?.querySelector('[data-playlist-item-id="queued-before-discover"]');
         document.title = enables.length === 2
           && finalTrack?.title === "Discover Fixture Track"
-          && !queuedCard?.querySelector(".hub-playlist-position-play")?.disabled
+          && !queuedCard?.querySelector(".hub-playlist-media-toggle")?.disabled
           ? "PASS: Discover click supersedes pending queue start fixture"
-          : `FAIL: Discover supersession ${enables.length}/${finalTrack?.title || "none"}/${queuedCard?.querySelector(".hub-playlist-position-play")?.disabled}`;
+          : `FAIL: Discover supersession ${enables.length}/${finalTrack?.title || "none"}/${queuedCard?.querySelector(".hub-playlist-media-toggle")?.disabled}`;
         return;
       }
       if (location.search.includes("rapid-switch")) {
@@ -240,6 +266,8 @@
       const gridPlayButton = document.querySelector(".results-grid-item .play-pause-button");
       const gridAddButton = document.querySelector(".results-grid-item .bandcamp-hub-page-playlist.is-discover-add-to");
       const customDomainAddButton = document.querySelector(".custom-domain-card .bandcamp-hub-page-playlist.is-discover-add-to");
+      const gridPlayStyle = getComputedStyle(gridPlayButton);
+      const gridAddStyle = getComputedStyle(gridAddButton);
       document.title = title?.textContent === "Discover Fixture Track"
         && title.href.includes("fixture-artist.bandcamp.com/album/fixture-album")
         && artist?.textContent === "Fixture Artist"
@@ -255,11 +283,14 @@
         && detailScrollReserve === playerHeight + 16
         && gridAddButton?.getAttribute("aria-label") === "Add Grid Fixture Album to Now Playing or a playlist"
         && gridAddButton?.getBoundingClientRect().left > gridPlayButton?.getBoundingClientRect().right
-        && Math.round(gridAddButton?.getBoundingClientRect().width || 0) === 28
+        && Math.round(gridPlayButton?.getBoundingClientRect().width || 0) === 36
+        && Math.round(gridAddButton?.getBoundingClientRect().width || 0) === 36
+        && gridPlayStyle.borderRadius === gridAddStyle.borderRadius
+        && gridAddStyle.borderRadius === "8px"
         && customDomainAddButton?.getAttribute("aria-label") === "Add Custom Domain Album to Now Playing or a playlist"
         && (fixtureNativePlayerVisible || (discoverAddButton?.getAttribute("aria-label")?.includes("Now Playing or a playlist")
           && discoverAddButton?.offsetLeft > artworkPlayButton?.offsetLeft + artworkPlayButton?.offsetWidth
-          && Math.round(discoverAddButton?.getBoundingClientRect().width || 0) === 28))
+          && Math.round(discoverAddButton?.getBoundingClientRect().width || 0) === 36))
         && root?.querySelector(".hub-duration")?.textContent === "3:00"
         && root?.querySelector(".hub-scrub-waveform-played")?.getAttribute("d")
         && root?.querySelector(".hub-scrub-control")?.style.getPropertyValue("--hub-scrub-progress") === "75.00%"

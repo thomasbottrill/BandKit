@@ -1,0 +1,152 @@
+@media (max-width: 1120px) {
+  html[data-bandkit-modern-release="true"] body.tralbum-page #pgBd {
+    gap: 0 24px;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    padding-inline: 20px !important;
+    width: calc(100% - 24px) !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page #customHeaderWrapper {
+    margin-inline: -20px;
+    width: calc(100% + 40px) !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-primary {
+    gap: 26px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-body {
+    gap: 26px;
+  }
+}
+
+@media (max-width: 900px) {
+  html[data-bandkit-modern-release="true"] body.tralbum-page #pgBd {
+    display: block !important;
+    padding-bottom: 48px !important;
+    width: 100% !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-primary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-top: 28px !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn > * {
+    min-width: 0;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-panel {
+    grid-row: span 2;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .first-row {
+    gap: 28px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 680px) {
+  html[data-bandkit-modern-page="true"] .band-navbar-wrapper {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-inline: 16px;
+    scrollbar-width: none;
+  }
+
+  html[data-bandkit-modern-page="true"] .band-navbar-wrapper::-webkit-scrollbar {
+    display: none;
+  }
+
+  html[data-bandkit-modern-page="true"] #band-navbar {
+    gap: 24px;
+    width: max-content !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page #pgBd {
+    padding-inline: 16px !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page #pgFt {
+    padding-inline: 0 !important;
+    width: 100% !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container {
+    width: calc(100% - 32px) !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page #customHeaderWrapper {
+    margin-inline: -16px;
+    width: calc(100% + 32px) !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .trackView {
+    gap: 18px;
+    grid-template-areas: "title" "player" "art" "body";
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 24px !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .trackView:has(> .bandkit-modern-release-primary) {
+    display: block !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-primary {
+    gap: 28px;
+    grid-template-areas: "music" "art";
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page #name-section {
+    padding-bottom: 2px !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page #name-section .trackTitle {
+    font-size: 34px !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .middleColumn {
+    margin-inline: auto !important;
+    max-width: 480px;
+    width: 100% !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-body,
+  html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn {
+    display: grid;
+    gap: 28px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-panel {
+    grid-row: auto;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .deets {
+    gap: 24px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporter-reviews {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporter-grid {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container ul.horizontal {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+}

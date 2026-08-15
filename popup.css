@@ -1,52 +1,49 @@
+/* popup.css */
 :root {
   color-scheme: dark;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family:
+    Helvetica Neue,
+    Helvetica,
+    Arial,
+    sans-serif;
 }
-
-* { box-sizing: border-box; }
-
+* {
+  box-sizing: border-box;
+}
 body {
   background: #111827;
   color: #f9fafb;
   margin: 0;
   width: 260px;
 }
-
-main { padding: 16px; }
-
+main {
+  padding: 16px;
+}
 .title-row {
   align-items: center;
   display: flex;
   justify-content: space-between;
   margin-bottom: 14px;
 }
-
 h1 {
   font-size: 17px;
   line-height: 22px;
   margin: 0;
 }
-
 p {
   color: #9ca3af;
   font-size: 11px;
   line-height: 16px;
   margin: 2px 0 0;
 }
-
-p.is-error { color: #fca5a5; }
-
+p.is-error {
+  color: #fca5a5;
+}
 .mark {
-  align-items: center;
-  background: #1da0c3;
-  border-radius: 999px;
-  display: flex;
-  font-size: 17px;
   height: 34px;
-  justify-content: center;
+  object-fit: contain;
   width: 34px;
 }
-
 button {
   background: #1da0c3;
   border: 0;
@@ -58,10 +55,10 @@ button {
   padding: 10px 14px;
   width: 100%;
 }
-
-button.is-active { background: #374151; }
-
+button.is-active {
+  background: #374151;
+}
 button:disabled {
   cursor: default;
-  opacity: 0.45;
+  opacity: .45;
 }

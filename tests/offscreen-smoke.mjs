@@ -37,6 +37,7 @@ const fakeAudio = new FakeAudio();
 let messageListener;
 const reportedStates = [];
 const fetchedUrls = [];
+const fetchRequests = [];
 let fetchShouldFail = false;
 let fetchOverride = null;
 
@@ -52,6 +53,7 @@ for (let beat = 0; beat < 48; beat += 1) {
 const successfulFetch = () => ({ ok: true, status: 206, arrayBuffer: async () => new ArrayBuffer(8) });
 globalThis.fetch = async (...args) => {
   fetchedUrls.push(args[0]);
+  fetchRequests.push(args);
   if (fetchOverride) return fetchOverride(...args);
   return fetchShouldFail
     ? { ok: false, status: 403, arrayBuffer: async () => new ArrayBuffer(0) }
@@ -105,7 +107,7 @@ globalThis.chrome = {
   }
 };
 
-await import(`../offscreen.js?smoke=${Date.now()}`);
+await import(`../src/offscreen/index.js?smoke=${Date.now()}`);
 
 function send(message) {
   return new Promise((resolve) => {
@@ -205,6 +207,39 @@ assert.equal(response.state.bpmSource, "auto");
 assert.equal(response.state.waveform.length, 180);
 assert.ok(response.state.waveform.some((point) => point > 0));
 assert.ok(response.state.detectedKey?.camelot);
+
+response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_ANALYZE_TRACKS", tracks: queue, force: true });
+assert.equal(response.ok, true);
+assert.equal(response.results.length, 2);
+assert.ok(response.results.every((result) => result.bpm && result.key?.camelot));
+const rangeRequests = fetchRequests.filter(([, options]) => options?.headers?.Range);
+assert.ok(rangeRequests.length >= 2, "batch analysis must request bounded audio byte ranges");
+assert.ok(rangeRequests.every(([, options]) => options.signal instanceof AbortSignal),
+  "batch analysis stream requests must remain abortable");
+assert.ok(rangeRequests.every(([, options]) => options.headers.Range === "bytes=0-524287"),
+  "batch analysis must retain the full 512 KiB analysis window");
+
+let activeAnalysisFetches = 0;
+let peakAnalysisFetches = 0;
+fetchOverride = async (url) => {
+  if (!String(url).includes("concurrency-")) return successfulFetch();
+  activeAnalysisFetches += 1;
+  peakAnalysisFetches = Math.max(peakAnalysisFetches, activeAnalysisFetches);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  activeAnalysisFetches -= 1;
+  return successfulFetch();
+};
+const concurrencyTracks = Array.from({ length: 10 }, (_, index) => ({
+  id: `concurrency-${index}`,
+  title: `Concurrency ${index}`,
+  artist: "Fixture",
+  url: `https://t4.bcbits.com/stream/concurrency-${index}`,
+  duration: 120
+}));
+response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_ANALYZE_TRACKS", tracks: concurrencyTracks, force: true });
+fetchOverride = null;
+assert.equal(response.results.length, concurrencyTracks.length);
+assert.equal(peakAnalysisFetches, 6, "batch analysis must process six track samples concurrently");
 
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_SET_BPM", bpm: 124.5 });
 assert.equal(response.state.detectedBpm, 124.5);

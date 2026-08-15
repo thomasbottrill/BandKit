@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 
-const source = fs.readFileSync(new URL("../modern-pages-bootstrap.js", import.meta.url), "utf8");
+const source = fs.readFileSync(new URL("../dist/unpacked/modern-pages-bootstrap.js", import.meta.url), "utf8");
 
-function bootstrap({ hostname, pathname, enabled = true, storageError = false }) {
+function bootstrap({ hostname, pathname, enabled, globallyEnabled = true, storageError = false }) {
   const dataset = {};
   const context = {
     location: { hostname, pathname },
@@ -13,9 +13,14 @@ function bootstrap({ hostname, pathname, enabled = true, storageError = false })
       runtime: { lastError: storageError ? { message: "fixture failure" } : null },
       storage: {
         local: {
-          get(key, callback) {
-            assert.equal(key, "bandcampHubState");
-            callback({ bandcampHubState: { appearance: { modernReleasePages: enabled } } });
+          get(keys, callback) {
+            assert.deepEqual([...keys], ["bandcampHubEnabled", "bandcampHubState"]);
+            callback({
+              bandcampHubEnabled: globallyEnabled,
+              ...(enabled === undefined
+                ? { bandcampHubState: {} }
+                : { bandcampHubState: { appearance: { modernReleasePages: enabled } } })
+            });
           }
         }
       }
@@ -29,7 +34,7 @@ function bootstrap({ hostname, pathname, enabled = true, storageError = false })
   return { context, dataset };
 }
 
-let result = bootstrap({ hostname: "artist.bandcamp.com", pathname: "/album/example" });
+let result = bootstrap({ hostname: "artist.bandcamp.com", pathname: "/album/example", enabled: true });
 assert.equal(result.dataset.bandkitModernBootstrap, "true");
 assert.equal(result.dataset.bandkitModernPending, "true");
 assert.equal(result.context.BandKitModernPagesBootstrap.pageType, "release");
@@ -38,17 +43,30 @@ result.context.BandKitModernPagesBootstrap.finish();
 assert.equal(result.dataset.bandkitModernPending, undefined);
 assert.equal(result.dataset.bandkitModernReady, "true");
 
-result = bootstrap({ hostname: "bandcamp.com", pathname: "/listener/feed" });
+result = bootstrap({ hostname: "bandcamp.com", pathname: "/listener/feed", enabled: true });
 assert.equal(result.context.BandKitModernPagesBootstrap.pageType, "feed");
 
-result = bootstrap({ hostname: "artist.bandcamp.com", pathname: "/video" });
+result = bootstrap({ hostname: "artist.bandcamp.com", pathname: "/video", enabled: true });
 assert.equal(result.context.BandKitModernPagesBootstrap.pageType, "video");
+
+result = bootstrap({ hostname: "label.bandcamp.com", pathname: "/artists", enabled: true });
+assert.equal(result.context.BandKitModernPagesBootstrap.pageType, "music");
 
 result = bootstrap({ hostname: "label.bandcamp.com", pathname: "/community", enabled: false });
 assert.equal(result.dataset.bandkitModernPage, "false");
 assert.equal(result.dataset.bandkitModernPageType, undefined);
 assert.equal(result.dataset.bandkitModernPending, undefined);
 assert.equal(result.dataset.bandkitModernReady, "true");
+
+result = bootstrap({ hostname: "artist.bandcamp.com", pathname: "/album/default-off" });
+assert.equal(result.dataset.bandkitModernPage, "false", "Modern pages must remain opt-in when no preference is stored");
+assert.equal(result.dataset.bandkitModernPending, undefined);
+
+result = bootstrap({ hostname: "artist.bandcamp.com", pathname: "/album/deactivated", enabled: true, globallyEnabled: false });
+assert.equal(result.dataset.bandkitEnabled, "false");
+assert.equal(result.dataset.bandkitModernPage, "false", "Global deactivation must keep the original Bandcamp page");
+assert.equal(result.dataset.bandkitModernPending, undefined);
+assert.equal(result.dataset.bandkitModernReady, undefined, "Global deactivation must not animate or restyle the page");
 
 result = bootstrap({ hostname: "bandcamp.com", pathname: "/listener" });
 assert.equal(result.dataset.bandkitModernBootstrap, undefined, "Collection pages must remain untouched");

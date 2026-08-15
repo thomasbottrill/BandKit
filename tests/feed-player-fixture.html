@@ -13,6 +13,7 @@
 <body class="feed">
   <ul id="user-nav"></ul>
   <aside id="track_play_waypoint">last played Feed Fixture Album</aside>
+  <button id="append-feed-stories" type="button">Append Feed stories</button>
   <main>
     <article class="story">
       <div class="story-innards">
@@ -38,7 +39,7 @@
       <div class="story-body">
       <div id="feed-item-two" class="collection-item-container track_play_hilite" data-trackid="999116642">
         <button class="track_play_auxiliary" data-trackid="999116642" type="button">Play</button>
-        <img class="tralbum-art-large" src="/assets/art-remix.png" alt="">
+        <img class="tralbum-art-large" src="/assets/art-cobrastyle.png" alt="">
         <a class="artist-name" href="https://second-feed.bandcamp.com/">Second Feed Artist</a>
         <a class="item-link" href="https://second-feed.bandcamp.com/album/second-feed-album">
           <span class="collection-item-title">Second Feed Album</span>
@@ -99,6 +100,18 @@
     const feedItem = document.querySelector("#feed-item");
     const secondFeedItem = document.querySelector("#feed-item-two");
     const sidebarFeedItem = document.querySelector("#feed-sidebar-item");
+    document.querySelector("#append-feed-stories").addEventListener("click", () => {
+      const source = secondFeedItem.closest(".story");
+      const fragment = document.createDocumentFragment();
+      for (let index = 0; index < 80; index += 1) {
+        const story = source.cloneNode(true);
+        story.querySelectorAll(".bandcamp-hub-page-playlist").forEach((control) => control.remove());
+        story.querySelectorAll("[data-bandkit-feed-action-scanned]").forEach((control) => control.removeAttribute("data-bandkit-feed-action-scanned"));
+        story.querySelector(".collection-item-title").textContent = `Stress Feed Album ${index + 1}`;
+        fragment.append(story);
+      }
+      source.parentElement.append(fragment);
+    });
     feedItem.dataset.itemJson = JSON.stringify({
       item_title: "Feed Fixture Album",
       item_url: "https://fixture-feed.bandcamp.com/album/feed-fixture-album",
@@ -111,7 +124,7 @@
     secondFeedItem.dataset.itemJson = JSON.stringify({
       item_title: "Second Feed Album",
       item_url: "//second-feed.bandcamp.com/album/second-feed-album",
-      item_art_url: new URL("/assets/art-remix.png", location.href).href,
+      item_art_url: new URL("/assets/art-cobrastyle.png", location.href).href,
       band_name: "Second Feed Artist",
       band_url: "https://second-feed.bandcamp.com/",
       featured_track_title: "Second Feed Track",
@@ -203,6 +216,17 @@
         ]
       }
     } : {};
+    if (location.search.includes("appearance-reskin")) {
+      window.fixtureStored = { bandcampHubState: {
+        appearance: {
+          pageAware: false,
+          applyToPage: false,
+          modernReleasePages: true,
+          preset: "midnight",
+          savedThemes: []
+        }
+      } };
+    }
     window.fixtureMessages = [];
     window.fixtureSeamlessState = location.search.includes("cross-page-active") ? {
       enabled: true,

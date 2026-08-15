@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Bandkit privacy policy">
+  <title>Bandkit Privacy Policy</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --background: #f7f8fa;
+      --surface: #ffffff;
+      --text: #182027;
+      --muted: #5f6b73;
+      --border: #dce2e6;
+      --accent: #167f9b;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --background: #101417;
+        --surface: #171d21;
+        --text: #eef3f5;
+        --muted: #aab6bc;
+        --border: #344047;
+        --accent: #4fc0df;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--text);
+      font: 16px/1.65 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(760px, calc(100% - 32px));
+      margin: 40px auto;
+      padding: clamp(24px, 5vw, 56px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+    }
+
+    h1,
+    h2 {
+      line-height: 1.2;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(2rem, 7vw, 3rem);
+    }
+
+    h2 {
+      margin: 2.25rem 0 0.75rem;
+      font-size: 1.25rem;
+    }
+
+    p,
+    ul {
+      margin: 0.75rem 0;
+    }
+
+    li + li {
+      margin-top: 0.4rem;
+    }
+
+    a {
+      color: var(--accent);
+      text-underline-offset: 0.15em;
+    }
+
+    .effective-date,
+    footer {
+      color: var(--muted);
+    }
+
+    footer {
+      margin-top: 2.5rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.925rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Bandkit Privacy Policy</h1>
+      <p class="effective-date">Effective date: 12 August 2026</p>
+    </header>
+
+    <p>Bandkit is a Chrome extension that adds playback, playlist, cart-recovery, listening-history, appearance and DJ controls to Bandcamp pages. This policy explains the information Bandkit handles to provide those features.</p>
+
+    <h2>Information Bandkit handles</h2>
+    <p>Bandkit may read and process the following information from Bandcamp pages that you visit:</p>
+    <ul>
+      <li>Bandcamp page URLs and page type.</li>
+      <li>Track, release and artist metadata, including titles, artwork URLs, durations and Bandcamp links.</li>
+      <li>Bandcamp-provided audio stream URLs for tracks that are currently available to play.</li>
+      <li>Cart product information, including item names, prices, currencies and selected product options. Bandkit does not collect payment card details, billing addresses or Bandcamp passwords.</li>
+      <li>A signed-in fan's public Bandcamp username or feed URL when needed for the optional feed-homepage feature.</li>
+      <li>Playback actions and listening activity used for the visible queue, player, playlists, DJ tools and local activity log.</li>
+      <li>Settings, layouts, themes, playlists, cart backups, analysis results and other content that you deliberately create in Bandkit.</li>
+    </ul>
+    <p>Bandkit handles this information only on Bandcamp pages and only to provide its user-facing Bandcamp companion features.</p>
+
+    <h2>How information is used and stored</h2>
+    <p>Bandkit stores settings, saved playlists, cart backups and listening activity in Chrome's local extension storage on your device. Current playback state may be kept in Chrome's session storage so playback controls can continue across Bandcamp navigation. Audio analysis for BPM, musical key and waveforms happens locally in the extension.</p>
+    <p>Bandkit does not collect or store bank account details, payment-card numbers, passwords or Bandcamp cookies. Bandcamp handles purchases and payment information on its own pages.</p>
+    <p>The optional <strong>Settings → Support → Support Bandkit</strong> link opens a Stripe-hosted page for a one-off tip supporting Bandkit's continued development. Bandkit does not receive, process or store payment-card, billing or payment credential information. Payment information is provided directly to Stripe only if you choose to use its external checkout.</p>
+    <p>You can use <strong>Settings → Privacy and data → Your data folder</strong> to create a portable copy. The folder picker opens in the operating system's Documents folder by default on macOS and Windows; after you approve that location, Bandkit automatically creates <code>Documents/Bandkit</code> and organizes the copy into <code>Playlists</code>, <code>Carts</code>, <code>Activity</code> and <code>Settings</code>. Chrome's local extension storage remains the live working copy; portable files are updated only when you choose to save them again.</p>
+    <p>Bandkit does not operate an analytics service or developer server. The developer does not receive the settings, playlists, cart backups, activity or playback data stored by the extension. Bandkit does not sell data, use data for advertising or build advertising profiles.</p>
+
+    <h2>Network connections and sharing</h2>
+    <p>Bandkit communicates directly with Bandcamp and Bandcamp's <code>bcbits.com</code> media hosts over HTTPS to load the pages, metadata and audio needed for the features you request. These services receive ordinary network information such as your IP address as part of serving their content and are governed by <a href="https://bandcamp.com/privacy">Bandcamp's privacy policy</a>.</p>
+    <p>The optional <strong>Settings → Feedback → Send feedback</strong> link opens a public Notion form operated by Notion Labs, Inc. Nothing is sent merely by opening Bandkit. If you choose to submit the form, the project, request type, description and any attachment you add are sent to Notion and intentionally published in Bandkit's public feedback list. Do not include personal, confidential or sensitive information. Notion receives ordinary network information such as your IP address and handles submitted content under <a href="https://www.notion.so/help/privacy">Notion's privacy policy</a>.</p>
+    <p>The optional <strong>Settings → Support → Support Bandkit</strong> link opens a payment page operated by Stripe, Inc. Opening that page makes an ordinary HTTPS request to Stripe, which receives standard network information such as your IP address. If you choose to pay, Stripe collects and processes the contact, billing and payment information required to complete the transaction under <a href="https://stripe.com/privacy">Stripe's privacy policy</a>. Bandkit does not have access to card or payment credentials entered there.</p>
+    <p>Playlist, cart, activity and theme files are created or shared only after you choose the relevant download, share or import action. Public cart share files omit Bandkit's private cart-restore details. You control any exported file after it leaves the extension.</p>
+
+    <h2>Retention and deletion</h2>
+    <p>Locally stored information remains until you delete individual content, use <strong>Settings → Privacy and data → Delete all Bandkit data</strong>, clear the extension's storage through Chrome, or uninstall Bandkit. Session playback information is also cleared when the browser session ends. Exported files must be deleted separately from the location where you saved or shared them.</p>
+    <p>Feedback submitted to Notion is separate from Bandkit's local extension storage. Deleting Bandkit data or uninstalling the extension does not delete a submitted report. To request removal of a public submission, use the support contact shown on Bandkit's Chrome Web Store listing.</p>
+
+    <h2>Security</h2>
+    <p>Bandkit limits its page access to HTTPS Bandcamp properties needed for its features, restricts accepted playback streams to HTTPS Bandcamp media hosts and does not download or execute remote code.</p>
+
+    <h2>Chrome Web Store Limited Use</h2>
+    <p>Bandkit's use of information received from Google APIs adheres to the <a href="https://developer.chrome.com/docs/webstore/program-policies/limited-use/">Chrome Web Store User Data Policy</a>, including the Limited Use requirements. Bandkit uses user data only to provide or improve its disclosed single purpose and user-facing features.</p>
+
+    <h2>Changes and contact</h2>
+    <p>Material changes to Bandkit's data practices will be disclosed before the changed practices take effect, and this policy's effective date will be updated.</p>
+    <p>For privacy questions, use the monitored support contact shown on Bandkit's Chrome Web Store listing.</p>
+
+    <footer>Bandkit is an independent extension and is not affiliated with, endorsed by or sponsored by Bandcamp.</footer>
+  </main>
+</body>
+</html>

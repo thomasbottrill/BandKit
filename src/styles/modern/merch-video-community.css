@@ -1,0 +1,498 @@
+/* Artist Vinyl / Merch. Merch metadata needs a denser card than releases. */
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid {
+  align-items: start;
+  display: grid !important;
+  float: none !important;
+  gap: 28px 24px !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid > .merch-grid-item {
+  align-self: start;
+  background: var(--bandkit-release-surface-raised) !important;
+  border: 1px solid color-mix(in srgb, var(--bandkit-release-line) 60%, transparent) !important;
+  border-radius: 8px;
+  display: flex !important;
+  flex-direction: column;
+  float: none !important;
+  height: auto !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 0 16px !important;
+  transition: border-color 140ms ease, transform 140ms ease;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid > .merch-grid-item:is(:hover, :focus-within) {
+  border-color: var(--bandkit-release-accent) !important;
+  transform: translateY(-2px);
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid > .merch-grid-item > a {
+  color: var(--bandkit-release-ink) !important;
+  display: block !important;
+  text-decoration: none !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid .art {
+  aspect-ratio: 1 / 1 !important;
+  background: var(--bandkit-release-surface-raised);
+  height: auto !important;
+  overflow: hidden;
+  position: relative !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid .art img {
+  display: block;
+  height: 100% !important;
+  inset: 0;
+  max-width: none !important;
+  object-fit: contain;
+  position: absolute !important;
+  transition: opacity 140ms ease;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid > li:is(:hover, :focus-within) .art img {
+  opacity: 0.94;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid .title {
+  color: var(--bandkit-release-ink) !important;
+  font-size: 14px !important;
+  font-weight: 650 !important;
+  line-height: 1.4 !important;
+  margin: 0 !important;
+  padding: 12px 14px 4px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid :is(.merchtype, .price) {
+  color: var(--bandkit-release-muted) !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+  margin: 0 !important;
+  padding: 2px 14px 0 !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="merch"] #merch-grid > .merch-grid-item > .price {
+  color: var(--bandkit-release-ink) !important;
+  font-weight: 650 !important;
+  margin-top: 8px !important;
+  padding-top: 10px !important;
+}
+
+/* Artist Videos. Bandcamp alternates each player <dt> with its caption <dd>;
+   matching borders make the pair read as one media card without changing the
+   native player lifecycle. */
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-list {
+  color: var(--bandkit-release-ink) !important;
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-list > .video-wrapper {
+  aspect-ratio: 16 / 9;
+  background: #000 !important;
+  border: 1px solid var(--bandkit-release-line) !important;
+  border-bottom: 0 !important;
+  border-radius: 10px 10px 0 0;
+  box-shadow: 0 1px 2px rgba(22, 25, 22, 0.04);
+  height: auto !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  position: relative !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-list > .video-wrapper > :is(.video-generic-iframe, .playerframe, iframe, video) {
+  height: 100% !important;
+  inset: 0;
+  margin: 0 !important;
+  padding: 0 !important;
+  position: absolute !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-generic-iframe img {
+  display: block;
+  height: 100% !important;
+  object-fit: cover;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-play-button {
+  left: 50% !important;
+  margin: 0 !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%);
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-list > .video-caption {
+  background: var(--bandkit-release-surface-raised) !important;
+  border: 1px solid var(--bandkit-release-line) !important;
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 1px 2px rgba(22, 25, 22, 0.04);
+  color: var(--bandkit-release-ink) !important;
+  display: grid !important;
+  gap: 0 16px;
+  grid-template-columns: 64px minmax(0, 1fr);
+  height: auto !important;
+  margin: 0 0 28px !important;
+  min-height: 96px;
+  padding: 16px 18px !important;
+  position: relative;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-caption > .caption-proper {
+  color: var(--bandkit-release-muted) !important;
+  grid-column: 1 / -1;
+  line-height: 1.5 !important;
+  margin: 0 0 14px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-caption > a:has(.tralbum-art) {
+  display: block !important;
+  grid-column: 1;
+  height: 64px;
+  width: 64px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-caption .tralbum-art,
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-caption .tralbum-art img {
+  border-radius: 5px;
+  display: block;
+  float: none !important;
+  height: 64px !important;
+  margin: 0 !important;
+  object-fit: cover;
+  width: 64px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-associated-tralbum-info {
+  color: var(--bandkit-release-muted) !important;
+  font-size: 14px !important;
+  grid-column: 2;
+  line-height: 1.5 !important;
+  margin: 0 !important;
+  min-width: 0;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-associated-tralbum-info > b {
+  color: var(--bandkit-release-ink) !important;
+  font-size: 16px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-caption:not(:has(.tralbum-art)) .video-associated-tralbum-info {
+  grid-column: 1 / -1;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-associated-tralbum-info > p {
+  align-items: center;
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 0 !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .video-associated-tralbum-info .collect-item {
+  display: contents !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .sub-vid-action-link {
+  align-items: center;
+  background: var(--bandkit-release-accent-soft) !important;
+  border: 1px solid var(--bandkit-release-line) !important;
+  border-radius: 999px !important;
+  color: var(--bandkit-release-accent) !important;
+  display: inline-flex !important;
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+  min-height: 28px;
+  padding: 6px 10px !important;
+  text-decoration: none !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="video"] .sub-vid-action-link:is(:hover, :focus-visible) {
+  border-color: var(--bandkit-release-accent) !important;
+}
+
+/* Artist Community. */
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community {
+  color: var(--bandkit-release-ink) !important;
+  margin: 0 auto !important;
+  max-width: none !important;
+  padding: 32px 0 0 !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community-inner {
+  background: transparent !important;
+  color: var(--bandkit-release-ink) !important;
+  margin: 0 !important;
+  max-width: none !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community-inner > .community-view.feed {
+  align-items: start;
+  background: transparent !important;
+  color: var(--bandkit-release-ink) !important;
+  display: grid !important;
+  gap: 32px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
+  margin: 0 !important;
+  max-width: none !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community-inner > .community-view.feed > .community-default-column:first-child {
+  margin: 0 !important;
+  max-width: none !important;
+  min-width: 0;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community-inner > .community-view.feed > .community-default-column:nth-child(2) {
+  display: flex !important;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0 !important;
+  max-width: none !important;
+  min-width: 0;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-follow-banner {
+  background: var(--bandkit-release-accent-soft) !important;
+  border: 1px solid color-mix(in srgb, var(--bandkit-release-accent) 42%, var(--bandkit-release-line)) !important;
+  border-radius: 8px;
+  color: var(--bandkit-release-ink) !important;
+  margin: 0 0 28px !important;
+  padding: 24px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-follow-banner h2 {
+  font-size: 22px !important;
+  letter-spacing: -0.02em;
+  line-height: 1.15 !important;
+  margin: 0 0 10px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-follow-banner > div {
+  color: var(--bandkit-release-muted) !important;
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-feed > .messages {
+  color: var(--bandkit-release-ink) !important;
+  font-size: 24px !important;
+  line-height: 1.2 !important;
+  margin: 0 0 18px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] :is(.community-feed, .community-band-info) :is(.story, .community-recent-release) {
+  background: var(--bandkit-release-surface-raised) !important;
+  border: 1px solid var(--bandkit-release-line) !important;
+  border-radius: 8px;
+  color: var(--bandkit-release-ink) !important;
+  margin: 0 0 18px !important;
+  overflow: hidden;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-feed .stories {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-feed .story {
+  list-style: none !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .story .lock-banner {
+  background: var(--bandkit-release-accent-soft) !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--bandkit-release-line) !important;
+  color: var(--bandkit-release-ink) !important;
+  margin: 0 !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .story .lock-banner-inner {
+  align-items: center;
+  display: flex !important;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 16px 22px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .story .lock-follow,
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-band-info .follow-unfollow {
+  background: var(--bandkit-release-accent) !important;
+  border: 1px solid var(--bandkit-release-accent) !important;
+  color: var(--bandkit-release-on-accent) !important;
+  font-weight: 650 !important;
+  min-height: 36px;
+  padding: 0 18px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .story .main-section {
+  padding: 24px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .story .actions {
+  border-top: 1px solid var(--bandkit-release-line) !important;
+  margin: 0 !important;
+  padding: 12px 24px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .story :is(.story-band-bio-pic, .fan-photo-container, .fan-photo),
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .story :is(.story-band-bio-pic, .fan-photo-container, .fan-photo) img {
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community :is(.story-band-name, .story-body, h2, h3, p) {
+  color: var(--bandkit-release-ink) !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community :is(.story-meta-secondary, .story-date, .pinned-post-text) {
+  color: var(--bandkit-release-muted) !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community a {
+  color: var(--bandkit-release-accent) !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community :is(button, .lock-follow) {
+  border-radius: 6px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] #community-inner > .community-view.feed > .community-default-column:nth-child(2) > :is(.community-band-info, .community-recent-release, .community-recent-supporters) {
+  background: var(--bandkit-release-surface-raised) !important;
+  border: 1px solid var(--bandkit-release-line) !important;
+  border-radius: 8px;
+  color: var(--bandkit-release-ink) !important;
+  margin: 0 !important;
+  overflow: hidden;
+  padding: 20px !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-band-info {
+  align-items: center;
+  display: flex !important;
+  flex-direction: column;
+  text-align: center;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-band-info .band-photo,
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-band-info .band-photo img {
+  border-radius: 50%;
+  display: block;
+  height: 96px !important;
+  margin: 0 auto 14px !important;
+  object-fit: cover;
+  overflow: hidden;
+  width: 96px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-band-info :is(.name, .location) {
+  color: var(--bandkit-release-ink) !important;
+  margin: 0 !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-band-info .name {
+  font-size: 18px !important;
+  line-height: 1.3 !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-band-info .location {
+  color: var(--bandkit-release-muted) !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 1.4 !important;
+  padding-top: 3px;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] :is(.community-recent-release, .community-recent-supporters) > .heading {
+  color: var(--bandkit-release-ink) !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+  margin: 0 0 14px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-release .tralbum-link {
+  color: var(--bandkit-release-ink) !important;
+  display: block !important;
+  text-decoration: none !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-release .art,
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-release .art img {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  display: block;
+  height: auto !important;
+  object-fit: cover;
+  overflow: hidden;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-release .title {
+  color: var(--bandkit-release-ink) !important;
+  font-size: 14px !important;
+  font-weight: 650 !important;
+  line-height: 1.4 !important;
+  padding-top: 10px;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-release .item-collection-controls {
+  align-items: center;
+  border-top: 1px solid var(--bandkit-release-line);
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 14px -20px -20px !important;
+  padding: 12px 20px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-release .collection-btn {
+  float: none !important;
+  margin: 0 !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-supporters .supporters {
+  display: grid !important;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-supporters .supporters > li {
+  margin: 0 !important;
+  min-width: 0;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="community"] .community-recent-supporters img {
+  border-radius: 50%;
+  display: block;
+  height: auto !important;
+  width: 100% !important;
+}

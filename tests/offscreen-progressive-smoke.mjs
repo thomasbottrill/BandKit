@@ -155,7 +155,7 @@ globalThis.chrome = {
   }
 };
 
-await import(`../offscreen.js?progressive-smoke=${Date.now()}`);
+await import(`../src/offscreen/index.js?progressive-smoke=${Date.now()}`);
 
 function send(message) {
   return new Promise((resolve) => {

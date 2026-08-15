@@ -1,0 +1,266 @@
+/* Artist Releases, Merch, and Video shell. */
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #pgBd {
+  display: grid !important;
+  gap: 0 32px;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #customHeaderWrapper {
+  grid-column: 1 / -1;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) .leftMiddleColumns {
+  float: none !important;
+  grid-column: 1;
+  margin: 0 !important;
+  min-width: 0;
+  padding-top: 32px;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] .leftMiddleColumns {
+  padding-top: 20px;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn {
+  align-self: start;
+  color: var(--bandkit-release-ink) !important;
+  display: flex !important;
+  flex-direction: column;
+  float: none !important;
+  gap: 0;
+  grid-column: 2;
+  margin: 32px 0 0 !important;
+  min-width: 0;
+  padding: 0 !important;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn > :is(#bio-container, #showography, #discography, .sidebar, .widget) {
+  background: var(--bandkit-release-surface-raised) !important;
+  border: 1px solid var(--bandkit-release-line) !important;
+  border-radius: 8px;
+  color: var(--bandkit-release-ink) !important;
+  float: none !important;
+  margin: 0 !important;
+  overflow: hidden;
+  padding: 20px !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #bio-container .artists-bio-pic,
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #bio-container .artists-bio-pic img {
+  border-radius: 6px;
+  display: block;
+  height: 72px !important;
+  margin: 0 !important;
+  max-width: none !important;
+  object-fit: cover;
+  width: 72px !important;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn > #bio-container {
+  display: grid !important;
+  gap: 7px 14px;
+  grid-template-columns: 72px minmax(0, 1fr);
+  margin-bottom: 28px !important;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #bio-container .artists-bio-pic {
+  grid-column: 1;
+  grid-row: 1 / span 3;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #bio-container #band-name-location,
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #bio-container .following-actions-wrapper,
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #bio-container > .title,
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #bio-container > .location {
+  grid-column: 2;
+  margin: 0 !important;
+  min-width: 0;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #bio-container :is(.signed-out-artists-bio-text, #band-links, #recommended, #bio-text) {
+  grid-column: 1 / -1;
+  margin: 3px 0 0 !important;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn :is(h2, h3, .title, p, li) {
+  color: var(--bandkit-release-ink) !important;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn :is(.secondaryText, .location, .showDate, .showLoc, #bio-text) {
+  color: var(--bandkit-release-muted) !important;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn a {
+  color: var(--bandkit-release-ink) !important;
+  color: color-mix(in srgb, var(--bandkit-release-ink) 82%, transparent) !important;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn a:is(:hover, :focus-visible) {
+  color: var(--bandkit-release-ink) !important;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn > #contact-help {
+  font-size: 14px !important;
+  line-height: 1.35 !important;
+  margin: 0 0 10px !important;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #rightColumn > #contact-help ~ p {
+  line-height: 1.35 !important;
+  margin: 0 0 10px !important;
+}
+
+/* Label Artists uses the same catalogue shell as Music, with landscape
+   portraits presented as consistent modern cards. */
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] .artists-grid {
+  display: grid !important;
+  float: none !important;
+  gap: 32px 24px !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] .artists-grid > .artists-grid-item {
+  background: var(--bandkit-release-surface-raised) !important;
+  border: 1px solid color-mix(in srgb, var(--bandkit-release-line) 60%, transparent) !important;
+  border-radius: 8px;
+  display: block !important;
+  float: none !important;
+  margin: 0 !important;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 0 14px !important;
+  transition: border-color 140ms ease, transform 140ms ease;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] .artists-grid > .artists-grid-item:is(:hover, :focus-within) {
+  border-color: var(--bandkit-release-accent) !important;
+  transform: translateY(-2px);
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] .artists-grid > .artists-grid-item > a {
+  color: var(--bandkit-release-ink) !important;
+  display: block !important;
+  text-decoration: none !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] .artists-grid .artists-grid-pic {
+  aspect-ratio: 4 / 3 !important;
+  background: var(--bandkit-release-accent-soft);
+  height: auto !important;
+  overflow: hidden;
+  position: relative !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] .artists-grid .artists-grid-pic img {
+  display: block !important;
+  height: 100% !important;
+  inset: 0;
+  max-width: none !important;
+  object-fit: cover;
+  position: absolute !important;
+  transition: transform 180ms ease;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] .artists-grid > li:is(:hover, :focus-within) .artists-grid-pic img {
+  transform: scale(1.025);
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] .artists-grid :is(.artists-grid-name, .artists-grid-location) {
+  overflow-wrap: anywhere;
+  padding-inline: 14px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] .artists-grid .artists-grid-name {
+  color: var(--bandkit-release-ink) !important;
+  font-size: 15px !important;
+  font-weight: 650 !important;
+  line-height: 1.35 !important;
+  margin: 0 !important;
+  padding-top: 12px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] .artists-grid .artists-grid-location {
+  color: var(--bandkit-release-muted) !important;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+  margin: 2px 0 0 !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid {
+  display: grid !important;
+  float: none !important;
+  gap: 32px 24px !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid > .music-grid-item {
+  background: var(--bandkit-release-surface-raised) !important;
+  border: 1px solid color-mix(in srgb, var(--bandkit-release-line) 60%, transparent) !important;
+  border-radius: 8px;
+  float: none !important;
+  margin: 0 !important;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 !important;
+  transition: border-color 140ms ease, transform 140ms ease;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid > .music-grid-item:is(:hover, :focus-within) {
+  border-color: var(--bandkit-release-accent) !important;
+  transform: translateY(-2px);
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid > .music-grid-item > a {
+  color: var(--bandkit-release-ink) !important;
+  display: block !important;
+  text-decoration: none !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid .art {
+  aspect-ratio: 1 / 1 !important;
+  background: var(--bandkit-release-accent-soft);
+  height: auto !important;
+  overflow: hidden;
+  position: relative !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid .art img {
+  display: block;
+  height: 100% !important;
+  inset: 0;
+  max-width: none !important;
+  object-fit: cover;
+  position: absolute !important;
+  transition: transform 180ms ease;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid > li:is(:hover, :focus-within) .art img {
+  transform: scale(1.025);
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid > li .title {
+  color: var(--bandkit-release-ink) !important;
+  font-size: 14px !important;
+  font-weight: 650 !important;
+  line-height: 1.4 !important;
+  margin: 0 !important;
+  min-height: 60px;
+  padding: 12px 14px 14px !important;
+}

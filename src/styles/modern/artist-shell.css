@@ -1,0 +1,142 @@
+/* Artist shell shared by Music, Merch, and Community. */
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #centerWrapper,
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #propOpenWrapper {
+  background: transparent !important;
+  margin: 0 !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #pgBd {
+  background: var(--bandkit-release-surface) !important;
+  color: var(--bandkit-release-ink) !important;
+  float: none !important;
+  margin: 0 auto !important;
+  max-width: 1480px !important;
+  min-width: 0 !important;
+  min-height: 60vh;
+  overflow: visible !important;
+  padding: 0 24px 72px !important;
+  position: relative;
+  width: calc(100% - 48px) !important;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #customHeaderWrapper {
+  margin: 0 -24px !important;
+  overflow: hidden;
+  width: calc(100% + 48px) !important;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #customHeader {
+  aspect-ratio: 975 / 180;
+  display: block;
+  height: auto !important;
+  overflow: hidden;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #customHeader :is(.desktop-header, .desktop-header > a, picture),
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #customHeader img {
+  display: block;
+  height: 100% !important;
+  max-width: none !important;
+  object-fit: cover;
+  width: 100% !important;
+}
+
+/* One artist/label navigation component across album, music, merch, and
+   community pages. This deliberately matches the redesigned album page. */
+html[data-bandkit-modern-page="true"] .band-navbar-wrapper {
+  background: var(--bandkit-release-navbar) !important;
+  border-bottom: 1px solid var(--bandkit-release-navbar-line);
+  min-height: 48px;
+  padding: 0 24px;
+}
+
+html[data-bandkit-modern-page="true"] #band-navbar {
+  align-items: stretch;
+  background: var(--bandkit-release-navbar) !important;
+  display: flex !important;
+  gap: 34px;
+  height: 48px !important;
+  margin: 0 !important;
+  max-width: none !important;
+  min-height: 48px;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"] #band-navbar li {
+  display: flex;
+  margin: 0 !important;
+}
+
+html[data-bandkit-modern-page="true"] #band-navbar a {
+  align-items: center;
+  border: 0 !important;
+  color: var(--bandkit-release-navbar-text) !important;
+  display: flex;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: normal;
+  padding: 0 2px !important;
+  position: relative;
+  text-decoration: none !important;
+  white-space: nowrap;
+}
+
+html[data-bandkit-modern-page="true"] #band-navbar a:is(.active, :hover) {
+  color: var(--bandkit-release-navbar-text) !important;
+  text-decoration: none !important;
+}
+
+html[data-bandkit-modern-page="true"] #band-navbar a.active::after {
+  background: var(--bandkit-release-navbar-accent);
+  bottom: 0;
+  content: "";
+  height: 2px;
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+
+/* Modern layouts own their foreground hierarchy. Artist CSS may still supply
+   the source palette, but it cannot bypass the contrast-corrected tokens for
+   page, card, navigation, and footer surfaces. */
+html[data-bandkit-modern-page="true"] :is(
+  #rightColumn > #bio-container,
+  #rightColumn > #showography,
+  #rightColumn > #discography,
+  #rightColumn > .sidebar,
+  #rightColumn > .widget,
+  .artists-grid > .artists-grid-item,
+  #music-grid > .music-grid-item,
+  #merch-grid > .merch-grid-item,
+  .video-list > .video-caption,
+  .community-feed .story,
+  .community-feed .community-recent-release,
+  .community-band-info .story,
+  .community-band-info .community-recent-release,
+  #community-inner > .community-view.feed > .community-default-column:nth-child(2) > .community-band-info,
+  #community-inner > .community-view.feed > .community-default-column:nth-child(2) > .community-recent-release,
+  #community-inner > .community-view.feed > .community-default-column:nth-child(2) > .community-recent-supporters,
+  body.feed .story-innards,
+  body.feed #sidebar,
+  body.feed #sidebar .collection-grid > .collection-item-container,
+  body.tralbum-page #track_table .track_row_view,
+  body.tralbum-page .bandkit-modern-purchase-panel,
+  body.tralbum-page #bio-container,
+  body.tralbum-page #discography,
+  body.tralbum-page #rightColumn > .sidebar,
+  body.tralbum-page #rightColumn > #recommended,
+  body.tralbum-page #recommendations_container .recommended-album
+) {
+  --bandkit-release-ink: var(--bandkit-release-raised-ink);
+  --bandkit-release-muted: var(--bandkit-release-raised-muted);
+  --bandkit-release-line: var(--bandkit-release-raised-line);
+  --bandkit-release-accent: var(--bandkit-release-raised-accent);
+  --bandkit-release-accent-soft: var(--bandkit-release-raised-accent-soft);
+  --bandkit-release-on-accent: var(--bandkit-release-raised-on-accent);
+}

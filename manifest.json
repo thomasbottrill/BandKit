@@ -1,11 +1,16 @@
 {
   "manifest_version": 3,
-  "name": "BandKit",
+  "name": "Bandkit",
   "version": "0.7.7",
   "minimum_chrome_version": "116",
-  "description": "A floating Bandcamp toolkit with persistent playlists, seamless playback, DJ tools, and durable cart backups.",
+  "description": "A Bandcamp companion for continuous playback, queues, playlists, cart backups, activity, and DJ controls.",
+  "icons": {
+    "16": "assets/extension-icon-16.png",
+    "32": "assets/extension-icon-32.png",
+    "48": "assets/extension-icon-48.png",
+    "128": "assets/extension-icon-128.png"
+  },
   "permissions": [
-    "activeTab",
     "offscreen",
     "scripting",
     "storage"
@@ -19,16 +24,20 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Activate or deactivate BandKit",
+    "default_title": "Activate or deactivate Bandkit",
+    "default_icon": {
+      "16": "assets/extension-icon-16.png",
+      "32": "assets/extension-icon-32.png"
+    },
     "default_popup": "popup.html"
   },
   "commands": {
-    "_execute_action": {
+    "toggle-bandkit": {
       "suggested_key": {
         "default": "Alt+Shift+B",
         "mac": "Alt+Shift+B"
       },
-      "description": "Toggle BandKit"
+      "description": "Toggle Bandkit"
     }
   },
   "content_scripts": [
@@ -46,6 +55,20 @@
         "https://bandcamp.com/*",
         "https://*.bandcamp.com/*"
       ],
+      "exclude_matches": [
+        "https://blog.bandcamp.com/*",
+        "https://daily.bandcamp.com/*",
+        "https://get.bandcamp.com/*",
+        "https://help.bandcamp.com/*",
+        "https://www.bandcamp.com/*",
+        "https://bandcamp.com/about*",
+        "https://bandcamp.com/buttons*",
+        "https://bandcamp.com/copyright*",
+        "https://bandcamp.com/developer*",
+        "https://bandcamp.com/help*",
+        "https://bandcamp.com/privacy*",
+        "https://bandcamp.com/terms_of_use*"
+      ],
       "css": [
         "modern-release.css"
       ],
@@ -59,6 +82,20 @@
         "https://bandcamp.com/*",
         "https://*.bandcamp.com/*"
       ],
+      "exclude_matches": [
+        "https://blog.bandcamp.com/*",
+        "https://daily.bandcamp.com/*",
+        "https://get.bandcamp.com/*",
+        "https://help.bandcamp.com/*",
+        "https://www.bandcamp.com/*",
+        "https://bandcamp.com/about*",
+        "https://bandcamp.com/buttons*",
+        "https://bandcamp.com/copyright*",
+        "https://bandcamp.com/developer*",
+        "https://bandcamp.com/help*",
+        "https://bandcamp.com/privacy*",
+        "https://bandcamp.com/terms_of_use*"
+      ],
       "js": [
         "page-media-bridge.js"
       ],
@@ -70,6 +107,20 @@
         "https://bandcamp.com/*",
         "https://*.bandcamp.com/*"
       ],
+      "exclude_matches": [
+        "https://blog.bandcamp.com/*",
+        "https://daily.bandcamp.com/*",
+        "https://get.bandcamp.com/*",
+        "https://help.bandcamp.com/*",
+        "https://www.bandcamp.com/*",
+        "https://bandcamp.com/about*",
+        "https://bandcamp.com/buttons*",
+        "https://bandcamp.com/copyright*",
+        "https://bandcamp.com/developer*",
+        "https://bandcamp.com/help*",
+        "https://bandcamp.com/privacy*",
+        "https://bandcamp.com/terms_of_use*"
+      ],
       "js": [
         "cart-autosave.js",
         "content.js"
@@ -80,7 +131,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "assets/*",
+        "assets/icon-*.svg",
         "hub.css",
         "modern-release.css"
       ],

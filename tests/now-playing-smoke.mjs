@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
+import { MESSAGES } from "../src/shared/contracts.js";
+import { readContentSource, readHubStyles } from "./support/source.mjs";
 
-const source = fs.readFileSync(new URL("../content.js", import.meta.url), "utf8");
+const source = readContentSource();
+const hubCss = readHubStyles();
 
 function extractFunction(name) {
   const match = new RegExp(`(?:async\\s+)?function\\s+${name}\\s*\\(`).exec(source);
@@ -36,7 +39,25 @@ function extractFunction(name) {
   throw new Error(`Could not parse ${name} from content.js`);
 }
 
+assert.match(extractFunction("renderPlaylistTrack"), /hub-playlist-media-toggle/,
+  "Now Playing rows must use the artwork slot as their play and pause control");
+assert.doesNotMatch(extractFunction("renderPlaylistTrack"), /hub-playlist-position-play/,
+  "Now Playing rows must not retain a separate play column before the artwork");
+assert.match(hubCss, /\.hub-playlist-track\s*\{[\s\S]*?grid-template-columns:\s*40px minmax\(0, 1fr\) auto;[\s\S]*?padding:\s*12px;/,
+  "Now Playing rows must use a padded three-column layout with a 40px media slot");
+assert.match(hubCss, /\.hub-playlist-track:hover \.hub-playlist-media-art[\s\S]*?display:\s*none;/,
+  "hovering a Now Playing row must remove its artwork from the media slot");
+assert.match(hubCss, /\.hub-playlist-track:hover \.hub-playlist-media-icon[\s\S]*?display:\s*flex;/,
+  "hovering a Now Playing row must replace its artwork with the playback control");
+assert.doesNotMatch(hubCss, /\.hub-playlist-track\.is-playing \.hub-playlist-media-(?:art|icon)/,
+  "the active Now Playing row must keep its artwork until hover or keyboard focus");
+assert.match(hubCss, /\.hub-playlist-track:not\(\.is-playing\):is\(:hover, :focus-within\)\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--hub-card-ink\) 3%, var\(--hub-card\)\)/s,
+  "Now Playing rows must expose only a subtle foreground-derived hover surface");
+assert.match(hubCss, /\.hub-cart-view-tab\s*\{[^}]*font-size:\s*14px;[^}]*font-weight:\s*700;[^}]*letter-spacing:\s*normal;[^}]*line-height:\s*20px;/s,
+  "Cart, Saved, Now Playing, and Playlists view headings must match the primary section-title typography");
+
 const context = vm.createContext({
+  MESSAGES,
   URL,
   Date,
   Math,
@@ -212,8 +233,8 @@ let prepared = await prepareExternalNowPlaying({
   url: "stream-b"
 });
 assert.equal(context.pendingPlaylistItemId, "", "a page playback request must clear obsolete queue-row loading state");
-assert.deepEqual(Array.from(context.state.playlist, (item) => item.playlistItemId), ["a", "b", "c"]);
-assert.equal(prepared.index, 1, "playing an existing page track must preserve its queue position");
+assert.deepEqual(Array.from(context.state.playlist, (item) => item.playlistItemId), ["b", "a", "c"]);
+assert.equal(prepared.index, 0, "playing an existing page track must promote it to the front of a manually built queue");
 
 prepared = await prepareExternalNowPlaying({
   id: "d",
@@ -222,8 +243,8 @@ prepared = await prepareExternalNowPlaying({
   pageUrl: "https://fixture.bandcamp.com/track/d",
   url: "stream-d"
 });
-assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["A", "B", "C", "D"]);
-assert.equal(prepared.index, 3, "a new page track must append instead of replacing or promoting the queue");
+assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["D", "B", "A", "C"]);
+assert.equal(prepared.index, 0, "a new page track must lead the manually built queue without discarding it");
 
 context.state.playlistMode = "browse";
 prepared = await prepareExternalNowPlaying({
@@ -235,6 +256,16 @@ prepared = await prepareExternalNowPlaying({
 });
 assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["Browse Replacement"],
   "ordinary page playback must replace browse history instead of accumulating it");
+
+const browseSourceQueue = [
+  { id: "page-a", title: "Page A", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/page-a", url: "stream-page-a" },
+  { id: "page-b", title: "Page B", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/page-b", url: "stream-page-b" },
+  { id: "page-c", title: "Page C", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/page-c", url: "stream-page-c" }
+];
+prepared = await prepareExternalNowPlaying(browseSourceQueue[1], browseSourceQueue, { trustProvidedStreams: true });
+assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["Page B", "Page C"],
+  "page-derived playback must replace prior history with the selected track and the tracks that follow it");
+assert.equal(prepared.index, 0);
 
 const oversizedSourceQueue = Array.from({ length: 501 }, (_, index) => ({
   id: `oversized-${index}`,
@@ -249,6 +280,41 @@ prepared = await prepareExternalNowPlaying(oversizedSourceQueue[500], oversizedS
 assert.equal(context.state.playlist.length, 1);
 assert.equal(prepared.queue[prepared.index]?.title, "Oversized 500",
   "browse playback must retain only the selected track even when a page exposes a large source queue");
+
+assert.doesNotMatch(extractFunction("handoffPageAudio"), /MESSAGES\.SEAMLESS_PLAY_INDEX/,
+  "classic Bandcamp page playback must rebuild queue provenance instead of bypassing it");
+assert.doesNotMatch(extractFunction("handoffModernPlayer"), /MESSAGES\.SEAMLESS_PLAY_INDEX/,
+  "modern Bandcamp page playback must rebuild queue provenance instead of bypassing it");
+const discoverHandoffSource = extractFunction("handoffDiscoverPlayer");
+assert.match(discoverHandoffSource, /prepareExternalNowPlaying\(discover\.track, \[\], \{ trustProvidedStreams: true \}\)/,
+  "Discover playback must use its captured stream immediately instead of delaying the handoff for hydration");
+assert.match(discoverHandoffSource, /const latestDiscover = getDiscoverPlayerState\(\);[\s\S]*?const handoffCurrentTime =[\s\S]*?currentTime: handoffCurrentTime/,
+  "Discover playback must re-read the live playhead at the handoff boundary so seamless playback cannot rewind");
+assert.match(extractFunction("getModernPlayerState"), /floating-player:has\(\.track-meta\[streamurl\]\)/,
+  "playlist pages must expose their stream queue even when Bandcamp omits the legacy has-track class");
+assert.match(extractFunction("getModernPlayerState"), /\.outline, \.outline-opaque/,
+  "playlist page and floating-player play controls must resolve the same tracklist key");
+assert.match(extractFunction("getModernPlaylistSeed"), /#PlaylistPage\[data-blob\]/,
+  "playlist pages must read Bandcamp's paginated tracklist payload instead of only rendered rows");
+assert.match(extractFunction("loadModernPlaylistQueue"), /\/api\/player\/2\/player_data_web/,
+  "playlist playback must fetch every available page of tracks before building Now Playing");
+assert.match(extractFunction("handoffModernPlayer"), /replaceQueue: modern\.isPlaylistPage/,
+  "playlist-page playback must replace an unrelated manual queue with the source playlist");
+
+context.seamless = { enabled: false, queue: [] };
+context.hydratePlaylist = async (items) => ({ items: items.map((item) => ({ ...item })), failed: 0, error: "" });
+context.runtimeCalls.length = 0;
+context.state = { activeTab: "nowPlaying", playlistMode: "browse", playlist: browseSourceQueue.map((item, index) => ({ ...item, playlistItemId: `browse-${index}` })), dj: {} };
+assert.equal(await playPlaylistAt(1, { forceRefresh: true }), true);
+assert.equal(context.state.playlistMode, "browse", "playing a page-derived row must not turn it into a manual queue");
+assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["Page B", "Page C"],
+  "playing within a page-derived queue must discard the tracks before the selection");
+
+context.runtimeCalls.length = 0;
+context.state = { activeTab: "nowPlaying", playlistMode: "manual", playlist: browseSourceQueue.map((item, index) => ({ ...item, playlistItemId: `manual-${index}` })), dj: {} };
+assert.equal(await playPlaylistAt(2, { forceRefresh: true }), true);
+assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["Page C", "Page A", "Page B"],
+  "playing within a manually built queue must move the selection to the front and retain the rest");
 
 context.state.playlist = Array.from({ length: 500 }, (_, index) => ({
   playlistItemId: `limit-${index}`,
@@ -282,6 +348,7 @@ assert.ok(context.toastMessages.at(-1).includes("up to 500 tracks"));
 
 context.state = {
   activeTab: "nowPlaying",
+  playlistMode: "manual",
   playlist: [
     { playlistItemId: "saved-active", id: "saved-active", title: "Saved Active", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/saved-active", url: "old-saved-active" },
     { playlistItemId: "saved-next", id: "saved-next", title: "Saved Next", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/saved-next", url: "old-saved-next" }
@@ -306,17 +373,17 @@ context.playlistIsActive = () => false;
 
 context.state = {
   activeTab: "nowPlaying",
+  playlistMode: "manual",
   playlist: [
     { playlistItemId: "available", id: "available", title: "Available", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/available", url: "stream-available" },
     { playlistItemId: "unavailable", id: "unavailable", title: "Unavailable", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/unavailable", url: "expired-stream" }
   ],
   dj: {}
 };
-context.hydratePlaylist = async () => ({
-  items: [
-    { ...context.state.playlist[0], url: "fresh-stream" },
-    { ...context.state.playlist[1], url: "", restoreError: "Unavailable" }
-  ],
+context.hydratePlaylist = async (items) => ({
+  items: items.map((item) => item.playlistItemId === "unavailable"
+    ? { ...item, url: "", restoreError: "Unavailable" }
+    : { ...item, url: "fresh-stream" }),
   failed: 1,
   error: ""
 });
@@ -330,6 +397,7 @@ assert.ok(context.toastMessages.at(-1).includes("Unavailable is not currently st
 
 context.state = {
   activeTab: "nowPlaying",
+  playlistMode: "manual",
   playlist: [
     { playlistItemId: "rapid-a", id: "rapid-a", title: "Rapid A", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/rapid-a", url: "" },
     { playlistItemId: "rapid-b", id: "rapid-b", title: "Rapid B", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/rapid-b", url: "" }
@@ -348,10 +416,12 @@ hydrationResolvers[0]({ items: refreshedRapidItems, failed: 0, error: "" });
 await firstRapidPlay;
 const rapidEnables = context.runtimeCalls.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE");
 assert.equal(rapidEnables.length, 1, "a superseded hydration must not start stale playback");
-assert.equal(rapidEnables[0].index, 1, "the final rapid selection must win");
+assert.equal(rapidEnables[0].index, 0, "the final rapid selection must win at the front of the manual queue");
+assert.equal(rapidEnables[0].queue[0].title, "Rapid B");
 
 context.state = {
   activeTab: "nowPlaying",
+  playlistMode: "manual",
   playlist: [
     { playlistItemId: "skip-a", id: "skip-a", title: "Skip A", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/skip-a", url: "stream-skip-a" },
     { playlistItemId: "skip-b", id: "skip-b", title: "Skip B", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/skip-b", url: "" },
@@ -379,6 +449,11 @@ assert.equal(await navigatePlayerQueue(1), true);
 const skippedEnable = context.runtimeCalls.findLast((message) => message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE");
 assert.equal(skippedEnable?.queue?.[skippedEnable.index]?.title, "Skip C",
   "footer navigation must skip a track that remains unavailable after refresh");
+context.state.playlist = [
+  { playlistItemId: "skip-a", id: "skip-a", title: "Skip A", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/skip-a", url: "stream-skip-a" },
+  { playlistItemId: "skip-b", id: "skip-b", title: "Skip B", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/skip-b", url: "" },
+  { playlistItemId: "skip-c", id: "skip-c", title: "Skip C", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/skip-c", url: "stream-skip-c" }
+];
 context.seamless = {
   enabled: true,
   index: 1,
@@ -393,6 +468,7 @@ assert.equal(skippedBackwardEnable?.queue?.[skippedBackwardEnable.index]?.title,
 
 context.state = {
   activeTab: "nowPlaying",
+  playlistMode: "manual",
   playlist: [
     { playlistItemId: "overlap-a", id: "overlap-a", title: "Overlap A", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/overlap-a", url: "stream-overlap-a" },
     { playlistItemId: "overlap-b", id: "overlap-b", title: "Overlap B", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/overlap-b", url: "stream-overlap-b" }
@@ -418,7 +494,7 @@ enableResolvers[0]({ ok: true, state: { enabled: true, index: 0, queue: context.
 assert.equal(await overlappingFirst, false);
 assert.equal(context.playlistPlaybackStarting, true,
   "a superseded runtime response must not clear the newer playback-starting guard");
-enableResolvers[1]({ ok: true, state: { enabled: true, index: 1, queue: context.state.playlist } });
+enableResolvers[1]({ ok: true, state: { enabled: true, index: 0, queue: context.state.playlist } });
 assert.equal(await overlappingSecond, true);
 assert.equal(context.playlistPlaybackStarting, false);
 

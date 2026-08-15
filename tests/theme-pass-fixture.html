@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bandkit theme pass fixture</title>
+  <style>
+    body { margin: 0; }
+    .text-banner { background: #fff; color: #fff; padding: 12px; }
+    .filters-banner { background: #bdb4ff; padding: 20px; }
+    .filters-banner button, .filters-banner [role="radio"], .filters-banner [role="option"] { border: 1px solid #777; border-radius: 6px; display: inline-flex; margin: 4px; padding: 8px 12px; }
+    #PlaylistPage { padding: 24px; }
+    .playlist-page { padding: 18px; }
+    .tracklist-pane { background: rgba(255, 255, 255, .16); padding: 12px; }
+    .track-list-item { align-items: center; display: grid; grid-template-columns: 72px 1fr 40px; }
+    .track-meta .art { height: 64px; width: 64px; }
+    .track-meta img { display: block; height: 100%; object-fit: cover; width: 100%; }
+    .wishlist-button { height: 36px; width: 36px; }
+    .track_row_view { background: #fff; padding: 12px; }
+  </style>
+</head>
+<body>
+  <div class="page-banners"><div class="banner-manager"><div class="text-banner"><p>We’ve updated our Terms of Use. <button class="review-button">Review</button></p></div></div></div>
+  <div id="DiscoverApp">
+    <main class="app">
+      <div class="filters-banner">
+        <div class="tag-search-wrapper"><input placeholder="Add a genre, location, or tag"></div>
+        <div class="genre-filter"><button class="g-button chip-button">rock</button><button class="g-button chip-button selected-tag">electronic</button></div>
+        <div class="subgenre-filter"><div role="option" aria-selected="false">house</div><div role="option" aria-selected="true">techno</div></div>
+        <div class="format-filter"><ul><li class="radio-item active selected" role="radio" aria-checked="true"><span>all categories</span></li><li class="radio-item" role="radio" aria-checked="false"><span>vinyl</span></li></ul></div>
+        <div class="more-filters-row"><button class="g-button filter-button">best-selling</button></div>
+      </div>
+    </main>
+  </div>
+  <div id="PlaylistPage">
+    <div class="playlist-page">
+      <div class="tracklist-pane">
+        <ul><li class="track-list-item"><div class="track-meta"><div class="art"><img src="/assets/art-clouds.png" alt=""></div></div><span>Fixture playlist track</span><button class="g-button no-outline icon-only wishlist-button action" aria-label="Add this track to your wishlist">♡</button></li></ul>
+      </div>
+      <div class="track_row_view">Fixture release track</div>
+    </div>
+  </div>
+  <script>
+    window.fixtureStored = { bandcampHubState: { open: false, playlist: [], savedPlaylists: [], appearance: {
+      pageAware: false, applyToPage: true, modernReleasePages: false, preset: "plum", savedThemes: []
+    } } };
+    window.fixturePlaybackState = { enabled: false, status: "idle", isPlaying: false, queue: [], index: -1, track: null };
+    const fixtureChrome = {
+      runtime: {
+        lastError: null,
+        getURL: (path) => new URL(`/${path}`, location.href).href,
+        getManifest: () => ({ version: "0.7.7" }),
+        sendMessage(_message, callback) { callback?.({ ok: true, state: window.fixturePlaybackState }); },
+        onMessage: { addListener() {} }
+      },
+      storage: {
+        local: {
+          get(_key, callback) { callback(window.fixtureStored); },
+          set(values) { Object.assign(window.fixtureStored, values); }
+        },
+        onChanged: { addListener() {} }
+      }
+    };
+    const channels = (value) => (value.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+    const channel = (value) => { const number = value / 255; return number <= .03928 ? number / 12.92 : ((number + .055) / 1.055) ** 2.4; };
+    const luminance = (value) => { const [r, g, b] = channels(value).map(channel); return r * .2126 + g * .7152 + b * .0722; };
+    const ratio = (foreground, background) => { const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a); return (values[0] + .05) / (values[1] + .05); };
+    fetch("/cart-autosave.js").then((response) => response.text()).then((source) => eval(source)).then(() => fetch("/content.js")).then((response) => response.text()).then((source) => {
+      eval(source.replaceAll("chrome.", "fixtureChrome."));
+    }).catch((error) => { document.documentElement.dataset.fixtureError = String(error); });
+    window.setTimeout(() => {
+      const banner = document.querySelector(".text-banner");
+      const bannerText = document.querySelector(".text-banner p");
+      const review = document.querySelector(".review-button");
+      const selected = document.querySelector(".chip-button.selected-tag");
+      const search = document.querySelector(".tag-search-wrapper input");
+      const radio = document.querySelector('.radio-item[aria-checked="true"]');
+      const filter = document.querySelector(".filter-button");
+      const tracklist = document.querySelector(".tracklist-pane");
+      const page = document.querySelector(".playlist-page");
+      const heart = document.querySelector(".wishlist-button");
+      const art = document.querySelector(".track-meta img");
+      const releaseRow = document.querySelector(".track_row_view");
+      const background = (node) => getComputedStyle(node).backgroundColor;
+      const color = (node) => getComputedStyle(node).color;
+      const transparent = (value) => value === "rgba(0, 0, 0, 0)";
+      const passed = document.documentElement.dataset.bandkitPageTheme === "true"
+        && ratio(color(bannerText), background(banner)) >= 7
+        && ratio(color(review), background(banner)) >= 4.5
+        && ratio(color(selected), background(selected)) >= 4.5
+        && ratio(color(radio), background(radio)) >= 4.5
+        && ratio(color(filter), background(filter)) >= 7
+        && getComputedStyle(search, "::placeholder").opacity === "1"
+        && ratio(getComputedStyle(search, "::placeholder").color, background(search)) >= 4.5
+        && background(tracklist) === background(page)
+        && transparent(background(heart))
+        && (transparent(background(releaseRow)) || background(releaseRow) === background(page))
+        && getComputedStyle(art).opacity === "1"
+        && art.complete && art.naturalWidth > 0;
+      document.title = passed
+        ? "PASS: cross-page theme regression fixture"
+        : `FAIL: theme banner:${ratio(color(bannerText), background(banner)).toFixed(1)} review:${ratio(color(review), background(banner)).toFixed(1)} selected:${ratio(color(selected), background(selected)).toFixed(1)} radio:${ratio(color(radio), background(radio)).toFixed(1)} filter:${ratio(color(filter), background(filter)).toFixed(1)} placeholder:${ratio(getComputedStyle(search, "::placeholder").color, background(search)).toFixed(1)} tracklist:${background(tracklist)}/${background(page)} heart:${background(heart)} row:${background(releaseRow)} art:${art.naturalWidth}`;
+    }, 1000);
+  </script>
+</body>
+</html>

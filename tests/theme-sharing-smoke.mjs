@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
+import { readContentSource } from "./support/source.mjs";
 
-const source = fs.readFileSync(new URL("../content.js", import.meta.url), "utf8");
+const source = readContentSource();
 
 function extractFunction(name) {
   const match = new RegExp(`function\\s+${name}\\s*\\(`).exec(source);
@@ -45,17 +46,28 @@ validPayload.theme.accent = "#8B7CFF";
 const parsed = context.parse(JSON.stringify(validPayload));
 assert.equal(parsed.label, "Shared Night");
 assert.equal(parsed.accent, "#8b7cff", "Imported colours should be normalized");
+assert.equal(parsed.scrubAccent, "#8b7cff", "Older themes should default the scrub colour to the accent");
 assert.equal(parsed.secondaryText, "#cbd5e1");
 
+validPayload.theme.scrubAccent = "#FF4D8D";
+assert.equal(context.parse(JSON.stringify(validPayload)).scrubAccent, "#ff4d8d", "Imported scrub colours should be normalized");
+
 assert.throws(() => context.parse("not json"), /not valid JSON/);
-assert.throws(() => context.parse(JSON.stringify({ ...validPayload, version: 2 })), /not a supported BandKit theme/);
+assert.throws(() => context.parse(JSON.stringify({ ...validPayload, version: 2 })), /not a supported Bandkit theme/);
 assert.throws(() => context.parse(JSON.stringify({
   ...validPayload,
   theme: { ...validPayload.theme, accent: "red" }
 })), /invalid accent colour/);
+assert.throws(() => context.parse(JSON.stringify({
+  ...validPayload,
+  theme: { ...validPayload.theme, scrubAccent: "pink" }
+})), /invalid scrubAccent colour/);
 
 assert.match(source, /Downloaded theme/);
 assert.match(source, /Imported and saved theme/);
 assert.match(source, /importThemeInput\.accept = "\.json,application\/json"/);
+assert.match(source, /customScrubAccent: null/, "Track scrub colours should follow the accent by default");
+assert.match(source, /"Use accent"/, "The custom scrub colour should be resettable to the accent");
+assert.match(source, /accessibleScrubberPalette\(accessible\.preferredScrubAccent, card\)/, "The scrub override should feed the player palette");
 
 console.log("Theme sharing checks passed.");

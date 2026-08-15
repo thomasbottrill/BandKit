@@ -1,0 +1,88 @@
+/* Bandkit's opt-in modern page palette. Every rule is scoped so disabling the
+   setting returns the untouched Bandcamp page immediately. */
+html[data-bandkit-modern-pending="true"] {
+  background: #f3f1eb !important;
+}
+
+html[data-bandkit-modern-pending="true"] body {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+html[data-bandkit-modern-ready="true"] body {
+  animation: bandkit-modern-page-reveal 140ms ease-out both;
+}
+
+@keyframes bandkit-modern-page-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-bandkit-modern-ready="true"] body {
+    animation: none;
+  }
+}
+
+html[data-bandkit-modern-release="true"],
+html[data-bandkit-modern-page="true"] {
+  --bandkit-release-accent: #1f5130;
+  --bandkit-release-accent-soft: #e8f0ea;
+  --bandkit-release-bg: #f3f1eb;
+  --bandkit-release-surface: #fffefa;
+  --bandkit-release-surface-raised: #ffffff;
+  --bandkit-release-background-ink: #161916;
+  --bandkit-release-ink: #161916;
+  --bandkit-release-muted: #666b66;
+  --bandkit-release-line: #dcd9d0;
+  --bandkit-release-on-accent: #ffffff;
+  --bandkit-release-raised-ink: #161916;
+  --bandkit-release-raised-muted: #666b66;
+  --bandkit-release-raised-line: #dcd9d0;
+  --bandkit-release-raised-accent: #1f5130;
+  --bandkit-release-raised-accent-soft: #e8f0ea;
+  --bandkit-release-raised-on-accent: #ffffff;
+  --bandkit-release-navbar: #fffefa;
+  --bandkit-release-navbar-text: #161916;
+  --bandkit-release-navbar-accent: #1f5130;
+  --bandkit-release-navbar-line: #dcd9d0;
+  --bandkit-release-footer-bg: #f3f1eb;
+  --bandkit-release-footer-ink: #161916;
+  --bandkit-release-footer-muted: #666b66;
+  --bandkit-release-footer-line: #dcd9d0;
+  --bandkit-release-footer-accent: #1f5130;
+  --bandkit-release-footer-accent-soft: #e8f0ea;
+  --bandkit-release-footer-on-accent: #ffffff;
+  --bandkit-release-scheme: light;
+  --bandkit-release-danger: #bd372f;
+  color-scheme: var(--bandkit-release-scheme);
+}
+
+/* Shared treatment for Bandcamp's remaining legacy surfaces. Collection,
+   Home, and Discover never receive data-bandkit-modern-page-type. */
+html[data-bandkit-modern-page="true"]:not([data-bandkit-modern-page-type="release"]) {
+  background: var(--bandkit-release-bg) !important;
+  color-scheme: var(--bandkit-release-scheme);
+}
+
+html[data-bandkit-modern-page="true"]:not([data-bandkit-modern-page-type="release"]) body {
+  background-color: var(--bandkit-release-bg) !important;
+  background-image: none !important;
+  color: var(--bandkit-release-background-ink) !important;
+}
+
+html[data-bandkit-modern-page="true"]:not([data-bandkit-modern-page-type="release"]) body,
+html[data-bandkit-modern-page="true"]:not([data-bandkit-modern-page-type="release"]) body *,
+html[data-bandkit-modern-page="true"]:not([data-bandkit-modern-page-type="release"]) body *::before,
+html[data-bandkit-modern-page="true"]:not([data-bandkit-modern-page-type="release"]) body *::after {
+  box-sizing: border-box;
+}
+
+html[data-bandkit-modern-page="true"]:not([data-bandkit-modern-page-type="release"]) :is(a, button) {
+  text-underline-offset: 0.16em;
+}
+
+html[data-bandkit-modern-page="true"]:not([data-bandkit-modern-page-type="release"]) :focus-visible {
+  outline: 2px solid var(--bandkit-release-accent) !important;
+  outline-offset: 2px;
+}

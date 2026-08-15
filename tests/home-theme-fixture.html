@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bandkit Home theme fixture</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    #HomepageApp { min-height: 100vh; }
+    .g-section { background: #222; color: #fff; padding: 56px; }
+    .g-section.inverted { background: #ecf3f4; color: #222; }
+    .page-wrapper { margin: auto; max-width: 1280px; }
+    .subtitle-row { display: flex; justify-content: space-between; }
+    .carousel { display: grid; gap: 18px; grid-template-columns: repeat(5, minmax(0, 1fr)); list-style: none; margin: 24px 0 0; padding: 0; }
+    .image-container { aspect-ratio: 4 / 3; overflow: hidden; position: relative; }
+    .g-image.image { display: block; height: 100%; object-fit: cover; width: 100%; }
+    .play-pause-button.over-image { background: transparent; border: 0; inset: 0; padding: 12px; position: absolute; text-align: left; }
+    .play-pause-button.over-image span { align-items: center; background: #222; border: 2px solid #fff; border-radius: 50%; color: #fff; display: inline-flex; height: 40px; justify-content: center; margin-top: 90px; width: 40px; }
+    .content { padding-top: 12px; }
+    .stretch-link { color: inherit; text-decoration: none; }
+    .title { font-weight: 700; }
+    .subtitle, .attribution { margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div id="HomepageApp">
+    <main>
+      <section class="g-section inverted carousel-container">
+        <div class="page-wrapper">
+          <header>
+            <h2 class="header">Playlists in fan collections</h2>
+            <div class="subtitle-row"><p>Discover playlists curated by fans.</p><a href="#playlists">View your playlists</a></div>
+          </header>
+          <ul class="carousel">
+            <li class="card-item dark-mode playlist-card generated-image">
+              <div class="card">
+                <div class="image-container">
+                  <img class="g-image dark-mode image" src="/assets/art-clouds.png" alt="">
+                  <button class="g-button play-pause-button over-image" aria-label="Play"><span>▶</span></button>
+                </div>
+                <div class="content"><a class="stretch-link" href="#one"><div class="title">ambient reading</div><div class="subtitle">232 tracks</div></a><div class="attribution-meta attribution">David James</div></div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script>
+    window.fixtureStored = { bandcampHubState: { open: false, playlist: [], savedPlaylists: [], appearance: {
+      pageAware: false, applyToPage: true, modernReleasePages: false, preset: "plum", savedThemes: []
+    } } };
+    window.fixturePlaybackState = { enabled: false, status: "idle", isPlaying: false, queue: [], index: -1, track: null };
+    const fixtureChrome = {
+      runtime: {
+        lastError: null,
+        getURL: (path) => new URL(`/${path}`, location.href).href,
+        getManifest: () => ({ version: "0.7.7" }),
+        sendMessage(_message, callback) { callback?.({ ok: true, state: window.fixturePlaybackState }); },
+        onMessage: { addListener() {} }
+      },
+      storage: {
+        local: {
+          get(_key, callback) { callback(window.fixtureStored); },
+          set(values) { Object.assign(window.fixtureStored, values); }
+        },
+        onChanged: { addListener() {} }
+      }
+    };
+    const channel = (value) => {
+      const number = value / 255;
+      return number <= 0.03928 ? number / 12.92 : ((number + 0.055) / 1.055) ** 2.4;
+    };
+    const ratio = (foreground, background) => {
+      const parse = (value) => (value.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+      const luminance = (value) => { const [r, g, b] = parse(value).map(channel); return r * 0.2126 + g * 0.7152 + b * 0.0722; };
+      const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+      return (values[0] + 0.05) / (values[1] + 0.05);
+    };
+    fetch("/cart-autosave.js").then((response) => response.text()).then((source) => eval(source)).then(() => fetch("/content.js")).then((response) => response.text()).then((source) => {
+      eval(source.replaceAll("chrome.", "fixtureChrome."));
+    }).catch((error) => { document.documentElement.dataset.fixtureError = String(error); });
+    window.setTimeout(() => {
+      const section = document.querySelector(".g-section.inverted");
+      const heading = section.querySelector("h2");
+      const attribution = section.querySelector(".attribution");
+      const image = section.querySelector("img.image");
+      const overlay = section.querySelector(".play-pause-button.over-image");
+      const surface = getComputedStyle(section).backgroundColor;
+      const passed = document.documentElement.dataset.bandkitPageTheme === "true"
+        && ratio(getComputedStyle(heading).color, surface) >= 7
+        && ratio(getComputedStyle(attribution).color, surface) >= 4.5
+        && getComputedStyle(overlay).backgroundColor === "rgba(0, 0, 0, 0)"
+        && image.complete && image.naturalWidth > 0;
+      document.title = passed ? "PASS: themed Home surface and artwork fixture" : `FAIL: Home theme ${surface}/${getComputedStyle(heading).color}/${getComputedStyle(attribution).color}/${getComputedStyle(overlay).backgroundColor}/${image.naturalWidth}`;
+    }, 900);
+  </script>
+</body>
+</html>

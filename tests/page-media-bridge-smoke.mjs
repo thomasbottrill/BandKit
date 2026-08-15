@@ -75,7 +75,7 @@ const window = {
 };
 
 const context = { window, document, CustomEvent, HTMLMediaElement, Set, Date, JSON, Math, Number, Object, Array, Promise };
-const source = await readFile(new URL("../page-media-bridge.js", import.meta.url), "utf8");
+const source = await readFile(new URL("../dist/unpacked/page-media-bridge.js", import.meta.url), "utf8");
 vm.runInNewContext(source, context);
 
 let cartState = null;
