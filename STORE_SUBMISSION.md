@@ -1,6 +1,6 @@
 # Chrome Web Store submission guide
 
-This is the launch checklist and source of truth for Bandkit 0.7.7. Keep the listing, Privacy practices answers, privacy policy and extension behavior consistent.
+This is the launch checklist and source of truth for Bandkit 0.7.8. Keep the listing, Privacy practices answers, privacy policy and extension behavior consistent.
 
 ## Submission blockers
 
@@ -107,7 +107,7 @@ The removed `activeTab` permission must not be re-added unless a real current fe
 2. Click Bandkit's toolbar button and choose **Activate**, or press Alt+Shift+B.
 3. Start playback from Bandcamp or Bandkit. The Bandkit music bar should reflect the current track; on supported pages playback can continue to another Bandcamp page.
 4. Add a track to Now Playing, save it as a playlist, reload the page and confirm the saved playlist remains.
-5. Open Settings to verify homepage redirect, modern page restyling, native-player hiding and cart hiding are off by default.
+5. Open Settings to verify homepage redirect is off by default, while modern page restyling, native-player hiding and both cart-hiding options are on by default.
 6. Open **Settings → Privacy and data** to see the local-data disclosure and delete-all control.
 7. Open **Settings → Feedback** and confirm **Send feedback** opens the public anonymous Notion form and **View feedback** opens the public read-only list. Do not submit personal or sensitive information during review.
 8. Open **Settings → Support → Support Bandkit** and confirm it opens the Stripe-hosted one-off support page in a new tab. Payment is optional and Stripe—not Bandkit—handles checkout information. Do not complete a payment during review.

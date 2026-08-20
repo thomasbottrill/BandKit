@@ -368,12 +368,13 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .collection-item-tags {
   align-items: center;
+  column-gap: 0;
   display: flex !important;
   flex-wrap: wrap;
   font-size: 0 !important;
-  gap: 6px;
   line-height: 0 !important;
   margin: 0 !important;
+  row-gap: 6px;
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .collection-item-tags a {
@@ -385,18 +386,19 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   display: inline-flex;
   font-size: 11px !important;
   line-height: 1 !important;
+  margin: 0 6px 0 0 !important;
   padding: 7px 10px !important;
   text-decoration: none !important;
-  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .collection-item-tags a:hover,
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .collection-item-tags a:focus-visible {
-  background: var(--bandkit-release-accent) !important;
+  background: var(--bandkit-release-accent-soft) !important;
   border-color: var(--bandkit-release-accent) !important;
-  color: var(--bandkit-release-on-accent) !important;
+  color: var(--bandkit-release-accent) !important;
   outline: 0;
-  transform: translateY(-1px);
+  transform: none;
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar {
@@ -433,7 +435,12 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   outline: 0 !important;
   overflow: hidden !important;
   padding: 10px !important;
+  transition: background-color 120ms ease;
   width: 100% !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar .collection-grid > .collection-item-container:is(:hover, :focus-within) {
+  background: color-mix(in srgb, var(--bandkit-release-accent) 5%, var(--bandkit-release-surface-raised)) !important;
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar .collection-grid > .collection-item-container::before,
@@ -471,6 +478,79 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   grid-column: 2;
   grid-row: 1;
   min-width: 0;
+  padding-right: 24px;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar .collection-grid > .collection-item-container .play-icon {
+  height: 18px !important;
+  margin: 9px !important;
+  width: 18px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar .collection-grid > .collection-item-container :is(.play-button, .bandkit-feed-sidebar-actions) {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 120ms ease;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar .collection-grid > .collection-item-container:is(:hover, :focus-within) :is(.play-button, .bandkit-feed-sidebar-actions) {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar .collection-grid > .collection-item-container:is([data-bandkit-feed-playback="playing"], .playing:not([data-bandkit-feed-playback])) .play-icon {
+  background: linear-gradient(90deg, currentColor 0 35%, transparent 35% 65%, currentColor 65% 100%) !important;
+  height: 18px !important;
+  margin: 9px 11px !important;
+  mask: none !important;
+  -webkit-mask: none !important;
+  width: 14px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar .collection-grid > .collection-item-container .remove-button {
+  align-items: center;
+  appearance: none;
+  background: var(--bandkit-release-surface-raised) !important;
+  border: 0 !important;
+  border-radius: 4px;
+  color: var(--bandkit-release-secondary) !important;
+  cursor: pointer;
+  display: inline-flex !important;
+  font-size: 0 !important;
+  height: 24px;
+  justify-content: center;
+  margin: 0 !important;
+  opacity: 0;
+  padding: 0 !important;
+  pointer-events: none;
+  position: absolute !important;
+  right: 8px !important;
+  top: 8px !important;
+  transition: background-color 120ms ease, color 120ms ease, opacity 120ms ease;
+  width: 24px;
+  z-index: 4;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar .collection-grid > .collection-item-container .remove-button::before {
+  background: currentColor;
+  content: "";
+  display: block;
+  height: 14px;
+  mask: var(--bandkit-close-icon) center / contain no-repeat;
+  -webkit-mask: var(--bandkit-close-icon) center / contain no-repeat;
+  width: 14px;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar .collection-grid > .collection-item-container:is(:hover, :focus-within) .remove-button,
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar .collection-grid > .collection-item-container .remove-button:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar .collection-grid > .collection-item-container .remove-button:is(:hover, :focus-visible) {
+  background: var(--bandkit-release-accent-soft) !important;
+  color: var(--bandkit-release-accent) !important;
+  outline: 0;
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar .collection-item-details-container {
@@ -640,8 +720,8 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"][data
   }
 
   html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper {
-    gap: 20px;
-    grid-template-columns: minmax(0, 1fr) 128px;
+    gap: 0;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper-col1 {
@@ -653,8 +733,8 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"][data
     width: 240px !important;
   }
 
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper-col2 {
-    width: 128px !important;
+  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper > .tralbum-wrapper-col2 {
+    display: none !important;
   }
 
   html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #story-list .story-innards > .tralbum-wrapper-collect-controls {

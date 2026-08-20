@@ -48,10 +48,10 @@ for (const entry of manifest.content_scripts.filter((item) => item.matches?.incl
 }
 
 assert.match(content, /openHomeToFeed:\s*false/);
-assert.match(content, /modernReleasePages:\s*false/);
-assert.match(content, /hidePageCart:\s*false/);
-assert.match(content, /hideHeaderCart:\s*false/);
-assert.match(content, /hideBandcampPlayer:\s*false/);
+assert.match(content, /modernReleasePages:\s*true/);
+assert.match(content, /hidePageCart:\s*true/);
+assert.match(content, /hideHeaderCart:\s*true/);
+assert.match(content, /hideBandcampPlayer:\s*true/);
 assert.match(content, /Delete all Bandkit data/);
 assert.match(content, /BANDCAMP_HUB_DELETE_ALL_DATA/);
 assert.match(content, /Send feedback/);
@@ -79,7 +79,7 @@ assert.match(submission, /Financial and payment information/);
 assert.match(submission, /No, I am not using remote code/);
 assert.match(submission, /does not download audio/i);
 assert.match(packaging, /node scripts\/build\.mjs --release/);
-assert.match(buildScript, /sourceIconNames\(\)/, "Production icons must be derived from source references");
+assert.match(buildScript, /runtimeIconNames\(\)/, "Production icons must be derived from final runtime references");
 assert.match(buildScript, /extensionIcons/, "Manifest icon sizes must be explicitly included");
 assert.match(packaging, /verify-release\.mjs/);
 

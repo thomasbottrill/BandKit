@@ -3,6 +3,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
+import { minify as minifyCss } from "csso";
+import { optimize as optimizeSvg } from "svgo";
+import { minify } from "terser";
 
 const projectDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outputDirectory = path.join(projectDirectory, "dist", "unpacked");
@@ -21,9 +24,9 @@ const scriptEntries = {
 const styleEntries = {
   hub: "src/styles/hub/index.css",
   "modern-release": "src/styles/modern/index.css",
-  popup: "popup.css"
+  popup: "src/styles/popup.css"
 };
-const staticFiles = ["manifest.json", "offscreen.html", "popup.html"];
+const staticFiles = ["manifest.json", "offscreen.html", "popup.html", "THIRD_PARTY_NOTICES.md"];
 const extensionIcons = [
   "extension-icon-16.png",
   "extension-icon-32.png",
@@ -31,16 +34,12 @@ const extensionIcons = [
   "extension-icon-128.png"
 ];
 
-async function sourceIconNames() {
-  const sourcePaths = [
-    ...Object.values(scriptEntries),
-    ...staticFiles,
-    ...(await walk(path.join(projectDirectory, "src"))).map((file) => path.relative(projectDirectory, file))
-  ];
+async function runtimeIconNames() {
+  const sourcePaths = (await walk(outputDirectory))
+    .filter((file) => /\.(?:css|html|js|json)$/.test(file));
   const names = new Set();
   for (const sourcePath of sourcePaths) {
-    const absolutePath = path.join(projectDirectory, sourcePath);
-    const source = await fs.readFile(absolutePath, "utf8").catch(() => "");
+    const source = await fs.readFile(sourcePath, "utf8").catch(() => "");
     for (const match of source.matchAll(/icon-[a-z0-9-]+\.svg/g)) names.add(match[0]);
   }
   return [...names].sort();
@@ -68,10 +67,34 @@ await build({
   format: "iife",
   target: "chrome116",
   minify: release,
+  mangleProps: release ? /^\$/ : undefined,
   sourcemap: false,
   legalComments: "none",
   logLevel: "warning"
 });
+if (release) {
+  for (const filename of Object.keys(scriptEntries).map((name) => `${name}.js`)) {
+    const outputPath = path.join(outputDirectory, filename);
+    const source = await fs.readFile(outputPath, "utf8");
+    const compact = await minify(source, {
+      compress: {
+        booleans_as_integers: false,
+        hoist_props: true,
+        keep_fargs: false,
+        passes: 5,
+        pure_getters: true,
+        unsafe: true,
+        unsafe_arrows: true
+      },
+      ecma: 2022,
+      format: { comments: false },
+      mangle: { toplevel: true },
+      toplevel: true
+    });
+    assert.ok(compact.code, `Release minification produced no output for ${filename}`);
+    await fs.writeFile(outputPath, compact.code);
+  }
+}
 await build({
   absWorkingDir: projectDirectory,
   entryPoints: styleEntries,
@@ -83,30 +106,55 @@ await build({
   legalComments: "none",
   logLevel: "warning"
 });
+if (release) {
+  for (const filename of Object.keys(styleEntries).map((name) => `${name}.css`)) {
+    const outputPath = path.join(outputDirectory, filename);
+    const source = await fs.readFile(outputPath, "utf8");
+    await fs.writeFile(outputPath, minifyCss(source, { restructure: true }).css);
+  }
+}
 
 for (const filename of staticFiles) {
   await fs.copyFile(path.join(projectDirectory, filename), path.join(outputDirectory, filename));
 }
+if (release) {
+  const manifestPath = path.join(outputDirectory, "manifest.json");
+  await fs.writeFile(manifestPath, JSON.stringify(JSON.parse(await fs.readFile(manifestPath, "utf8"))));
+  for (const filename of ["offscreen.html", "popup.html"]) {
+    const outputPath = path.join(outputDirectory, filename);
+    const html = await fs.readFile(outputPath, "utf8");
+    await fs.writeFile(outputPath, html.replace(/<!--[^]*?-->/g, "").replace(/>\s+</g, "><").trim());
+  }
+}
 
-const assetNames = [...new Set([...extensionIcons, ...await sourceIconNames()])].sort();
+const assetNames = [...new Set([...extensionIcons, ...await runtimeIconNames()])].sort();
 for (const filename of assetNames) {
   const source = path.join(projectDirectory, "assets", filename);
   assert.ok(await fs.stat(source).then(() => true, () => false), `Missing referenced asset: assets/${filename}`);
-  await fs.copyFile(source, path.join(outputDirectory, "assets", filename));
+  const destination = path.join(outputDirectory, "assets", filename);
+  if (filename.endsWith(".svg")) {
+    const svg = await fs.readFile(source, "utf8");
+    const compact = release
+      ? optimizeSvg(svg, {
+        multipass: true,
+        path: filename,
+        plugins: ["preset-default", { name: "removeAttrs", params: { attrs: "class" } }]
+      }).data
+      : svg;
+    await fs.writeFile(destination, compact);
+  } else {
+    await fs.copyFile(source, destination);
+  }
 }
 
 const manifest = JSON.parse(await fs.readFile(path.join(outputDirectory, "manifest.json"), "utf8"));
 assert.equal(manifest.version, JSON.parse(await fs.readFile(path.join(projectDirectory, "package.json"), "utf8")).version,
   "package.json and manifest.json versions must match");
-
-// Keep the historical root runtime filenames usable for contributors who already
-// have the repository directory loaded unpacked. dist/unpacked remains the
-// documented and packaged extension root.
-for (const filename of [
-  ...Object.keys(scriptEntries).map((name) => `${name}.js`),
-  ...Object.keys(styleEntries).map((name) => `${name}.css`)
-]) {
-  await fs.copyFile(path.join(outputDirectory, filename), path.join(projectDirectory, filename));
+if (release) {
+  const reproducibleTimestamp = new Date("2000-01-01T00:00:00.000Z");
+  for (const filename of await walk(outputDirectory)) {
+    await fs.utimes(filename, reproducibleTimestamp, reproducibleTimestamp);
+  }
 }
 
 const mode = release ? "release" : "development";

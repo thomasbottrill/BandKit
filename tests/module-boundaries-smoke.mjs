@@ -23,6 +23,7 @@ assert.deepEqual(cleanupOrder, ["second", "first"], "Cleanup must be reverse-ord
 
 assert.equal(MESSAGES.SEAMLESS_ENABLE, "BANDCAMP_HUB_SEAMLESS_ENABLE");
 assert.equal(STORAGE_KEYS.STATE, "bandcampHubState");
+assert.equal(STORAGE_KEYS.NOW_PLAYING, "bandcampHubNowPlayingSession");
 assert.ok(Object.isFrozen(MESSAGES) && Object.isFrozen(STORAGE_KEYS));
 
 const playlist = createPlaylistModel({

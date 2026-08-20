@@ -1,0 +1,10 @@
+body { background: #171c22; color: #d9e5ee; font-family: Arial, sans-serif; margin: 0; min-height: 100vh; }
+.menu-items { align-items: center; display: flex; height: 53px; justify-content: flex-end; list-style: none; margin: 0; padding: 0 24px; }
+#pgBd { margin: 80px auto; max-width: 700px; }
+a, .primaryText { color: #f2a64a; }
+.secondaryText { color: #94a8b6; }
+.inline_player { padding: 24px; }
+.track_row_view { align-items: center; display: grid; grid-template-columns: 1fr auto; min-height: 44px; }
+.track-row-actions { display: flex; gap: 14px; }
+.track_row_view .buy-link { opacity: 0; }
+.track_row_view:hover .buy-link, .track_row_view:focus-within .buy-link { opacity: 1; }

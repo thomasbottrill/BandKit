@@ -139,3 +139,53 @@ export function estimateKey(buffer) {
     confidence: Math.max(0, Math.min(1, (best.score - (candidates[1]?.score || 0)) * 2.5))
   };
 }
+
+export function createTrackAudioDecoder({
+  analysisFetchControllers,
+  playbackPriorityControllers,
+  sampleBytes = 524_288,
+  fallbackBytes = 1_048_576,
+  timeoutMs = 10_000
+}) {
+  let audioContext = null;
+
+  async function fetchTrackAudio(url, requestedBytes = sampleBytes) {
+    const controller = new AbortController();
+    analysisFetchControllers.add(controller);
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, {
+        cache: "force-cache",
+        headers: { Range: `bytes=0-${requestedBytes - 1}` },
+        signal: controller.signal
+      });
+      if (!response.ok) throw new Error(`Stream analysis request failed (${response.status}).`);
+      const downloaded = await response.arrayBuffer();
+      const bytes = downloaded.byteLength > requestedBytes ? downloaded.slice(0, requestedBytes) : downloaded;
+      return { bytes, partial: response.status === 206 || downloaded.byteLength > requestedBytes };
+    } catch (error) {
+      if (error?.name === "AbortError" && playbackPriorityControllers.has(controller)) {
+        const priorityError = new Error("Track analysis yielded to playback.");
+        priorityError.code = "PLAYBACK_PRIORITY";
+        throw priorityError;
+      }
+      if (error?.name === "AbortError") throw new Error("Track analysis timed out.");
+      throw error;
+    } finally {
+      analysisFetchControllers.delete(controller);
+      window.clearTimeout(timeout);
+    }
+  }
+
+  return async function decodeTrackAudio(AudioContextClass, url) {
+    audioContext ||= new AudioContextClass();
+    const sample = await fetchTrackAudio(url);
+    try {
+      return await audioContext.decodeAudioData(sample.bytes.slice(0));
+    } catch (error) {
+      if (!sample.partial) throw error;
+      const fallback = await fetchTrackAudio(url, fallbackBytes);
+      return audioContext.decodeAudioData(fallback.bytes.slice(0));
+    }
+  };
+}

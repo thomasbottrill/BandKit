@@ -1,0 +1,667 @@
+/* Flat, compact DJ control surface. */
+.hub-dj-deck-controls {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(72px, 0.8fr) minmax(88px, 1.2fr) minmax(96px, 1fr);
+  grid-template-rows: 224px;
+  min-height: 0;
+  overflow: visible;
+  position: relative;
+}
+
+.hub-dj-panel-label {
+  color: var(--hub-muted);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.hub-dj-eq-panel {
+  align-content: stretch;
+  display: grid;
+  gap: 3px;
+  grid-template-rows: repeat(4, minmax(40px, 1fr)) 20px;
+  padding: 3px 0 0;
+}
+
+.hub-dj-eq-panel .hub-dj-knob {
+  grid-template-columns: 32px 31px minmax(0, 1fr);
+}
+
+.hub-dj-performance-panel {
+  align-items: center;
+  display: grid;
+  grid-template-rows: 48px 1fr 44px;
+  justify-items: center;
+  min-width: 0;
+}
+
+.hub-dj-platter-adjustments {
+  align-items: start;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+}
+
+.hub-dj-platter-adjustments .hub-dj-knob {
+  gap: 2px;
+}
+
+.hub-dj-platter-adjustments .hub-dj-knob-label {
+  font-size: 8px;
+  line-height: 10px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.hub-dj-knob.is-mini .hub-dj-knob-dial {
+  height: 22px;
+  width: 22px;
+}
+
+.hub-dj-knob.is-mini .hub-dj-knob-dial::after {
+  height: 6px;
+  top: 2px;
+  transform-origin: 1px 9px;
+}
+
+.hub-dj-knob.is-mini .hub-dj-knob-output {
+  font-size: 8px;
+}
+
+.hub-dj-loop-controls {
+  align-self: end;
+  display: grid;
+  gap: 3px;
+  width: 100%;
+}
+
+.hub-dj-loop-header {
+  align-items: center;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 18px minmax(0, 1fr) 18px;
+}
+
+.hub-dj-loop-label {
+  color: var(--hub-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 10px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.hub-dj-loop-options {
+  display: grid;
+  gap: 2px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.hub-dj-loop-button,
+.hub-dj-loop-arrow {
+  background: var(--hub-card);
+  border: 1px solid var(--hub-line);
+  border-radius: 3px;
+  color: var(--hub-ink);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 700;
+  height: 20px;
+  padding: 0;
+}
+
+.hub-dj-loop-arrow {
+  font-size: 12px;
+  height: 17px;
+  line-height: 1;
+}
+
+.hub-dj-loop-button:hover:not(:disabled),
+.hub-dj-loop-arrow:hover:not(:disabled),
+.hub-dj-loop-button.is-active {
+  border-color: var(--hub-accent);
+  color: var(--hub-accent);
+}
+
+.hub-dj-loop-button.is-active {
+  background: var(--hub-control-bg, var(--hub-accent)) !important;
+  border-color: var(--hub-control-border, var(--hub-accent)) !important;
+  color: var(--hub-control-fg, var(--hub-on-accent)) !important;
+}
+
+.hub-dj-loop-button:disabled,
+.hub-dj-loop-arrow:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.hub-dj-fader-panel {
+  display: grid;
+  grid-template-rows: 40px 1fr;
+  min-width: 0;
+  padding: 3px 0 0;
+}
+
+.hub-dj-knob {
+  align-items: center;
+  cursor: move;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  min-width: 0;
+  user-select: none;
+}
+
+.hub-dj-knob-label {
+  color: var(--hub-ink);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-transform: uppercase;
+}
+
+.hub-dj-knob-dial {
+  --hub-knob-angle: 0deg;
+  background: var(--hub-card);
+  border: 1px solid var(--hub-muted);
+  border-radius: 50%;
+  box-shadow: none;
+  display: block;
+  height: 30px;
+  position: relative;
+  width: 30px;
+}
+
+.hub-dj-knob-dial::after {
+  background: var(--hub-ink);
+  border-radius: 1px;
+  content: "";
+  height: 8px;
+  left: calc(50% - 1px);
+  pointer-events: none;
+  position: absolute;
+  top: 3px;
+  transform: rotate(var(--hub-knob-angle));
+  transform-origin: 1px 11px;
+  width: 2px;
+}
+
+.hub-dj-knob.is-large .hub-dj-knob-dial {
+  height: 48px;
+  width: 48px;
+}
+
+.hub-dj-knob.is-large .hub-dj-knob-dial::after {
+  height: 13px;
+  transform-origin: 1px 19px;
+}
+
+.hub-dj-knob-input {
+  cursor: move;
+  height: 100%;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  position: absolute;
+  touch-action: none;
+  width: 100%;
+  z-index: 1;
+}
+
+.hub-dj-knob-dial:focus-within {
+  outline: 2px solid var(--hub-accent);
+  outline-offset: 2px;
+}
+
+.hub-dj-knob-output {
+  color: var(--hub-muted);
+  font-size: 7px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  height: 9px;
+  white-space: nowrap;
+}
+
+.hub-dj-platter {
+  --hub-platter-angle: 0deg;
+  align-items: center;
+  background: var(--hub-card);
+  border: 1px solid var(--hub-muted);
+  border-radius: 50%;
+  box-shadow: none;
+  cursor: move;
+  display: flex;
+  height: 96px;
+  justify-content: center;
+  position: relative;
+  touch-action: none;
+  width: 96px;
+}
+
+.hub-dj-platter::before {
+  border: 1px solid var(--hub-line);
+  border-radius: 50%;
+  content: "";
+  inset: 17px;
+  pointer-events: none;
+  position: absolute;
+}
+
+.hub-dj-platter::after {
+  display: none;
+}
+
+.hub-dj-platter:focus-visible,
+.hub-dj-platter.is-scratching,
+.hub-dj-platter.is-coasting,
+.hub-dj-platter.is-vinyl-releasing {
+  border-color: var(--hub-accent);
+  outline: 0;
+}
+
+.hub-dj-platter-dot {
+  background: var(--hub-accent);
+  border-radius: 50%;
+  height: 5px;
+  left: calc(50% - 2.5px);
+  position: absolute;
+  top: 7px;
+  transform: rotate(var(--hub-platter-angle));
+  transform-origin: 2.5px 39px;
+  width: 5px;
+}
+
+.hub-dj-platter-spindle {
+  background: var(--hub-card);
+  border: 1px solid var(--hub-muted);
+  border-radius: 50%;
+  box-shadow: none;
+  height: 13px;
+  pointer-events: none;
+  position: absolute;
+  width: 13px;
+}
+
+.hub-dj-platter-grip {
+  display: none;
+}
+
+.hub-dj-mode-buttons {
+  display: grid;
+  gap: 5px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hub-dj-mode-button {
+  background: var(--hub-card);
+  border: 1px solid var(--hub-line);
+  border-radius: 4px;
+  color: var(--hub-ink);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 700;
+  height: 32px;
+  min-width: 0;
+  padding: 0 3px;
+  text-transform: uppercase;
+}
+
+.hub-dj-mode-button:hover,
+.hub-dj-mode-button:focus-visible {
+  border-color: var(--hub-accent);
+  outline: 0;
+}
+
+.hub-dj-mode-button.is-active {
+  background: var(--hub-accent-soft);
+  border-color: var(--hub-accent);
+  color: var(--hub-accent);
+}
+
+.hub-dj-faders {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hub-dj-fader {
+  align-items: center;
+  display: grid;
+  grid-template-rows: 11px 11px 1fr 20px;
+  justify-items: center;
+  min-width: 0;
+}
+
+.hub-dj-fader-label {
+  color: var(--hub-ink);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.hub-dj-fader-output {
+  color: var(--hub-muted);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hub-dj-fader-rail {
+  display: block;
+  height: 130px;
+  position: relative;
+  width: 36px;
+}
+
+.hub-dj-fader-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: ns-resize;
+  height: 20px;
+  left: 50%;
+  margin: 0;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(90deg);
+  width: 120px;
+}
+
+.hub-dj-fader.is-gain .hub-dj-fader-input {
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+
+.hub-dj-fader-input::-webkit-slider-runnable-track {
+  background: var(--hub-line);
+  border: 0;
+  border-radius: 2px;
+  height: 3px;
+}
+
+.hub-dj-fader-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  background: var(--hub-ink);
+  border: 0;
+  border-radius: 2px;
+  box-shadow: none;
+  height: 14px;
+  margin-top: -5.5px;
+  width: 8px;
+}
+
+.hub-dj-reset-symbol {
+  background: transparent;
+  border: 1px solid var(--hub-line);
+  border-radius: 50%;
+  color: var(--hub-muted);
+  cursor: pointer;
+  display: grid;
+  height: 20px;
+  padding: 0;
+  place-items: center;
+  width: 20px;
+}
+
+.hub-dj-reset-symbol::before {
+  background: currentColor;
+  content: "";
+  display: block;
+  height: 14px;
+  mask: var(--hub-reset-icon) center / contain no-repeat;
+  -webkit-mask: var(--hub-reset-icon) center / contain no-repeat;
+  width: 14px;
+}
+
+.hub-dj-status-button {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+  justify-content: center;
+}
+
+.hub-dj-bpm-label.is-active::after {
+  background: #35c759;
+  border-radius: 50%;
+  content: "";
+  display: inline-block;
+  height: 5px;
+  margin-left: 3px;
+  width: 5px;
+}
+
+.hub-dj-active-dot {
+  background: #35c759;
+  border-radius: 50%;
+  display: inline-block;
+  flex: 0 0 5px;
+  height: 5px;
+  width: 5px;
+}
+
+.hub-dj-panel-reset {
+  align-self: end;
+  justify-self: center;
+  margin-top: 2px;
+}
+
+.hub-dj-reset-symbol:hover,
+.hub-dj-reset-symbol:focus-visible {
+  border-color: var(--hub-accent);
+  color: var(--hub-accent);
+  outline: 0;
+}
+
+.hub-dj-bpm-row,
+.hub-dj-label-row,
+.hub-dj-footer {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.hub-dj-bpm-row {
+  border-bottom: 1px solid var(--hub-line);
+  gap: 12px;
+  margin: -2px 0 12px;
+  padding-bottom: 10px;
+}
+
+.hub-dj-bpm {
+  align-items: baseline;
+  display: flex;
+  gap: 6px;
+}
+
+.hub-dj-bpm strong {
+  color: var(--hub-ink);
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+  line-height: 28px;
+}
+
+.hub-dj-bpm span,
+.hub-dj-label-row label {
+  color: var(--hub-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hub-dj-tempo-output {
+  color: var(--hub-ink);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.hub-dj-tempo-controls {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  margin: 6px 0 10px;
+}
+
+.hub-dj-step,
+.hub-dj-range,
+.hub-dj-action {
+  background: var(--hub-card);
+  border: 1px solid var(--hub-line);
+  color: var(--hub-ink);
+  cursor: pointer;
+  font-size: 11px;
+  min-height: 30px;
+}
+
+.hub-dj-step {
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+  padding: 0;
+}
+
+.hub-dj-step:hover,
+.hub-dj-range:hover,
+.hub-dj-action:hover {
+  background: var(--hub-hover);
+}
+
+.hub-dj-slider {
+  accent-color: var(--hub-accent);
+  cursor: pointer;
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.hub-dj-ranges {
+  border: 1px solid var(--hub-line);
+  border-radius: 4px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.hub-dj-range {
+  border: 0;
+  border-radius: 0;
+  border-right: 1px solid var(--hub-line);
+  padding: 0 4px;
+}
+
+.hub-dj-range:last-child {
+  border-right: 0;
+}
+
+.hub-dj-range.is-active,
+.hub-dj-master.is-active {
+  background: var(--hub-accent-soft);
+  color: var(--hub-accent);
+  font-weight: 700;
+}
+
+.hub-dj-range.is-active {
+  box-shadow: inset 0 0 0 1px var(--hub-accent);
+}
+
+.hub-dj-master.is-active {
+  border-color: var(--hub-accent);
+}
+
+.hub-dj-footer {
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.hub-dj-action {
+  border-radius: 4px;
+  flex: 1 1 0;
+  padding: 5px 8px;
+}
+
+.hub-dj-action.hub-dj-status-button {
+  gap: 3px;
+  padding: 4px 2px;
+}
+
+.hub-dj-bpm-row .hub-dj-action {
+  color: var(--hub-accent);
+  flex: 0 0 auto;
+  font-weight: 700;
+}
+
+.hub-dj-note {
+  color: var(--hub-faint);
+  font-size: 9px;
+  line-height: 13px;
+  margin: 9px 0 0;
+}
+
+.hub-dj-effects {
+  border-bottom: 1px solid var(--hub-line);
+  display: grid;
+  gap: 6px;
+  padding: 0 0 10px;
+}
+
+.hub-dj-effect-row {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 38px minmax(0, 1fr) 56px;
+}
+
+.hub-dj-effect-output {
+  color: var(--hub-ink);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: right;
+}
+
+.hub-section-heading {
+  align-items: center;
+  display: flex;
+  margin: 0 0 16px;
+  min-height: var(--hub-control-size);
+}
+
+.hub-section-heading-label {
+  align-items: center;
+  color: var(--hub-tab-foreground);
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  min-height: 20px;
+  position: relative;
+}
+
+.hub-section-heading-label::after {
+  background: currentColor;
+  border-radius: 999px;
+  bottom: -4px;
+  content: "";
+  height: 2px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  visibility: hidden;
+}
+
+.hub-section-heading-meta {
+  color: var(--hub-muted);
+  font-size: 12px;
+  font-weight: 700;
+  margin-left: auto;
+}

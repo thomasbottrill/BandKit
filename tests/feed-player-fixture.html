@@ -20,7 +20,7 @@
       <div class="story-body">
       <div id="feed-item" class="collection-item-container track_play_hilite playing" data-trackid="888227773">
         <button class="track_play_auxiliary" data-trackid="888227773" type="button">Pause</button>
-        <img class="tralbum-art-large" src="/assets/art-clouds.png" alt="">
+        <img class="tralbum-art-large" src="/tests/fixtures/assets/art-clouds.png" alt="">
         <a class="artist-name" href="https://fixture-feed.bandcamp.com/">Feed Fixture Artist</a>
         <a class="item-link" href="https://fixture-feed.bandcamp.com/album/feed-fixture-album">
           <span class="collection-item-title">Feed Fixture Album</span>
@@ -39,7 +39,7 @@
       <div class="story-body">
       <div id="feed-item-two" class="collection-item-container track_play_hilite" data-trackid="999116642">
         <button class="track_play_auxiliary" data-trackid="999116642" type="button">Play</button>
-        <img class="tralbum-art-large" src="/assets/art-cobrastyle.png" alt="">
+        <img class="tralbum-art-large" src="/tests/fixtures/assets/art-cobrastyle.png" alt="">
         <a class="artist-name" href="https://second-feed.bandcamp.com/">Second Feed Artist</a>
         <a class="item-link" href="https://second-feed.bandcamp.com/album/second-feed-album">
           <span class="collection-item-title">Second Feed Album</span>
@@ -68,21 +68,21 @@
       <ol class="collection-grid" data-ismain="true" data-iswish="false">
         <li class="collection-item-container" data-itemid="collection-album" data-trackid="collection-album-track" data-itemtype="album" data-tralbumtype="a" data-title="Owned Album">
           <div class="collection-item-gallery-container">
-            <a class="track_play_auxiliary" data-trackid="collection-album-track"><img class="collection-item-art" src="/assets/art-apophenia.png" alt=""></a>
+            <a class="track_play_auxiliary" data-trackid="collection-album-track"><img class="collection-item-art" src="/tests/fixtures/assets/art-apophenia.png" alt=""></a>
             <div class="collection-title-details"><a class="item-link" href="https://owned-album.bandcamp.com/album/owned-album"><span class="collection-item-title">Owned Album</span><span class="collection-item-artist">by Owned Artist</span></a></div>
           </div>
           <div class="bottom-owner-controls"><span class="redownload-item"><a href="https://bandcamp.com/download?from=collection&amp;sitem_id=owned-album">download</a></span></div>
         </li>
         <li class="collection-item-container" data-itemid="collection-album-track" data-trackid="collection-featured-track" data-itemtype="track" data-tralbumtype="t" data-title="Album-backed Track">
           <div class="collection-item-gallery-container">
-            <img class="collection-item-art" src="/assets/art-magma.png" alt="">
+            <img class="collection-item-art" src="/tests/fixtures/assets/art-magma.png" alt="">
             <div class="collection-title-details"><a class="item-link" href="https://owned-track.bandcamp.com/album/owned-release"><span class="collection-item-title">Album-backed Track</span><span class="collection-item-artist">by Track Artist</span></a></div>
           </div>
           <div class="bottom-owner-controls"><span class="redownload-item"><a href="https://bandcamp.com/download?from=collection&amp;sitem_id=owned-track">download</a></span></div>
         </li>
         <li class="collection-item-container" data-itemid="collection-direct-track" data-trackid="collection-direct-track" data-itemtype="track" data-tralbumtype="t" data-title="Direct Track">
           <div class="collection-item-gallery-container">
-            <img class="collection-item-art" src="/assets/art-gniben.png" alt="">
+            <img class="collection-item-art" src="/tests/fixtures/assets/art-gniben.png" alt="">
             <div class="collection-title-details"><a class="item-link" href="https://direct-track.bandcamp.com/track/direct-track"><span class="collection-item-title">Direct Track</span><span class="collection-item-artist">by Direct Artist</span></a></div>
           </div>
           <div class="bottom-owner-controls"><span class="redownload-item"><a href="https://bandcamp.com/download?from=collection&amp;sitem_id=direct-track">download</a></span></div>
@@ -115,7 +115,7 @@
     feedItem.dataset.itemJson = JSON.stringify({
       item_title: "Feed Fixture Album",
       item_url: "https://fixture-feed.bandcamp.com/album/feed-fixture-album",
-      item_art_url: new URL("/assets/art-clouds.png", location.href).href,
+      item_art_url: new URL("/tests/fixtures/assets/art-clouds.png", location.href).href,
       band_name: "Feed Fixture Artist",
       band_url: "https://fixture-feed.bandcamp.com/",
       featured_track_title: "Feed Fixture Track",
@@ -124,7 +124,7 @@
     secondFeedItem.dataset.itemJson = JSON.stringify({
       item_title: "Second Feed Album",
       item_url: "//second-feed.bandcamp.com/album/second-feed-album",
-      item_art_url: new URL("/assets/art-cobrastyle.png", location.href).href,
+      item_art_url: new URL("/tests/fixtures/assets/art-cobrastyle.png", location.href).href,
       band_name: "Second Feed Artist",
       band_url: "https://second-feed.bandcamp.com/",
       featured_track_title: "Second Feed Track",
@@ -202,7 +202,7 @@
         playlistView: "current",
         playlistMode: "manual",
         playlist: [
-          { playlistItemId: "playlist-feed-one", id: "888227773", title: "Feed Fixture Track", artist: "Feed Fixture Artist", album: "Feed Fixture Album", art: new URL("/assets/art-clouds.png", location.href).href, pageUrl: "https://fixture-feed.bandcamp.com/album/feed-fixture-album", artistUrl: "https://fixture-feed.bandcamp.com/", duration: 260, url: "https://bandcamp.com/stream_redirect?enc=mp3-128&track_id=888227773" }
+          { playlistItemId: "playlist-feed-one", id: "888227773", title: "Feed Fixture Track", artist: "Feed Fixture Artist", album: "Feed Fixture Album", art: new URL("/tests/fixtures/assets/art-clouds.png", location.href).href, pageUrl: "https://fixture-feed.bandcamp.com/album/feed-fixture-album", artistUrl: "https://fixture-feed.bandcamp.com/", duration: 260, url: "https://bandcamp.com/stream_redirect?enc=mp3-128&track_id=888227773" }
         ]
       }
     } : location.search.includes("cross-page-active") ? {
@@ -242,7 +242,7 @@
     const fixtureChrome = {
       runtime: {
         lastError: null,
-        getURL: (path) => new URL(`/${path}`, location.href).href,
+        getURL: (path) => new URL(`/dist/unpacked/${path}`, location.href).href,
         getManifest: () => ({ version: "0.5.14" }),
         sendMessage(message, callback) {
           window.fixtureMessages.push({ ...message, __at: performance.now() });
@@ -330,7 +330,7 @@
         }
       }
     };
-    fetch(`/cart-autosave.js${location.search}`).then((response) => response.text()).then((source) => eval(source)).then(() => fetch(`/content.js${location.search}`)).then((response) => response.text()).then((source) => {
+    fetch(`/dist/unpacked/cart-autosave.js${location.search}`).then((response) => response.text()).then((source) => eval(source)).then(() => fetch(`/dist/unpacked/content.js${location.search}`)).then((response) => response.text()).then((source) => {
       eval(source.replaceAll("chrome.", "fixtureChrome."));
     }).catch((error) => { document.documentElement.dataset.fixtureError = String(error); });
     window.setTimeout(() => {
@@ -487,7 +487,8 @@
         && playbackDisables.length === 0
         && mutedNativeHandoff
         && nowPlayingHeader?.childNodes[0]?.textContent?.trim() === "Now Playing"
-        && root?.querySelectorAll(".hub-now-playing-toolbar .hub-playlist-toolbar-icon").length === 4
+        && root?.querySelectorAll(".hub-now-playing-toolbar .hub-playlist-toolbar-icon").length === 2
+        && root?.querySelectorAll(".hub-now-playing-toolbar .hub-toolbar-menu-action").length === 4
         && nowPlayingHeader?.querySelector(".hub-close")
         && root?.querySelector(".hub-now-playing-toolbar .hub-cart-backup-time")?.textContent === "1 song in Now Playing"
         && getComputedStyle(document.querySelector("#track_play_waypoint")).display === "none"

@@ -1,18 +1,25 @@
 {
   "name": "bandkit-extension",
-  "version": "0.7.7",
+  "version": "0.7.8",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:release": "node scripts/build.mjs --release",
+    "icons:sync": "node scripts/sync-icons.mjs",
+    "verify:source": "node scripts/verify-source.mjs",
     "lint": "eslint . --cache --cache-location .cache/eslint",
     "test:smoke": "for test_file in tests/*-smoke.mjs; do node \"$test_file\" || exit 1; done",
-    "test": "npm run lint && npm run build && npm run test:smoke",
+    "test:clean-install": "scripts/launch-clean-test.sh",
+    "test": "npm run verify:source && npm run lint && npm run build && npm run test:smoke",
     "package": "scripts/package-release.sh"
   },
   "devDependencies": {
+    "csso": "^5.0.5",
     "esbuild": "0.28.2",
-    "eslint": "10.0.3"
+    "eslint": "10.0.3",
+    "lucide-static": "^1.31.0",
+    "svgo": "^4.0.2",
+    "terser": "^5.50.0"
   }
 }

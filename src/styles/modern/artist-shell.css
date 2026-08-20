@@ -126,9 +126,8 @@ html[data-bandkit-modern-page="true"] :is(
   body.feed #sidebar,
   body.feed #sidebar .collection-grid > .collection-item-container,
   body.tralbum-page #track_table .track_row_view,
-  body.tralbum-page .bandkit-modern-purchase-panel,
+  body.tralbum-page .bandkit-modern-purchase-list > .buyItem,
   body.tralbum-page #bio-container,
-  body.tralbum-page #discography,
   body.tralbum-page #rightColumn > .sidebar,
   body.tralbum-page #rightColumn > #recommended,
   body.tralbum-page #recommendations_container .recommended-album

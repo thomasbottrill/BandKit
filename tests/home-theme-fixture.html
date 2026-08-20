@@ -36,7 +36,7 @@
             <li class="card-item dark-mode playlist-card generated-image">
               <div class="card">
                 <div class="image-container">
-                  <img class="g-image dark-mode image" src="/assets/art-clouds.png" alt="">
+                  <img class="g-image dark-mode image" src="/tests/fixtures/assets/art-clouds.png" alt="">
                   <button class="g-button play-pause-button over-image" aria-label="Play"><span>▶</span></button>
                 </div>
                 <div class="content"><a class="stretch-link" href="#one"><div class="title">ambient reading</div><div class="subtitle">232 tracks</div></a><div class="attribution-meta attribution">David James</div></div>
@@ -55,8 +55,8 @@
     const fixtureChrome = {
       runtime: {
         lastError: null,
-        getURL: (path) => new URL(`/${path}`, location.href).href,
-        getManifest: () => ({ version: "0.7.7" }),
+        getURL: (path) => new URL(`/dist/unpacked/${path}`, location.href).href,
+        getManifest: () => ({ version: "0.7.8" }),
         sendMessage(_message, callback) { callback?.({ ok: true, state: window.fixturePlaybackState }); },
         onMessage: { addListener() {} }
       },
@@ -78,7 +78,7 @@
       const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
       return (values[0] + 0.05) / (values[1] + 0.05);
     };
-    fetch("/cart-autosave.js").then((response) => response.text()).then((source) => eval(source)).then(() => fetch("/content.js")).then((response) => response.text()).then((source) => {
+    fetch("/dist/unpacked/cart-autosave.js").then((response) => response.text()).then((source) => eval(source)).then(() => fetch("/dist/unpacked/content.js")).then((response) => response.text()).then((source) => {
       eval(source.replaceAll("chrome.", "fixtureChrome."));
     }).catch((error) => { document.documentElement.dataset.fixtureError = String(error); });
     window.setTimeout(() => {

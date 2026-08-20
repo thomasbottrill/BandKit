@@ -1,6 +1,6 @@
 # Bandkit
 
-Current unpacked build: **0.7.7**
+Current unpacked build: **0.7.8**
 
 Bandkit is a Manifest V3 Chrome extension that places a movable, theme-aware listening panel on Bandcamp. Bandkit can sample each page’s background, text, and link colours, use a saved light, dark, or custom palette, and optionally apply that palette across Bandcamp itself.
 
@@ -27,7 +27,7 @@ Bandkit is a Manifest V3 Chrome extension that places a movable, theme-aware lis
 - The bottom player keeps linked artwork and track information with centered transport controls and a full-width timeline. Compact mode preserves the same typography, controls, and default content width while arranging transport, track details, timeline, and track actions on one line. A separate width setting offers tight, default, centred wide, full-width, and exact custom pixel layouts for either player size.
 - Floating mode moves from the panel header and resizes from enlarged handles along every edge. Docked mode slides Bandkit over the page from either edge, with the right side used by default, and resizes only from its exposed content-facing edge. Docked width is saved independently from the floating layout. The circular launcher appears only while Bandkit is closed, regardless of mode. In docked mode the Reset slot becomes an edge-facing close chevron; once closed, the launcher returns so Bandkit can be reopened. Floating mode retains the compact Reset and Dock controls beside Close, and the independently draggable launcher remembers its viewport position.
 - A final **Settings** tab includes an opt-in option to open Bandcamp’s homepage directly on the signed-in fan’s `/{username}/feed` page, floating/docked panel mode, left/right dock side, a **Match Bandcamp** switch, built-in light and dark palettes, and locally saved custom themes. **Match Bandcamp** is enabled by default, while the separate **Theme Bandcamp pages** switch is off by default. Selecting a theme changes Bandkit’s palette without automatically recolouring the site; users can later enable page theming to apply that selected palette consistently across artist pages, Discover, feeds, collections, and players. Custom themes separately control the accent, track scrub, Bandkit panel and content surfaces, Bandcamp page background and content surface, artist navigation strip, plus primary and secondary text. Any selected theme can be downloaded as a portable Bandkit JSON file, then imported on another installation to save and select it locally. Across matched, built-in, imported, and custom themes, automatic per-surface correction keeps primary text at 7:1, secondary text and links at 4.5:1, and interface boundaries at 3:1 across Bandkit panels, cards, page content, navigation, and footers. Settings also include selectable vertical, horizontal, combined, or radial knob gestures, the keyboard shortcut, the installed Bandkit version, a local-data disclosure, an organized portable data-folder export, a delete-all-data control, and an optional **Support Bandkit** link to a Stripe-hosted one-off payment page. Combined vertical/horizontal knob dragging is the default.
-- The opt-in **Modern Bandcamp pages** setting gives legacy Feed and artist Music, Merch, Community, album, and track pages a consistent responsive, wide-screen layout without replacing Bandcamp's controls or visual identity. Native artist text and accent colours remain the source—including deliberate secondary colours—while a safety layer repairs near-invisible neutral text and interface boundaries. Enabling **Theme Bandcamp pages** instead applies the selected theme's strict per-surface contrast targets. Home, Discover, and fan Collection retain their existing modern layouts. On release pages, artwork, native playback, wishlist, share/embed, digital purchase, gifts, physical editions and galleries, track purchases, notes, credits, license, tags, supporters, artist profile, follow controls, discography, and recommendations remain accessible. Switching it off restores each original release-page node to its exact position.
+- **Modern Bandcamp pages** is enabled by default and gives legacy Feed and artist Music, Merch, Community, album, and track pages a consistent responsive, wide-screen layout without replacing Bandcamp's controls or visual identity. Native artist text and accent colours remain the source—including deliberate secondary colours—while a safety layer repairs near-invisible neutral text and interface boundaries. Enabling **Theme Bandcamp pages** instead applies the selected theme's strict per-surface contrast targets. Home, Discover, and fan Collection retain their existing modern layouts. On release pages, artwork, native playback, wishlist, share/embed, digital purchase, gifts, physical editions and galleries, track purchases, notes, credits, license, tags, supporters, artist profile, follow controls, discography, and recommendations remain accessible. Switching it off restores each original release-page node to its exact position.
 
 The former Downloads and Recent Purchases prototype tabs were removed because they did not have trustworthy live data.
 
@@ -38,7 +38,7 @@ The former Downloads and Recent Purchases prototype tabs were removed because th
 3. Enable **Developer mode**.
 4. Choose **Load unpacked** and select `dist/unpacked`, or press **Reload** on an existing Bandkit installation.
 5. Reload every Bandcamp tab that was already open.
-6. Confirm the extension card says **0.7.7**.
+6. Confirm the extension card says **0.7.8**.
 
 Open a streamable album page and press its normal Bandcamp play button. The audio should hand off to Bandkit automatically; the toolbar popup provides a single control to activate or deactivate the Bandkit panel on the current Bandcamp tab.
 
@@ -54,7 +54,7 @@ Automatic analysis prepares Bandcamp streams inside the extension’s offscreen 
 
 - Playlists, saved playlists, cart snapshots, saved carts, panel/launcher layout, preferences, and activity stay in local extension storage. Current playback state uses session storage.
 - No credentials or cookies are copied into extension storage.
-- **Settings → Privacy and data → Your data folder** opens the operating system's Documents folder by default on macOS and Windows. After you approve the location, Bandkit automatically creates a user-owned `Documents/Bandkit` folder with separate `Playlists`, `Carts`, `Activity`, and `Settings` directories. Chrome storage remains the live copy, so use the setting again to refresh the portable files.
+- **Settings → Privacy and data → Your data folder** opens the operating system's Documents folder by default on macOS and Windows. After one user-approved folder selection, Bandkit creates a user-owned `Documents/Bandkit` folder with separate `Playlists`, `Carts`, `Activity`, and `Settings` directories and refreshes it automatically while the page retains access. Chrome storage is always the automatic live copy; saved cart and playlist screens clearly show whether the optional portable backup is connected or needs reconnecting.
 - Playback requests are accepted only from Bandcamp pages, and stream URLs are restricted to HTTPS `bcbits.com` hosts.
 - Portable playlist exports omit temporary audio stream URLs. Public cart shares omit private cart-restore fields.
 - Bandkit has no developer-operated server, analytics or advertising. See [PRIVACY.md](PRIVACY.md) for the full data policy and deletion details.
@@ -68,8 +68,11 @@ Run the deterministic build, lint, and smoke-test sequence:
 ```sh
 npm ci
 npm test
+npm run test:clean-install
 ```
 
-For Chrome Web Store release preparation, follow [STORE_SUBMISSION.md](STORE_SUBMISSION.md). Build and verify a minified production-only ZIP with `npm run package`. `dist/unpacked` is the supported unpacked-extension directory. The build also refreshes the historical root runtime filenames so an existing developer installation pointed at the repository does not break mid-upgrade; edit only the ES modules and stylesheet partials under `src`, never those generated root or `dist/unpacked` artifacts.
+`npm run test:clean-install` opens a disposable Chrome profile with the real unpacked extension on Bandcamp. It does not alter the normal Chrome profile or its saved Bandkit data.
+
+For Chrome Web Store release preparation, follow [STORE_SUBMISSION.md](STORE_SUBMISSION.md). Build and verify a minified production-only ZIP with `npm run package`. `dist/unpacked` is the only unpacked-extension directory; load that directory in `chrome://extensions` and edit only source files under `src`.
 
 `tests/fixture.html` covers the classic album player and `tests/modern-player-fixture.html` covers the shared Home/Discover/Search player adapter.

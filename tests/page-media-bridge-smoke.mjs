@@ -63,6 +63,11 @@ const window = {
   Sidecart: {
     cart_items: [nativeItem],
     subtotal: 9,
+    add_to_cart(item) {
+      item.local_id = "added-local-id";
+      item.id = 654;
+      this.cart_items.push(item);
+    },
     delete_from_cart(item) {
       deletedItem = item;
       this.cart_items = this.cart_items.filter((candidate) => candidate !== item);
@@ -101,6 +106,21 @@ assert.equal(window.Sidecart.cart_items.length, 0, "native Sidecart should no lo
 assert.equal(result.requestId, "remove-test");
 assert.equal(result.removed, true);
 assert.equal(result.error, undefined);
+
+const addResult = await new Promise((resolve) => {
+  document.addEventListener("bandkit:cart-restore-result", (event) => resolve(event.detail));
+  document.dispatchEvent(new CustomEvent("bandkit:cart-command", {
+    detail: {
+      action: "restore",
+      requestId: "restore-test",
+      items: [{ title: "Add Me", restore: { item_type: "t", item_id: 456, band_id: 12, unit_price: 4, quantity: 1 } }]
+    }
+  }));
+});
+
+assert.equal(addResult.requestId, "restore-test");
+assert.equal(addResult.added, 1, "restore should add a resolved item to Bandcamp's current cart");
+assert.equal(window.Sidecart.cart_items[0].item_id, 456);
 
 const firstAudio = new window.Audio();
 const secondAudio = new window.Audio();

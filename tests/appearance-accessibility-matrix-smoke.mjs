@@ -3,7 +3,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 import { readContentSource, readHubStyles, readModernStyles } from "./support/source.mjs";
 
-const source = readContentSource();
+const source = readContentSource().replaceAll("r.$", "");
 const pageCss = readModernStyles();
 const hubCss = readHubStyles();
 
@@ -28,7 +28,7 @@ function extractFunction(name) {
     }
     if (character === '"' || character === "'" || character === "`") quote = character;
     else if (character === "{") depth += 1;
-    else if (character === "}" && --depth === 0) return source.slice(start, index + 1);
+    else if (character === "}" && --depth === 0) return source.slice(start, index + 1).replaceAll("r.$", "");
   }
   throw new Error(`Could not parse ${name}`);
 }
@@ -132,7 +132,15 @@ for (const pageAware of [false, true]) {
 const applyAppearance = extractFunction("applyAppearance");
 assert.match(applyAppearance, /captureModernReleasePalette\(\)[\s\S]*?applyBandcampPageTheme\(\);[\s\S]*?applyModernReleaseLayout\(\);[\s\S]*?pageAware\) updateThemeFromPage\(\)/, "Appearance must snapshot native colours, apply the final page state, then run Match Bandcamp");
 assert.doesNotMatch(extractFunction("clearModernReleasePalette"), /modernReleasePalette\s*=\s*null/, "Disabling Modern Pages must retain the clean native palette snapshot");
-assert.match(source, /state\.appearance\.modernReleasePages = !state\.appearance\.modernReleasePages;\s*applyAppearance\(\);/, "The Modern Pages switch must re-run the complete appearance pipeline");
+assert.match(source, /state\.appearance\.modernReleasePages = !modernReleasePages;\s*applyAppearance\(\);/, "The Modern Pages switch must re-run the complete appearance pipeline");
+assert.match(source, /const modernReleasePages = Boolean\(state\.appearance\.modernReleasePages\);[\s\S]*?aria-checked", String\(modernReleasePages\)/,
+  "Stored legacy Modern Pages values must render with a valid boolean ARIA state");
+assert.match(source, /state\.appearance\.modernReleasePages = Boolean\(storedModernReleasePages\)/,
+  "Upgraded Modern Pages preferences must be normalized to booleans");
+assert.match(source, /panel\.setAttribute\("aria-hidden", String\(panelHidden\)\);[\s\S]*?panel\.toggleAttribute\("inert", panelHidden\)/,
+  "Hidden Bandkit panels must leave both the accessibility tree and keyboard order");
+assert.match(source, /panel\.contains\(shadow\.activeElement\)[\s\S]*?\.focus\(\)/,
+  "Closing a focused Bandkit panel must return focus to a visible launcher control");
 
 for (const token of [
   "--bandkit-page-card-text",
@@ -159,5 +167,23 @@ assert.match(source, /\.bandcamp-logo-link,[\s\S]*?a\[aria-label="Bandcamp home"
   "legacy Bandcamp logos must use the readable navbar foreground instead of the page accent");
 assert.match(pageCss, /--bandkit-release-raised-ink/, "Modern pages must retain their independent raised-surface contrast context");
 assert.match(hubCss, /\.hub-dj-bpm-reset\s*\{[^}]*transition:\s*none/s, "The periodically rebuilt BPM reset must not restart a hover transition and flash");
+assert.match(hubCss, /\.hub-panel\s*\{[^}]*box-shadow:\s*0 8px 22px -14px rgba\(0, 0, 0, 0\.18\)/s,
+  "Docked panels must use restrained elevation against the page");
+assert.match(hubCss, /\.hub-panel\s*\{[^}]*border:\s*1px solid color-mix\(in srgb, var\(--hub-line\) 55%, transparent\)/s,
+  "Docked panel outlines must remain subordinate to their surface offset");
+assert.match(hubCss, /\.hub-card\s*\{[^}]*border:\s*1px solid color-mix\(in srgb, var\(--hub-line\) 30%, transparent\)/s,
+  "Cart, Now Playing, and saved-playlist card outlines must remain visually subtle");
+assert.match(hubCss, /\.hub-playlist-track\.is-playing\s*\{[^}]*border-color:\s*color-mix\(in srgb, var\(--hub-accent\) 38%, transparent\)/s,
+  "active Now Playing cards must retain a softened accent outline");
+assert.match(hubCss, /\.hub-dj-drawer\s*\{[^}]*border:\s*1px solid color-mix\(in srgb, var\(--hub-line\) 55%, transparent\)/s,
+  "The DJ panel must share the softened outline treatment");
+assert.match(hubCss, /\.hub-playlist-toolbar-icon\s*\{[^}]*background:\s*transparent;[^}]*border:\s*1px solid transparent;/s,
+  "Panel toolbar actions must show only their icons at rest");
+assert.match(hubCss, /\.hub-playlist-toolbar-icon:hover:not\(:disabled\),[\s\S]*?\.hub-playlist-toolbar-icon\[aria-expanded="true"\],[\s\S]*?background:\s*var\(--hub-accent-soft\);[\s\S]*?border-color:\s*var\(--hub-accent\);/,
+  "Panel toolbar actions must reveal their backing on hover, focus, or active state");
+assert.match(hubCss, /\.hub-saved-playlist-action-row \.hub-saved-playlist-icon-button\s*\{[^}]*background:\s*transparent;[^}]*border-color:\s*transparent;/s,
+  "Saved cart and playlist detail toolbars must use the same icon-only resting state");
+assert.doesNotMatch(hubCss, /0 25px 50px -12px rgba\(0, 0, 0, 0\.28\)/,
+  "Docked panels must not restore the former heavy shadow");
 
 console.log("Appearance accessibility settings matrix checks passed.");

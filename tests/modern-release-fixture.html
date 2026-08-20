@@ -11,6 +11,9 @@
     .trackView { float: left; width: 700px; }
     .middleColumn { float: left; width: 350px; }
     #trackInfo { float: right; width: 330px; }
+    .inline_player .progbar_cell { min-width: 270px; }
+    .inline_player .track_info { margin-left: 10px; max-width: 320px; min-width: 262px; }
+    .inline_player .progbar { margin-left: 10px; }
     #rightColumn { float: right; width: 220px; }
     #tralbumArt img { max-width: 350px; width: 100%; }
     body.artist-theme { background-color: #0d1015; color: #cfd6da; }
@@ -58,26 +61,26 @@
   <ul id="user-nav"></ul>
   <div id="centerWrapper"><div id="propOpenWrapper"><main id="pgBd">
     <div id="customHeaderWrapper">
-      <div id="customHeader"><div class="desktop-header"><a href="#"><picture><img src="/assets/art-clouds.png" width="975" height="180" alt="Artist header"></picture></a></div></div>
+      <div id="customHeader"><div class="desktop-header"><a href="#"><picture><img src="/tests/fixtures/assets/art-clouds.png" width="975" height="180" alt="Artist header"></picture></a></div></div>
       <div class="band-navbar-wrapper"><ol id="band-navbar"><li><a class="active" href="#music">music</a></li><li><a href="#merch">merch</a></li><li><a href="#community">community</a></li></ol></div>
     </div>
     <div class="trackView leftMiddleColumns has-art">
       <div id="name-section"><h2 class="trackTitle">Cloud Studies</h2><h3>by <a href="#artist">North Harbour</a></h3></div>
       <div class="middleColumn">
-        <div id="tralbumArt"><a href="#art"><picture><img src="/assets/art-clouds.png" alt="Cloud Studies cover"></picture></a></div>
+        <div id="tralbumArt"><a href="#art"><picture><img src="/tests/fixtures/assets/art-clouds.png" alt="Cloud Studies cover"></picture></a></div>
         <div class="collected-by tralbum collectors"><div class="message">supported by</div><div class="deets populated">
-          <div class="writing"><a class="pic" href="#fan-one"><img class="thumb" src="/assets/art-gaiko.png" alt="Fan one"></a><div class="text"><a class="name notSkinnable" href="#fan-one">Mira</a> Beautiful late-night record.<span class="fav-track">Favorite track: Signal Bloom.</span></div></div>
-          <div class="writing"><a class="pic" href="#fan-two"><img class="thumb" src="/assets/art-meridian.png" alt="Fan two"></a><div class="text"><a class="name notSkinnable" href="#fan-two">Jon</a> On repeat all week.</div></div>
-          <div class="no-writing"><a class="fan pic" href="#fan-three"><img class="thumb" src="/assets/art-cobrastyle.png" alt="Fan three"></a><a class="fan pic" href="#fan-four"><img class="thumb" src="/assets/art-velocity.png" alt="Fan four"></a><a class="fan pic" href="#fan-five"><img class="thumb" src="/assets/art-magma.png" alt="Fan five"></a><a class="fan pic" href="#fan-six"><img class="thumb" src="/assets/art-apophenia.png" alt="Fan six"></a><a class="fan pic" href="#fan-seven"><img class="thumb" src="/assets/art-quack.png" alt="Fan seven"></a><a class="fan pic" href="#fan-eight"><img class="thumb" src="/assets/art-cobrastyle.png" alt="Fan eight"></a></div>
+          <div class="writing"><a class="pic" href="#fan-one"><img class="thumb" src="/tests/fixtures/assets/art-gaiko.png" alt="Fan one"></a><div class="text"><a class="name notSkinnable" href="#fan-one">Mira</a> Beautiful late-night record.<span class="fav-track">Favorite track: Signal Bloom.</span></div></div>
+          <div class="writing"><a class="pic" href="#fan-two"><img class="thumb" src="/tests/fixtures/assets/art-meridian.png" alt="Fan two"></a><div class="text"><a class="name notSkinnable" href="#fan-two">Jon</a> On repeat all week.</div></div>
+          <div class="no-writing"><a class="fan pic" href="#fan-three"><img class="thumb" src="/tests/fixtures/assets/art-cobrastyle.png" alt="Fan three"></a><a class="fan pic" href="#fan-four"><img class="thumb" src="/tests/fixtures/assets/art-velocity.png" alt="Fan four"></a><a class="fan pic" href="#fan-five"><img class="thumb" src="/tests/fixtures/assets/art-magma.png" alt="Fan five"></a><a class="fan pic" href="#fan-six"><img class="thumb" src="/tests/fixtures/assets/art-apophenia.png" alt="Fan six"></a><a class="fan pic" href="#fan-seven"><img class="thumb" src="/tests/fixtures/assets/art-quack.png" alt="Fan seven"></a><a class="fan pic" href="#fan-eight"><img class="thumb" src="/tests/fixtures/assets/art-cobrastyle.png" alt="Fan eight"></a></div>
           <a class="more-thumbs">more...</a>
         </div></div>
       </div>
       <div id="trackInfo" class="leftColumn"><div id="trackInfoInner">
         <div class="inline_player"><table><tr><td class="play_cell" rowspan="2"><a role="button" aria-label="Play/pause"><div class="playbutton"></div></a></td><td class="track_cell" colspan="3"><div class="track_info"><span class="title-section"><a class="title_link primaryText" href="#"><span class="title">Signal Bloom</span></a></span><span class="time secondaryText"><span>0:00</span> / <span>5:22</span></span></div></td></tr><tr><td class="progbar_cell"><div class="progbar"><div class="progbar_empty"><div class="progbar_fill"></div><div class="thumb"></div></div></div></td><td class="prev_cell"><a role="button" aria-label="Previous track"><div class="prevbutton"></div></a></td><td class="next_cell"><a role="button" aria-label="Next track"><div class="nextbutton"></div></a></td></tr></table></div>
         <ul class="tralbumCommands">
-          <li class="buyItem digital"><h3 class="hd"><button class="download-link buy-link"><span class="buyItemPackageTitle primaryText">Digital Album</span></button><span class="digitaldescription secondaryText">Streaming + Download</span></h3><div class="bd">Unlimited streaming plus a high-quality download.</div><div class="audio-quality">Download available in 24-bit/48kHz.</div><div class="ft"><h4 class="ft compound-button main-button"><button id="fixture-buy-digital" class="download-link buy-link">Buy Digital Album</button> <span>€8 EUR or more</span></h4><h4 class="ft compound-button send-as-gift"><button class="download-link buy-link">Send as Gift</button></h4></div></li>
-          <li class="buyItem package"><h3 class="hd"><button class="order_package_link buy-link"><span class="buyItemPackageTitle primaryText">Double CD</span></button><span class="merchtype secondaryText">Compact Disc + Digital Album</span></h3><ul class="popupImageGallery"><li class="gallery_item"><a href="#merch-art"><img src="/assets/art-gaiko.png" alt="Double CD"></a></li></ul><div class="bd">Ships within five days. Edition of 50.</div><div class="ft"><h4 class="compound-button main-button"><button class="order_package_link buy-link">Buy Compact Disc</button> <span>€10 EUR or more</span></h4></div></li>
-          <li class="buyItem buyFullDiscography"><h3 class="hd"><button class="buy-link"><span class="buyItemPackageTitle primaryText">Full Digital Discography</span></button></h3><div class="art compact"><a class="art-thumb thumb-glow" href="#release-one" style="z-index:4;background-image:url('/assets/art-clouds.png')"></a><a class="art-thumb thumb-glow" href="#release-two" style="z-index:3;background-image:url('/assets/art-meridian.png')"></a><a class="art-thumb thumb-glow" href="#release-three" style="z-index:2;background-image:url('/assets/art-cobrastyle.png')"></a><a class="art-thumb thumb-glow last-visible" href="#release-four" style="z-index:1;background-image:url('/assets/art-velocity.png')"></a><a class="more-button" href="#discography"><div class="count">650</div><div class="releases">releases</div></a></div><div class="bd"><p>Get all 650 North Harbour releases available on Bandcamp.</p></div><h4 class="ft compound-button main-button"><button class="buy-link">Buy Digital Discography</button> <span>€1,000 EUR or more</span></h4></li>
+          <li class="buyItem digital"><h3 class="hd"><button class="download-link buy-link"><span class="buyItemPackageTitle primaryText">Digital Album</span></button><span class="digitaldescription secondaryText">Streaming + Download</span></h3><div class="bd">Unlimited streaming plus a high-quality download.</div><div class="audio-quality">Download available in 24-bit/48kHz.</div><div class="ft"><h4 class="ft compound-button main-button"><button id="fixture-buy-digital" class="download-link buy-link">Buy Digital Album</button> <span>€8 EUR or more</span></h4><h4 class="ft compound-button send-as-gift"><button id="fixture-send-gift" class="download-link buy-link" data-test="send-tralbum-as-gift">Send as Gift</button></h4></div></li>
+          <li class="buyItem package"><h3 class="hd"><button class="order_package_link buy-link"><span class="buyItemPackageTitle primaryText">Double CD</span></button><span class="merchtype secondaryText">Compact Disc + Digital Album</span></h3><ul class="popupImageGallery"><li class="gallery_item"><a href="#merch-art"><img src="/tests/fixtures/assets/art-gaiko.png" alt="Double CD"></a></li></ul><div class="bd">Ships within five days. Edition of 50.</div><div class="ft"><h4 class="compound-button main-button"><button class="order_package_link buy-link">Buy Compact Disc</button> <span>€10 EUR or more</span></h4></div></li>
+          <li class="buyItem buyFullDiscography"><h3 class="hd"><button class="buy-link"><span class="buyItemPackageTitle primaryText">Full Digital Discography</span></button></h3><div class="art compact"><a class="art-thumb thumb-glow" href="#release-one" style="z-index:4;background-image:url('/tests/fixtures/assets/art-clouds.png')"></a><a class="art-thumb thumb-glow" href="#release-two" style="z-index:3;background-image:url('/tests/fixtures/assets/art-meridian.png')"></a><a class="art-thumb thumb-glow" href="#release-three" style="z-index:2;background-image:url('/tests/fixtures/assets/art-cobrastyle.png')"></a><a class="art-thumb thumb-glow last-visible" href="#release-four" style="z-index:1;background-image:url('/tests/fixtures/assets/art-velocity.png')"></a><a class="more-button" href="#discography"><div class="count">650</div><div class="releases">releases</div></a></div><div class="bd"><p>Get all 650 North Harbour releases available on Bandcamp.</p></div><div class="ft"><h4 class="ft compound-button main-button"><button class="buy-link">Buy Digital Discography</button> <span>€1,000 EUR or more</span><span class="discount">20% OFF</span></h4><h4 class="ft compound-button send-as-gift"><button class="download-link buy-link" data-test="send-tralbum-as-gift">Send as Gift</button></h4></div></li>
           <li id="collect-item-placeholder"><button aria-label="Add to collection">+</button></li>
           <li><button>Pre-order</button></li>
           <li><button>Wishlist</button></li>
@@ -96,24 +99,25 @@
     </div>
     <aside id="rightColumn" class="rightColumn">
       <div id="sidecart" hidden><h3>Shopping cart</h3><div class="cart-row"><a class="item-link" href="#cart-item">World's Greatest Tribute To System Of A Down, digital album</a> <span>$9 USD</span> <a class="remove" href="#remove">x</a></div><a id="sidecartCheckout" class="buttonLink" href="#" data-test="sidecartCheckout">Check out</a></div>
-      <div id="bio-container"><div class="artists-bio-pic"><img class="band-photo" src="/assets/art-meridian.png" alt="North Harbour"></div><p id="band-name-location"><span class="title">North Harbour</span><span class="location secondaryText">Sydney, Australia</span></p><div class="following-actions-wrapper"><button class="follow-unfollow"><span class="following-label">Following</span></button></div><div class="signed-out-artists-bio-text"><p id="bio-text">Low light music for late hours.</p></div><ol id="band-links"><li><a href="#instagram">Instagram</a></li></ol></div>
-      <div id="discography" class="sidebar"><h3><a href="#music">discography</a></h3><ul><li><a href="#release"><img src="/assets/art-clouds.png" alt="Cloud Studies"></a><div class="trackTitle"><a href="#release">Cloud Studies</a></div><div class="trackYear secondaryText">Aug 2026</div></li></ul></div>
+      <div id="bio-container"><div class="artists-bio-pic"><img class="band-photo" src="/tests/fixtures/assets/art-meridian.png" alt="North Harbour"></div><p id="band-name-location"><span class="title">North Harbour</span><span class="location secondaryText">Sydney, Australia</span></p><div class="following-actions-wrapper"><button class="follow-unfollow"><span class="following-label">Following</span></button></div><div class="signed-out-artists-bio-text"><p id="bio-text">Low light music for late hours.</p></div><ol id="band-links"><li><a href="#instagram">Instagram</a></li></ol></div>
+      <div id="discography" class="sidebar"><h3><a href="#music">discography</a></h3><ul><li><a href="#release"><img src="/tests/fixtures/assets/art-clouds.png" alt="Cloud Studies"></a><div class="trackTitle"><a href="#release">Cloud Studies</a></div><div class="trackYear secondaryText">Aug 2026</div></li></ul></div>
     </aside>
   </main></div></div>
   <footer id="pgFt"><div class="recommendations-container" id="recommendations_container"><div class="recommendations-content"><div class="first-row">
     <section class="recs-section artist-recs"><p class="section-title">North Harbour recommends:</p><ul class="horizontal">
-      <li class="recommended-album" data-trackid="9101" data-audiourl='{"mp3-128":"https://bandcamp.com/stream_redirect?enc=mp3-128&amp;track_id=9101"}' data-albumtitle="Night Geometry" data-artist="Mira Vale"><div class="album-art-container"><picture><img class="album-art" src="/assets/art-gaiko.png" alt="Night Geometry"></picture><div class="play-button"><div class="play-icon"></div></div></div><p class="title-and-artist"><a class="album-link" href="https://mira-vale.bandcamp.com/album/night-geometry"><span class="release-title">Night Geometry</span><br><span class="by-artist">by Mira Vale</span></a></p><div class="album-details"><p class="comment">Deep listening for late hours.</p><a class="go-to-album album-link" href="https://mira-vale.bandcamp.com/album/night-geometry">go to album</a></div></li>
-      <li class="recommended-album" data-trackid="9102" data-audiourl='{"mp3-128":"https://bandcamp.com/stream_redirect?enc=mp3-128&amp;track_id=9102"}' data-albumtitle="Soft Current" data-artist="Pale Index"><div class="album-art-container"><picture><img class="album-art" src="/assets/art-magma.png" alt="Soft Current"></picture><div class="play-button"><div class="play-icon"></div></div></div><p class="title-and-artist"><a class="album-link" href="https://pale-index.bandcamp.com/album/soft-current"><span class="release-title">Soft Current</span><br><span class="by-artist">by Pale Index</span></a></p></li>
-      <li class="recommended-album" data-trackid="9103" data-audiourl="{}" data-albumtitle="Afterimage" data-artist="Common Field"><div class="album-art-container"><picture><img class="album-art" src="/assets/art-cobrastyle.png" alt="Afterimage"></picture><div class="play-button"><div class="play-icon"></div></div></div><p class="title-and-artist"><a class="album-link" href="https://common-field.bandcamp.com/album/afterimage"><span class="release-title">Afterimage</span><br><span class="by-artist">by Common Field</span></a></p></li>
+      <li class="recommended-album" data-trackid="9101" data-audiourl='{"mp3-128":"https://bandcamp.com/stream_redirect?enc=mp3-128&amp;track_id=9101"}' data-albumtitle="Night Geometry" data-artist="Mira Vale"><div class="album-art-container"><picture><img class="album-art" src="/tests/fixtures/assets/art-gaiko.png" alt="Night Geometry"></picture><div class="play-button"><div class="play-icon"></div></div></div><p class="title-and-artist"><a class="album-link" href="https://mira-vale.bandcamp.com/album/night-geometry"><span class="release-title">Night Geometry</span><br><span class="by-artist">by Mira Vale</span></a></p><div class="album-details"><p class="comment">Deep listening for late hours.</p><a class="go-to-album album-link" href="https://mira-vale.bandcamp.com/album/night-geometry">go to album</a></div></li>
+      <li class="recommended-album" data-trackid="9102" data-audiourl='{"mp3-128":"https://bandcamp.com/stream_redirect?enc=mp3-128&amp;track_id=9102"}' data-albumtitle="Soft Current" data-artist="Pale Index"><div class="album-art-container"><picture><img class="album-art" src="/tests/fixtures/assets/art-magma.png" alt="Soft Current"></picture><div class="play-button"><div class="play-icon"></div></div></div><p class="title-and-artist"><a class="album-link" href="https://pale-index.bandcamp.com/album/soft-current"><span class="release-title">Soft Current</span><br><span class="by-artist">by Pale Index</span></a></p></li>
+      <li class="recommended-album" data-trackid="9103" data-audiourl="{}" data-albumtitle="Afterimage" data-artist="Common Field"><div class="album-art-container"><picture><img class="album-art" src="/tests/fixtures/assets/art-cobrastyle.png" alt="Afterimage"></picture><div class="play-button"><div class="play-icon"></div></div></div><p class="title-and-artist"><a class="album-link" href="https://common-field.bandcamp.com/album/afterimage"><span class="release-title">Afterimage</span><br><span class="by-artist">by Common Field</span></a></p></li>
     </ul></section>
     <section class="recs-section bc-recs"><p class="section-title">If you like Cloud Studies, you may also like:</p><ul class="horizontal">
-      <li class="recommended-album" data-trackid="9104" data-audiourl='{"mp3-128":"https://bandcamp.com/stream_redirect?enc=mp3-128&amp;track_id=9104"}' data-albumtitle="Low Weather" data-artist="Glass Harbour"><div class="album-art-container"><picture><img class="album-art" src="/assets/art-velocity.png" alt="Low Weather"></picture><div class="play-button"><div class="play-icon"></div></div></div><p class="title-and-artist"><a class="album-link" href="https://glass-harbour.bandcamp.com/album/low-weather"><span class="release-title">Low Weather</span><br><span class="by-artist">by Glass Harbour</span></a></p><div class="album-details"><p class="supporters-text">supported by 42 fans</p></div></li>
-      <li class="recommended-album" data-trackid="9105" data-audiourl='{"mp3-128":"https://bandcamp.com/stream_redirect?enc=mp3-128&amp;track_id=9105"}' data-albumtitle="Still Water" data-artist="Serein"><div class="album-art-container"><picture><img class="album-art" src="/assets/art-cobrastyle.png" alt="Still Water"></picture><div class="play-button"><div class="play-icon"></div></div></div><p class="title-and-artist"><a class="album-link" href="https://serein.bandcamp.com/album/still-water"><span class="release-title">Still Water</span><br><span class="by-artist">by Serein</span></a></p></li>
-      <li class="recommended-album" data-trackid="9106" data-audiourl='{"mp3-128":"https://bandcamp.com/stream_redirect?enc=mp3-128&amp;track_id=9106"}' data-albumtitle="Signal Coast" data-artist="Seaward"><div class="album-art-container"><picture><img class="album-art" src="/assets/art-apophenia.png" alt="Signal Coast"></picture><div class="play-button"><div class="play-icon"></div></div></div><p class="title-and-artist"><a class="album-link" href="https://seaward.bandcamp.com/album/signal-coast"><span class="release-title">Signal Coast</span><br><span class="by-artist">by Seaward</span></a></p></li>
+      <li class="recommended-album" data-trackid="9104" data-audiourl='{"mp3-128":"https://bandcamp.com/stream_redirect?enc=mp3-128&amp;track_id=9104"}' data-albumtitle="Low Weather" data-artist="Glass Harbour"><div class="album-art-container"><picture><img class="album-art" src="/tests/fixtures/assets/art-velocity.png" alt="Low Weather"></picture><div class="play-button"><div class="play-icon"></div></div></div><p class="title-and-artist"><a class="album-link" href="https://glass-harbour.bandcamp.com/album/low-weather"><span class="release-title">Low Weather</span><br><span class="by-artist">by Glass Harbour</span></a></p><div class="album-details"><p class="supporters-text">supported by 42 fans</p></div></li>
+      <li class="recommended-album" data-trackid="9105" data-audiourl='{"mp3-128":"https://bandcamp.com/stream_redirect?enc=mp3-128&amp;track_id=9105"}' data-albumtitle="Still Water" data-artist="Serein"><div class="album-art-container"><picture><img class="album-art" src="/tests/fixtures/assets/art-cobrastyle.png" alt="Still Water"></picture><div class="play-button"><div class="play-icon"></div></div></div><p class="title-and-artist"><a class="album-link" href="https://serein.bandcamp.com/album/still-water"><span class="release-title">Still Water</span><br><span class="by-artist">by Serein</span></a></p></li>
+      <li class="recommended-album" data-trackid="9106" data-audiourl='{"mp3-128":"https://bandcamp.com/stream_redirect?enc=mp3-128&amp;track_id=9106"}' data-albumtitle="Signal Coast" data-artist="Seaward"><div class="album-art-container"><picture><img class="album-art" src="/tests/fixtures/assets/art-apophenia.png" alt="Signal Coast"></picture><div class="play-button"><div class="play-icon"></div></div></div><p class="title-and-artist"><a class="album-link" href="https://seaward.bandcamp.com/album/signal-coast"><span class="release-title">Signal Coast</span><br><span class="by-artist">by Seaward</span></a></p></li>
     </ul></section>
   </div></div></div></footer>
   <script>
     window.fixtureBuyClicks = 0;
+    window.fixtureGiftClicks = 0;
     window.fixtureCheckoutClicks = 0;
     window.fixtureMoreClicks = 0;
     const fixtureFanGrid = document.querySelector(".no-writing");
@@ -155,6 +159,7 @@
     if (fixtureSingleRecommendations) document.querySelector("#recommendations_container .bc-recs")?.remove();
     if (fixtureNoBioImage) document.querySelector("#bio-container .artists-bio-pic img")?.remove();
     document.querySelector("#fixture-buy-digital").addEventListener("click", () => { window.fixtureBuyClicks += 1; });
+    document.querySelector("#fixture-send-gift").addEventListener("click", () => { window.fixtureGiftClicks += 1; });
     window.fixtureRecommendationNativeClicks = {};
     for (const control of document.querySelectorAll("#recommendations_container .recommended-album .play-button")) {
       control.addEventListener("click", () => {
@@ -179,6 +184,7 @@
     } : { modernReleasePages: true };
     window.fixtureStored = {
       bandcampHubState: {
+        dataFolderSetup: true,
         open: fixtureRecommendationMode,
         activeTab: fixtureRecommendationMode ? "nowPlaying" : "settings",
         playlist: [],
@@ -211,7 +217,7 @@
     const fixtureChrome = {
       runtime: {
         lastError: null,
-        getURL: (path) => new URL(`/${path}`, location.href).href,
+        getURL: (path) => new URL(`/dist/unpacked/${path}`, location.href).href,
         getManifest: () => ({ version: "0.7.5-cart-visibility" }),
         sendMessage(message, callback) {
           window.fixtureMessages.push(structuredClone(message));
@@ -312,8 +318,8 @@
         onChanged: { addListener() {} }
       }
     };
-    window.fixtureCartAutosaveReady = fetch("/cart-autosave.js").then((response) => response.text()).then((source) => eval(source));
-    window.fixtureCartAutosaveReady.then(() => fetch("/content.js")).then((response) => response.text()).then((source) => {
+    window.fixtureCartAutosaveReady = fetch("/dist/unpacked/cart-autosave.js").then((response) => response.text()).then((source) => eval(source));
+    window.fixtureCartAutosaveReady.then(() => fetch("/dist/unpacked/content.js")).then((response) => response.text()).then((source) => {
       eval(source.replaceAll("chrome.", "fixtureChrome."));
     }).catch((error) => { document.documentElement.dataset.fixtureError = String(error); });
     window.setTimeout(async () => {
@@ -519,7 +525,7 @@
       const followStyled = fixtureCustomTheme
         ? getComputedStyle(document.querySelector(".follow-unfollow")).color === "rgb(255, 255, 255)"
         : getComputedStyle(document.querySelector(".follow-unfollow")).backgroundColor === "rgb(105, 169, 186)";
-      const nativeHeaderCartVisibilityCorrect = getComputedStyle(document.querySelector("#fixture-album-header-cart")).display !== "none";
+      const nativeHeaderCartVisibilityCorrect = getComputedStyle(document.querySelector("#fixture-album-header-cart")).display === "none";
       const customHeaderRect = document.querySelector("#customHeader").getBoundingClientRect();
       const customHeaderImageRect = document.querySelector("#customHeader img").getBoundingClientRect();
       const fullCustomHeaderVisible = Math.abs(customHeaderRect.height - customHeaderRect.width * 180 / 975) <= 2
@@ -532,11 +538,11 @@
       const recommendationsMatchPage = Math.abs(recommendationsRect.left - (pageRect.left + Number.parseFloat(pageStyle.paddingLeft))) <= 2
         && Math.abs(recommendationsRect.right - (pageRect.right - Number.parseFloat(pageStyle.paddingRight))) <= 2;
       const footerRect = document.querySelector("#pgFt").getBoundingClientRect();
+      const footerColorChannels = (value) => String(value).match(/[\d.]+/g)?.slice(0, 3).join(",") || "";
       const recommendationsUseNativeSection = Math.abs(footerRect.left) <= 2
         && Math.abs(footerRect.right - document.documentElement.clientWidth) <= 2
-        && getComputedStyle(document.querySelector("#pgFt")).backgroundColor === (fixtureCustomTheme
-          ? "rgb(74, 69, 111)"
-          : fixtureLowContrastTheme ? "rgb(247, 247, 247)" : "rgb(236, 236, 236)");
+        && footerColorChannels(getComputedStyle(document.querySelector("#pgFt")).backgroundColor)
+          === footerColorChannels(getComputedStyle(document.documentElement).getPropertyValue("--bandkit-release-footer-bg"));
       const recommendationCards = [...document.querySelectorAll("#recommendations_container .recommended-album")];
       recommendationCards[0]?.classList.add("selected");
       recommendationCards[1]?.dispatchEvent(new Event("pointerover", { bubbles: true }));
@@ -561,6 +567,8 @@
       const rowPauseStyle = rowPlayStatus ? getComputedStyle(rowPlayStatus, "::before") : null;
       const trackActionCell = document.querySelector("#track_table .download-col");
       const trackActionButtons = [...(trackActionCell?.querySelectorAll(":is(.bandcamp-hub-page-playlist.is-track-action, .bandcamp-hub-page-buy)") || [])];
+      const trackAddButton = trackActionCell?.querySelector(".bandcamp-hub-page-playlist.is-track-action");
+      const trackBuyButton = trackActionCell?.querySelector(".bandcamp-hub-page-buy");
       const playerTrackAction = document.querySelector(".inline_player .bandcamp-hub-page-playlist.is-player-control");
       const playerTrackActionStyle = playerTrackAction ? getComputedStyle(playerTrackAction) : null;
       const trackActionColoursMatch = trackActionButtons.every((button) => {
@@ -582,11 +590,11 @@
       const trackTableRect = document.querySelector("#track_table")?.getBoundingClientRect();
       const trackActionsFitDivider = fixtureSingleTrack || (
         trackActionButtons.length === 2
-        && Math.round(trackActionButtons[0].getBoundingClientRect().width) === 24
-        && trackActionButtons[1].textContent.trim().toLowerCase() === "buy track"
+        && Math.round(trackAddButton.getBoundingClientRect().width) === 24
+        && trackBuyButton.textContent.trim() === "Buy"
         && generatedTrackBuyInitiallyHidden
         && generatedTrackBuyFocusVisible
-        && trackActionButtons[1].getBoundingClientRect().width >= 58
+        && trackBuyButton.getBoundingClientRect().width >= 58
         && trackActionColoursMatch
         && trackActionButtons.every((button) => Math.round(button.getBoundingClientRect().height) === 24 && getComputedStyle(button).borderRadius === "4px")
         && trackActionButtons.every((button) => button.getBoundingClientRect().right <= (trackActionCellRect?.right || 0) + 1)
@@ -597,9 +605,9 @@
         && Math.round(rowPlayRect?.height || 0) === 24
         && getComputedStyle(unavailableRowPlayButton).display === "none"
         && unavailableRowPlayButton?.closest(".track_row_view")?.classList.contains("bandkit-modern-track-unplayable")
-        && rowPauseStyle?.backgroundImage.includes("linear-gradient")
-        && Math.round(Number.parseFloat(rowPauseStyle?.width || "0")) === 10
-        && Math.round(Number.parseFloat(rowPauseStyle?.height || "0")) === 12
+        && rowPauseStyle?.maskImage.includes("icon-pause.svg")
+        && Math.round(Number.parseFloat(rowPauseStyle?.width || "0")) === 16
+        && Math.round(Number.parseFloat(rowPauseStyle?.height || "0")) === 16
         && trackActionsFitDivider
       );
       const fullDiscography = document.querySelector(".bandkit-modern-purchase-list .buyFullDiscography");
@@ -611,6 +619,19 @@
         && discographyCountRect.right <= fullDiscographyRect.right + 1
         && Math.abs(discographyCountRect.right - discographyArtRect.right) <= 1
         && getComputedStyle(fullDiscography.querySelector(".more-button")).position === "absolute");
+      const digitalPurchaseRow = document.querySelector(".buyItem.digital .bandkit-modern-purchase-actions");
+      const digitalBuyControl = digitalPurchaseRow?.querySelector(".bandkit-modern-buy-control");
+      const digitalBuyDetails = digitalPurchaseRow?.querySelector(".bandkit-modern-buy-card > .bandkit-modern-buy-details");
+      const digitalGiftControl = digitalPurchaseRow?.querySelector(".bandkit-modern-gift-control");
+      const compactPurchaseActions = Boolean(digitalPurchaseRow && digitalBuyControl && digitalBuyDetails && digitalGiftControl
+        && digitalBuyDetails.textContent.includes("€8 EUR or more")
+        && !digitalBuyControl.contains(digitalBuyDetails)
+        && Math.abs(digitalBuyControl.getBoundingClientRect().top - digitalGiftControl.getBoundingClientRect().top) <= 1
+        && Math.round(digitalBuyControl.getBoundingClientRect().height) === Math.round(digitalGiftControl.getBoundingClientRect().height)
+        && Math.round(digitalGiftControl.getBoundingClientRect().width) === 42
+        && Math.abs(digitalPurchaseRow.getBoundingClientRect().right - digitalGiftControl.getBoundingClientRect().right) <= 1
+        && getComputedStyle(digitalGiftControl, "::before").maskImage.includes("icon-gift.svg")
+        && fullDiscography?.querySelector(".bandkit-modern-buy-card > .bandkit-modern-buy-details .discount")?.textContent === "20% OFF");
       const singleRecommendationsFillGrid = !fixtureSingleRecommendations
         || (() => {
           const row = document.querySelector("#recommendations_container .first-row").getBoundingClientRect();
@@ -624,33 +645,35 @@
             && Math.abs(lastCard.right - row.right) <= 2;
         })();
       const playerTools = document.querySelector("#trackInfoInner > .inline_player > .bandcamp-hub-page-tools");
-      const albumAddAll = playerTools?.querySelector(".bandcamp-hub-page-playlist.is-album-add-all");
-      const albumAddAllRect = albumAddAll?.getBoundingClientRect();
-      const albumAddAllIdleStyle = albumAddAll ? getComputedStyle(albumAddAll) : null;
-      const albumAddAllIdleAppearance = albumAddAllIdleStyle ? {
-        backgroundColor: albumAddAllIdleStyle.backgroundColor,
-        borderColor: albumAddAllIdleStyle.borderColor,
-        color: albumAddAllIdleStyle.color,
-        borderRadius: albumAddAllIdleStyle.borderRadius
+      const playerOverflow = playerTools?.querySelector(".bandcamp-hub-page-overflow");
+      const playerOverflowRect = playerOverflow?.getBoundingClientRect();
+      const playerOverflowIdleStyle = playerOverflow ? getComputedStyle(playerOverflow) : null;
+      const playerOverflowIdleAppearance = playerOverflowIdleStyle ? {
+        backgroundColor: playerOverflowIdleStyle.backgroundColor,
+        borderColor: playerOverflowIdleStyle.borderColor,
+        color: playerOverflowIdleStyle.color,
+        borderRadius: playerOverflowIdleStyle.borderRadius
       } : null;
       const playerAdd = document.querySelector(".inline_player .bandcamp-hub-page-playlist.is-player-control");
       const playerAddStyle = playerAdd ? getComputedStyle(playerAdd) : null;
-      albumAddAll?.click();
-      const albumAddAllMenuLabels = [...document.querySelectorAll(".bandcamp-hub-page-playlist-menu button")].map((button) => button.textContent.trim());
-      const albumAddAllWorks = Boolean(albumAddAll
-        && albumAddAll.getAttribute("aria-label") === "Add all album tracks to Now Playing or a playlist"
-        && albumAddAll.title === albumAddAll.getAttribute("aria-label")
-        && albumAddAll.style.getPropertyValue("--hub-plus-icon").includes("icon-add-all.svg")
-        && Math.round(albumAddAllRect?.width || 0) === 32
-        && Math.round(albumAddAllRect?.height || 0) === 32
-        && albumAddAllIdleAppearance?.borderRadius === "4px"
-        && albumAddAllIdleAppearance?.backgroundColor === playerAddStyle?.backgroundColor
-        && albumAddAllIdleAppearance?.borderColor === playerAddStyle?.borderColor
-        && albumAddAllIdleAppearance?.color === playerAddStyle?.color
+      playerOverflow?.click();
+      const overflowMenuButtons = [...document.querySelectorAll(".bandcamp-hub-page-playlist-menu button")];
+      const overflowMenuLabels = overflowMenuButtons.map((button) => button.textContent.trim());
+      overflowMenuButtons.find((button) => button.textContent.trim() === "Gift")?.click();
+      const playerGiftWorks = window.fixtureGiftClicks === 1;
+      const releaseOverflowWorks = Boolean(playerOverflow
+        && playerOverflow.getAttribute("aria-label") === "More release actions"
+        && playerOverflow.title === playerOverflow.getAttribute("aria-label")
+        && playerOverflow.style.getPropertyValue("--hub-more-icon").includes("icon-more.svg")
+        && Math.round(playerOverflowRect?.width || 0) === 32
+        && Math.round(playerOverflowRect?.height || 0) === 32
+        && playerOverflowIdleAppearance?.borderRadius === "4px"
+        && playerOverflowIdleAppearance?.backgroundColor === playerAddStyle?.backgroundColor
+        && playerOverflowIdleAppearance?.borderColor === playerAddStyle?.borderColor
+        && playerOverflowIdleAppearance?.color === playerAddStyle?.color
         && getComputedStyle(playerTools).flexWrap === "nowrap"
         && [...playerTools.children].filter((control) => !control.classList.contains("bandkit-page-transport-row")).every((control) => Math.abs(control.getBoundingClientRect().top - playerAdd.getBoundingClientRect().top) <= 1)
-        && albumAddAllMenuLabels.includes("＋ Add all to Now Playing")
-        && albumAddAllMenuLabels.includes("＋ Add all to Playlist…"));
+        && overflowMenuLabels.join("|") === "Gift|Add all to playlist…|Add all to cart…");
       const trackRows = [...document.querySelectorAll("#track_table .track_row_view")];
       const trackRowsStaySingleLine = fixtureSingleTrack || trackRows.every((row) => {
         const title = row.querySelector(".track-title");
@@ -659,7 +682,7 @@
         return row.getBoundingClientRect().height <= 44
           && getComputedStyle(title).whiteSpace === "nowrap"
           && title.getBoundingClientRect().height <= 20
-          && analysis?.getBoundingClientRect().height <= 20
+          && (!analysis || analysis.getBoundingClientRect().height <= 20)
           && Math.abs((lastAction?.getBoundingClientRect().right || 0) - row.getBoundingClientRect().right) <= 1;
       });
       const releaseColumnsFavorTracks = fixtureSingleTrack || document.querySelector(".bandkit-modern-music-column").getBoundingClientRect().width
@@ -672,6 +695,19 @@
       const inlineToolsRect = document.querySelector(".inline_player .bandcamp-hub-page-tools")?.getBoundingClientRect();
       const inlineTransportRect = document.querySelector(".inline_player .bandkit-page-transport-row")?.getBoundingClientRect();
       const inlineCartPrice = document.querySelector(".inline_player .bandcamp-hub-page-cart-price")?.textContent?.trim();
+      const inlineActions = [...document.querySelectorAll(".inline_player .bandcamp-hub-page-tools > :not(.bandkit-page-transport-row)")];
+      const inlineBuyAddDjMoreOrder = [
+        document.querySelector(".inline_player .bandcamp-hub-page-cart"),
+        playerAdd,
+        document.querySelector(".inline_player .bandcamp-hub-page-dj"),
+        playerOverflow
+      ].every((control, index, expected) => inlineActions.indexOf(control) === index && expected[index] === control);
+      const trackBuyPrecedesAdd = fixtureSingleTrack || trackRows.every((row) => {
+        const actions = [...row.querySelectorAll(".download-col a, .download-col button")];
+        const buyAction = row.querySelector(".bandcamp-hub-page-buy");
+        const addAction = row.querySelector(".bandcamp-hub-page-playlist.is-track-action");
+        return (!buyAction && !addAction) || actions.indexOf(buyAction) < actions.indexOf(addAction);
+      });
       const inlinePlayerAligned = Boolean(inlineTitleRect && inlineTimeRect && inlineAnalysisRect && inlinePlayRect && inlineScrubRect && inlineToolsRect
         && Math.abs(inlineTitleRect.left - inlineTimeRect.left) <= 1
         && inlineAnalysisRect.left > inlineTimeRect.right
@@ -679,9 +715,72 @@
         && Math.round(inlinePlayRect.height) === 72
         && inlineToolsRect.top - inlineScrubRect.bottom >= 12
         && inlineTransportRect
-        && Math.abs(inlineTransportRect.right - inlineScrubRect.right) <= 1
-        && inlineCartPrice === "$0");
-      albumAddAll?.click();
+        && inlineTransportRect.right >= inlineScrubRect.right
+        && inlineTransportRect.right - inlineScrubRect.right <= 12
+        && inlineCartPrice === "€8+ EUR"
+        && inlineBuyAddDjMoreOrder
+        && trackBuyPrecedesAdd);
+      playerOverflow?.click();
+      const fixtureDiagnosticChecks = {
+        recommendationsMatchPage,
+        recommendationsUseNativeSection,
+        recommendationHoverIsUnified,
+        bioImageGapCollapsed,
+        trackButtonsAreSquare,
+        discographyCountContained,
+        compactPurchaseActions,
+        singleRecommendationsFillGrid,
+        releaseOverflowWorks,
+        playerGiftWorks,
+        trackRowsStaySingleLine,
+        releaseColumnsFavorTracks,
+        inlinePlayerAligned,
+        palettePreserved,
+        cartHidden,
+        nativeHeaderCartVisibilityCorrect,
+        fullCustomHeaderVisible,
+        followStyled
+      };
+      const fixtureRawDiagnosticChecks = {
+        modernDataset: document.documentElement.dataset.bandkitModernRelease === "true",
+        purchaseMoved: Boolean(document.querySelector("#rightColumn > .bandkit-modern-purchase-panel .buyItem.digital")),
+        trackTableMoved: fixtureSingleTrack ? Boolean(document.querySelector(".bandkit-modern-release-body.is-single-track") && !document.querySelector(".bandkit-modern-track-panel")) : Boolean(document.querySelector("#trackInfoInner > #track_table")),
+        musicMoved: fixtureSingleTrack ? Boolean(document.querySelector(".bandkit-modern-music-column > #trackInfo")) : Boolean(document.querySelector("#trackInfoInner > .inline_player + #track_table")),
+        artMoved: Boolean(document.querySelector(".bandkit-modern-art-column > .middleColumn")),
+        notesMoved: Boolean(document.querySelector(".bandkit-modern-art-column > .bandkit-modern-notes-panel")),
+        tagsMoved: Boolean(document.querySelector(".bandkit-modern-release-body > .bandkit-modern-tags-panel .tralbum-tags")),
+        tagsHeading: document.querySelector(".bandkit-modern-tags-panel > .bandkit-modern-section-title")?.textContent === "Tags",
+        recommendationsHeading: Boolean(document.querySelector("#recommendations_container > .bandkit-modern-recommendations-title")),
+        recommendationsGrid: getComputedStyle(document.querySelector("#recommendations_container .first-row")).display === "grid",
+        recommendationsHeight: document.querySelector("#recommendations_container .recommended-album").getBoundingClientRect().height < 500,
+        recommendationsUniform: new Set([...document.querySelectorAll("#recommendations_container .recommended-album")].map((card) => Math.round(card.getBoundingClientRect().height))).size === 1,
+        recommendationsDetailsHidden: getComputedStyle(document.querySelector("#recommendations_container .album-details")).display === "none",
+        supportersMoved: Boolean(document.querySelector(".bandkit-modern-release-body > .collected-by:first-child")),
+        supporterReviewCount: document.querySelectorAll(".bandkit-modern-supporter-reviews > .writing").length === 2,
+        supporterFanCount: document.querySelectorAll(".bandkit-modern-supporter-grid .no-writing > .fan.pic").length === 26,
+        supporterOverflowVisible: getComputedStyle(document.querySelector(".bandkit-modern-supporter-grid .no-writing")).overflow === "visible",
+        supporterOverflowItems: document.querySelectorAll(".bandkit-modern-supporter-grid .bandkit-modern-supporter-overflow").length > 0,
+        supporterMoreButton: Boolean(document.querySelector(".bandkit-modern-supporter-grid > .more-thumbs")),
+        supporterGrid: getComputedStyle(document.querySelector(".bandkit-modern-supporter-grid .no-writing")).display === "grid",
+        supporterReviewColumn: getComputedStyle(document.querySelector(".bandkit-modern-supporter-reviews")).gridColumnStart === "1",
+        supporterGridColumn: getComputedStyle(document.querySelector(".bandkit-modern-supporter-grid")).gridColumnStart === "2",
+        pageGrid: getComputedStyle(document.querySelector("#pgBd")).display === "grid",
+        tagsFlex: getComputedStyle(document.querySelector(".tralbum-tags")).display === "flex",
+        titleAligned: Math.round(document.querySelector("#name-section").getBoundingClientRect().left) === Math.round(document.querySelector("#trackInfo").getBoundingClientRect().left),
+        playerTrackGap: fixtureSingleTrack || document.querySelector("#trackInfoInner > #track_table").getBoundingClientRect().top - document.querySelector("#trackInfoInner > .inline_player").getBoundingClientRect().bottom <= 16,
+        playerWidth: Math.round(document.querySelector(".inline_player .play_cell > a").getBoundingClientRect().width) === 72,
+        playerHeight: Math.round(document.querySelector(".inline_player .play_cell > a").getBoundingClientRect().height) === 72,
+        noRedundantAddLabel: !document.querySelector("#trackInfoInner > .tralbumCommands > .bandkit-modern-add-to-label"),
+        collectPlaceholderHidden: getComputedStyle(document.querySelector("#collect-item-placeholder")).display === "none",
+        tagsWidthMatches: Math.round(document.querySelector(".bandkit-modern-tags-panel").getBoundingClientRect().width) === Math.round(document.querySelector(".bandkit-modern-release-body > .collected-by").getBoundingClientRect().width),
+        tagsContained: document.querySelector(".bandkit-modern-tags-panel .tralbum-tags").getBoundingClientRect().right <= document.querySelector(".bandkit-modern-release-body > .collected-by").getBoundingClientRect().right + 1,
+        tagsCompact: document.querySelector(".bandkit-modern-tags-panel .tralbum-tags").getBoundingClientRect().height < 100,
+        toggleOn: toggle?.getAttribute("aria-checked") === "true"
+      };
+      document.documentElement.dataset.fixtureDiagnostic = Object.entries({ ...fixtureDiagnosticChecks, ...fixtureRawDiagnosticChecks })
+        .filter(([, passed]) => !passed)
+        .map(([name]) => name)
+        .join(",") || "pass";
       const modern = document.documentElement.dataset.bandkitModernRelease === "true"
         && document.querySelector("#rightColumn > .bandkit-modern-purchase-panel .buyItem.digital")
         && (fixtureSingleTrack
@@ -701,6 +800,7 @@
         && bioImageGapCollapsed
         && trackButtonsAreSquare
         && discographyCountContained
+        && compactPurchaseActions
         && singleRecommendationsFillGrid
         && getComputedStyle(document.querySelector("#recommendations_container .first-row")).display === "grid"
         && document.querySelector("#recommendations_container .recommended-album").getBoundingClientRect().height < 500
@@ -719,10 +819,11 @@
         && getComputedStyle(document.querySelector(".tralbum-tags")).display === "flex"
         && Math.round(document.querySelector("#name-section").getBoundingClientRect().left) === Math.round(document.querySelector("#trackInfo").getBoundingClientRect().left)
         && (fixtureSingleTrack || document.querySelector("#trackInfoInner > #track_table").getBoundingClientRect().top - document.querySelector("#trackInfoInner > .inline_player").getBoundingClientRect().bottom <= 16)
-        && Math.round(document.querySelector(".inline_player .play_cell > a").getBoundingClientRect().width) === 56
-        && Math.round(document.querySelector(".inline_player .play_cell > a").getBoundingClientRect().height) === 56
+        && Math.round(document.querySelector(".inline_player .play_cell > a").getBoundingClientRect().width) === 72
+        && Math.round(document.querySelector(".inline_player .play_cell > a").getBoundingClientRect().height) === 72
         && !document.querySelector("#trackInfoInner > .tralbumCommands > .bandkit-modern-add-to-label")
-        && albumAddAllWorks
+        && releaseOverflowWorks
+        && playerGiftWorks
         && trackRowsStaySingleLine
         && releaseColumnsFavorTracks
         && inlinePlayerAligned
@@ -757,14 +858,18 @@
         && !document.querySelector(".bandkit-modern-add-trigger")
         && !document.querySelector(".bandkit-modern-recommendations-title")
         && window.fixtureBuyClicks === 1
+        && window.fixtureGiftClicks === 1
         && window.fixtureMoreClicks === 1
         && cartRestored
         && nativeHeaderCartVisibilityCorrect;
       const passed = modern && supportersExpanded && supportersCollapsed && restored;
-      toggle?.click();
-      document.title = passed
+      const refreshedToggle = root?.querySelector(".hub-modern-release-toggle");
+      refreshedToggle?.click();
+      const reenabled = document.documentElement.dataset.bandkitModernRelease === "true"
+        && root?.querySelector(".hub-modern-release-toggle")?.getAttribute("aria-checked") === "true";
+      document.title = passed && reenabled
         ? `PASS: modern ${fixtureSingleTrack ? "track" : "release"} layout fixture`
-        : `FAIL: modern release ${Boolean(modern)}/${Boolean(restored)}`;
+        : `FAIL: modern release ${Boolean(modern)}/${Boolean(restored)}/${Boolean(reenabled)}`;
     }, 1200);
   </script>
 </body>

@@ -1,13 +1,18 @@
 @media (max-width: 1120px) {
-  .hub-player-content {
-    width: min(calc(100% - 24px), calc(100% - 704px));
+  .hub-player-content,
+  .hub-player:is([data-content-width="wide"], [data-content-width="full"], [data-content-width="custom"]) .hub-player-content {
+    box-sizing: border-box;
+    margin-left: 0;
+    margin-right: 0;
+    max-width: none;
+    padding-left: 12px;
+    width: calc(100% - var(--hub-sections-panel-width, min(420px, calc(100vw - 32px))) - 24px);
   }
 }
 
 @media (max-width: 900px) {
   .hub-player-content {
-    margin-left: 0;
-    width: calc(100% - 372px);
+    width: calc(100% - var(--hub-sections-panel-width, min(420px, calc(100vw - 32px))) - 16px);
   }
 
   .hub-panel {
@@ -38,6 +43,11 @@
 }
 
 @media (max-width: 520px) {
+  .hub-data-home-warning {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
   .hub-player-content {
     width: 100%;
   }

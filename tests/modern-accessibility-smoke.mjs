@@ -118,7 +118,7 @@ for (const token of [
   assert.ok(source.includes(`"${token}"`), `${token} must be emitted and cleared`);
   assert.ok(css.includes(token), `${token} must have a CSS fallback or consumer`);
 }
-assert.match(css, /body\.tralbum-page \.bandkit-modern-purchase-panel,[\s\S]*?--bandkit-release-ink:\s*var\(--bandkit-release-raised-ink\)/, "Release purchase and profile cards must enter the raised contrast context");
+assert.match(css, /body\.tralbum-page \.bandkit-modern-purchase-list > \.buyItem,[\s\S]*?--bandkit-release-ink:\s*var\(--bandkit-release-raised-ink\)/, "Individual release purchase and profile cards must enter the raised contrast context");
 assert.match(css, /body\.tralbum-page #track_table \.track_row_view,[\s\S]*?--bandkit-release-ink:\s*var\(--bandkit-release-raised-ink\)/, "Release track rows must use foregrounds corrected for their painted surface");
 assert.match(css, /#track_table \.track_row_view\s*\{[\s\S]*?background:\s*var\(--bandkit-release-surface-raised\)\s*!important/, "Release track rows must paint the surface used for their foreground correction");
 assert.match(css, /body\.tralbum-page #pgFt\s*\{[\s\S]*?--bandkit-release-ink:\s*var\(--bandkit-release-footer-ink\)/, "Release footers must enter their own contrast context");

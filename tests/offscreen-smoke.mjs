@@ -17,6 +17,8 @@ class FakeAudio extends EventTarget {
   }
 
   async play() {
+    if (fetchShouldFail) throw new Error("Bandcamp stream failed to load.");
+    if (playOverride) await playOverride();
     this.paused = false;
     this.dispatchEvent(new Event("play"));
   }
@@ -38,8 +40,12 @@ let messageListener;
 const reportedStates = [];
 const fetchedUrls = [];
 const fetchRequests = [];
+const sessionStorage = {};
+const localStorage = {};
+const decodedByteLengths = [];
 let fetchShouldFail = false;
 let fetchOverride = null;
+let playOverride = null;
 
 globalThis.window = globalThis;
 globalThis.document = { querySelector: () => fakeAudio };
@@ -85,22 +91,33 @@ globalThis.AudioContext = class {
   }
   createGain() { return Object.assign(new FakeAudioNode(), { gain: new FakeAudioParam(1) }); }
   async resume() { this.state = "running"; }
-  async decodeAudioData() {
+  async decodeAudioData(bytes) {
+    decodedByteLengths.push(bytes.byteLength);
     return { sampleRate: analysisSampleRate, numberOfChannels: 1, length: analysisSamples.length, getChannelData: () => analysisSamples };
   }
   async close() {}
 };
 Object.defineProperty(globalThis, "navigator", { value: {}, configurable: true });
 globalThis.chrome = {
-  storage: {
-    local: {
-      async get() { return {}; },
-      async set() {}
-    }
-  },
   runtime: {
     onMessage: { addListener(listener) { messageListener = listener; } },
     sendMessage(message) {
+      if (message.type === "BANDCAMP_HUB_OFFSCREEN_GET_ANALYSIS_STORAGE") {
+        return Promise.resolve({
+          ok: true,
+          bpmCorrections: localStorage.bandcampHubBpmCorrections || {},
+          trackAnalysisCache: sessionStorage.bandcampHubTrackAnalysisCache || {}
+        });
+      }
+      if (message.type === "BANDCAMP_HUB_OFFSCREEN_SET_ANALYSIS_STORAGE") {
+        if (Object.hasOwn(message, "bpmCorrections")) {
+          localStorage.bandcampHubBpmCorrections = message.bpmCorrections;
+        }
+        if (Object.hasOwn(message, "trackAnalysisCache")) {
+          sessionStorage.bandcampHubTrackAnalysisCache = message.trackAnalysisCache;
+        }
+        return Promise.resolve({ ok: true });
+      }
       reportedStates.push(message.state);
       return Promise.resolve({ ok: true });
     }
@@ -154,6 +171,28 @@ assert.equal(loadingState?.progress, 0);
 response = await send({
   type: "BANDCAMP_HUB_OFFSCREEN_UPDATE_QUEUE",
   queue: [
+    { ...queue[0], playlistItemId: "playlist-one" },
+    { ...queue[1], playlistItemId: "playlist-two" }
+  ],
+  selectedPlaylistItemId: "playlist-one",
+  autoplay: true
+});
+assert.equal(response.state.track.title, "One",
+  "an atomic queue selection must use playlist identity rather than the previous numeric index");
+response = await send({
+  type: "BANDCAMP_HUB_OFFSCREEN_UPDATE_QUEUE",
+  queue: [
+    { ...queue[0], playlistItemId: "playlist-one" },
+    { ...queue[1], playlistItemId: "playlist-two" }
+  ],
+  selectedPlaylistItemId: "playlist-two",
+  autoplay: true
+});
+assert.equal(response.state.track.title, "Two");
+
+response = await send({
+  type: "BANDCAMP_HUB_OFFSCREEN_UPDATE_QUEUE",
+  queue: [
     { ...queue[1], playlistItemId: "playlist-two" },
     { ...queue[0], playlistItemId: "playlist-one" }
   ]
@@ -187,7 +226,7 @@ assert.equal(response.state.track.url, "https://t4.bcbits.com/stream/two-refresh
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_PLAY_PAUSE" });
 assert.equal(response.state.track.title, "Two");
 assert.equal(response.state.isPlaying, true, "play after an error must retry the requested track");
-assert.equal(fetchedUrls.at(-1), "https://t4.bcbits.com/stream/two-refreshed",
+assert.equal(fakeAudio.src, "https://t4.bcbits.com/stream/two-refreshed",
   "retrying an error must use a refreshed queue URL instead of the failed stream");
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_PLAY_INDEX", index: 1, autoplay: true });
 assert.equal(response.state.track.title, "One");
@@ -212,6 +251,32 @@ response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_ANALYZE_TRACKS", tracks: q
 assert.equal(response.ok, true);
 assert.equal(response.results.length, 2);
 assert.ok(response.results.every((result) => result.bpm && result.key?.camelot));
+await new Promise((resolve) => setTimeout(resolve, 125));
+const persistedAnalysis = sessionStorage.bandcampHubTrackAnalysisCache;
+assert.equal(Object.keys(persistedAnalysis || {}).length >= 2, true,
+  "completed BPM and key analysis must persist in browser-session storage");
+assert.ok(Object.values(persistedAnalysis).every((result) => result.bpm && result.key && result.cachedAt && !result.waveform),
+  "the session cache must stay compact by omitting waveform samples");
+const fetchCountBeforeCachedAnalysis = fetchRequests.length;
+fetchShouldFail = true;
+response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_ANALYZE_TRACKS", tracks: queue });
+fetchShouldFail = false;
+assert.ok(response.results.every((result) => result.bpm && result.key?.camelot && !result.error),
+  "revisiting analyzed tracks must return BPM and key from the session cache");
+assert.equal(fetchRequests.length, fetchCountBeforeCachedAnalysis,
+  "cached track analysis must not request the audio stream again");
+fetchOverride = async (url) => String(url).includes("full-response")
+  ? { ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(2_000_000) }
+  : successfulFetch();
+response = await send({
+  type: "BANDCAMP_HUB_OFFSCREEN_ANALYZE_TRACKS",
+  tracks: [{ id: "full-response", title: "Full response", artist: "Fixture", url: "https://t4.bcbits.com/stream/full-response" }],
+  force: true
+});
+fetchOverride = null;
+assert.equal(response.results[0].error, undefined);
+assert.equal(decodedByteLengths.at(-1), 524_288,
+  "a cached HTTP 200 response must be trimmed to the same bounded analysis sample as a range response");
 const rangeRequests = fetchRequests.filter(([, options]) => options?.headers?.Range);
 assert.ok(rangeRequests.length >= 2, "batch analysis must request bounded audio byte ranges");
 assert.ok(rangeRequests.every(([, options]) => options.signal instanceof AbortSignal),
@@ -239,16 +304,55 @@ const concurrencyTracks = Array.from({ length: 10 }, (_, index) => ({
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_ANALYZE_TRACKS", tracks: concurrencyTracks, force: true });
 fetchOverride = null;
 assert.equal(response.results.length, concurrencyTracks.length);
-assert.equal(peakAnalysisFetches, 6, "batch analysis must process six track samples concurrently");
+assert.equal(peakAnalysisFetches, 3, "batch analysis must process three track samples concurrently without starving playback");
+
+let priorityAnalysisAttempts = 0;
+let resolvePriorityAnalysisStarted;
+const priorityAnalysisStarted = new Promise((resolve) => { resolvePriorityAnalysisStarted = resolve; });
+fetchOverride = async (url, options = {}) => {
+  if (!String(url).includes("priority-analysis") || !options.headers?.Range) return successfulFetch();
+  priorityAnalysisAttempts += 1;
+  if (priorityAnalysisAttempts > 1) return successfulFetch();
+  resolvePriorityAnalysisStarted();
+  return new Promise((resolve, reject) => {
+    options.signal.addEventListener("abort", () => {
+      reject(Object.assign(new Error("analysis preempted"), { name: "AbortError" }));
+    }, { once: true });
+  });
+};
+const priorityAnalysis = send({
+  type: "BANDCAMP_HUB_OFFSCREEN_ANALYZE_TRACKS",
+  tracks: [{ id: "priority-analysis", title: "Priority analysis", artist: "Fixture", url: "https://t4.bcbits.com/stream/priority-analysis" }],
+  force: true
+});
+await priorityAnalysisStarted;
+response = await send({
+  type: "BANDCAMP_HUB_OFFSCREEN_ENABLE",
+  queue: [{ id: "priority-playback", title: "Priority playback", artist: "Fixture", url: "https://t4.bcbits.com/stream/priority-playback", duration: 120 }],
+  index: 0,
+  autoplay: true
+});
+assert.equal(response.state.status, "playing", "playback must start while automatic page analysis is in flight");
+const resumedPriorityAnalysis = await priorityAnalysis;
+assert.equal(resumedPriorityAnalysis.results[0].error, undefined, "preempted automatic analysis must resume instead of failing");
+assert.equal(priorityAnalysisAttempts, 2, "automatic analysis must retry once playback has priority");
+fetchOverride = null;
+response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_ENABLE", queue, index: 0, autoplay: true });
 
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_SET_BPM", bpm: 124.5 });
 assert.equal(response.state.detectedBpm, 124.5);
 assert.equal(response.state.bpmSource, "manual");
+await Promise.resolve();
+assert.ok(Object.values(localStorage.bandcampHubBpmCorrections || {}).includes(124.5),
+  "manual BPM corrections must persist through the background storage broker available to offscreen documents");
 
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_RESET_BPM" });
 assert.notEqual(response.state.detectedBpm, 124.5);
 assert.equal(response.state.detectedBpm, response.state.automaticBpm);
 assert.equal(response.state.bpmSource, "auto");
+await Promise.resolve();
+assert.equal(Object.values(localStorage.bandcampHubBpmCorrections || {}).includes(124.5), false,
+  "resetting BPM must remove the brokered manual correction");
 
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_SET_BPM", bpm: 124.5 });
 assert.equal(response.state.bpmSource, "manual");
@@ -352,18 +456,19 @@ assert.equal(response.state.bpmStatus, "idle");
 assert.equal(response.state.detectedBpm, null);
 assert.equal(response.state.waveform.length, 0, "emptying the playable queue must clear analysis state from the removed track");
 
-let resolveSlowFetch;
-fetchOverride = () => new Promise((resolve) => { resolveSlowFetch = resolve; });
+let resolveSlowPlay;
+playOverride = () => new Promise((resolve) => { resolveSlowPlay = resolve; });
 const interruptedEnable = send({
   type: "BANDCAMP_HUB_OFFSCREEN_ENABLE",
   queue,
   index: 0,
   autoplay: true
 });
-await Promise.resolve();
+for (let attempt = 0; attempt < 10 && !resolveSlowPlay; attempt += 1) await Promise.resolve();
+assert.equal(typeof resolveSlowPlay, "function");
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_DISABLE" });
 assert.equal(response.state.enabled, false);
-resolveSlowFetch(successfulFetch());
+resolveSlowPlay();
 await interruptedEnable;
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_GET_STATE" });
 assert.equal(response.state.enabled, false);
@@ -371,13 +476,13 @@ assert.equal(response.state.track, null);
 assert.equal(fakeAudio.src, "", "clearing during a slow fetch must prevent the old stream from being reattached");
 assert.equal(fakeAudio.paused, true, "clearing during a slow fetch must prevent ghost playback");
 
-let rejectStaleFetch;
-let racingFetchCount = 0;
-fetchOverride = () => {
-  racingFetchCount += 1;
-  return racingFetchCount === 1
-    ? new Promise((resolve, reject) => { rejectStaleFetch = reject; })
-    : Promise.resolve(successfulFetch());
+let rejectStalePlay;
+let racingPlayCount = 0;
+playOverride = () => {
+  racingPlayCount += 1;
+  return racingPlayCount === 1
+    ? new Promise((resolve, reject) => { rejectStalePlay = reject; })
+    : Promise.resolve();
 };
 const staleLoad = send({
   type: "BANDCAMP_HUB_OFFSCREEN_ENABLE",
@@ -385,16 +490,17 @@ const staleLoad = send({
   index: 0,
   autoplay: true
 });
-await Promise.resolve();
+for (let attempt = 0; attempt < 10 && !rejectStalePlay; attempt += 1) await Promise.resolve();
+assert.equal(typeof rejectStalePlay, "function");
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_PLAY_INDEX", index: 1, autoplay: true });
 assert.equal(response.state.track.title, "Two");
 assert.equal(response.state.status, "playing");
-rejectStaleFetch(new Error("superseded stream failed"));
+rejectStalePlay(new Error("superseded stream failed"));
 await staleLoad;
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_GET_STATE" });
 assert.equal(response.state.track.title, "Two");
 assert.equal(response.state.status, "playing", "a superseded fetch failure must not overwrite the newer playback state");
-fetchOverride = null;
+playOverride = null;
 
 const identityCollisionQueue = [
   { id: "shared-title", title: "Shared Title", artist: "First Artist", pageUrl: "https://first.bandcamp.com/track/shared-title", url: "https://t4.bcbits.com/stream/shared-first", duration: 120 },

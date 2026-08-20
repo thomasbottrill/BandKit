@@ -102,6 +102,14 @@
       return { savedCarts: next, changed: !sameSavedCarts(original, next) };
     }
 
+    if (!existing && next.length >= MAX_SAVED_CARTS) {
+      return {
+        savedCarts: next,
+        changed: !sameSavedCarts(original, next),
+        atCapacity: true
+      };
+    }
+
     const savedAt = options.savedAt || new Date().toISOString();
     const snapshot = {
       id: AUTO_SAVED_CART_ID,
@@ -127,6 +135,9 @@
 
     const signature = cartSignature(cartItems);
     const autoIndex = next.findIndex((snapshot) => isAutoSavedCart(snapshot) && cartSignature(snapshot.items) === signature);
+    if (autoIndex < 0 && next.length >= MAX_SAVED_CARTS) {
+      return { savedCarts: next, snapshot: null, atCapacity: true };
+    }
     const autoSnapshot = autoIndex >= 0 ? next.splice(autoIndex, 1)[0] : null;
     const savedAt = options.savedAt || new Date().toISOString();
     const snapshot = {

@@ -194,9 +194,9 @@
 .hub-player-more-button {
   align-items: center;
   background: transparent;
-  border: 1px solid var(--hub-line);
+  border: 1px solid transparent;
   border-radius: var(--hub-control-radius);
-  color: var(--hub-muted);
+  color: var(--hub-accent);
   cursor: pointer;
   display: flex;
   height: 32px;
@@ -223,6 +223,7 @@
 .hub-player-more-button:hover:not(:disabled),
 .hub-player-more-button:focus-visible,
 .hub-player-more-button[aria-expanded="true"] {
+  background: var(--hub-accent-soft);
   border-color: var(--hub-accent);
   color: var(--hub-accent);
   outline: 0;
@@ -238,6 +239,8 @@
   border: 1px solid var(--hub-line);
   border-radius: 5px;
   bottom: 38px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  color: var(--hub-ink);
   min-width: 126px;
   padding: 5px;
   position: absolute;
@@ -247,6 +250,48 @@
 
 .hub-player-more-menu[hidden] {
   display: none;
+}
+
+.hub-player-more-menu .hub-queue-actions.is-labeled {
+  gap: 2px;
+}
+
+.hub-player-more-menu .hub-playlist-destination.is-labeled {
+  display: block;
+}
+
+.hub-player-more-menu .hub-playlist-destination-menu {
+  bottom: auto;
+  left: calc(100% + 6px);
+  right: auto;
+  top: -6px;
+}
+
+.hub-player-more-menu .hub-playlist-destination-menu.opens-left {
+  left: auto;
+  right: calc(100% + 6px);
+}
+
+.hub-player-more-menu .hub-queue-action.is-labeled {
+  background: transparent;
+  border-color: transparent;
+  border-radius: 3px;
+  color: var(--hub-ink);
+  height: 34px;
+  padding: 0 8px;
+}
+
+.hub-player-more-menu .hub-queue-action.is-labeled:hover:not(:disabled),
+.hub-player-more-menu .hub-queue-action.is-labeled:focus-visible {
+  background: var(--hub-accent-soft);
+  border-color: transparent;
+  color: var(--hub-accent);
+}
+
+.hub-player-more-menu .hub-queue-action.is-labeled.is-active {
+  background: var(--hub-accent-soft);
+  border-color: transparent;
+  color: var(--hub-accent);
 }
 
 .hub-player-track {
@@ -323,7 +368,7 @@
 .hub-dj-player-button {
   align-items: center;
   background: transparent;
-  border: 1px solid var(--hub-line);
+  border: 1px solid transparent;
   border-radius: var(--hub-control-radius);
   color: var(--hub-accent);
   cursor: pointer;
@@ -376,8 +421,11 @@
 
 .hub-play-button:hover,
 .hub-play-button:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--hub-control-focus) 32%, transparent);
-  filter: brightness(0.92);
+  background: var(--hub-accent-soft);
+  border-color: var(--hub-accent);
+  box-shadow: none;
+  color: var(--hub-accent);
+  filter: none;
   outline: 0;
 }
 
@@ -388,25 +436,9 @@
   opacity: 0.35;
 }
 
-.hub-play-button img {
+.hub-play-button .hub-button-icon {
   height: 16px;
   width: 16px;
-}
-
-.hub-pause-glyph {
-  background: linear-gradient(90deg, currentColor 0 35%, transparent 35% 65%, currentColor 65% 100%);
-  display: block;
-  height: 16px;
-  width: 12px;
-}
-
-.hub-play-glyph {
-  border-bottom: 7px solid transparent;
-  border-left: 12px solid currentColor;
-  border-top: 7px solid transparent;
-  height: 0;
-  margin-left: 2px;
-  width: 0;
 }
 
 .hub-skip-button {
@@ -598,7 +630,7 @@
 
 .hub-dj-drawer {
   background: var(--hub-card);
-  border: 1px solid var(--hub-line);
+  border: 1px solid color-mix(in srgb, var(--hub-line) 55%, transparent);
   border-radius: 8px;
   bottom: calc(100% + 10px);
   box-sizing: border-box;

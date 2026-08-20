@@ -1,8 +1,16 @@
-import { MESSAGES, STORAGE_KEYS } from "../shared/contracts.js";
-
-import { buildWaveform, estimateBpm, estimateKey } from "./analysis.js";
+import { MESSAGES } from "../shared/contracts.js";
+import { buildWaveform, createTrackAudioDecoder, estimateBpm, estimateKey } from "./analysis.js";
+import { installOffscreenEvents } from "./events.js";
+import { interruptedPlay, waitForMediaMetadata } from "./progressive.js";
+import { compensatedHandoffTime, finiteNumber, gainFromDb, trackKey as stableTrackKey } from "./utils.js";
+import { createStateSender, updateMediaSessionState } from "./state.js";
 
 const audio = document.querySelector("#bandcamp-hub-audio");
+// The progressive player normally uses a same-origin Blob URL, but an
+// out-of-buffer seek falls back to Bandcamp's range-seekable bcbits stream.
+// Web Audio silences cross-origin media without an explicit CORS request even
+// while currentTime continues advancing, creating a false-playing state.
+audio.crossOrigin = "anonymous";
 let queue = [];
 let currentIndex = -1;
 let enabled = false;
@@ -21,9 +29,9 @@ let gainDb = 0;
 let eqLowDb = 0;
 let eqMidDb = 0;
 let eqHighDb = 0;
-let lastStateSentAt = 0;
-let stateSendTimer = null;
 let loadToken = 0;
+let mediaRequestToken = 0;
+let pendingSeekTime = null;
 let bpmAnalysisToken = 0;
 let detectedBpm = null;
 let automaticBpm = null;
@@ -33,9 +41,16 @@ let bpmError = "";
 let detectedKey = null;
 let waveform = [];
 const analysisCache = new Map();
+const analysisFetchControllers = new Set();
+const playbackPriorityControllers = new WeakSet();
 const bpmOverrides = new Map();
-const BPM_OVERRIDES_KEY = STORAGE_KEYS.BPM_CORRECTIONS;
+const ANALYSIS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const ANALYSIS_CACHE_MAX_ENTRIES = 250;
+const PLAYBACK_PRIORITY_GRACE_MS = 250;
 let bpmOverridesLoaded = false;
+let analysisCacheLoaded = false;
+let analysisCachePersistTimer = null;
+let playbackPriorityUntil = 0;
 let audioContext = null;
 let sourceNode = null;
 let filterNode = null;
@@ -43,20 +58,8 @@ let lowEqNode = null;
 let midEqNode = null;
 let highEqNode = null;
 let gainNode = null;
-let loadedAudioBytes = null;
-let loadedAudioTrackUrl = "";
-let loadedObjectUrl = "";
-let loadedAudioBytesPromise = null;
-let streamAbortController = null;
-let trackAnalysisAudioContext = null;
 
-function currentTrack() {
-  return queue[currentIndex] || null;
-}
-
-function finiteNumber(value, fallback = 0) {
-  return Number.isFinite(Number(value)) ? Number(value) : fallback;
-}
+function currentTrack() { return queue[currentIndex] || null; }
 
 function stateSnapshot() {
   const track = currentTrack();
@@ -65,7 +68,9 @@ function stateSnapshot() {
   const duration = sourceUnavailable
     ? finiteNumber(track?.duration)
     : Number.isFinite(audio.duration) ? audio.duration : finiteNumber(track?.duration);
-  const currentTime = sourceUnavailable ? 0 : finiteNumber(audio.currentTime);
+  const currentTime = sourceUnavailable && pendingSeekTime !== null
+    ? finiteNumber(pendingSeekTime)
+    : sourceUnavailable ? 0 : finiteNumber(audio.currentTime);
   return {
     enabled,
     status,
@@ -98,30 +103,76 @@ function stateSnapshot() {
   };
 }
 
-function trackKey(track = currentTrack()) {
-  const id = String(track?.id || "").trim();
-  const stableId = id.match(/^(?:track-)?(\d+)$/i)?.[1]?.replace(/^0+(?=\d)/, "");
-  if (stableId) return `id:${stableId}`;
-  let pageUrl = String(track?.pageUrl || "");
-  try {
-    const canonical = new URL(pageUrl);
-    canonical.hash = "";
-    canonical.search = "";
-    canonical.pathname = canonical.pathname.replace(/\/+$/, "") || "/";
-    pageUrl = canonical.href;
-  } catch {
-    pageUrl = "";
+function trimAnalysisCache() {
+  const cutoff = Date.now() - ANALYSIS_CACHE_TTL_MS;
+  for (const [key, result] of analysisCache) {
+    if (Number(result?.cachedAt) < cutoff) analysisCache.delete(key);
   }
-  return [pageUrl, id, track?.title, track?.artist].map((value) => String(value || "").trim().toLowerCase()).join("|");
+  while (analysisCache.size > ANALYSIS_CACHE_MAX_ENTRIES) {
+    analysisCache.delete(analysisCache.keys().next().value);
+  }
+}
+
+async function loadAnalysisCache() {
+  if (analysisCacheLoaded) return;
+  analysisCacheLoaded = true;
+  try {
+    // Offscreen documents only expose chrome.runtime; the service worker brokers analysis storage.
+    const stored = await chrome.runtime.sendMessage({ type: MESSAGES.OFFSCREEN_GET_ANALYSIS_STORAGE });
+    for (const [key, result] of Object.entries(stored?.trackAnalysisCache || {})) {
+      const bpm = finiteNumber(result?.bpm);
+      if (bpm > 0 && result?.key && Number(result.cachedAt) > 0) {
+        analysisCache.set(key, { bpm, key: result.key, waveform: [], cachedAt: Number(result.cachedAt) });
+      }
+    }
+    trimAnalysisCache();
+  } catch {
+    // Analysis remains available when session storage is unavailable.
+  }
+}
+
+function persistAnalysisCache() {
+  window.clearTimeout(analysisCachePersistTimer);
+  analysisCachePersistTimer = window.setTimeout(() => {
+    trimAnalysisCache();
+    const compact = Object.fromEntries([...analysisCache.entries()].map(([key, result]) => [key, {
+      bpm: result.bpm,
+      key: result.key,
+      cachedAt: result.cachedAt
+    }]));
+    chrome.runtime.sendMessage({ type: MESSAGES.OFFSCREEN_SET_ANALYSIS_STORAGE, trackAnalysisCache: compact }).catch(() => {});
+  }, 100);
+}
+
+function cacheAnalysisResult(key, result) {
+  analysisCache.delete(key);
+  analysisCache.set(key, { ...result, cachedAt: Date.now() });
+  trimAnalysisCache();
+  persistAnalysisCache();
+}
+
+function prioritizePlayback() {
+  playbackPriorityUntil = Date.now() + PLAYBACK_PRIORITY_GRACE_MS;
+  for (const controller of analysisFetchControllers) {
+    playbackPriorityControllers.add(controller);
+    controller.abort();
+  }
+}
+
+async function waitForPlaybackPriority() {
+  while (status === "loading" || Date.now() < playbackPriorityUntil) {
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, 25);
+    });
+  }
 }
 
 async function loadBpmOverrides() {
   if (bpmOverridesLoaded) return;
   bpmOverridesLoaded = true;
-  if (!chrome.storage?.local?.get) return;
   try {
-    const stored = await chrome.storage.local.get(BPM_OVERRIDES_KEY);
-    for (const [key, value] of Object.entries(stored[BPM_OVERRIDES_KEY] || {})) {
+    const stored = await chrome.runtime.sendMessage({ type: MESSAGES.OFFSCREEN_GET_ANALYSIS_STORAGE });
+    for (const [key, value] of Object.entries(stored?.bpmCorrections || {})) {
       const bpm = finiteNumber(value);
       if (bpm >= 40 && bpm <= 300) bpmOverrides.set(key, bpm);
     }
@@ -131,13 +182,11 @@ async function loadBpmOverrides() {
 }
 
 function persistBpmOverrides() {
-  if (!chrome.storage?.local?.set) return;
   const entries = [...bpmOverrides.entries()].slice(-500);
-  chrome.storage.local.set({ [BPM_OVERRIDES_KEY]: Object.fromEntries(entries) }).catch(() => {});
-}
-
-function gainFromDb(value) {
-  return value <= -30 ? 0 : Math.pow(10, value / 20);
+  chrome.runtime.sendMessage({
+    type: MESSAGES.OFFSCREEN_SET_ANALYSIS_STORAGE,
+    bpmCorrections: Object.fromEntries(entries)
+  }).catch(() => {});
 }
 
 async function ensureAudioGraph() {
@@ -226,15 +275,15 @@ function applyAudioEffects(
 async function analyzeCurrentTrack(force = false) {
   const track = currentTrack();
   if (!track?.url) return stateSnapshot();
-  await loadBpmOverrides();
-  const key = trackKey(track);
+  await Promise.all([loadBpmOverrides(), loadAnalysisCache()]);
+  const key = stableTrackKey(track);
   if (!force && analysisCache.has(key)) {
     const cached = analysisCache.get(key);
     automaticBpm = cached.bpm;
     detectedBpm = bpmOverrides.get(key) || automaticBpm;
     bpmSource = bpmOverrides.has(key) ? "manual" : "auto";
     detectedKey = cached.key;
-    waveform = cached.waveform;
+    waveform = cached.waveform || [];
     bpmStatus = "ready";
     bpmError = "";
     sendState(true);
@@ -252,21 +301,14 @@ async function analyzeCurrentTrack(force = false) {
   try {
     const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
     if (!AudioContextClass) throw new Error("Web Audio analysis is unavailable.");
-    let encodedAudio = loadedAudioTrackUrl === track.url ? loadedAudioBytes : null;
-    if (!encodedAudio && loadedAudioTrackUrl === track.url && loadedAudioBytesPromise) {
-      encodedAudio = await loadedAudioBytesPromise;
-    }
-    if (!encodedAudio) {
-      const response = await fetch(track.url, { cache: "force-cache" });
-      if (!response.ok) throw new Error(`Stream analysis request failed (${response.status}).`);
-      encodedAudio = await response.arrayBuffer();
-    }
-    const context = new AudioContextClass();
     let buffer;
-    try {
-      buffer = await context.decodeAudioData(encodedAudio.slice(0));
-    } finally {
-      await context.close().catch(() => {});
+    while (!buffer) {
+      await waitForPlaybackPriority();
+      try {
+        buffer = await decodeTrackAnalysisAudio(AudioContextClass, track.url);
+      } catch (error) {
+        if (error?.code !== "PLAYBACK_PRIORITY") throw error;
+      }
     }
     if (token !== bpmAnalysisToken || currentTrack()?.url !== track.url) return stateSnapshot();
     const result = {
@@ -279,8 +321,7 @@ async function analyzeCurrentTrack(force = false) {
     bpmSource = bpmOverrides.has(key) ? "manual" : "auto";
     detectedKey = result.key;
     waveform = result.waveform;
-    analysisCache.set(key, result);
-    if (analysisCache.size > 100) analysisCache.delete(analysisCache.keys().next().value);
+    cacheAnalysisResult(key, result);
     bpmStatus = "ready";
   } catch (error) {
     if (token !== bpmAnalysisToken) return stateSnapshot();
@@ -291,48 +332,16 @@ async function analyzeCurrentTrack(force = false) {
   return stateSnapshot();
 }
 
-const TRACK_ANALYSIS_SAMPLE_BYTES = 524_288;
-const TRACK_ANALYSIS_FALLBACK_BYTES = 1_048_576;
-const TRACK_ANALYSIS_FETCH_TIMEOUT_MS = 10_000;
-const TRACK_ANALYSIS_CONCURRENCY = 6;
+const TRACK_ANALYSIS_CONCURRENCY = 3;
 
-async function fetchTrackAnalysisAudio(url, sampleBytes = TRACK_ANALYSIS_SAMPLE_BYTES) {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), TRACK_ANALYSIS_FETCH_TIMEOUT_MS);
-  try {
-    const response = await fetch(url, {
-      cache: "force-cache",
-      headers: { Range: `bytes=0-${sampleBytes - 1}` },
-      signal: controller.signal
-    });
-    if (!response.ok) throw new Error(`Stream analysis request failed (${response.status}).`);
-    return {
-      bytes: await response.arrayBuffer(),
-      partial: response.status === 206
-    };
-  } catch (error) {
-    if (error?.name === "AbortError") throw new Error("Track analysis timed out.");
-    throw error;
-  } finally {
-    window.clearTimeout(timeout);
-  }
-}
-
-async function decodeTrackAnalysisAudio(AudioContextClass, url) {
-  trackAnalysisAudioContext ||= new AudioContextClass();
-  const sample = await fetchTrackAnalysisAudio(url);
-  try {
-    return await trackAnalysisAudioContext.decodeAudioData(sample.bytes.slice(0));
-  } catch (error) {
-    if (!sample.partial) throw error;
-    const fallback = await fetchTrackAnalysisAudio(url, TRACK_ANALYSIS_FALLBACK_BYTES);
-    return await trackAnalysisAudioContext.decodeAudioData(fallback.bytes.slice(0));
-  }
-}
+const decodeTrackAnalysisAudio = createTrackAudioDecoder({
+  analysisFetchControllers,
+  playbackPriorityControllers
+});
 
 async function analyzeTrack(track, force = false) {
-  await loadBpmOverrides();
-  const key = trackKey(track);
+  await Promise.all([loadBpmOverrides(), loadAnalysisCache()]);
+  const key = stableTrackKey(track);
   if (!force && analysisCache.has(key)) {
     const cached = analysisCache.get(key);
     return {
@@ -344,14 +353,21 @@ async function analyzeTrack(track, force = false) {
   }
   const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
   if (!AudioContextClass) throw new Error("Web Audio analysis is unavailable.");
-  const buffer = await decodeTrackAnalysisAudio(AudioContextClass, track.url);
+  let buffer;
+  while (!buffer) {
+    await waitForPlaybackPriority();
+    try {
+      buffer = await decodeTrackAnalysisAudio(AudioContextClass, track.url);
+    } catch (error) {
+      if (error?.code !== "PLAYBACK_PRIORITY") throw error;
+    }
+  }
   const result = {
     bpm: estimateBpm(buffer),
     key: estimateKey(buffer),
     waveform: buildWaveform(buffer)
   };
-  analysisCache.set(key, result);
-  if (analysisCache.size > 100) analysisCache.delete(analysisCache.keys().next().value);
+  cacheAnalysisResult(key, result);
   return {
     id: track.id,
     url: track.url,
@@ -384,20 +400,7 @@ async function analyzeTracks(tracks, force = false) {
   return results;
 }
 
-function sendState(force = false) {
-  window.clearTimeout(stateSendTimer);
-  const elapsed = Date.now() - lastStateSentAt;
-  if (!force && elapsed < 500) {
-    stateSendTimer = window.setTimeout(() => sendState(true), 500 - elapsed);
-    return;
-  }
-  lastStateSentAt = Date.now();
-  chrome.runtime.sendMessage({
-    target: "background",
-    type: MESSAGES.OFFSCREEN_STATE,
-    state: stateSnapshot()
-  }).catch(() => {});
-}
+const sendState = createStateSender(stateSnapshot);
 
 function applyPlaybackOptions(rate = audio.playbackRate || 1, shouldPreservePitch = preservePitch) {
   const nextRate = Math.max(0.35, Math.min(2, finiteNumber(rate, 1)));
@@ -477,167 +480,121 @@ async function applyDjOptions(options = {}) {
 }
 
 function updateMediaSession() {
-  const track = currentTrack();
-  if (!("mediaSession" in navigator)) return;
-  if (!track) {
-    navigator.mediaSession.metadata = null;
-    navigator.mediaSession.playbackState = "none";
-    return;
-  }
-  navigator.mediaSession.metadata = new MediaMetadata({
-    title: track.title,
-    artist: track.artist,
-    album: track.album,
-    artwork: track.art ? [{ src: track.art }] : []
-  });
-  navigator.mediaSession.playbackState = audio.paused ? "paused" : "playing";
+  updateMediaSessionState(audio, currentTrack());
 }
 
 function waitForMetadata(token) {
-  if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const loaded = () => {
-      cleanup();
-      if (token === loadToken) resolve();
-      else reject(new Error("Track load was replaced."));
-    };
-    const failed = () => {
-      cleanup();
-      reject(new Error(`Bandcamp stream failed to load (media error ${audio.error?.code || "unknown"}).`));
-    };
-    const aborted = () => {
-      cleanup();
-      reject(new Error(token === loadToken ? "Bandcamp stream loading was aborted." : "Track load was replaced."));
-    };
-    const cleanup = () => {
-      audio.removeEventListener("loadedmetadata", loaded);
-      audio.removeEventListener("error", failed);
-      audio.removeEventListener("abort", aborted);
-    };
-    audio.addEventListener("loadedmetadata", loaded);
-    audio.addEventListener("error", failed);
-    audio.addEventListener("abort", aborted);
-  });
+  return waitForMediaMetadata(audio, () => token === loadToken);
 }
 
-function canProgressivelyStreamMp3() {
-  return typeof MediaSource === "function"
-    && typeof MediaSource.isTypeSupported === "function"
-    && MediaSource.isTypeSupported("audio/mpeg");
-}
-
-function waitForMediaSourceOpen(mediaSource, token) {
-  if (mediaSource.readyState === "open") return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const opened = () => {
-      cleanup();
-      if (token === loadToken) resolve();
-      else reject(new Error("Track load was replaced."));
-    };
-    const failed = () => {
-      cleanup();
-      reject(new Error(token === loadToken ? "The progressive audio source could not be opened." : "Track load was replaced."));
-    };
-    const cleanup = () => {
-      mediaSource.removeEventListener("sourceopen", opened);
-      mediaSource.removeEventListener("sourceclose", failed);
-    };
-    mediaSource.addEventListener("sourceopen", opened, { once: true });
-    mediaSource.addEventListener("sourceclose", failed, { once: true });
-  });
-}
-
-function appendMediaChunk(sourceBuffer, chunk, token) {
-  return new Promise((resolve, reject) => {
-    const updated = () => {
-      cleanup();
-      if (token === loadToken) resolve();
-      else reject(new Error("Track load was replaced."));
-    };
-    const failed = () => {
-      cleanup();
-      reject(new Error(token === loadToken ? "The progressive audio buffer rejected the stream." : "Track load was replaced."));
-    };
-    const cleanup = () => {
-      sourceBuffer.removeEventListener("updateend", updated);
-      sourceBuffer.removeEventListener("error", failed);
-      sourceBuffer.removeEventListener("abort", failed);
-    };
-    sourceBuffer.addEventListener("updateend", updated, { once: true });
-    sourceBuffer.addEventListener("error", failed, { once: true });
-    sourceBuffer.addEventListener("abort", failed, { once: true });
+async function playForMediaRequest(request, token = loadToken) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (request !== mediaRequestToken || token !== loadToken) return false;
     try {
-      sourceBuffer.appendBuffer(chunk);
-    } catch (error) {
-      cleanup();
-      reject(error);
-    }
-  });
-}
-
-function startProgressiveTrackStream(track, token) {
-  const mediaSource = new MediaSource();
-  const abortController = new AbortController();
-  streamAbortController = abortController;
-  loadedObjectUrl = URL.createObjectURL(mediaSource);
-  audio.src = loadedObjectUrl;
-  audio.load();
-  return (async () => {
-    await waitForMediaSourceOpen(mediaSource, token);
-    if (token !== loadToken) throw new Error("Track load was replaced.");
-    const sourceBuffer = mediaSource.addSourceBuffer("audio/mpeg");
-    const response = await fetch(track.url, {
-      cache: "force-cache",
-      signal: abortController.signal
-    });
-    if (!response.ok) throw new Error(`Bandcamp stream request failed (${response.status}).`);
-    const chunks = [];
-    let byteLength = 0;
-    if (response.body?.getReader) {
-      const reader = response.body.getReader();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (token !== loadToken) throw new Error("Track load was replaced.");
-        if (!value?.byteLength) continue;
-        const chunk = value instanceof Uint8Array ? value : new Uint8Array(value);
-        chunks.push(chunk);
-        byteLength += chunk.byteLength;
-        await appendMediaChunk(sourceBuffer, chunk, token);
+      await audio.play();
+      if (request !== mediaRequestToken || token !== loadToken) {
+        if (!enabled) audio.pause();
+        return false;
       }
-    } else {
-      const chunk = new Uint8Array(await response.arrayBuffer());
-      chunks.push(chunk);
-      byteLength = chunk.byteLength;
-      await appendMediaChunk(sourceBuffer, chunk, token);
+      return true;
+    } catch (error) {
+      if (request !== mediaRequestToken || token !== loadToken) return false;
+      if (!interruptedPlay(error)) throw error;
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, 40 * (attempt + 1));
+      });
     }
-    if (token !== loadToken) throw new Error("Track load was replaced.");
-    if (mediaSource.readyState === "open") mediaSource.endOfStream();
-    const encodedAudio = new Uint8Array(byteLength);
-    let offset = 0;
-    for (const chunk of chunks) {
-      encodedAudio.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-    return encodedAudio.buffer;
-  })();
+  }
+  if (request !== mediaRequestToken || token !== loadToken) return false;
+  throw new Error("Playback was interrupted while starting. Please try again.");
 }
 
-function releaseLoadedAudioSource() {
-  streamAbortController?.abort();
-  streamAbortController = null;
-  loadedAudioBytesPromise = null;
-  if (loadedObjectUrl) URL.revokeObjectURL(loadedObjectUrl);
-  loadedObjectUrl = "";
-  loadedAudioBytes = null;
-  loadedAudioTrackUrl = "";
+function isTimeBuffered(time) {
+  const target = Math.max(0, finiteNumber(time));
+  if (Math.abs(finiteNumber(audio.currentTime) - target) < 0.25) return true;
+  const ranges = audio.buffered;
+  if (!ranges) return false;
+  for (let index = 0; index < ranges.length; index += 1) {
+    if (target >= ranges.start(index) - 0.25 && target <= ranges.end(index) + 0.25) return true;
+  }
+  return false;
 }
 
-async function loadTrack(index, currentTime = 0, autoplay = false) {
+async function seekToTime(currentTime) {
+  const request = ++mediaRequestToken;
+  clearBeatLoop();
+  const track = currentTrack();
+  const duration = Number.isFinite(audio.duration) ? audio.duration : finiteNumber(track?.duration);
+  const target = Math.max(0, Math.min(duration || Infinity, finiteNumber(currentTime)));
+  pendingSeekTime = target;
+  try {
+  const needsRemoteRangeSeek = Boolean(
+    track?.url
+    && status === "loading"
+    && audio.src === track.url
+    && !isTimeBuffered(target)
+  );
+
+  if (!needsRemoteRangeSeek) {
+    audio.currentTime = target;
+    if (status === "loading" && autoplayRequested && audio.paused) {
+      const started = await playForMediaRequest(request);
+      if (!started) return stateSnapshot();
+      status = "playing";
+      void analyzeCurrentTrack();
+    }
+    pendingSeekTime = null;
+    sendState(true);
+    return stateSnapshot();
+  }
+
+  // A MediaSource cannot seek beyond bytes that have already been appended.
+  // Keep its download alive for analysis, but let the native media loader issue
+  // a range request from the timestamp the listener actually selected.
+  const token = loadToken;
+  const resumePlayback = autoplayRequested || (!audio.paused && !audio.ended);
+  autoplayRequested = resumePlayback;
+  status = "loading";
+  playbackError = "";
+  prioritizePlayback();
+  sendState(true);
+  if (audio.src !== track.url) {
+    audio.src = track.url;
+    audio.load();
+  }
+  await waitForMetadata(token);
+  if (request !== mediaRequestToken || token !== loadToken || currentTrack()?.url !== track.url) return stateSnapshot();
+  audio.currentTime = target;
+  if (resumePlayback) {
+    const started = await playForMediaRequest(request, token);
+    if (!started) return stateSnapshot();
+  }
+  pendingSeekTime = null;
+  status = audio.paused ? "paused" : "playing";
+  updateMediaSession();
+  sendState(true);
+  void analyzeCurrentTrack();
+  return stateSnapshot();
+  } catch (error) {
+    if (request === mediaRequestToken) {
+      pendingSeekTime = null;
+      autoplayRequested = false;
+      status = "error";
+      playbackError = error?.message || "Bandcamp could not seek this stream.";
+      updateMediaSession();
+      sendState(true);
+    }
+    throw error;
+  }
+}
+
+async function loadTrack(index, currentTime = 0, autoplay = false, handoffStartedAt = 0) {
   if (!queue.length) throw new Error("The seamless queue is empty.");
   currentIndex = Math.max(0, Math.min(queue.length - 1, Number(index) || 0));
   const track = currentTrack();
   const token = ++loadToken;
+  const mediaRequest = ++mediaRequestToken;
+  pendingSeekTime = Math.max(0, finiteNumber(currentTime));
   autoplayRequested = Boolean(autoplay);
   clearBeatLoop();
   ++bpmAnalysisToken;
@@ -650,67 +607,44 @@ async function loadTrack(index, currentTime = 0, autoplay = false) {
   waveform = [];
   playbackError = "";
   status = "loading";
+  prioritizePlayback();
   audio.pause();
   audio.removeAttribute("src");
   audio.load();
-  releaseLoadedAudioSource();
   updateMediaSession();
   sendState(true);
 
   try {
-    let progressiveCompletion = null;
-    if (canProgressivelyStreamMp3()) {
-      loadedAudioTrackUrl = track.url;
-      progressiveCompletion = startProgressiveTrackStream(track, token);
-      loadedAudioBytesPromise = progressiveCompletion;
-      progressiveCompletion.then((encodedAudio) => {
-        if (token === loadToken && currentTrack()?.url === track.url) loadedAudioBytes = encodedAudio;
-      }).catch(() => {});
-      const progressiveFailure = progressiveCompletion.then(() => new Promise(() => {}));
-      await Promise.race([waitForMetadata(token), progressiveFailure]);
-    } else {
-      const response = await fetch(track.url, { cache: "force-cache" });
-      if (!response.ok) throw new Error(`Bandcamp stream request failed (${response.status}).`);
-      const encodedAudio = await response.arrayBuffer();
-      if (token !== loadToken) return stateSnapshot();
-      loadedAudioBytes = encodedAudio;
-      loadedAudioTrackUrl = track.url;
-      loadedAudioBytesPromise = Promise.resolve(encodedAudio);
-      loadedObjectUrl = URL.createObjectURL(new Blob([encodedAudio], {
-        type: response.headers?.get?.("content-type") || "audio/mpeg"
-      }));
-      audio.src = loadedObjectUrl;
-      audio.load();
+    // Let Chromium's media loader stream the Bandcamp URL directly. The old
+    // MediaSource path could abandon a healthy request and start the same URL
+    // again, which made queue switches stall for several seconds.
+    audio.src = track.url;
+    audio.load();
+    await applyDjOptions({ rate: audio.playbackRate || 1, preservePitch, filterValue, gainDb });
+    if (token !== loadToken || mediaRequest !== mediaRequestToken) return stateSnapshot();
+    const seekTime = compensatedHandoffTime(currentTime, handoffStartedAt, autoplayRequested);
+    if (seekTime > 0 || !autoplayRequested) {
       await waitForMetadata(token);
     }
-    await applyDjOptions({ rate: audio.playbackRate || 1, preservePitch, filterValue, gainDb });
-    if (token !== loadToken) return stateSnapshot();
-    const seekTime = Math.max(0, finiteNumber(currentTime));
+    if (token !== loadToken || mediaRequest !== mediaRequestToken) return stateSnapshot();
     if (Number.isFinite(audio.duration)) audio.currentTime = Math.min(seekTime, Math.max(0, audio.duration - 0.1));
+    pendingSeekTime = null;
     status = "paused";
     if (autoplayRequested) {
-      await audio.play();
+      const started = await playForMediaRequest(mediaRequest, token);
+      if (!started) return stateSnapshot();
       status = "playing";
-    }
-    if (progressiveCompletion) {
-      void progressiveCompletion.catch((error) => {
-        if (token !== loadToken || currentTrack()?.url !== track.url) return;
-        autoplayRequested = false;
-        status = "error";
-        playbackError = error.message || "The Bandcamp stream stopped loading.";
-        audio.pause();
-        audio.removeAttribute("src");
-        audio.load();
-        releaseLoadedAudioSource();
-        sendState(true);
-      });
     }
     void analyzeCurrentTrack();
   } catch (error) {
-    if (token !== loadToken) return stateSnapshot();
+    if (token !== loadToken || mediaRequest !== mediaRequestToken) return stateSnapshot();
+    pendingSeekTime = null;
     autoplayRequested = false;
     status = "error";
     playbackError = error.message;
+    audio.pause();
+    audio.removeAttribute("src");
+    audio.load();
   }
   updateMediaSession();
   sendState(true);
@@ -736,6 +670,57 @@ async function previousTrack() {
   return loadTrack(currentIndex - 1, 0, true);
 }
 
+async function updateQueue(message) {
+const previousTrack = currentTrack();
+    const previousIndex = currentIndex;
+    const wasPlaying = enabled && !audio.paused && !audio.ended;
+    queue = Array.isArray(message.queue) ? message.queue : [];
+    if (!queue.length) {
+      ++loadToken;
+      ++mediaRequestToken;
+      pendingSeekTime = null;
+      enabled = false;
+      autoplayRequested = false;
+      currentIndex = -1;
+      scratchActive = false;
+      clearBeatLoop();
+      playbackError = "";
+      ++bpmAnalysisToken;
+      detectedBpm = null;
+      automaticBpm = null;
+      bpmSource = "auto";
+      bpmStatus = "idle";
+      bpmError = "";
+      detectedKey = null;
+      waveform = [];
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      status = "idle";
+      updateMediaSession();
+      sendState(true);
+      return stateSnapshot();
+    }
+    const matchingIndex = queue.findIndex((track) =>
+      (previousTrack?.playlistItemId && track.playlistItemId === previousTrack.playlistItemId)
+      || (!previousTrack?.playlistItemId && track.id === previousTrack?.id && track.url === previousTrack?.url)
+    );
+    enabled = true;
+    const selectedPlaylistItemId = String(message.selectedPlaylistItemId || "");
+    if (selectedPlaylistItemId) {
+      const selectedIndex = queue.findIndex((track) => track.playlistItemId === selectedPlaylistItemId);
+      if (selectedIndex < 0) throw new Error("The requested playlist track is no longer available.");
+      return loadTrack(selectedIndex, 0, message.autoplay !== false);
+    }
+    if (matchingIndex >= 0) {
+      currentIndex = matchingIndex;
+      updateMediaSession();
+      sendState(true);
+      return stateSnapshot();
+    }
+    return loadTrack(Math.max(0, Math.min(queue.length - 1, previousIndex)), 0, wasPlaying);
+}
+
 async function handleCommand(message) {
   if (message.type === MESSAGES.OFFSCREEN_GET_STATE) {
     return stateSnapshot();
@@ -754,7 +739,7 @@ async function handleCommand(message) {
     eqHighDb = finiteNumber(message.eqHighDb);
     applyPlaybackOptions(message.rate, preservePitch);
     applyAudioEffects(filterValue, gainDb, eqLowDb, eqMidDb, eqHighDb);
-    return loadTrack(message.index, message.currentTime, message.autoplay);
+    return loadTrack(message.index, message.currentTime, message.autoplay, message.handoffStartedAt);
   }
 
   if (message.type === MESSAGES.OFFSCREEN_RESTORE) {
@@ -773,49 +758,7 @@ async function handleCommand(message) {
     return loadTrack(saved.index, saved.currentTime, Boolean(saved.isPlaying));
   }
 
-  if (message.type === MESSAGES.OFFSCREEN_UPDATE_QUEUE) {
-    const previousTrack = currentTrack();
-    const previousIndex = currentIndex;
-    const wasPlaying = enabled && !audio.paused && !audio.ended;
-    queue = Array.isArray(message.queue) ? message.queue : [];
-    if (!queue.length) {
-      ++loadToken;
-      enabled = false;
-      autoplayRequested = false;
-      currentIndex = -1;
-      scratchActive = false;
-      clearBeatLoop();
-      playbackError = "";
-      ++bpmAnalysisToken;
-      detectedBpm = null;
-      automaticBpm = null;
-      bpmSource = "auto";
-      bpmStatus = "idle";
-      bpmError = "";
-      detectedKey = null;
-      waveform = [];
-      audio.pause();
-      audio.removeAttribute("src");
-      audio.load();
-      releaseLoadedAudioSource();
-      status = "idle";
-      updateMediaSession();
-      sendState(true);
-      return stateSnapshot();
-    }
-    const matchingIndex = queue.findIndex((track) =>
-      (previousTrack?.playlistItemId && track.playlistItemId === previousTrack.playlistItemId)
-      || (!previousTrack?.playlistItemId && track.id === previousTrack?.id && track.url === previousTrack?.url)
-    );
-    enabled = true;
-    if (matchingIndex >= 0) {
-      currentIndex = matchingIndex;
-      updateMediaSession();
-      sendState(true);
-      return stateSnapshot();
-    }
-    return loadTrack(Math.max(0, Math.min(queue.length - 1, previousIndex)), 0, wasPlaying);
-  }
+  if (message.type === MESSAGES.OFFSCREEN_UPDATE_QUEUE) return updateQueue(message);
 
   if (message.type === MESSAGES.OFFSCREEN_PLAY_INDEX) {
     if (!queue.length) throw new Error("The seamless queue is empty.");
@@ -825,6 +768,8 @@ async function handleCommand(message) {
 
   if (message.type === MESSAGES.OFFSCREEN_DISABLE) {
     ++loadToken;
+    ++mediaRequestToken;
+    pendingSeekTime = null;
     enabled = false;
     autoplayRequested = false;
     scratchActive = false;
@@ -842,7 +787,6 @@ async function handleCommand(message) {
     audio.pause();
     audio.removeAttribute("src");
     audio.load();
-    releaseLoadedAudioSource();
     queue = [];
     currentIndex = -1;
     sendState(true);
@@ -862,7 +806,9 @@ async function handleCommand(message) {
     }
     if (audio.paused) {
       autoplayRequested = true;
-      await audio.play();
+      const request = ++mediaRequestToken;
+      const started = await playForMediaRequest(request);
+      if (!started) return stateSnapshot();
     } else {
       autoplayRequested = false;
       audio.pause();
@@ -872,15 +818,24 @@ async function handleCommand(message) {
     return stateSnapshot();
   }
 
+  if (message.type === MESSAGES.OFFSCREEN_PAUSE) {
+    ++mediaRequestToken;
+    pendingSeekTime = null;
+    autoplayRequested = false;
+    scratchActive = false;
+    clearBeatLoop();
+    if (!audio.paused) audio.pause();
+    if (status !== "idle" && status !== "error") status = "paused";
+    updateMediaSession();
+    sendState(true);
+    return stateSnapshot();
+  }
+
   if (message.type === MESSAGES.OFFSCREEN_NEXT) return nextTrack();
   if (message.type === MESSAGES.OFFSCREEN_PREVIOUS) return previousTrack();
 
   if (message.type === MESSAGES.OFFSCREEN_SEEK) {
-    clearBeatLoop();
-    const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
-    audio.currentTime = Math.max(0, Math.min(duration || Infinity, finiteNumber(message.currentTime)));
-    sendState(true);
-    return stateSnapshot();
+    return seekToTime(message.currentTime);
   }
 
   if (message.type === MESSAGES.OFFSCREEN_SET_RATE) {
@@ -910,7 +865,7 @@ async function handleCommand(message) {
   if (message.type === MESSAGES.OFFSCREEN_SET_BPM) {
     clearBeatLoop();
     const bpm = Math.round(Math.max(40, Math.min(300, finiteNumber(message.bpm, detectedBpm || 120))) * 10) / 10;
-    const key = trackKey();
+    const key = stableTrackKey(currentTrack());
     if (key) {
       bpmOverrides.set(key, bpm);
       persistBpmOverrides();
@@ -925,7 +880,7 @@ async function handleCommand(message) {
 
   if (message.type === MESSAGES.OFFSCREEN_RESET_BPM) {
     clearBeatLoop();
-    const key = trackKey();
+    const key = stableTrackKey(currentTrack());
     if (key) {
       bpmOverrides.delete(key);
       persistBpmOverrides();
@@ -940,7 +895,7 @@ async function handleCommand(message) {
   }
 
   if (message.type === MESSAGES.OFFSCREEN_ANALYZE_BPM) {
-    const key = trackKey();
+    const key = stableTrackKey(currentTrack());
     if (key) {
       bpmOverrides.delete(key);
       persistBpmOverrides();
@@ -951,60 +906,17 @@ async function handleCommand(message) {
   return stateSnapshot();
 }
 
-audio.addEventListener("play", () => {
-  autoplayRequested = true;
-  status = "playing";
-  updateMediaSession();
-  sendState(true);
-});
-audio.addEventListener("pause", () => {
-  if (enabled && status !== "loading" && status !== "error") {
-    autoplayRequested = false;
-    status = "paused";
-  }
-  updateMediaSession();
-  sendState(true);
-});
-audio.addEventListener("timeupdate", () => sendState());
-audio.addEventListener("durationchange", () => sendState(true));
-audio.addEventListener("ratechange", () => sendState(true));
-audio.addEventListener("ended", () => {
-  nextTrack().catch((error) => {
-    status = "error";
-    playbackError = error.message;
-    sendState(true);
-  });
-});
-audio.addEventListener("error", () => {
-  if (!audio.src) return;
-  autoplayRequested = false;
-  status = "error";
-  playbackError = `Bandcamp stream error ${audio.error?.code || "unknown"}`;
-  sendState(true);
-});
-
-if ("mediaSession" in navigator) {
-  navigator.mediaSession.setActionHandler("play", () => {
-    autoplayRequested = true;
-    return audio.play();
-  });
-  navigator.mediaSession.setActionHandler("pause", () => {
-    autoplayRequested = false;
-    audio.pause();
-  });
-  navigator.mediaSession.setActionHandler("nexttrack", () => nextTrack());
-  navigator.mediaSession.setActionHandler("previoustrack", () => previousTrack());
-  navigator.mediaSession.setActionHandler("seekto", (details) => {
-    if (Number.isFinite(details.seekTime)) audio.currentTime = details.seekTime;
-  });
-}
-
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!message || message.target !== "offscreen") return false;
-  handleCommand(message)
-    .then((result) => sendResponse(message.type === MESSAGES.OFFSCREEN_ANALYZE_TRACKS
-      ? { ok: true, results: result }
-      : { ok: true, state: result }))
-    .catch((error) => sendResponse({ ok: false, error: error.message, state: stateSnapshot() }));
-  return true;
+installOffscreenEvents({
+  audio,
+  handleCommand,
+  nextTrack,
+  previousTrack,
+  seekToTime,
+  sendState,
+  setAutoplayRequested: (value) => { autoplayRequested = value; },
+  setPlaybackError: (value) => { playbackError = value; },
+  setStatus: (value) => { status = value; },
+  shouldUpdatePausedStatus: () => enabled && status !== "loading" && status !== "error",
+  stateSnapshot,
+  updateMediaSession
 });

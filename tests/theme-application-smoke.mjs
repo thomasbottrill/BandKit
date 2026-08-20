@@ -112,6 +112,16 @@ assert.match(source, /applyBandcampPageTheme\(\);\s*applyShadowHeaderTheme\(\);\
 assert.match(source, /appearanceModeControl\.setAttribute\("role", "radiogroup"\)/, "Page colour modes should use one exclusive segmented control");
 assert.match(source, /state\.appearance\.pageAware = mode === "match";[\s\S]*?state\.appearance\.applyToPage = mode === "theme";/, "The appearance segments must keep Match page and Theme pages mutually exclusive");
 assert.match(source, /state\.appearance\.pageAware = !state\.appearance\.applyToPage;/, "Stored appearance preferences must migrate to one exclusive colour mode");
+assert.match(source, /accessibleControlPalette\(\[panelColor, cardColor, activeCardColor\], cardRole\.accent\)/,
+  "Match-page controls must contrast against both the inherited panel and card surfaces");
+assert.match(source, /const panelColor = mixColor\(pageBackground, darkPage \? white : black, darkPage \? 0\.07 : 0\.045\);[\s\S]*?const cardColor = panelColor;[\s\S]*?const cardFooterColor = panelColor;[\s\S]*?const headerColor = panelColor;[\s\S]*?const washColor = panelColor;/,
+  "Match page must give the panel, player, and DJ tools one shared surface with a subtle light/dark-aware offset from the page");
+assert.match(source, /"--hub-wash": colorString\(washColor\)/,
+  "The matched content wash must remain opaque and identical to the shared surface");
+assert.match(source, /state\.appearance\.pageAware && !state\.appearance\.applyToPage\)[\s\S]*?surfaceRaised: palette\.surface,[\s\S]*?footerBackground: palette\.background/,
+  "Match page must prevent More to explore and footer cards from drifting toward white");
+assert.match(source, /accessibleControlPalette\(\[surface, card, activeCard\], cardRole\.accent\)/,
+  "selected-theme controls must contrast against both the panel and card surfaces");
 assert.match(source, /if \(appearanceMode === "theme"\) \{[\s\S]*?hub-theme-combobox/, "Theme controls should only render while Theme pages is active");
 assert.match(source, /pageAware: true,[\s\S]*?applyToPage: false,/, "Match page should remain the default appearance mode");
 assert.match(source, /hub-hide-cart-toggle[\s\S]*?hidePageCart = enabled;[\s\S]*?hideHeaderCart = enabled;/, "One shopping-cart control must update both Bandcamp cart surfaces");

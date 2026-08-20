@@ -1,4 +1,6 @@
 export const MAX_PLAYLIST_ITEMS = 500;
+export const MAX_SAVED_PLAYLISTS = 30;
+export const MAX_SAVED_THEMES = 12;
 export const DEFAULT_DATA_PARENT = "documents";
 export const DEFAULT_DATA_FOLDER = "Bandkit";
 export const FEEDBACK_FORM_URL = "https://fir-fruitadens-b76.notion.site/1ddbcd8a2d994a1c9e6f40906a34d5cd?pvs=105";
@@ -36,10 +38,10 @@ export const defaultState = {
   appearance: {
     pageAware: true,
     applyToPage: false,
-    modernReleasePages: false,
-    hidePageCart: false,
-    hideHeaderCart: false,
-    hideBandcampPlayer: false,
+    modernReleasePages: true,
+    hidePageCart: true,
+    hideHeaderCart: true,
+    hideBandcampPlayer: true,
     preset: "studio",
     customAccent: "#1da0c3",
     customScrubAccent: null,
@@ -82,6 +84,7 @@ export const defaultState = {
   playlistView: "current",
   selectedSavedPlaylistId: null,
   dataFolderName: "",
+  dataFolderSetup: false,
   sectionPanelHeight: null,
   wishlistTrackKeys: [],
   activity: []

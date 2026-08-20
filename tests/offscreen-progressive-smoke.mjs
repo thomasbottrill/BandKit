@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { performance } from "node:perf_hooks";
 
-let activeMediaSource = null;
 let messageListener;
-let firstChunkAt = 0;
-let finalChunkAt = 0;
 let holdMetadata = false;
 let releaseHeldMetadata = null;
+let interruptedPlayAttempts = 0;
+let nativeLoads = 0;
+let objectUrlCreations = 0;
+const fetchRequests = [];
 
 class FakeAudio extends EventTarget {
   constructor() {
@@ -22,9 +23,14 @@ class FakeAudio extends EventTarget {
     this.volume = 1;
     this.src = "";
     this.error = null;
+    this.buffered = { length: 0, start: () => 0, end: () => 0 };
   }
 
   async play() {
+    if (interruptedPlayAttempts > 0) {
+      interruptedPlayAttempts -= 1;
+      throw new DOMException("The play() request was interrupted by a call to pause().", "AbortError");
+    }
     this.paused = false;
     this.dispatchEvent(new Event("play"));
   }
@@ -35,8 +41,18 @@ class FakeAudio extends EventTarget {
   }
 
   load() {
-    if (!this.src || !activeMediaSource || activeMediaSource.readyState !== "closed") return;
-    queueMicrotask(() => activeMediaSource.open());
+    if (!this.src) return;
+    nativeLoads += 1;
+    this.paused = true;
+    this.readyState = 0;
+    queueMicrotask(() => {
+      const emitMetadata = () => {
+        this.readyState = 1;
+        this.dispatchEvent(new Event("loadedmetadata"));
+      };
+      if (holdMetadata) releaseHeldMetadata = emitMetadata;
+      else emitMetadata();
+    });
   }
 
   removeAttribute(name) {
@@ -44,38 +60,6 @@ class FakeAudio extends EventTarget {
     this.src = "";
     this.readyState = 0;
   }
-}
-
-const fakeAudio = new FakeAudio();
-
-class FakeSourceBuffer extends EventTarget {
-  appendBuffer() {
-    queueMicrotask(() => {
-      if (!fakeAudio.readyState) {
-        const emitMetadata = () => {
-          fakeAudio.readyState = 1;
-          fakeAudio.dispatchEvent(new Event("loadedmetadata"));
-        };
-        if (holdMetadata) releaseHeldMetadata = emitMetadata;
-        else emitMetadata();
-      }
-      this.dispatchEvent(new Event("updateend"));
-    });
-  }
-}
-
-class FakeMediaSource extends EventTarget {
-  static isTypeSupported(type) { return type === "audio/mpeg"; }
-  constructor() {
-    super();
-    this.readyState = "closed";
-  }
-  open() {
-    this.readyState = "open";
-    this.dispatchEvent(new Event("sourceopen"));
-  }
-  addSourceBuffer() { return new FakeSourceBuffer(); }
-  endOfStream() { this.readyState = "ended"; }
 }
 
 class FakeAudioParam {
@@ -87,43 +71,21 @@ class FakeAudioNode {
   connect(target) { return target; }
 }
 
+const fakeAudio = new FakeAudio();
 globalThis.window = globalThis;
 globalThis.document = { querySelector: () => fakeAudio };
 globalThis.HTMLMediaElement = { HAVE_METADATA: 1 };
-globalThis.MediaSource = FakeMediaSource;
-globalThis.URL.createObjectURL = (value) => {
-  activeMediaSource = value;
-  return `blob:progressive-${Date.now()}`;
+globalThis.URL.createObjectURL = () => {
+  objectUrlCreations += 1;
+  return "blob:unexpected";
 };
 globalThis.URL.revokeObjectURL = () => {};
-globalThis.fetch = async (_url, options = {}) => {
-  let readIndex = 0;
+globalThis.fetch = async (...args) => {
+  fetchRequests.push(args);
   return {
     ok: true,
-    status: 200,
-    body: {
-      getReader() {
-        return {
-          async read() {
-            if (options.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-            if (readIndex === 0) {
-              readIndex += 1;
-              firstChunkAt = performance.now();
-              return { done: false, value: new Uint8Array(64 * 1024) };
-            }
-            if (readIndex === 1) {
-              readIndex += 1;
-              await new Promise((resolve) => setTimeout(resolve, 900));
-              if (options.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-              finalChunkAt = performance.now();
-              return { done: false, value: new Uint8Array(64 * 1024) };
-            }
-            return { done: true };
-          }
-        };
-      }
-    },
-    arrayBuffer: async () => new ArrayBuffer(128 * 1024)
+    status: 206,
+    arrayBuffer: async () => new ArrayBuffer(524_288)
   };
 };
 globalThis.AudioContext = class {
@@ -148,14 +110,20 @@ globalThis.AudioContext = class {
 };
 Object.defineProperty(globalThis, "navigator", { value: {}, configurable: true });
 globalThis.chrome = {
-  storage: { local: { async get() { return {}; }, async set() {} } },
   runtime: {
     onMessage: { addListener(listener) { messageListener = listener; } },
-    sendMessage() { return Promise.resolve({ ok: true }); }
+    sendMessage(message) {
+      if (message.type === "BANDCAMP_HUB_OFFSCREEN_GET_ANALYSIS_STORAGE") {
+        return Promise.resolve({ ok: true, bpmCorrections: {}, trackAnalysisCache: {} });
+      }
+      return Promise.resolve({ ok: true });
+    }
   }
 };
 
-await import(`../src/offscreen/index.js?progressive-smoke=${Date.now()}`);
+await import(`../src/offscreen/index.js?native-start-smoke=${Date.now()}`);
+assert.equal(fakeAudio.crossOrigin, "anonymous",
+  "native Bandcamp streams must remain audible through the Web Audio effects graph");
 
 function send(message) {
   return new Promise((resolve) => {
@@ -179,53 +147,39 @@ let response = await send({
   rate: 1,
   preservePitch: true
 });
-const firstPlaybackAt = performance.now();
 assert.equal(response.ok, true);
 assert.equal(response.state.track.title, "One");
 assert.equal(response.state.isPlaying, true);
-assert.ok(firstChunkAt >= start);
-assert.equal(finalChunkAt, 0, "playback must start before the full MP3 finishes downloading");
-assert.ok(firstPlaybackAt - start < 250, `progressive playback took ${Math.round(firstPlaybackAt - start)}ms`);
+assert.equal(fakeAudio.src, queue[0].url);
+assert.ok(performance.now() - start < 250, "initial native playback must start without a metadata gate");
 
 const switchStart = performance.now();
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_PLAY_INDEX", index: 1, autoplay: true });
-const switchFinished = performance.now();
-assert.equal(response.ok, true);
 assert.equal(response.state.track.title, "Two");
 assert.equal(response.state.isPlaying, true);
-assert.ok(switchFinished - switchStart < 250, `progressive track switch took ${Math.round(switchFinished - switchStart)}ms`);
-
-await new Promise((resolve) => setTimeout(resolve, 1000));
-response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_GET_STATE" });
-assert.equal(response.state.track.title, "Two");
-assert.equal(response.state.isPlaying, true);
-assert.equal(response.state.status, "playing");
+assert.equal(fakeAudio.src, queue[1].url);
+assert.ok(performance.now() - switchStart < 250, "native queue switches must start immediately");
+assert.equal(nativeLoads, 2, "each requested track must attach its Bandcamp URL exactly once");
+assert.equal(objectUrlCreations, 0, "playback must not detour through a MediaSource object URL");
 
 holdMetadata = true;
 releaseHeldMetadata = null;
-const loadingPlayback = send({
-  type: "BANDCAMP_HUB_OFFSCREEN_ENABLE",
-  queue,
-  index: 0,
-  currentTime: 0,
-  autoplay: true,
-  rate: 1,
-  preservePitch: true
-});
-await new Promise((resolve) => setTimeout(resolve, 20));
-response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_PLAY_PAUSE" });
-assert.equal(response.state.status, "loading");
-assert.equal(response.state.isPlaying, false);
-assert.ok(releaseHeldMetadata, "the fixture should still be holding the loading track's metadata");
+const slowMetadataStart = performance.now();
+response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_PLAY_INDEX", index: 0, autoplay: true });
+assert.equal(response.state.isPlaying, true);
+assert.ok(performance.now() - slowMetadataStart < 250,
+  "autoplay must not wait for a separate loadedmetadata round trip");
 holdMetadata = false;
-releaseHeldMetadata();
-response = await loadingPlayback;
-assert.equal(response.state.track.title, "One");
-assert.equal(response.state.status, "paused", "pausing during a load must cancel the pending autoplay intent");
-assert.equal(response.state.isPlaying, false, "a completed background load must not resurrect paused playback");
-await new Promise((resolve) => setTimeout(resolve, 950));
-response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_GET_STATE" });
-assert.equal(response.state.status, "paused");
-assert.equal(response.state.isPlaying, false, "the fully downloaded stream must remain paused");
+releaseHeldMetadata?.();
 
-console.log("offscreen progressive playback smoke test passed");
+interruptedPlayAttempts = 1;
+response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_PLAY_INDEX", index: 1, autoplay: true });
+assert.equal(response.state.isPlaying, true);
+assert.equal(interruptedPlayAttempts, 0, "a transient interrupted native play must be retried");
+
+await new Promise((resolve) => setTimeout(resolve, 300));
+assert.ok(fetchRequests.every(([, options]) => options?.headers?.Range),
+  "post-start analysis may use bounded range requests but playback must never duplicate the full stream fetch");
+assert.equal(objectUrlCreations, 0);
+
+console.log("offscreen single-request native playback smoke test passed");

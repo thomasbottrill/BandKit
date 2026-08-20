@@ -1,9 +1,16 @@
-<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g id="SVG">
-<path id="Vector" d="M4.16 3.34L12.49 10.005L4.16 16.67V3.34Z" fill="#9CA3AF" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-<g id="Vector_2">
-<path d="M15.83 4.17V15.84Z" fill="#9CA3AF"/>
-<path d="M15.83 4.17V15.84" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-</g>
-</g>
+<!-- @license lucide-static v1.31.0 - ISC -->
+<svg
+  class="lucide lucide-skip-forward"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="#9CA3AF"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M21 4v16" />
+  <path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z" />
 </svg>

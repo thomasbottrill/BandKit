@@ -35,7 +35,7 @@
   <div id="PlaylistPage">
     <div class="playlist-page">
       <div class="tracklist-pane">
-        <ul><li class="track-list-item"><div class="track-meta"><div class="art"><img src="/assets/art-clouds.png" alt=""></div></div><span>Fixture playlist track</span><button class="g-button no-outline icon-only wishlist-button action" aria-label="Add this track to your wishlist">♡</button></li></ul>
+        <ul><li class="track-list-item"><div class="track-meta"><div class="art"><img src="/tests/fixtures/assets/art-clouds.png" alt=""></div></div><span>Fixture playlist track</span><button class="g-button no-outline icon-only wishlist-button action" aria-label="Add this track to your wishlist">♡</button></li></ul>
       </div>
       <div class="track_row_view">Fixture release track</div>
     </div>
@@ -48,8 +48,8 @@
     const fixtureChrome = {
       runtime: {
         lastError: null,
-        getURL: (path) => new URL(`/${path}`, location.href).href,
-        getManifest: () => ({ version: "0.7.7" }),
+        getURL: (path) => new URL(`/dist/unpacked/${path}`, location.href).href,
+        getManifest: () => ({ version: "0.7.8" }),
         sendMessage(_message, callback) { callback?.({ ok: true, state: window.fixturePlaybackState }); },
         onMessage: { addListener() {} }
       },
@@ -65,7 +65,7 @@
     const channel = (value) => { const number = value / 255; return number <= .03928 ? number / 12.92 : ((number + .055) / 1.055) ** 2.4; };
     const luminance = (value) => { const [r, g, b] = channels(value).map(channel); return r * .2126 + g * .7152 + b * .0722; };
     const ratio = (foreground, background) => { const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a); return (values[0] + .05) / (values[1] + .05); };
-    fetch("/cart-autosave.js").then((response) => response.text()).then((source) => eval(source)).then(() => fetch("/content.js")).then((response) => response.text()).then((source) => {
+    fetch("/dist/unpacked/cart-autosave.js").then((response) => response.text()).then((source) => eval(source)).then(() => fetch("/dist/unpacked/content.js")).then((response) => response.text()).then((source) => {
       eval(source.replaceAll("chrome.", "fixtureChrome."));
     }).catch((error) => { document.documentElement.dataset.fixtureError = String(error); });
     window.setTimeout(() => {

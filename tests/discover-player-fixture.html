@@ -21,16 +21,16 @@
   <ul id="user-nav"></ul>
   <div id="DiscoverApp"><div class="full-page-app-wrapper discover-app"><main class="app">
     <ul class="results-grid"><li class="results-grid-item"><div class="card">
-      <div class="image-container"><img src="/assets/art-cobrastyle.png" alt=""><button class="g-button play-pause-button play-button" aria-label="Play">Play</button></div>
+      <div class="image-container"><img src="/tests/fixtures/assets/art-cobrastyle.png" alt=""><button class="g-button play-pause-button play-button" aria-label="Play">Play</button></div>
       <div class="content"><div class="header"><a class="stretch-link" href="https://grid-artist.bandcamp.com/album/grid-album"><div class="title">Grid Fixture Album</div><div class="attribution-meta">by Grid Fixture Artist</div></a></div></div>
     </div></li><li class="results-grid-item custom-domain-card"><div class="card">
-      <div class="image-container"><img src="/assets/art-clouds.png" alt=""><button class="g-button play-pause-button play-button" aria-label="Play">Play</button></div>
+      <div class="image-container"><img src="/tests/fixtures/assets/art-clouds.png" alt=""><button class="g-button play-pause-button play-button" aria-label="Play">Play</button></div>
       <div class="content"><div class="header"><a class="stretch-link" href="https://custom-label.example/album/custom-album"><div class="title">Custom Domain Album</div><div class="attribution-meta">by Custom Domain Artist</div></a></div></div>
     </div></li></ul>
     <button id="append-discover-results" type="button">Append Discover results</button>
     <div class="focused-result">
       <button class="g-button play-pause-button artwork-play-button" aria-label="Pause">Pause</button>
-      <img src="/assets/art-clouds.png" alt="View Fixture Album">
+      <img src="/tests/fixtures/assets/art-clouds.png" alt="View Fixture Album">
       <div class="discover-player">
         <div class="player-top">
           <button class="g-button play-pause-button play-button" aria-label="Pause">Pause</button>
@@ -109,7 +109,7 @@
     const fixtureChrome = {
       runtime: {
         lastError: null,
-        getURL: (path) => new URL(`/${path}`, location.href).href,
+        getURL: (path) => new URL(`/dist/unpacked/${path}`, location.href).href,
         getManifest: () => ({ version: "0.5.14-section-button-unify" }),
         sendMessage(message, callback) {
           window.fixtureMessages.push(message);
@@ -161,8 +161,8 @@
       }
     };
     Promise.all([
-      fetch(`/page-media-bridge.js${location.search}`).then((response) => response.text()),
-      fetch(`/cart-autosave.js${location.search}`).then((response) => response.text()).then((source) => eval(source)).then(() => fetch(`/content.js${location.search}`)).then((response) => response.text())
+      fetch(`/dist/unpacked/page-media-bridge.js${location.search}`).then((response) => response.text()),
+      fetch(`/dist/unpacked/cart-autosave.js${location.search}`).then((response) => response.text()).then((source) => eval(source)).then(() => fetch(`/dist/unpacked/content.js${location.search}`)).then((response) => response.text())
     ]).then(([bridgeSource, contentSource]) => {
       eval(bridgeSource);
       const hiddenDiscoverAudio = new Audio("https://bandcamp.com/stream_redirect?enc=mp3-128&track_id=12345");

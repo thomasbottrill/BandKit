@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 
 let runtimeListener;
 let commandListener;
+let tabRemovedListener;
+let tabUpdatedListener;
 let offscreenCreated = false;
 let offscreenCreateCalls = 0;
 let injected = false;
@@ -12,6 +14,7 @@ let createdBackgroundTab = null;
 let removedTabId = null;
 const reloadedTabIds = [];
 const offscreenMessages = [];
+let bandcampTabs = [{ id: 7, url: "https://artist.bandcamp.com/album/fixture" }];
 const session = {};
 const local = { bandcampHubState: { playlist: [{ title: "Fixture" }] } };
 const digitalOfferFixture = {
@@ -64,9 +67,9 @@ globalThis.fetch = async (url) => ({
   ok: true,
   async text() {
     const tralbum = String(url).includes("free-track")
-      ? { artist: "Fixture Artist", current: { id: 404, type: "track", title: "Free Track", minimum_price: 0 } }
+      ? { artist: "Fixture Artist", FREE: 1, current: { id: 404, type: "track", title: "Free Track", minimum_price: 1.5, download_pref: 1 } }
       : playlistTralbumFixture;
-    return `<meta property="og:image" content="//f4.bcbits.com/img/a-fixture_10.jpg"><script data-tralbum='${JSON.stringify(tralbum)}' data-cart='{&quot;currency&quot;:&quot;AUD&quot;}'></script><script type="application/ld+json">${JSON.stringify(digitalOfferFixture)}</script>`;
+    return `<meta property="og:image" content="//f4.bcbits.com/img/a-fixture_10.jpg"><script data-band-currency="AUD"></script><script data-tralbum='${JSON.stringify(tralbum)}' data-cart='{&quot;currency&quot;:&quot;USD&quot;}'></script><li class="buyItem digital"><button class="buy-link">Free Download</button></li><script type="application/ld+json">${JSON.stringify(digitalOfferFixture)}</script>`;
   }
 });
 
@@ -79,14 +82,19 @@ globalThis.chrome = {
     async sendMessage(message) {
       if (message.target === "offscreen") {
         offscreenMessages.push(message);
+        const previous = message.state || session.bandcampHubPlayback || {};
+        const disabled = message.type.endsWith("DISABLE");
+        const paused = message.type.endsWith("PAUSE") || message.type.endsWith("PLAY_PAUSE");
         return {
           ok: true,
           state: {
-            enabled: true,
-            status: message.type.endsWith("DISABLE") ? "idle" : "paused",
-            queue: message.queue || [],
-            index: message.index || 0,
-            track: message.queue?.[message.index || 0] || null
+            ...previous,
+            enabled: !disabled,
+            status: disabled ? "idle" : paused ? "paused" : previous.status || "paused",
+            isPlaying: false,
+            queue: message.queue || previous.queue || [],
+            index: message.index ?? previous.index ?? 0,
+            track: message.queue?.[message.index || 0] || previous.track || null
           }
         };
       }
@@ -122,7 +130,9 @@ globalThis.chrome = {
     }
   },
   tabs: {
-    async query() { return [{ id: 7, url: "https://artist.bandcamp.com/album/fixture" }]; },
+    onRemoved: { addListener(listener) { tabRemovedListener = listener; } },
+    onUpdated: { addListener(listener) { tabUpdatedListener = listener; } },
+    async query() { return bandcampTabs; },
     async create(details) {
       createdBackgroundTab = { id: details.active === false ? 20 : 19, ...details };
       return createdBackgroundTab;
@@ -164,6 +174,44 @@ let activationResponse = await send({ type: "BANDCAMP_HUB_GET_ENABLED" }, {
   url: "chrome-extension://fixture-extension/popup.html"
 });
 assert.equal(activationResponse.enabled, true, "Bandkit must default to active");
+
+local.bandcampHubBpmCorrections = { "id:101": 123.4 };
+session.bandcampHubTrackAnalysisCache = { "id:101": { bpm: 123.4, key: { camelot: "8A" }, cachedAt: 1 } };
+let analysisStorageResponse = await send({ type: "BANDCAMP_HUB_OFFSCREEN_GET_ANALYSIS_STORAGE" }, {
+  url: "chrome-extension://fixture-extension/offscreen.html"
+});
+assert.deepEqual(analysisStorageResponse.bpmCorrections, local.bandcampHubBpmCorrections);
+assert.deepEqual(analysisStorageResponse.trackAnalysisCache, session.bandcampHubTrackAnalysisCache);
+analysisStorageResponse = await send({
+  type: "BANDCAMP_HUB_OFFSCREEN_SET_ANALYSIS_STORAGE",
+  bpmCorrections: { "id:202": 128 },
+  trackAnalysisCache: { "id:202": { bpm: 128, key: { camelot: "9A" }, cachedAt: 2 } }
+}, { url: "chrome-extension://fixture-extension/offscreen.html" });
+assert.equal(analysisStorageResponse.ok, true);
+assert.deepEqual(local.bandcampHubBpmCorrections, { "id:202": 128 });
+assert.deepEqual(session.bandcampHubTrackAnalysisCache, { "id:202": { bpm: 128, key: { camelot: "9A" }, cachedAt: 2 } });
+const originalAnalysisSessionSet = chrome.storage.session.set;
+let delayedAnalysisWrites = 0;
+chrome.storage.session.set = async (values) => {
+  delayedAnalysisWrites += 1;
+  if (delayedAnalysisWrites === 1) await new Promise((resolve) => setTimeout(resolve, 30));
+  Object.assign(session, values);
+};
+await Promise.all([
+  send({ type: "BANDCAMP_HUB_OFFSCREEN_SET_ANALYSIS_STORAGE", trackAnalysisCache: { old: { bpm: 90 } } }, {
+    url: "chrome-extension://fixture-extension/offscreen.html"
+  }),
+  send({ type: "BANDCAMP_HUB_OFFSCREEN_SET_ANALYSIS_STORAGE", trackAnalysisCache: { newest: { bpm: 120 } } }, {
+    url: "chrome-extension://fixture-extension/offscreen.html"
+  })
+]);
+assert.deepEqual(session.bandcampHubTrackAnalysisCache, { newest: { bpm: 120 } },
+  "analysis cache writes must preserve request order when an earlier storage operation is slower");
+chrome.storage.session.set = originalAnalysisSessionSet;
+analysisStorageResponse = await send({ type: "BANDCAMP_HUB_OFFSCREEN_GET_ANALYSIS_STORAGE" }, {
+  url: "https://artist.bandcamp.com/album/fixture"
+});
+assert.equal(analysisStorageResponse.ok, false, "Bandcamp pages must not receive the offscreen storage bridge");
 
 let response = await send({
   type: "BANDCAMP_HUB_SEAMLESS_ENABLE",
@@ -323,16 +371,21 @@ response = await send({
 }, { url: "https://artist.bandcamp.com/album/fixture" });
 assert.equal(response.ok, true);
 assert.equal(response.items[0].itemType, "track");
-assert.equal(response.items[0].minimumPrice, 0, "name-your-price tracks must preserve an explicit zero minimum");
+assert.equal(response.items[0].minimumPrice, 1.5, "free tracks may expose an internal non-zero price that must not be shown to the user");
 assert.equal(response.items[0].currency, "AUD");
+assert.equal(response.items[0].purchaseStatus, "free");
 
 response = await send({
   type: "BANDCAMP_HUB_SEAMLESS_UPDATE_QUEUE",
-  queue: [{ playlistItemId: "playlist-one", title: "Fixture Track", url: "https://t4.bcbits.com/stream/refreshed-fixture" }]
+  queue: [{ playlistItemId: "playlist-one", title: "Fixture Track", url: "https://t4.bcbits.com/stream/refreshed-fixture" }],
+  selectedPlaylistItemId: "playlist-one",
+  autoplay: true
 }, { url: "https://artist.bandcamp.com/album/fixture" });
 assert.equal(response.ok, true);
 assert.equal(offscreenMessages.at(-1).type, "BANDCAMP_HUB_OFFSCREEN_UPDATE_QUEUE");
 assert.equal(offscreenMessages.at(-1).queue[0].playlistItemId, "playlist-one");
+assert.equal(offscreenMessages.at(-1).selectedPlaylistItemId, "playlist-one");
+assert.equal(offscreenMessages.at(-1).autoplay, true);
 
 response = await send({
   type: "BANDCAMP_HUB_SEAMLESS_PLAY_INDEX",
@@ -446,6 +499,33 @@ assert.deepEqual(tabMessages
 "offscreen state broadcasts must preserve arrival order");
 chrome.storage.session.set = originalSessionSet;
 
+offscreenCreated = true;
+session.bandcampHubPlayback = {
+  enabled: true,
+  status: "playing",
+  isPlaying: true,
+  currentTime: 74,
+  index: 0,
+  queue: playbackQueue,
+  track: playbackQueue[0]
+};
+offscreenMessages.length = 0;
+bandcampTabs = [];
+await tabRemovedListener(7, { isWindowClosing: false });
+assert.equal(offscreenMessages.at(-1).type, "BANDCAMP_HUB_OFFSCREEN_PAUSE",
+  "closing the final Bandcamp tab must explicitly pause background audio");
+assert.equal(offscreenCreated, true, "last-tab pause must retain the offscreen queue for a later resume");
+assert.equal(session.bandcampHubPlayback.status, "paused");
+assert.equal(session.bandcampHubPlayback.currentTime, 74);
+assert.deepEqual(session.bandcampHubPlayback.queue, playbackQueue);
+
+session.bandcampHubPlayback = { ...session.bandcampHubPlayback, status: "playing", isPlaying: true };
+offscreenMessages.length = 0;
+await tabUpdatedListener(7, { url: "https://example.com/" });
+assert.equal(offscreenMessages.at(-1).type, "BANDCAMP_HUB_OFFSCREEN_PAUSE",
+  "navigating the final Bandcamp tab away must also pause background audio");
+
+bandcampTabs = [{ id: 7, url: "https://artist.bandcamp.com/album/fixture" }];
 await commandListener("toggle-bandkit");
 assert.equal(injected, true);
 assert.deepEqual(injectedFiles, ["cart-autosave.js", "content.js"]);

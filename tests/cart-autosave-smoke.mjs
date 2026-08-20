@@ -83,4 +83,35 @@ const emptyUpdate = autosave.upsertAutoSavedCart(legacyDuplicates, [], { savedAt
 assert.equal(emptyUpdate.savedCarts.filter(autosave.isAutoSavedCart).length, 1);
 assert.equal(emptyUpdate.savedCarts[0].savedAt, "2026-08-03T00:00:00.000Z", "an empty live cart must not update the autosave");
 
+const fullNamedCarts = Array.from({ length: autosave.MAX_SAVED_CARTS }, (_, index) => ({
+  id: `full-${index}`,
+  name: `Saved cart ${index + 1}`,
+  savedAt: new Date(Date.UTC(2026, 7, 6, 0, index)).toISOString(),
+  items: [item(1000 + index)]
+}));
+const rejectedAtCapacity = autosave.saveNamedCart(fullNamedCarts, [item(2000)], "Must not evict");
+assert.equal(rejectedAtCapacity.snapshot, null, "saving at capacity must be rejected");
+assert.equal(rejectedAtCapacity.atCapacity, true);
+assert.deepEqual(rejectedAtCapacity.savedCarts.map(({ id }) => id), fullNamedCarts.map(({ id }) => id), "a rejected save must preserve every named cart");
+
+const suppressedAutosave = autosave.upsertAutoSavedCart(fullNamedCarts, [item(3000)], { savedAt: "2026-08-06T02:00:00.000Z" });
+assert.equal(suppressedAutosave.atCapacity, true, "a new recovery entry should report a full saved-cart collection");
+assert.equal(suppressedAutosave.savedCarts.filter(autosave.isAutoSavedCart).length, 0);
+assert.deepEqual(suppressedAutosave.savedCarts.map(({ id }) => id), fullNamedCarts.map(({ id }) => id), "autosave must never evict a named cart");
+
+const fullWithMatchingAutosave = [
+  {
+    id: autosave.AUTO_SAVED_CART_ID,
+    name: "Auto-saved cart",
+    autoSaved: true,
+    savedAt: "2026-08-06T03:00:00.000Z",
+    items: [item(4000)]
+  },
+  ...fullNamedCarts.slice(0, autosave.MAX_SAVED_CARTS - 1)
+];
+const promotedAtCapacity = autosave.saveNamedCart(fullWithMatchingAutosave, [item(4000)], "Promoted recovery cart", { id: "promoted-full" });
+assert.equal(promotedAtCapacity.snapshot?.id, "promoted-full", "promoting the matching autosave must remain possible at capacity");
+assert.equal(promotedAtCapacity.savedCarts.length, autosave.MAX_SAVED_CARTS);
+assert.equal(promotedAtCapacity.savedCarts.filter(autosave.isAutoSavedCart).length, 0);
+
 console.log("cart autosave smoke test passed");

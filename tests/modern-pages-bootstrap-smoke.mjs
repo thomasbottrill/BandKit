@@ -58,9 +58,9 @@ assert.equal(result.dataset.bandkitModernPageType, undefined);
 assert.equal(result.dataset.bandkitModernPending, undefined);
 assert.equal(result.dataset.bandkitModernReady, "true");
 
-result = bootstrap({ hostname: "artist.bandcamp.com", pathname: "/album/default-off" });
-assert.equal(result.dataset.bandkitModernPage, "false", "Modern pages must remain opt-in when no preference is stored");
-assert.equal(result.dataset.bandkitModernPending, undefined);
+result = bootstrap({ hostname: "artist.bandcamp.com", pathname: "/album/default-on" });
+assert.equal(result.dataset.bandkitModernBootstrap, "true", "Modern pages must start enabled when no preference is stored");
+assert.equal(result.dataset.bandkitModernPending, "true");
 
 result = bootstrap({ hostname: "artist.bandcamp.com", pathname: "/album/deactivated", enabled: true, globallyEnabled: false });
 assert.equal(result.dataset.bandkitEnabled, "false");

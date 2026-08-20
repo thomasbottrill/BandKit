@@ -15,14 +15,7 @@ export default [
       ".cache/**",
       "dist/**",
       "node_modules/**",
-      "background.js",
-      "cart-autosave.js",
-      "content.js",
-      "feed-redirect.js",
-      "modern-pages-bootstrap.js",
-      "offscreen.js",
-      "page-media-bridge.js",
-      "popup.js"
+      "privacy/**"
     ]
   },
   {
@@ -36,6 +29,8 @@ export default [
       "no-async-promise-executor": "error",
       "no-constant-binary-expression": "error",
       "no-duplicate-imports": "error",
+      "max-lines": ["error", { "max": 1000, "skipBlankLines": false, "skipComments": false }],
+      "max-lines-per-function": ["error", { "max": 200, "skipBlankLines": true, "skipComments": true, "IIFEs": true }],
       "no-promise-executor-return": "error",
       "no-undef": "error",
       "no-unreachable": "error",
@@ -52,7 +47,8 @@ export default [
         console: "readonly",
         process: "readonly",
         setTimeout: "readonly",
-        structuredClone: "readonly"
+        structuredClone: "readonly",
+        URL: "readonly"
       }
     }
   }

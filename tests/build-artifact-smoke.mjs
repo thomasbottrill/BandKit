@@ -21,10 +21,9 @@ for (const filename of runtimeFiles) {
   assert.ok(fs.existsSync(path.join(outputDirectory, filename)), `Missing built runtime file: ${filename}`);
 }
 
-for (const filename of ["hub.css", "modern-release.css"]) {
-  const rootCompatibilityCss = fs.readFileSync(path.join(projectDirectory, filename), "utf8");
-  assert.doesNotMatch(rootCompatibilityCss, /@import\s/, `${filename} must remain bundled for existing root-loaded developer installs`);
-  assert.ok(rootCompatibilityCss.length > 1000, `${filename} must contain the complete bundled stylesheet`);
+const obsoleteRootRuntimes = [...runtimeFiles].filter((name) => /\.(?:js|css)$/.test(name));
+for (const filename of obsoleteRootRuntimes) {
+  assert.ok(!fs.existsSync(path.join(projectDirectory, filename)), `Generated runtime must only exist under dist/unpacked: ${filename}`);
 }
 
 for (const filename of fs.readdirSync(outputDirectory).filter((name) => name.endsWith(".js"))) {
@@ -34,23 +33,24 @@ for (const filename of fs.readdirSync(outputDirectory).filter((name) => name.end
 }
 
 const packagedAssets = fs.readdirSync(path.join(outputDirectory, "assets")).sort();
-function sourceFiles(directory) {
+function nestedFiles(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const entryPath = path.join(directory, entry.name);
-    return entry.isDirectory() ? sourceFiles(entryPath) : [entryPath];
+    return entry.isDirectory() ? nestedFiles(entryPath) : [entryPath];
   });
 }
-const sourceText = [
-  ...sourceFiles(path.join(projectDirectory, "src")),
-  path.join(projectDirectory, "popup.html")
-].map((filename) => fs.readFileSync(filename, "utf8")).join("\n");
+const builtText = nestedFiles(outputDirectory)
+  .filter((filename) => /\.(?:css|html|js|json)$/.test(filename))
+  .map((filename) => fs.readFileSync(filename, "utf8"))
+  .join("\n");
 const referencedAssets = new Set([
   ...Object.values(builtManifest.icons).map((value) => path.basename(value)),
   ...Object.values(builtManifest.action.default_icon).map((value) => path.basename(value)),
-  ...[...sourceText.matchAll(/icon-[a-z0-9-]+\.svg/g)].map((match) => match[0])
+  ...[...builtText.matchAll(/icon-[a-z0-9-]+\.svg/g)].map((match) => match[0])
 ]);
 assert.deepEqual(packagedAssets, [...referencedAssets].sort(), "The unpacked build must contain exactly the referenced assets");
 assert.ok(!fs.existsSync(path.join(outputDirectory, "src")));
 assert.ok(!fs.existsSync(path.join(outputDirectory, "tests")));
+assert.ok(fs.existsSync(path.join(outputDirectory, "THIRD_PARTY_NOTICES.md")));
 
 console.log("Built extension composition checks passed.");

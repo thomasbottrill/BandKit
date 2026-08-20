@@ -62,7 +62,7 @@ import { STORAGE_KEYS } from "../shared/contracts.js";
       return;
     }
     root.dataset.bandkitEnabled = "true";
-    const enabled = stored?.[STORAGE_KEYS.STATE]?.appearance?.modernReleasePages === true;
+    const enabled = stored?.[STORAGE_KEYS.STATE]?.appearance?.modernReleasePages !== false;
     if (!enabled) restoreClassicPage();
   });
 })();

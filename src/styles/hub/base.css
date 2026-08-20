@@ -80,7 +80,8 @@
   .hub-settings-select,
   .hub-settings-number,
   .hub-data-home-row,
-  .hub-player-more-menu
+  .hub-player-more-menu,
+  .hub-toolbar-actions-menu
 ) {
   --hub-accent: var(--hub-card-accent);
   --hub-accent-soft: var(--hub-card-accent-soft);
@@ -348,9 +349,9 @@ button {
 
 .hub-panel {
   background: var(--hub-panel);
-  border: 1px solid var(--hub-line);
+  border: 1px solid color-mix(in srgb, var(--hub-line) 55%, transparent);
   border-radius: 8px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 8px 22px -14px rgba(0, 0, 0, 0.18);
   display: flex;
   flex-direction: column;
   height: min(1396px, calc(100vh - 112px));
@@ -571,14 +572,13 @@ button {
   mask-position: center;
   mask-repeat: no-repeat;
   mask-size: contain;
-  transition: background-color 120ms ease, opacity 120ms ease, transform 120ms ease;
+  transition: background-color 120ms ease, opacity 120ms ease;
   width: 20px;
 }
 
 .hub-tab:hover .hub-tab-icon {
   background: var(--hub-tab-foreground);
   opacity: 1;
-  transform: translateY(-1px);
 }
 
 .hub-tab.is-active .hub-tab-icon {
@@ -619,11 +619,33 @@ button {
   padding: 16px;
 }
 
-.hub-content::-webkit-scrollbar {
+.hub-content.is-section-layout {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.hub-content-pinned {
+  flex: 0 0 auto;
+  padding: 16px 16px 0;
+}
+
+.hub-content-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0 16px 16px;
+}
+
+.hub-content::-webkit-scrollbar,
+.hub-content-scroll::-webkit-scrollbar {
   width: 8px;
 }
 
-.hub-content::-webkit-scrollbar-thumb {
+.hub-content::-webkit-scrollbar-thumb,
+.hub-content-scroll::-webkit-scrollbar-thumb {
   background: #d1d5db;
   border: 2px solid transparent;
   border-radius: 999px;

@@ -16,8 +16,12 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-video-section {
+    margin-bottom: 26px;
+  }
+
   html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-body {
-    gap: 26px;
+    gap: 0;
   }
 }
 
@@ -105,6 +109,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-video-section {
+    margin-bottom: 28px;
+  }
+
   html[data-bandkit-modern-release="true"] body.tralbum-page #name-section {
     padding-bottom: 2px !important;
   }
@@ -119,9 +127,37 @@
     width: 100% !important;
   }
 
+  html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player table {
+    max-width: 100% !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .play_cell {
+    width: 90px !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player :is(.track_cell, .progbar_cell) {
+    min-width: 0 !important;
+    width: auto !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player :is(.track_info, .progbar) {
+    margin-left: 0 !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+
   html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-body,
   html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn {
     display: grid;
+    gap: 28px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-body {
+    gap: 0;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page :is(.bandkit-modern-profile-section, .bandkit-modern-info-section) {
     gap: 28px;
     grid-template-columns: minmax(0, 1fr);
   }
@@ -149,4 +185,19 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+}
+
+@media (max-width: 380px) {
+  html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .track_info {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .title-section {
+    width: 100% !important;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .track_info > .bandkit-track-analysis.is-inline {
+    grid-column: 1;
+    grid-row: 3;
+  }
 }

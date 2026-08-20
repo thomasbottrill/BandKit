@@ -17,7 +17,7 @@
       <li class="track-list-item currently-playing">
         <div class="meta-wrapper-wide">
           <div class="track-meta" id="modern-1" duration="180" streamurl="https://t4.bcbits.com/stream/modern-one/mp3-128/1">
-            <img src="/assets/art-clouds.png" alt="">
+            <img src="/tests/fixtures/assets/art-clouds.png" alt="">
             <a class="meta" href="https://fixture-artist.bandcamp.com/track/modern-one">
               <span class="title-text">Modern One</span><span class="artist-name">by Fixture Artist</span>
             </a>
@@ -27,7 +27,7 @@
       <li class="track-list-item">
         <div class="meta-wrapper-wide">
           <div class="track-meta" id="modern-2" duration="210" streamurl="https://t4.bcbits.com/stream/modern-two/mp3-128/2">
-            <img src="/assets/art-cobrastyle.png" alt="">
+            <img src="/tests/fixtures/assets/art-cobrastyle.png" alt="">
             <a class="meta" href="https://fixture-artist.bandcamp.com/album/modern-two-release">
               <span class="title-text">Modern Two</span><span class="artist-name">by Fixture Artist</span>
             </a>
@@ -154,6 +154,7 @@
       });
     }
     window.fixtureDownloads = [];
+    window.confirm = () => true;
     URL.createObjectURL = (blob) => {
       window.fixtureDownloads.push({ blob, filename: "" });
       return `blob:fixture-${window.fixtureDownloads.length}`;
@@ -172,6 +173,8 @@
         open: true,
         activeTab: "playlist",
         playlistView: "saved",
+        dataFolderSetup: true,
+        dataFolderName: "Fixture/Bandkit",
         playlist: [
           { playlistItemId: "playlist-modern-one", id: "modern-1", title: "Modern One", artist: "Fixture Artist", album: "Fixture release", pageUrl: "https://fixture-artist.bandcamp.com/track/modern-one", artistUrl: "https://fixture-artist.bandcamp.com/", duration: 180, url: "https://t4.bcbits.com/stream/modern-one/mp3-128/1" }
         ],
@@ -180,14 +183,15 @@
           name: "Fixture set",
           savedAt: "2026-08-04T10:00:00.000Z",
           items: [
-            { playlistItemId: "playlist-modern-one", id: "modern-1", title: "Modern One", artist: "Fixture Artist", album: "Fixture release", art: "http://127.0.0.1:8765/assets/art-clouds.png", pageUrl: "https://fixture-artist.bandcamp.com/track/modern-one", artistUrl: "https://fixture-artist.bandcamp.com/", duration: 180, url: "https://t4.bcbits.com/stream/modern-one/mp3-128/1" },
-            { playlistItemId: "playlist-modern-two", id: "modern-2", title: "Modern Two", artist: "Fixture Artist", album: "Fixture release", art: "http://127.0.0.1:8765/assets/art-cobrastyle.png", pageUrl: "https://fixture-artist.bandcamp.com/album/modern-two-release", artistUrl: "https://fixture-artist.bandcamp.com/", duration: 210, url: "https://t4.bcbits.com/stream/modern-two/mp3-128/2" }
+            { playlistItemId: "playlist-modern-one", id: "modern-1", title: "Modern One", artist: "Fixture Artist", album: "Fixture release", art: "http://127.0.0.1:8765/tests/fixtures/assets/art-clouds.png", pageUrl: "https://fixture-artist.bandcamp.com/track/modern-one", artistUrl: "https://fixture-artist.bandcamp.com/", duration: 180, url: "https://t4.bcbits.com/stream/modern-one/mp3-128/1" },
+            { playlistItemId: "playlist-modern-two", id: "modern-2", title: "Modern Two", artist: "Fixture Artist", album: "Fixture release", art: "http://127.0.0.1:8765/tests/fixtures/assets/art-cobrastyle.png", pageUrl: "https://fixture-artist.bandcamp.com/album/modern-two-release", artistUrl: "https://fixture-artist.bandcamp.com/", duration: 210, url: "https://t4.bcbits.com/stream/modern-two/mp3-128/2" }
           ]
         }]
       }
     } : {};
     if (location.search.includes("playlist-page-track")) {
       window.fixtureStored = { bandcampHubState: {
+        dataFolderSetup: true,
         open: true,
         activeTab: "nowPlaying",
         playlistMode: "manual",
@@ -217,6 +221,7 @@
     }
     if (location.search.includes("appearance-reskin")) {
       window.fixtureStored = { bandcampHubState: {
+        dataFolderSetup: true,
         open: true,
         activeTab: "settings",
         appearance: { pageAware: false, applyToPage: true, preset: "midnight", savedThemes: [] }
@@ -227,7 +232,7 @@
     const fixtureChrome = {
       runtime: {
         lastError: null,
-        getURL: (path) => new URL(`/${path}`, location.href).href,
+        getURL: (path) => new URL(`/dist/unpacked/${path}`, location.href).href,
         getManifest: () => ({ version: "0.5.14" }),
         sendMessage(message, callback) {
           window.fixtureMessages.push(structuredClone(message));
@@ -248,8 +253,8 @@
                 ...item,
                 artist: "Repaired Artist",
                 art: index
-                  ? "http://127.0.0.1:8765/assets/art-cobrastyle.png"
-                  : "http://127.0.0.1:8765/assets/art-clouds.png"
+                  ? "http://127.0.0.1:8765/tests/fixtures/assets/art-cobrastyle.png"
+                  : "http://127.0.0.1:8765/tests/fixtures/assets/art-clouds.png"
               })) });
             } else if (location.search.includes("rapid-switch")) {
               window.setTimeout(() => callback?.({ ok: true, items: message.items }), message.items[0]?.title === "Modern One" ? 220 : 20);
@@ -312,7 +317,7 @@
       }
       return fixtureFetch(input, init);
     };
-    fetch(`/cart-autosave.js${location.search}`).then((response) => response.text()).then((source) => eval(source)).then(() => fetch(`/content.js${location.search}`)).then((response) => response.text()).then((source) => {
+    fetch(`/dist/unpacked/cart-autosave.js${location.search}`).then((response) => response.text()).then((source) => eval(source)).then(() => fetch(`/dist/unpacked/content.js${location.search}`)).then((response) => response.text()).then((source) => {
       eval(source.replaceAll("chrome.", "fixtureChrome."));
       if (location.search.includes("playlist-page-rapid")) {
         playlistPageControl.click();
@@ -534,6 +539,12 @@
         return;
       }
       if (location.search.includes("saved-playlists")) {
+        for (let attempt = 0; attempt < 40; attempt += 1) {
+          const controlSize = getComputedStyle(root?.querySelector(".hub-panel"))
+            .getPropertyValue("--hub-control-size").trim();
+          if (controlSize === "30px") break;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
         const panelTitle = root?.querySelector(".hub-title");
         const importRow = root?.querySelector(".hub-playlist-import-row");
         const importButton = importRow?.querySelector(".hub-playlist-import-button");
@@ -568,10 +579,8 @@
         const playlistCards = [...(root?.querySelectorAll(".hub-saved-playlist-card") || [])];
         const importedCard = playlistCards.find((entry) => entry.textContent.includes("Imported fixture"));
         const legacyCard = playlistCards.find((entry) => entry.textContent.includes("Legacy fixture"));
-        const playlistShortcut = root?.querySelector('.hub-header-shortcut[data-tab="playlist"]');
-        const playlistShortcutBadge = playlistShortcut?.querySelector(".hub-playlist-shortcut-count");
-        const playlistTab = root?.querySelector('.hub-tab[data-tab="playlist"]');
-        const playlistTabBadge = playlistTab?.querySelector(".hub-tab-dot");
+        const playlistShortcut = root?.querySelector(".hub-now-playing-button");
+        const playlistShortcutBadge = playlistShortcut?.querySelector(".hub-now-playing-count");
         const card = playlistCards.find((entry) => entry.textContent.includes("Fixture set"));
         const cardActions = [...(card?.querySelectorAll(".hub-saved-playlist-icon-button") || [])];
         const cardPlay = card?.querySelector(".hub-saved-playlist-play-button");
@@ -606,68 +615,91 @@
         firstTrackActions?.querySelector("button")?.focus();
         await new Promise((resolve) => setTimeout(resolve, 120));
         const detailTrackActionsFocused = getComputedStyle(firstTrackActions).opacity === "1";
-        const flattenedDetail = panelTitle?.textContent.includes("Playlists")
-          && !root?.querySelector(".hub-content [role='tab']")
-          && card?.textContent.includes("Fixture set")
-          && card?.textContent.includes("2 tracks")
-          && cardActions.length === 5
-          && cardPlay?.textContent.trim() === "Play"
-          && cardPlayProminent
-          && cardActions.some((button) => button.getAttribute("aria-label") === "Restore Fixture set to cart")
-          && cardActions.some((button) => button.getAttribute("aria-label") === "Share Fixture set as HTML")
-          && !cardActions.some((button) => button.getAttribute("aria-label")?.includes("Replace Now Playing"))
-          && importButton?.textContent.includes("Import")
-          && importedCard?.textContent.includes("Imported Track")
-          && legacyCard?.textContent.includes("Legacy Track")
-          && playlistShortcutBadge?.textContent === "3"
-          && playlistTabBadge?.textContent === "3"
-          && playlistShortcut?.getAttribute("aria-label") === "Playlists, 3 saved"
-          && mosaicImages?.length === 2
-          && cardActions.every((button) => !button.textContent.trim() && button.getAttribute("aria-label"))
-          && cardSingleSurface
-          && cardActionsBare
-          && focusedCardActionBacked
-          && detailToolbar?.querySelector(".hub-saved-playlist-detail-title")?.textContent === "Fixture set"
-          && !root?.querySelector(".hub-saved-playlist-detail-heading")
-          && !detailToolbar?.querySelector(".hub-saved-playlist-icon-button")
-          && detailActionRow?.querySelector(".hub-cart-backup-time")?.textContent === "2 tracks · 6:30"
-          && detailActions.length === 6
-          && detailActions.at(-1)?.classList.contains("is-delete")
-          && detailActions.some((button) => button.getAttribute("aria-label")?.startsWith("Download "))
-          && shareAction
-          && exportedDownload?.filename.endsWith(".html")
-          && exportedPayload?.format === "bandkit-playlist"
-          && exportedPayload?.name === "Fixture set"
-          && exportedPayload?.items?.length === 2
-          && exportedDocument.querySelectorAll(".item").length === 2
-          && exportedDocument.querySelectorAll("img.art").length === 2
-          && exportedDocument.querySelector(".item .byline")?.textContent.includes("Fixture Artist")
-          && exportedDocument.querySelector(".item .album")?.textContent.includes("Fixture release")
-          && detailActions.every((button) => getComputedStyle(button).width === "30px" && getComputedStyle(button).height === "30px" && getComputedStyle(button).borderRadius === "5px" && getComputedStyle(button.querySelector(".hub-button-icon")).width === "14px")
-          && getComputedStyle(detailActionRow.querySelector(".hub-saved-playlist-icon-actions")).gap === "6px"
-          && getComputedStyle(detailActions.at(-1)).marginLeft === "0px"
-          && backButton?.querySelector(".hub-button-icon")
-          && detailTracks?.length === 2;
+        const flattenedChecks = {
+          panelTitle: panelTitle?.textContent.includes("Playlists"),
+          noNestedTabs: !root?.querySelector(".hub-content [role='tab']"),
+          cardName: card?.textContent.includes("Fixture set"),
+          cardCount: card?.textContent.includes("2 tracks"),
+          cardActions: cardActions.length === 5,
+          playLabel: cardPlay?.textContent.trim() === "Play",
+          playProminent: cardPlayProminent,
+          restore: cardActions.some((button) => button.getAttribute("aria-label") === "Restore Fixture set to cart"),
+          share: cardActions.some((button) => button.getAttribute("aria-label") === "Share Fixture set as HTML"),
+          noReplace: !cardActions.some((button) => button.getAttribute("aria-label")?.includes("Replace Now Playing")),
+          importButton: importButton?.getAttribute("aria-label") === "Import playlist",
+          importedCard: importedCard?.textContent.includes("Imported Track"),
+          legacyCard: legacyCard?.textContent.includes("Legacy Track"),
+          shortcutBadge: playlistShortcutBadge?.textContent === "3",
+          shortcutLabel: playlistShortcut?.getAttribute("aria-label") === "Playlists, 3 saved",
+          shortcutView: playlistShortcut?.dataset.view === "saved",
+          shortcutIcon: playlistShortcut?.querySelector(".hub-now-playing-icon")?.getAttribute("style")?.includes("icon-playlist.svg"),
+          shortcutCount: root?.querySelectorAll(".hub-player-sections > .hub-now-playing-button, .hub-player-sections .hub-header-shortcut").length === 4,
+          noDuplicateShortcut: !root?.querySelector('.hub-header-shortcut[data-tab="playlist"]'),
+          mosaic: mosaicImages?.length === 2,
+          labelledCardActions: cardActions.every((button) => !button.textContent.trim() && button.getAttribute("aria-label")),
+          cardSurface: cardSingleSurface,
+          bareCardActions: cardActionsBare,
+          focusedCardAction: focusedCardActionBacked,
+          detailTitle: detailToolbar?.querySelector(".hub-saved-playlist-detail-title")?.textContent === "Fixture set",
+          noDuplicateHeading: !root?.querySelector(".hub-saved-playlist-detail-heading"),
+          cleanToolbar: !detailToolbar?.querySelector(".hub-saved-playlist-icon-button"),
+          detailSummary: detailActionRow?.querySelector(".hub-cart-backup-time")?.textContent === "2 tracks · 6:30",
+          detailActionCount: detailActions.length === 6,
+          deleteLast: detailActions.at(-1)?.classList.contains("is-delete"),
+          downloadAction: detailActions.some((button) => button.getAttribute("aria-label")?.startsWith("Download ")),
+          shareAction: Boolean(shareAction),
+          downloadFilename: exportedDownload?.filename.endsWith(".html"),
+          exportFormat: exportedPayload?.format === "bandkit-playlist",
+          exportName: exportedPayload?.name === "Fixture set",
+          exportCount: exportedPayload?.items?.length === 2,
+          exportRows: exportedDocument.querySelectorAll(".item").length === 2,
+          exportArt: exportedDocument.querySelectorAll("img.art").length === 2,
+          exportByline: exportedDocument.querySelector(".item .byline")?.textContent.includes("Fixture Artist"),
+          exportAlbum: exportedDocument.querySelector(".item .album")?.textContent.includes("Fixture release"),
+          detailActionSizing: detailActions.every((button) => getComputedStyle(button).width === "30px" && getComputedStyle(button).height === "30px" && getComputedStyle(button).borderRadius === "5px" && getComputedStyle(button.querySelector(".hub-button-icon")).width === "14px"),
+          detailActionGap: getComputedStyle(detailActionRow.querySelector(".hub-saved-playlist-icon-actions")).gap === "6px",
+          deleteSpacing: getComputedStyle(detailActions.at(-1)).marginLeft === "0px",
+          backIcon: Boolean(backButton?.querySelector(".hub-button-icon")),
+          detailTrackCount: detailTracks?.length === 2
+        };
+        const flattenedDetail = Object.values(flattenedChecks).every(Boolean);
         const detailInteractionPattern = detailTrackActionsHidden && detailTrackActionsFocused;
         const detailDragStructure = [...detailTracks].every((track) => track.draggable
           && track.querySelector(".hub-playlist-drag-art")?.tagName === "DIV"
           && track.querySelector(".hub-track-title")
           && track.querySelector(".hub-track-artist")?.textContent === "Fixture Artist"
           && track.querySelector("img.hub-art:not(.is-empty)"));
+        const detailRowsFit = [...detailTracks].every((track) => {
+          const rowRect = track.getBoundingClientRect();
+          const actionRect = track.querySelector(".hub-queue-actions")?.getBoundingClientRect();
+          return actionRect
+            && actionRect.top >= rowRect.top
+            && actionRect.bottom <= rowRect.bottom
+            && track.scrollWidth === track.clientWidth;
+        });
         detailTracks?.[0]?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", altKey: true, bubbles: true }));
         await new Promise((resolve) => setTimeout(resolve, 40));
         const reorderedTracks = [...(root?.querySelectorAll(".hub-saved-playlist-track") || [])];
         const savedReordered = reorderedTracks[0]?.textContent.includes("Modern Two")
           && window.fixtureStored.bandcampHubState?.savedPlaylists?.find((entry) => entry.name === "Fixture set")?.items?.[0]?.title === "Modern Two";
+        const removeTrack = reorderedTracks[0]?.querySelector(".hub-saved-playlist-track-remove");
+        removeTrack?.click();
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        const savedAfterRemoval = window.fixtureStored.bandcampHubState?.savedPlaylists?.find((entry) => entry.name === "Fixture set")?.items || [];
+        const savedTrackRemoved = savedAfterRemoval.length === 1
+          && savedAfterRemoval[0]?.title === "Modern One"
+          && root?.querySelectorAll(".hub-saved-playlist-track").length === 1;
         root?.querySelector(".hub-saved-playlist-back")?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, pointerId: 1 }));
         document.title = flattenedDetail
           && detailInteractionPattern
           && detailDragStructure
+          && detailRowsFit
           && savedReordered
+          && savedTrackRemoved
           && root?.querySelector(".hub-saved-playlist-card")
           && !root?.querySelector(".hub-saved-playlist-detail-toolbar")
           ? "PASS: saved playlists fixture"
-          : `FAIL: saved playlists fixture import:${Boolean(importedCard)} play:${Boolean(cardPlayProminent)} restore:${cardActions.some((button) => button.getAttribute("aria-label") === "Restore Fixture set to cart")} hidden:${detailTrackActionsHidden} focus:${detailTrackActionsFocused} drag:${detailDragStructure} reordered:${savedReordered} flat:${flattenedDetail}`;
+          : `FAIL: saved playlists fixture hidden:${detailTrackActionsHidden} focus:${detailTrackActionsFocused} drag:${detailDragStructure}/${detailRowsFit} reordered:${savedReordered} removed:${savedTrackRemoved} flat:${Object.entries(flattenedChecks).filter(([, passed]) => !passed).map(([name]) => name).join(",") || "true"}`;
         return;
       }
       const activity = window.fixtureStored.bandcampHubState?.activity || [];
@@ -677,28 +709,68 @@
       const queueActions = playlistCards[1]?.querySelectorAll(".hub-playlist-icon-button");
       const topTabs = [...(root?.querySelectorAll(".hub-tabs > .hub-tab") || [])];
       const toolbarButtons = [...(root?.querySelectorAll(".hub-playlist-toolbar-icon") || [])];
+      const nowPlayingMore = root?.querySelector(".hub-now-playing-overflow .hub-toolbar-more-button");
+      nowPlayingMore?.click();
+      const nowPlayingMenuActions = [...(root?.querySelectorAll(".hub-now-playing-overflow .hub-toolbar-menu-action") || [])];
+      const nowPlayingMenuOpened = nowPlayingMore?.getAttribute("aria-expanded") === "true"
+        && nowPlayingMenuActions.length === 4;
       const panelFont = root?.querySelector(".hub-panel") ? getComputedStyle(root.querySelector(".hub-panel")).fontFamily : "";
       const pageFont = getComputedStyle(document.body).fontFamily;
       const playerMore = root?.querySelector(".hub-player-more-button");
       playerMore?.click();
       const playerMenu = root?.querySelector(".hub-player-more-menu");
       const playerMenuActions = playerMenu?.querySelectorAll(".hub-queue-action");
+      const overflowMenusStayExclusive = nowPlayingMore?.getAttribute("aria-expanded") === "false";
       const nativePlayerClicks = Number(document.documentElement.dataset.nativePlayerClicks || 0);
       const nativePlayer = document.querySelector("section.floating-player");
+      const fixtureChecks = {
+        title: titleLink?.textContent === "Modern One",
+        titleLink: titleLink?.href.includes("fixture-artist.bandcamp.com/track/modern-one"),
+        activityLink: activity[0]?.url.includes("fixture-artist.bandcamp.com/track/modern-one"),
+        queuedArt: queuedArt?.src.includes("tests/fixtures/assets/art-cobrastyle.png"),
+        playlistCount: playlistCards.length === 2,
+        activeCard: playlistCards[0]?.classList.contains("is-actively-playing"),
+        queuedCard: !playlistCards[1]?.classList.contains("is-playing"),
+        tabCount: topTabs.length === 4,
+        tabRow: new Set(topTabs.map((button) => Math.round(button.getBoundingClientRect().top))).size === 1,
+        toolbarCount: toolbarButtons.length === 2,
+        panelFont: panelFont === pageFont,
+        iconOnlyToolbar: toolbarButtons.every((button) => !button.textContent.trim()),
+        nowPlayingMenuOpened,
+        overflowMenusStayExclusive,
+        nowPlayingMenuLastAction: nowPlayingMenuActions.at(-1)?.textContent.trim() === "Clear Now Playing",
+        nowPlayingMenuIcon: nowPlayingMenuActions.at(-1)?.querySelector(".hub-button-icon")?.style.getPropertyValue("--hub-icon").includes("icon-clear.svg"),
+        queueActionCount: queueActions?.length === 1,
+        queueActionsEnabled: [...(queueActions || [])].every((button) => !button.disabled),
+        queueRemoveLabel: queueActions?.[0]?.getAttribute("aria-label") === "Remove Modern Two from playlist",
+        noQueueCartOverflow: !root?.querySelector(".hub-queue-cart-more"),
+        playerMenuOpen: playerMore?.getAttribute("aria-expanded") === "true" && !playerMenu?.hidden,
+        playerMenuCount: playerMenuActions?.length === 3,
+        playerMenuEnabled: [...(playerMenuActions || [])].every((button) => !button.disabled),
+        nativeClick: nativePlayerClicks === 1,
+        nativePlayerHidden: document.documentElement.dataset.bandkitHideBandcampPlayer === "true" && getComputedStyle(nativePlayer).display === "none",
+        nativeDialogPreserved: Boolean(nativePlayer.querySelector(".player-dialog"))
+      };
+      document.documentElement.dataset.fixtureDiagnostic = Object.entries(fixtureChecks)
+        .filter(([, passed]) => !passed)
+        .map(([name]) => name)
+        .join(",") || "pass";
       document.title = titleLink?.textContent === "Modern One"
         && titleLink?.href.includes("fixture-artist.bandcamp.com/track/modern-one")
         && activity[0]?.url.includes("fixture-artist.bandcamp.com/track/modern-one")
-        && queuedArt?.src.includes("assets/art-cobrastyle.png")
+        && queuedArt?.src.includes("tests/fixtures/assets/art-cobrastyle.png")
         && playlistCards.length === 2
         && playlistCards[0]?.classList.contains("is-actively-playing")
         && !playlistCards[1]?.classList.contains("is-playing")
         && topTabs.length === 4
         && new Set(topTabs.map((button) => Math.round(button.getBoundingClientRect().top))).size === 1
-        && toolbarButtons.length === 4
+        && toolbarButtons.length === 2
         && panelFont === pageFont
         && toolbarButtons.every((button) => !button.textContent.trim())
-        && toolbarButtons[3]?.getAttribute("aria-label") === "Clear Now Playing"
-        && toolbarButtons[3]?.querySelector(".hub-button-icon")?.style.getPropertyValue("--hub-icon").includes("icon-clear.svg")
+        && nowPlayingMenuOpened
+        && overflowMenusStayExclusive
+        && nowPlayingMenuActions.at(-1)?.textContent.trim() === "Clear Now Playing"
+        && nowPlayingMenuActions.at(-1)?.querySelector(".hub-button-icon")?.style.getPropertyValue("--hub-icon").includes("icon-clear.svg")
         && queueActions?.length === 1
         && [...queueActions].every((button) => !button.disabled)
         && queueActions[0]?.getAttribute("aria-label") === "Remove Modern Two from playlist"
@@ -713,7 +785,7 @@
         && nativePlayer.querySelector(".player-dialog")
         ? "PASS: modern Bandcamp player fixture"
         : `FAIL: ${titleLink?.textContent || "no title"} / ${activity.length} activities / ${nativePlayerClicks} native clicks`;
-    }, 1200);
+    }, 2600);
   </script>
 </body>
 </html>

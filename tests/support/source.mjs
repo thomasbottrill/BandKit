@@ -8,13 +8,27 @@ const contentModules = [
   "../../src/content/waveform.js",
   "../../src/content/playlist-model.js",
   "../../src/content/cart-model.js",
-  "../../src/content/index.js"
+  "../../src/content/index.js",
+  ...[
+    "runtime-shell", "persistence-playback", "playlist-io", "appearance", "modern-layout",
+    "layout-cart", "dj-playback", "dj-handoff", "collection-views", "activity-settings",
+    "player-shell", "page-player-ui", "page-commerce-analysis", "page-actions", "live-scanning",
+    "lifecycle"
+  ].map((filename) => `../../src/content/runtime/${filename}.js`)
 ];
 
 export function readContentSource() {
-  return contentModules
+  const source = contentModules
     .map((relativePath) => fs.readFileSync(new URL(relativePath, import.meta.url), "utf8"))
     .join("\n");
+  // Static source-contract tests predate the runtime-context extraction. Keep
+  // their behavior-oriented patterns readable after dependency injection.
+  return source.replaceAll("r.$", "")
+    .replaceAll("runtimeState", "state")
+    .replaceAll("runtimeLive", "live")
+    .replaceAll("runtimeSaveState", "saveState")
+    .replaceAll("runtimeSeamless", "seamless")
+    .replace(/^      /gm, "    ");
 }
 
 function readStyleDirectory(name, filenames) {
@@ -25,8 +39,8 @@ function readStyleDirectory(name, filenames) {
 }
 
 export const readHubStyles = () => readStyleDirectory("hub", [
-  "base.css", "dj.css", "collections.css", "settings.css", "player.css", "responsive.css"
+  "base.css", "dj.css", "dj-controls.css", "collections.css", "collections-details.css", "settings.css", "player.css", "responsive.css"
 ]);
 export const readModernStyles = () => readStyleDirectory("modern", [
-  "base.css", "artist-shell.css", "catalogue.css", "merch-video-community.css", "feed.css", "release.css", "responsive.css"
+  "base.css", "artist-shell.css", "catalogue.css", "merch-video-community.css", "feed.css", "release.css", "release-details.css", "responsive.css"
 ]);

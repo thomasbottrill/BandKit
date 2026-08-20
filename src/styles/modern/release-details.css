@@ -1,0 +1,999 @@
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-panel .tralbum-tags,
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-panel .tralbum-tags.hidden {
+  align-items: center;
+  box-sizing: border-box;
+  clear: none !important;
+  display: flex !important;
+  float: none !important;
+  flex-wrap: wrap;
+  gap: 6px;
+  height: auto !important;
+  justify-content: flex-start;
+  margin: 0 !important;
+  max-height: none !important;
+  max-width: 100% !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  overflow: visible !important;
+  padding: 0 !important;
+  position: static !important;
+  text-align: left !important;
+  white-space: normal !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-panel .tralbum-tags h3 {
+  display: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-panel .tag {
+  background: var(--bandkit-release-accent-soft);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--bandkit-release-accent) !important;
+  cursor: pointer;
+  font-size: 11px !important;
+  line-height: 1;
+  padding: 7px 10px;
+  text-decoration: none !important;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-panel .tag:hover,
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-tags-panel .tag:focus-visible {
+  background: var(--bandkit-release-accent-soft) !important;
+  border-color: var(--bandkit-release-accent) !important;
+  box-shadow: none !important;
+  color: var(--bandkit-release-accent) !important;
+  transform: none;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by {
+  border: 0 !important;
+  border-bottom: 0 !important;
+  color: var(--bandkit-release-ink) !important;
+  display: grid !important;
+  float: none !important;
+  gap: 0 16px;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin: 0 !important;
+  max-width: none !important;
+  padding: 28px 0 !important;
+  position: static !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .message {
+  color: var(--bandkit-release-ink) !important;
+  font-size: 20px !important;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+  grid-column: 1;
+  margin: 0 0 18px !important;
+  text-transform: capitalize;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .deets {
+  align-items: start;
+  display: grid !important;
+  float: none !important;
+  gap: 36px;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  height: auto !important;
+  margin: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporter-reviews,
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporter-grid {
+  align-self: start;
+  min-width: 0;
+  width: 100%;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporter-reviews {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: stretch;
+  min-height: 72px;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporter-grid {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: stretch;
+}
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporter-reviews:empty { display: none !important; }
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .deets:has(> .bandkit-modern-supporter-reviews:empty) { gap: 0; grid-template-columns: minmax(0, 1fr); }
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .deets:has(> .bandkit-modern-supporter-reviews:empty) > .bandkit-modern-supporter-grid { grid-column: 1 / -1; grid-row: 1; }
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporters-toggle {
+  align-self: start;
+  background: transparent !important;
+  border: 1px solid var(--bandkit-release-line) !important;
+  border-radius: 999px !important;
+  color: var(--bandkit-release-accent) !important;
+  cursor: pointer;
+  font-size: 11px !important;
+  font-weight: 700;
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 30px;
+  padding: 6px 12px !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporters-toggle[hidden] {
+  display: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporters-toggle:hover,
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporters-toggle:focus-visible {
+  background: var(--bandkit-release-accent-soft) !important;
+  border-color: var(--bandkit-release-accent) !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writing {
+  align-items: start;
+  display: none !important;
+  float: none !important;
+  gap: 12px;
+  grid-template-columns: 44px minmax(0, 1fr);
+  margin: 0 !important;
+  min-height: 44px;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writing.is-active {
+  animation: bandkit-modern-review-in 180ms ease-out;
+  display: grid !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by[data-bandkit-expanded="true"] .bandkit-modern-supporter-reviews {
+  display: grid;
+  gap: 16px;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by[data-bandkit-expanded="true"] .writing {
+  animation: none !important;
+  display: grid !important;
+}
+
+@keyframes bandkit-modern-review-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writing.is-active {
+    animation: none;
+  }
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writing > .pic {
+  display: block !important;
+  float: none !important;
+  height: 44px !important;
+  margin: 0 !important;
+  width: 44px !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writing > .pic > .thumb {
+  border: 0 !important;
+  border-radius: 5px !important;
+  display: block !important;
+  height: 44px !important;
+  object-fit: cover;
+  width: 44px !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writing > .text {
+  color: var(--bandkit-release-ink) !important;
+  display: -webkit-box !important;
+  float: none !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+  margin: -2px 0 0 !important;
+  min-width: 0;
+  overflow: hidden;
+  width: auto !important;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by[data-bandkit-expanded="true"] .writing > .text {
+  display: block !important;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writing .name {
+  font-weight: 700 !important;
+  margin-right: 4px;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writing .fav-track {
+  display: block;
+  margin-top: 1px;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .no-writing {
+  display: grid !important;
+  float: none !important;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, 42px);
+  margin: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by[data-bandkit-expanded="false"] .no-writing > .fan.pic.bandkit-modern-supporter-overflow {
+  display: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .no-writing > .fan.pic {
+  display: block !important;
+  float: none !important;
+  height: 42px !important;
+  margin: 0 !important;
+  width: 42px !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .no-writing > .fan.pic > .thumb {
+  border: 0 !important;
+  border-radius: 4px !important;
+  display: block !important;
+  height: 42px !important;
+  object-fit: cover;
+  transition: opacity 140ms ease;
+  width: 42px !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .no-writing > .fan.pic:hover > .thumb,
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .no-writing > .fan.pic:focus-visible > .thumb {
+  opacity: 0.82;
+  box-shadow: none !important;
+  transform: none;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .more-thumbs {
+  background: transparent;
+  border: 1px solid var(--bandkit-release-line);
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-block !important;
+  font-size: 12px !important;
+  font-weight: 600;
+  margin-top: 18px !important;
+  padding: 6px 11px !important;
+  text-decoration: none !important;
+  text-transform: capitalize;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporter-grid .more-thumbs {
+  margin-left: 0 !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by[data-bandkit-expanded="true"] .more-thumbs {
+  display: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .more-thumbs:hover,
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .more-thumbs:focus-visible {
+  background: var(--bandkit-release-accent-soft);
+  border-color: var(--bandkit-release-accent);
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by a,
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .more-thumbs {
+  color: var(--bandkit-release-accent) !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by img {
+  border-color: var(--bandkit-release-surface) !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn {
+  color: var(--bandkit-release-ink) !important;
+  float: none !important;
+  margin: 0 !important;
+  min-width: 0 !important;
+  padding: 32px 0 0 !important;
+  position: static !important;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container,
+html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn > .sidebar,
+html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn > #recommended {
+  background: var(--bandkit-release-surface-raised) !important;
+  border: 1px solid var(--bandkit-release-line) !important;
+  border-radius: 8px;
+  color: var(--bandkit-release-ink) !important;
+  margin: 0 0 14px !important;
+  padding: 20px !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-panel {
+  color: var(--bandkit-release-ink) !important;
+  justify-self: start;
+  margin: 0 0 14px !important;
+  max-width: 340px !important;
+  min-width: 0;
+  width: min(100%, 340px) !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0;
+  width: 100%;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list > .buyItem {
+  background: var(--bandkit-release-surface-raised) !important;
+  border: 1px solid transparent !important;
+  border-radius: 8px;
+  box-sizing: border-box;
+  color: var(--bandkit-release-ink) !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  overflow: hidden;
+  padding: 20px !important;
+  transition: border-color 140ms ease;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list > .buyItem:is(:hover, :focus-within) {
+  background: var(--bandkit-release-surface-raised) !important;
+  border-color: var(--bandkit-release-line) !important;
+  box-shadow: none;
+  transform: none;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list > .buyItem:first-child {
+  margin: 0 !important;
+  padding: 20px !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .hd,
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .ft,
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list h4 {
+  color: var(--bandkit-release-ink) !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyItemPackageTitle {
+  color: var(--bandkit-release-ink) !important;
+  font-size: 17px !important;
+  font-weight: 600 !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .digitaldescription,
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .merchtype,
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyItemEdition,
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyItemExtra {
+  color: var(--bandkit-release-muted) !important;
+  font-size: 11px !important;
+  line-height: 1.5;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .audio-quality,
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .listing-purchasable-with-gift-card {
+  color: var(--bandkit-release-ink) !important;
+  font-size: 11px !important;
+  line-height: 1.5;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .digitaldescription,
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .merchtype {
+  display: block !important;
+  margin-top: 3px !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bd {
+  color: var(--bandkit-release-ink) !important;
+  font-size: 12px !important;
+  line-height: 1.55 !important;
+  margin: 10px 0 !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .compound-button.main-button {
+  align-items: center;
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 0 !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-actions {
+  align-items: stretch;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  margin-top: 12px;
+  max-width: 100%;
+  width: 100%;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-actions .bandkit-modern-buy-card {
+  align-items: center;
+  display: inline-flex !important;
+  flex: 1 1 auto;
+  gap: 10px;
+  min-width: 0;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .compound-button button,
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list button.buy-link {
+  background: var(--bandkit-release-accent) !important;
+  border: 1px solid var(--bandkit-release-accent) !important;
+  border-radius: 5px !important;
+  color: var(--bandkit-release-on-accent) !important;
+  cursor: pointer;
+  font-size: 12px !important;
+  font-weight: 700;
+  min-height: 36px;
+  padding: 8px 12px !important;
+  text-decoration: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-buy-control,
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .following-actions-wrapper .follow-unfollow {
+  align-items: center;
+  background: var(--bandkit-release-accent) !important;
+  border: 1px solid var(--bandkit-release-accent) !important;
+  border-radius: 5px !important;
+  column-gap: 10px;
+  color: var(--bandkit-release-on-accent) !important;
+  display: inline-flex !important;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  font-size: 12px !important;
+  font-weight: 700;
+  height: 42px;
+  justify-content: center;
+  max-width: 100%;
+  min-height: 42px;
+  padding: 8px 12px !important;
+  row-gap: 2px;
+  text-decoration: none !important;
+  transition: border-color 120ms ease;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-buy-control:is(:hover, :focus-visible),
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .following-actions-wrapper .follow-unfollow:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--bandkit-release-on-accent) 10%, var(--bandkit-release-accent)) !important;
+  border-color: color-mix(in srgb, var(--bandkit-release-on-accent) 22%, var(--bandkit-release-accent)) !important;
+  box-shadow: none;
+  outline: 0;
+  transform: none;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-buy-label {
+  line-height: 1.2;
+  white-space: nowrap;
+}
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-buy-card.is-track-purchase .bandkit-modern-buy-label {
+  font-size: 0;
+}
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-buy-card.is-track-purchase .bandkit-modern-buy-label::after {
+  content: "Buy";
+  font-size: 12px;
+}
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-buy-details {
+  align-items: baseline;
+  color: var(--bandkit-release-muted);
+  display: inline-flex;
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 2px 4px;
+  line-height: 1.25;
+  text-align: left;
+  white-space: nowrap;
+}
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-buy-details :is(.base-text-color, .buyItemExtra, [class*="discount" i]) {
+  color: var(--bandkit-release-muted) !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-buy-details .buyItemExtra {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: .82;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .bandkit-modern-buy-details [class*="discount" i] {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .hd button.buy-link {
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--bandkit-release-ink) !important;
+  min-height: 0;
+  padding: 0 !important;
+  text-align: left;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-gift-action {
+  display: flex !important;
+  flex: 0 0 42px;
+  margin: 0 0 0 auto !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .send-as-gift .bandkit-modern-gift-control {
+  align-items: center;
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--bandkit-release-ink) !important;
+  display: inline-flex !important;
+  font-size: 0 !important;
+  height: 42px;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 !important;
+  width: 42px;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .send-as-gift .bandkit-modern-gift-control:is(:hover, :focus-visible) {
+  background: var(--bandkit-release-accent-soft) !important;
+  border-color: var(--bandkit-release-accent) !important;
+  color: var(--bandkit-release-accent) !important;
+  outline: 0;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .send-as-gift .bandkit-modern-gift-control::before {
+  background: currentColor;
+  content: "";
+  display: block;
+  height: 18px;
+  mask: var(--bandkit-gift-icon) center / contain no-repeat;
+  -webkit-mask: var(--bandkit-gift-icon) center / contain no-repeat;
+  width: 18px;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .popupImageGallery {
+  display: grid !important;
+  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  list-style: none;
+  margin: 12px 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .popupImageGallery .gallery_item {
+  display: block !important;
+  height: 74px !important;
+  margin: 0 !important;
+  overflow: hidden;
+  position: static !important;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .popupImageGallery a,
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .popupImageGallery img {
+  display: block;
+  height: 100% !important;
+  object-fit: cover;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography > .art.compact {
+  box-sizing: border-box;
+  display: flex !important;
+  height: 65px !important;
+  margin: 12px 0 !important;
+  overflow: hidden !important;
+  padding-right: 69px;
+  position: relative !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .art-thumb {
+  background-position: center;
+  background-size: cover;
+  display: block;
+  flex: 0 0 65px;
+  height: 65px;
+  margin-right: -33px;
+  position: relative;
+  width: 65px;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .more-button {
+  align-items: center;
+  background: var(--bandkit-release-surface-raised) !important;
+  box-sizing: border-box;
+  display: flex !important;
+  flex-direction: column;
+  height: 65px;
+  justify-content: center;
+  left: auto !important;
+  margin: 0 !important;
+  position: absolute !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 65px;
+  z-index: 20;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .more-button .count {
+  font-size: 24px;
+  line-height: 1;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .more-button .releases {
+  font-size: 11px;
+  line-height: 1.3;
+  margin-top: 5px;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container {
+  display: grid !important;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0 !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-artist-column > #bio-container {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0;
+  margin: 0 !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .artists-bio-pic {
+  grid-column: 1;
+  grid-row: 2;
+  margin: 0 !important;
+  width: 112px !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .artists-bio-pic img {
+  border-radius: 4px;
+  display: block;
+  height: 112px !important;
+  object-fit: cover;
+  width: 112px !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container:not(:has(.artists-bio-pic img)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container:not(:has(.artists-bio-pic img)) .artists-bio-pic {
+  display: none !important;
+}
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container:not(:has(.artists-bio-pic img)) .following-actions-wrapper {
+  grid-row: 2;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #band-name-location,
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .following-actions-wrapper {
+  grid-column: 1;
+  margin: 0 !important;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #band-name-location {
+  grid-row: 1;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .following-actions-wrapper {
+  grid-row: 3;
+  justify-self: start;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .following-actions-wrapper .follow-unfollow {
+  flex: 0 0 112px;
+  max-width: 112px !important;
+  min-width: 112px !important;
+  width: 112px !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .signed-out-artists-bio-text,
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #band-links,
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #recommended {
+  grid-column: 1 / -1;
+  margin: 2px 0 0 !important;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #band-name-location .title {
+  color: var(--bandkit-release-ink) !important;
+  display: block;
+  font-size: 16px !important;
+  font-weight: 600;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .follow-unfollow * {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: inherit !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .location,
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #bio-text {
+  color: var(--bandkit-release-muted) !important;
+  font-size: 12px !important;
+  line-height: 1.45;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .signed-out-artists-bio-text p,
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #bio-text {
+  margin: 0 !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container #band-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  list-style: none;
+  padding: 0 !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container a,
+html[data-bandkit-modern-release="true"] body.tralbum-page #discography a,
+html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn > .sidebar a,
+html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn > #recommended a {
+  color: var(--bandkit-release-accent) !important;
+}
+
+html[data-bandkit-modern-release="true"][data-bandkit-hide-page-cart="true"] body.tralbum-page #sidecart {
+  display: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn .sidebar h3 {
+  color: var(--bandkit-release-ink) !important;
+  font-size: 16px !important;
+  margin: 0 0 12px !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #discography ul {
+  display: grid;
+  gap: 14px;
+  grid-auto-columns: 120px;
+  grid-auto-flow: column;
+  margin: 0 !important;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  padding: 3px 2px 8px !important;
+  scroll-snap-type: inline proximity;
+  scrollbar-width: thin;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #discography li {
+  box-sizing: border-box;
+  margin: 0 !important;
+  min-width: 0;
+  scroll-snap-align: start;
+  width: 120px !important;
+}
+html[data-bandkit-modern-release="true"] body.tralbum-page #discography img {
+  display: block;
+  height: auto !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #discography .trackTitle,
+html[data-bandkit-modern-release="true"] body.tralbum-page #discography .trackYear {
+  font-size: 11px !important;
+  line-height: 1.35;
+  margin-top: 4px;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #pgFt {
+  --bandkit-release-ink: var(--bandkit-release-footer-ink);
+  --bandkit-release-muted: var(--bandkit-release-footer-muted);
+  --bandkit-release-line: var(--bandkit-release-footer-line);
+  --bandkit-release-accent: var(--bandkit-release-footer-accent);
+  --bandkit-release-accent-soft: var(--bandkit-release-footer-accent-soft);
+  --bandkit-release-on-accent: var(--bandkit-release-footer-on-accent);
+  background: var(--bandkit-release-footer-bg) !important;
+  color: var(--bandkit-release-ink) !important;
+  margin: 0 !important;
+  max-width: none !important;
+  padding: 0 0 64px !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container {
+  background: transparent !important;
+  border-top: 0 !important;
+  margin: 0 auto !important;
+  max-width: 1432px !important;
+  padding: 32px 0 0 !important;
+  width: calc(100% - 96px) !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-recommendations-title {
+  color: var(--bandkit-release-ink) !important;
+  font-size: 24px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em;
+  line-height: 1.25 !important;
+  margin: 0 0 22px !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommendations-content,
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .first-row {
+  margin: 0 !important;
+  max-width: none !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .first-row {
+  align-items: start;
+  display: grid !important;
+  gap: 36px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr));
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recs-section {
+  float: none !important;
+  margin: 0 !important;
+  min-width: 0;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .section-title {
+  color: var(--bandkit-release-ink) !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  line-height: 1.35 !important;
+  margin: 0 0 14px !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container ul.horizontal {
+  align-items: start;
+  display: grid !important;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  list-style: none;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .first-row:has(> .recs-section:only-of-type) ul.horizontal {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 180px));
+  justify-content: space-between;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album {
+  align-self: start;
+  background: var(--bandkit-release-surface-raised) !important;
+  border: 1px solid var(--bandkit-release-line) !important;
+  border-radius: 8px;
+  display: flex !important;
+  flex-direction: column;
+  float: none !important;
+  height: auto !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  min-width: 0;
+  overflow: visible;
+  padding: 0 !important;
+  position: relative;
+  box-shadow: none !important;
+  transition: border-color 140ms ease;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album:hover,
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album:focus-within,
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album.selected {
+  border-color: var(--bandkit-release-accent) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  z-index: 2;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .album-art-container,
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .album-art-container picture,
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .album-art {
+  display: block;
+  height: auto !important;
+  margin: 0 !important;
+  max-width: none !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .album-art-container {
+  aspect-ratio: 1;
+  border-radius: 7px 7px 0 0;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .album-art {
+  height: 100% !important;
+  object-fit: cover;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .title-and-artist,
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .album-details {
+  color: var(--bandkit-release-ink) !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+  margin: 12px 12px 0 !important;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .title-and-artist {
+  display: block !important;
+  flex: 0 0 66px;
+  height: 66px !important;
+  margin: 0 !important;
+  overflow: hidden;
+  opacity: 1 !important;
+  padding: 11px 12px !important;
+  position: static !important;
+  visibility: visible !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .album-details {
+  display: none !important;
+  height: auto !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  padding: 0 12px 14px !important;
+  position: static !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album:hover .album-details,
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album:focus-within .album-details,
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album.selected .album-details {
+  display: block !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .album-link,
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .go-to-album {
+  color: var(--bandkit-release-accent) !important;
+  text-decoration: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .release-title {
+  color: var(--bandkit-release-ink) !important;
+  font-weight: 600 !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .by-artist,
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .supporters-text,
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .comment,
+html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .bcw-featured-text {
+  color: var(--bandkit-release-muted) !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .secondaryText {
+  color: var(--bandkit-release-muted) !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page :focus-visible {
+  outline: 2px solid var(--bandkit-release-accent) !important;
+  outline-offset: 2px;
+}

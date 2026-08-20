@@ -13,6 +13,7 @@ const entries = execFileSync("unzip", ["-Z1", archive], { encoding: "utf8" })
 const files = new Set(entries);
 const allowedRuntimeFiles = new Set([
   "manifest.json",
+  "THIRD_PARTY_NOTICES.md",
   "background.js",
   "cart-autosave.js",
   "content.js",
@@ -66,6 +67,8 @@ assert.doesNotMatch(packagedText, /\beval\s*\(|\bnew\s+Function\s*\(/, "Release 
 assert.doesNotMatch(packagedText, /<(?:script|link)\b[^>]+(?:src|href)=["']https?:\/\//i,
   "Release contains a remote executable resource");
 assert.doesNotMatch(packagedText, /\bimport\s*\(\s*["']https?:\/\//, "Release imports remote code");
+assert.doesNotMatch(packagedText, /(?:tests\/fixtures|fixture marker|dummy data|art-[a-z0-9-]+\.png)/i,
+  "Release contains fixture or dummy-data markers");
 
 const referencedAssets = new Set([
   ...Object.values(manifest.icons || {}),
@@ -82,4 +85,8 @@ const sourceVersion = JSON.parse(fs.readFileSync(path.resolve("manifest.json"), 
 assert.equal(manifest.version, sourceVersion, "Archive and source manifest versions differ");
 const uncompressedBytes = entries.reduce((total, entry) => total + execFileSync("unzip", ["-p", archive, entry]).length, 0);
 const compressedBytes = fs.statSync(archive).size;
+const entrySizes = entries
+  .map((entry) => [entry, execFileSync("unzip", ["-p", archive, entry]).length])
+  .sort((left, right) => right[1] - left[1]);
+console.log(entrySizes.map(([entry, bytes]) => `${String(bytes).padStart(8)}  ${entry}`).join("\n"));
 console.log(`Verified ${archive}: ${entries.length} production files, version ${manifest.version}, ${uncompressedBytes} bytes unpacked, ${compressedBytes} bytes zipped`);

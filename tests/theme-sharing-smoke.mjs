@@ -31,13 +31,19 @@ function extractFunction(name) {
   throw new Error(`Could not parse ${name}`);
 }
 
+const toastMessages = [];
 const context = vm.createContext({
-  THEME_COLOR_KEYS: ["accent", "surface", "card", "background", "pageSurface", "navbar", "text", "secondaryText"]
+  THEME_COLOR_KEYS: ["accent", "surface", "card", "background", "pageSurface", "navbar", "text", "secondaryText"],
+  MAX_SAVED_THEMES: 12,
+  state: { appearance: { savedThemes: [] } },
+  toastMessages,
+  showToast(message) { toastMessages.push(message); }
 });
 vm.runInContext([
   extractFunction("validThemeHex"),
   extractFunction("parseThemeBackup"),
-  "globalThis.parse = parseThemeBackup;"
+  extractFunction("hasSavedThemeCapacity"),
+  "globalThis.parse = parseThemeBackup; globalThis.hasCapacity = hasSavedThemeCapacity;"
 ].join("\n"), context);
 
 const validPayload = JSON.parse(fs.readFileSync(new URL("./shared-theme-fixture.json", import.meta.url), "utf8"));
@@ -63,11 +69,22 @@ assert.throws(() => context.parse(JSON.stringify({
   theme: { ...validPayload.theme, scrubAccent: "pink" }
 })), /invalid scrubAccent colour/);
 
+context.state.appearance.savedThemes = Array.from({ length: 11 }, (_, index) => ({ id: `saved-${index}` }));
+assert.equal(context.hasCapacity(), true, "A twelfth saved theme should be allowed");
+context.state.appearance.savedThemes.push({ id: "saved-11" });
+assert.equal(context.hasCapacity(), false, "A thirteenth saved theme should be rejected without eviction");
+assert.match(context.toastMessages.at(-1), /save up to 12 themes.*Delete one/i);
+
 assert.match(source, /Downloaded theme/);
 assert.match(source, /Imported and saved theme/);
+assert.doesNotMatch(extractFunction("importAppearanceTheme"), /slice\(-12\)/, "Theme import must not silently evict an older saved theme");
+assert.doesNotMatch(extractFunction("appendCustomThemeSettings"), /slice\(-12\)/, "Theme saving must not silently evict an older saved theme");
+assert.match(source, /appendSavedThemeSettings[\s\S]*?Rename saved[\s\S]*?Delete saved/, "Saved themes should expose rename and delete controls");
+assert.match(source, /preset = "custom";[\s\S]*?Deleted theme/, "Deleting the active saved theme should preserve its colours as Custom");
 assert.match(source, /importThemeInput\.accept = "\.json,application\/json"/);
 assert.match(source, /customScrubAccent: null/, "Track scrub colours should follow the accent by default");
 assert.match(source, /"Use accent"/, "The custom scrub colour should be resettable to the accent");
 assert.match(source, /accessibleScrubberPalette\(accessible\.preferredScrubAccent, card\)/, "The scrub override should feed the player palette");
+assert.match(source, /function elementText\(root, selectors\) \{\s*if \(!root\) return "";/, "Page analysis should tolerate pages without an inline player");
 
 console.log("Theme sharing checks passed.");
