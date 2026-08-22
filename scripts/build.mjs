@@ -23,6 +23,7 @@ const scriptEntries = {
 };
 const styleEntries = {
   hub: "src/styles/hub/index.css",
+  "collection-playlists": "src/styles/modern/collection-playlists.css",
   "modern-release": "src/styles/modern/index.css",
   popup: "src/styles/popup.css"
 };

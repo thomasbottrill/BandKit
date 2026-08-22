@@ -7,11 +7,13 @@ const OFFSCREEN_PATH = "offscreen.html";
 const PLAYBACK_KEY = STORAGE_KEYS.PLAYBACK;
 const NOW_PLAYING_KEY = STORAGE_KEYS.NOW_PLAYING;
 const ENABLED_KEY = STORAGE_KEYS.ENABLED;
+const RUNTIME_CONTEXT_READY_KEY = "bandkitRuntimeContextReady";
 const BANDCAMP_MATCHES = ["https://bandcamp.com/*", "https://*.bandcamp.com/*"];
 let creatingOffscreen = null;
 let playbackStateUpdates = Promise.resolve();
 let analysisStorageUpdates = Promise.resolve();
 let bandcampTabLifecycleChecks = Promise.resolve();
+let refreshingBandKitTabsForNewContext = null;
 const canonicalReleaseCache = new Map();
 
 
@@ -25,7 +27,6 @@ function isExtensionSender(sender) {
   return sender?.id === chrome.runtime.id
     || String(sender?.url || "").startsWith(chrome.runtime.getURL(""));
 }
-
 
 async function canonicalBandcampReleaseUrl(value) {
   if (isBandcampUrl(value)) return new URL(value).href;
@@ -305,6 +306,22 @@ async function reloadBandKitTabs() {
     .map((tab) => chrome.tabs.reload(tab.id)));
 }
 
+async function refreshBandKitTabsForNewContext() {
+  if (refreshingBandKitTabsForNewContext) return refreshingBandKitTabsForNewContext;
+  refreshingBandKitTabsForNewContext = (async () => {
+    const stored = await chrome.storage.session.get(RUNTIME_CONTEXT_READY_KEY);
+    if (stored?.[RUNTIME_CONTEXT_READY_KEY] === true) return false;
+    await chrome.storage.session.set({ [RUNTIME_CONTEXT_READY_KEY]: true });
+    await reloadBandKitTabs();
+    return true;
+  })();
+  try {
+    return await refreshingBandKitTabsForNewContext;
+  } finally {
+    refreshingBandKitTabsForNewContext = null;
+  }
+}
+
 async function stopBandKitPlayback() {
   const offscreenUrl = chrome.runtime.getURL(OFFSCREEN_PATH);
   const contexts = await chrome.runtime.getContexts({
@@ -314,9 +331,8 @@ async function stopBandKitPlayback() {
   if (contexts.length) {
     try {
       await chrome.runtime.sendMessage({ target: "offscreen", type: MESSAGES.OFFSCREEN_DISABLE });
-      await chrome.offscreen.closeDocument();
     } catch {
-      // The offscreen document may finish closing before the response arrives.
+      // The offscreen document may not be ready while playback is stopping.
     }
   }
   await playbackStateUpdates.catch(() => {});
@@ -346,8 +362,8 @@ async function ensureOffscreenDocument() {
     creatingOffscreen = (async () => {
       await chrome.offscreen.createDocument({
         url: OFFSCREEN_PATH,
-        reasons: ["AUDIO_PLAYBACK"],
-        justification: "Keep user-initiated Bandcamp playback running while the user navigates between Bandcamp pages."
+        reasons: ["BLOBS"],
+        justification: "Create Blob-backed Bandcamp playback streams without a visible tab."
       });
       const stored = await chrome.storage.session.get(PLAYBACK_KEY);
       if (stored[PLAYBACK_KEY]?.enabled) {
@@ -675,9 +691,14 @@ chrome.commands.onCommand.addListener(async (command) => {
   if (tab) await toggleBandKitInTab(tab);
 });
 
+chrome.runtime.onInstalled.addListener(() => {
+  void refreshBandKitTabsForNewContext();
+});
+
 chrome.tabs.onRemoved.addListener(() => scheduleBandcampTabLifecycleCheck());
 chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
   if (typeof changeInfo.url === "string") return scheduleBandcampTabLifecycleCheck();
   return undefined;
 });
 void scheduleBandcampTabLifecycleCheck();
+void refreshBandKitTabsForNewContext();

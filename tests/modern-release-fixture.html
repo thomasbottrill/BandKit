@@ -184,7 +184,6 @@
     } : { modernReleasePages: true };
     window.fixtureStored = {
       bandcampHubState: {
-        dataFolderSetup: true,
         open: fixtureRecommendationMode,
         activeTab: fixtureRecommendationMode ? "nowPlaying" : "settings",
         playlist: [],
@@ -342,7 +341,7 @@
         pointer("pointermove", 0.76);
         const previewPass = control?.classList.contains("is-scrubbing")
           && control.style.getPropertyValue("--bandkit-page-scrub-progress") === "76.00%";
-        pointer("pointerup", 0.76);
+        pointer("pointerup", 0);
         await new Promise((resolve) => window.setTimeout(resolve, 80));
         const seek = window.fixtureMessages.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_SEEK").at(-1);
         const commitPass = !control?.classList.contains("is-scrubbing")
@@ -562,9 +561,22 @@
       const rowPlayButton = rowPlayButtons[0];
       const unavailableRowPlayButton = rowPlayButtons[1];
       const rowPlayStatus = rowPlayButton?.querySelector(".play_status");
+      const rowPlayCell = rowPlayButton?.closest(".play-col");
+      const rowNumberCell = rowPlayButton?.closest(".track_row_view")?.querySelector(".track-number-col");
+      const rowPlayInitiallyHidden = getComputedStyle(rowPlayButton).opacity === "0";
+      const rowNumberInitiallyVisible = getComputedStyle(rowPlayCell, "::before").opacity === "1"
+        && getComputedStyle(rowPlayCell, "::before").content.replace(/[\"']/g, "") === "1";
       rowPlayStatus?.classList.add("playing");
+      const trackNumberPlaySwapWorks = rowPlayInitiallyHidden
+        && rowNumberInitiallyVisible
+        && getComputedStyle(rowNumberCell).display === "none"
+        && getComputedStyle(rowPlayButton).opacity === "1"
+        && getComputedStyle(rowPlayCell, "::before").opacity === "0";
       const rowPlayRect = rowPlayButton?.getBoundingClientRect();
       const rowPauseStyle = rowPlayStatus ? getComputedStyle(rowPlayStatus, "::before") : null;
+      const unavailableRow = unavailableRowPlayButton?.closest(".track_row_view");
+      const unavailableTrackMuted = getComputedStyle(unavailableRow).cursor === "default"
+        && getComputedStyle(unavailableRow?.querySelector(".title-col")).opacity === "0.52";
       const trackActionCell = document.querySelector("#track_table .download-col");
       const trackActionButtons = [...(trackActionCell?.querySelectorAll(":is(.bandcamp-hub-page-playlist.is-track-action, .bandcamp-hub-page-buy)") || [])];
       const trackAddButton = trackActionCell?.querySelector(".bandcamp-hub-page-playlist.is-track-action");
@@ -717,7 +729,7 @@
         && inlineTransportRect
         && inlineTransportRect.right >= inlineScrubRect.right
         && inlineTransportRect.right - inlineScrubRect.right <= 12
-        && inlineCartPrice === "€8+ EUR"
+        && inlineCartPrice === "€8 EUR +"
         && inlineBuyAddDjMoreOrder
         && trackBuyPrecedesAdd);
       playerOverflow?.click();
@@ -726,6 +738,8 @@
         recommendationsUseNativeSection,
         recommendationHoverIsUnified,
         bioImageGapCollapsed,
+        trackNumberPlaySwapWorks,
+        unavailableTrackMuted,
         trackButtonsAreSquare,
         discographyCountContained,
         compactPurchaseActions,
@@ -798,6 +812,8 @@
         && recommendationsUseNativeSection
         && recommendationHoverIsUnified
         && bioImageGapCollapsed
+        && trackNumberPlaySwapWorks
+        && unavailableTrackMuted
         && trackButtonsAreSquare
         && discographyCountContained
         && compactPurchaseActions

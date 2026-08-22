@@ -3,6 +3,29 @@ import { asset, createButtonIcon, formatDuration, parseClock, resolveImage, safe
 import { MAX_PLAYLIST_ITEMS } from "../state.js";
 import { MESSAGES } from "../../shared/contracts.js";
 
+function renderPlayerAnalysis(r, hasCurrentTrack) {
+  const detectedBpm = Number(runtimeSeamless.detectedBpm);
+  const bpmLabel = Number.isFinite(detectedBpm) && detectedBpm > 0 ? `${Math.round(detectedBpm * 10) / 10} BPM` : "";
+  const keyCamelot = String(runtimeSeamless.detectedKey?.camelot || "").trim();
+  const keyName = String(runtimeSeamless.detectedKey?.shortName || "").trim();
+  const showPlayerAnalysis = runtimeState.showMusicBarAnalysis !== false
+    && hasCurrentTrack
+    && Boolean(bpmLabel || keyCamelot || keyName);
+  const signature = `${showPlayerAnalysis}|${bpmLabel}|${keyCamelot}|${keyName}`;
+  if (signature === r.$playerAnalysisRenderSignature) return;
+  r.$playerAnalysisRenderSignature = signature;
+  r.$playerAnalysis.hidden = !showPlayerAnalysis;
+  r.$playerBpmBadge.hidden = !bpmLabel;
+  r.$playerBpmBadge.textContent = bpmLabel;
+  r.$playerBpmBadge.title = bpmLabel ? `Detected tempo: ${bpmLabel}` : "";
+  r.$playerKeyBadge.hidden = !(keyCamelot || keyName);
+  r.$playerKeyCamelot.textContent = keyCamelot;
+  r.$playerKeyName.textContent = keyName;
+  r.$playerKeyBadge.title = keyName
+    ? `Detected key: ${runtimeSeamless.detectedKey?.name || keyName}`
+    : `Detected key: ${keyCamelot}`;
+}
+
 function registerPlayerShell1(r) {
 r.$syncPlayerSectionGeometry = function syncPlayerSectionGeometry() {
       r.$playerSectionGeometryFrame = 0;
@@ -19,32 +42,40 @@ r.$schedulePlayerSectionGeometry = function schedulePlayerSectionGeometry() {
       r.$playerSectionGeometryFrame = window.requestAnimationFrame(r.$syncPlayerSectionGeometry);
     };
 r.$renderPlayer = function renderPlayer() {
-      r.$syncMusicBarSize();
-      r.$syncMusicBarWidth();
-      r.$syncScrubberStyles();
-      const hasCurrentTrack = Boolean(runtimeLive.hasPlaybackStarted && runtimeLive.title);
-      const playbackLoading = Boolean(runtimeSeamless.enabled && runtimeSeamless.status === "loading");
+      r.$syncMusicBarSize(); r.$syncMusicBarWidth(); r.$syncScrubberStyles();
+      const pendingFeedLoading = Boolean(r.$pendingFeedTrackId);
+      const pendingFeedState = pendingFeedLoading ? r.$getFeedPlayerState(r.$pendingFeedTrackId) : null;
+      const displayTrack = pendingFeedState?.track || runtimeLive;
+      const hasCurrentTrack = Boolean((runtimeLive.hasPlaybackStarted || pendingFeedLoading) && displayTrack.title);
+      const seamlessTrackId = String(runtimeSeamless.track?.id || "");
+      const pendingFeedSeek = Boolean(
+        (r.$pendingFeedSeekTime !== null || r.$pendingFeedSeekFraction !== null)
+        && r.$pendingFeedSeekTrackId
+        && (r.$pendingFeedSeekTrackId === r.$pendingFeedTrackId || r.$pendingFeedSeekTrackId === seamlessTrackId)
+      );
+      const playbackLoading = Boolean((runtimeSeamless.enabled && runtimeSeamless.status === "loading") || pendingFeedLoading);
       r.$playButton.disabled = !hasCurrentTrack || playbackLoading;
       r.$playButton.setAttribute("aria-disabled", String(!hasCurrentTrack || playbackLoading));
-      r.$playButton.setAttribute("aria-label", playbackLoading ? `Loading ${runtimeLive.title || "track"}` : "Play or pause");
+      r.$playButton.setAttribute("aria-label", playbackLoading ? `Loading ${displayTrack.title || "track"}` : "Play or pause");
+      r.$playButton.classList.toggle("is-loading", playbackLoading);
       r.$playerTrack.classList.toggle("is-empty", !hasCurrentTrack);
       const trackRenderSignature = hasCurrentTrack
-        ? `${runtimeLive.title}\u0000${runtimeLive.artist}\u0000${runtimeLive.art}\u0000${runtimeLive.pageUrl}\u0000${runtimeLive.artistUrl}`
+        ? `${displayTrack.title}\u0000${displayTrack.artist}\u0000${displayTrack.art}\u0000${displayTrack.pageUrl}\u0000${displayTrack.artistUrl}`
         : "empty";
       if (trackRenderSignature !== r.$playerTrackRenderSignature) {
         r.$playerTrackRenderSignature = trackRenderSignature;
         if (hasCurrentTrack) {
-          const playerArtUrl = resolveImage(runtimeLive.art);
+          const playerArtUrl = resolveImage(displayTrack.art);
           if (playerArtUrl) r.$playerArt.src = playerArtUrl;
           else r.$playerArt.removeAttribute("src");
           r.$playerArtLink.hidden = !playerArtUrl;
           r.$playerArt.alt = "";
-          r.$playerTitle.textContent = runtimeLive.title;
-          r.$playerArtist.textContent = runtimeLive.artist;
-          r.$updatePageLink(r.$playerArtLink, runtimeLive.pageUrl);
-          r.$playerArtLink.setAttribute("aria-label", `Open ${runtimeLive.title}`);
-          r.$updatePageLink(r.$playerTitle, runtimeLive.pageUrl);
-          r.$updatePageLink(r.$playerArtist, runtimeLive.artistUrl || runtimeLive.pageUrl);
+          r.$playerTitle.textContent = displayTrack.title;
+          r.$playerArtist.textContent = displayTrack.artist;
+          r.$updatePageLink(r.$playerArtLink, displayTrack.pageUrl);
+          r.$playerArtLink.setAttribute("aria-label", `Open ${displayTrack.title}`);
+          r.$updatePageLink(r.$playerTitle, displayTrack.pageUrl);
+          r.$updatePageLink(r.$playerArtist, displayTrack.artistUrl || displayTrack.pageUrl);
         } else {
           r.$playerArt.removeAttribute("src");
           r.$playerArtLink.hidden = true;
@@ -63,16 +94,22 @@ r.$renderPlayer = function renderPlayer() {
         r.$playButton.replaceChildren(createButtonIcon(runtimeLive.isPlaying ? "icon-pause.svg" : "icon-play.svg"));
       }
       const audio = runtimeSeamless.enabled ? null : r.$getAudio();
-      const duration = runtimeSeamless.enabled ? Number(runtimeSeamless.duration) || 0 : Number(audio?.duration) || Number(runtimeLive.duration) || 0;
-      const currentTime = runtimeSeamless.enabled ? Number(runtimeSeamless.currentTime) || 0 : Number(audio?.currentTime) || Number(runtimeLive.currentTime) || 0;
+      const duration = pendingFeedLoading
+        ? Number(pendingFeedState?.duration) || 0
+        : runtimeSeamless.enabled ? Number(runtimeSeamless.duration) || 0 : Number(audio?.duration) || Number(runtimeLive.duration) || 0;
+      const currentTime = pendingFeedLoading
+        ? pendingFeedSeek ? r.$pendingFeedSeekTime !== null ? Number(r.$pendingFeedSeekTime) || 0 : (Number(r.$pendingFeedSeekFraction) || 0) * duration : Number(pendingFeedState?.currentTime) || 0
+        : runtimeSeamless.enabled ? Number(runtimeSeamless.currentTime) || 0 : Number(audio?.currentTime) || Number(runtimeLive.currentTime) || 0;
       if (!r.$scrubbing) {
-        r.$scrubSlider.value = String(duration ? Math.round(Math.max(0, Math.min(1, currentTime / duration)) * 1000) : 0);
+        r.$scrubSlider.value = String(pendingFeedSeek && r.$pendingFeedSeekFraction !== null ? Math.round(r.$pendingFeedSeekFraction * 1000) : duration ? Math.round(Math.max(0, Math.min(1, currentTime / duration)) * 1000) : 0);
         r.$currentTimeLabel.textContent = formatDuration(currentTime);
       }
       r.$syncScrubVisual();
       r.$refreshScrubWaveform();
       r.$scrubSlider.setAttribute("aria-valuetext", `${formatDuration((Number(r.$scrubSlider.value) / 1000) * duration)} of ${formatDuration(duration)}`);
       r.$scrubControl.classList.toggle("is-empty", !duration);
+      r.$scrubControl.classList.toggle("is-pending-seek", pendingFeedSeek);
+      r.$scrubControl.setAttribute("aria-busy", String(playbackLoading));
       r.$durationLabel.textContent = formatDuration(duration);
       const queuedTracks = runtimeState.playlist.length
         ? runtimeState.playlist.length
@@ -97,6 +134,7 @@ r.$renderPlayer = function renderPlayer() {
       const sectionPanelActive = runtimeState.open && runtimeState.activeTab === "playlist";
       r.$nowPlayingButton.classList.toggle("is-active", sectionPanelActive);
       r.$nowPlayingButton.setAttribute("aria-expanded", String(sectionPanelActive));
+      renderPlayerAnalysis(r, hasCurrentTrack);
       const djPlayerButtonRect = r.$djPlayerButton.getBoundingClientRect();
       r.$player.style.setProperty("--hub-dj-anchor-x", `${Math.round(djPlayerButtonRect.left + djPlayerButtonRect.width / 2)}px`);
       r.$renderPlayerMoreActions();
@@ -138,9 +176,10 @@ r.$handleNativeHeaderCart = function handleNativeHeaderCart(event) {
 r.$syncPageDjToolsUi = function syncPageDjToolsUi() {
       for (const button of document.querySelectorAll(".bandcamp-hub-page-dj")) {
         button.classList.toggle("is-active", r.$pageDjOpen);
+        button.hidden = r.$pageDjOpen;
         button.setAttribute("aria-expanded", String(r.$pageDjOpen));
         button.setAttribute("aria-pressed", String(r.$pageDjOpen));
-        button.title = r.$pageDjOpen ? "Hide DJ tools on this page" : "Show DJ tools on this page";
+        button.title = "Show BPM and tempo controls on this page";
         button.setAttribute("aria-label", button.title);
       }
     };
@@ -148,7 +187,7 @@ r.$renderPageDjTools = function renderPageDjTools() {
       if (!r.$pageDjHost?.isConnected || !r.$pageDjSurface) return;
       r.$pageDjHost.hidden = !r.$pageDjOpen;
       r.$pageDjSurface.replaceChildren();
-      if (r.$pageDjOpen) r.$pageDjSurface.append(r.$createDjToolsCard({ includeWaveform: false }));
+      if (r.$pageDjOpen) r.$pageDjSurface.append(r.$createPageDjToolsCard());
       r.$syncPageDjToolsUi();
     };
 r.$toggleDjTools = function toggleDjTools() {
@@ -220,12 +259,12 @@ r.$applyDjToAudio = function applyDjToAudio(target = r.$getAudio()) {
     };
 r.$itemFromNode = function itemFromNode(node) {
       if (!node) return null;
-      const title = node.dataset.title || node.dataset.albumtitle || r.$elementText(node, [".track-title", ".release-title", ".title", "h3", "h4"]);
+      const title = node.dataset.title || node.dataset.albumtitle || r.$elementText(node, [".track-title", ".release-title", ".title", ".heading", "h3", "h4"]);
       if (!title) return null;
       const pageUrl = node.querySelector("a[href*='bandcamp.com'], a[href^='/']")?.href || location.href;
       return {
         title,
-        artist: node.dataset.artist || r.$elementText(node, [".artist", ".by-artist", ".band-name", ".subtitle"]) || "Bandcamp",
+        artist: (node.dataset.artist || r.$elementText(node, [".artist", ".by-artist", ".band-name", ".subtitle", ".subhead"])).replace(/^by\s+/i, "") || "Bandcamp",
         art: node.querySelector("img")?.currentSrc || node.querySelector("img")?.src || runtimeLive.art,
         pageUrl,
         artistUrl: r.$artistUrlFromPageUrl(pageUrl)
@@ -368,8 +407,7 @@ r.$loadModernPlaylistQueue = async function loadModernPlaylistQueue(modern) {
     };
 }
 
-function registerPlayerShell3(r) {
-r.$getModernPlayerState = function getModernPlayerState() {
+function registerPlayerShell3(r) { r.$getModernPlayerState = function getModernPlayerState() {
       const player = document.querySelector("section.floating-player.has-track, section.floating-player:has(.track-meta[streamurl])");
       if (!player) return null;
       const key = player.querySelector(".play-pause-button:is(.outline, .outline-opaque)[tracklistkey], .play-pause-button[tracklistkey]")?.getAttribute("tracklistkey") || "";
@@ -477,6 +515,14 @@ r.$feedStreamTrackId = function feedStreamTrackId(value) {
         return "";
       }
     };
+r.$feedStreamUrl = function feedStreamUrl(trackId) {
+      const id = String(trackId || "");
+      if (!id) return "";
+      const url = new URL("/stream_redirect", "https://bandcamp.com");
+      url.searchParams.set("enc", "mp3-128");
+      url.searchParams.set("track_id", id);
+      return url.href;
+    };
 r.$getFeedPlayerState = function getFeedPlayerState(preferredTrackId = "") {
       if (!document.body.classList.contains("feed") && !/\/feed\/?$/.test(location.pathname)) return null;
       const audio = r.$getAudio();
@@ -484,7 +530,13 @@ r.$getFeedPlayerState = function getFeedPlayerState(preferredTrackId = "") {
       const playingNode = document.querySelector(".collection-item-container.playing[data-trackid]");
       const trackId = String(preferredTrackId || playingNode?.dataset.trackid || audioTrackId);
       if (!trackId) return null;
-      if (preferredTrackId && audioTrackId !== trackId) return null;
+      const seededFromPendingClick = Boolean(
+        preferredTrackId
+        && audioTrackId !== trackId
+        && r.$pendingFeedTrackId === trackId
+      );
+      if (preferredTrackId && audioTrackId !== trackId && !seededFromPendingClick) return null;
+      const audioMatchesTrack = audioTrackId === trackId;
       const matchingNodes = [...document.querySelectorAll(".collection-item-container[data-trackid]")]
         .filter((node) => node.dataset.trackid === trackId);
       const metadataNode = matchingNodes.find((node) => node.dataset.itemJson) || playingNode || matchingNodes[0];
@@ -498,13 +550,21 @@ r.$getFeedPlayerState = function getFeedPlayerState(preferredTrackId = "") {
       const title = itemData.featured_track_title || r.$elementText(storyNode, [".fav-track-title", ".collection-item-title", ".waypoint-item-title"]);
       if (!title) return null;
       const artist = itemData.band_name || r.$elementText(storyNode, [".collection-item-artist", ".artist-name", ".waypoint-artist-title"]).replace(/^by\s+/i, "") || "Bandcamp";
-      const duration = Number(audio?.duration) || Number(itemData.featured_track_duration) || parseClock(r.$elementText(storyNode, [".time_total"]));
-      const currentTime = Number(audio?.currentTime) || parseClock(r.$elementText(storyNode, [".time_elapsed"]));
+      const duration = (audioMatchesTrack ? Number(audio?.duration) : 0)
+        || Number(itemData.featured_track_duration)
+        || parseClock(r.$elementText(storyNode, [".time_total"]));
+      const currentTime = seededFromPendingClick
+        && r.$pendingFeedSeekTrackId === trackId
+        && (r.$pendingFeedSeekTime !== null || r.$pendingFeedSeekFraction !== null)
+        ? r.$pendingFeedSeekTime !== null ? Number(r.$pendingFeedSeekTime) || 0 : (Number(r.$pendingFeedSeekFraction) || 0) * duration
+        : (audioMatchesTrack ? Number(audio?.currentTime) : 0)
+          || parseClock(r.$elementText(storyNode, [".time_elapsed"]));
       const control = storyNode.querySelector(".track_play_auxiliary") || metadataNode.querySelector(".track_play_auxiliary") || document.querySelector(`.track_play_auxiliary[data-trackid="${trackId}"]`);
       return {
         player: storyNode,
         control,
-        isPlaying: Boolean(audio && !audio.paused && !audio.ended),
+        isPlaying: seededFromPendingClick || Boolean(audioMatchesTrack && audio && !audio.paused && !audio.ended),
+        seededFromPendingClick,
         currentTime,
         duration,
         progress: duration ? Math.max(0, Math.min(1, currentTime / duration)) : 0,
@@ -517,7 +577,9 @@ r.$getFeedPlayerState = function getFeedPlayerState(preferredTrackId = "") {
           pageUrl,
           artistUrl,
           duration,
-          url: audio?.currentSrc || audio?.src || ""
+          url: audioMatchesTrack
+            ? audio?.currentSrc || audio?.src || ""
+            : seededFromPendingClick ? r.$feedStreamUrl(trackId) : ""
         },
         queue: []
       };
@@ -527,7 +589,8 @@ r.$suppressRemovedFeedTrack = function suppressRemovedFeedTrack(item) {
       if (!feed?.track || !r.$matchingQueueTrack([item], feed.track)) return;
       r.$suppressedFeedTrackId = String(feed.track.id || item?.id || "");
       r.$pendingFeedTrackId = "";
-      r.$pendingFeedSeekTime = null;
+      r.$pendingFeedSeekTime = null; r.$pendingFeedSeekFraction = null;
+      r.$pendingFeedSeekTrackId = "";
       window.clearTimeout(r.$feedHandoffTimer);
       const audio = r.$getAudio();
       if (audio && !audio.paused) audio.pause();
@@ -561,10 +624,9 @@ r.$finishFeedAudioHandoff = function finishFeedAudioHandoff(trackId, expectedAud
         if (r.$pendingFeedTrackId && r.$pendingFeedTrackId !== requestedTrackId) return;
         const currentAudio = r.$getAudio();
         const currentTrackId = r.$feedStreamTrackId(currentAudio?.currentSrc || currentAudio?.src);
-        if (currentAudio !== expectedAudio || (currentTrackId && currentTrackId !== requestedTrackId)) return;
+        const isMutedHandoffAudio = currentAudio === r.$mutedFeedAudio;
+        if (currentAudio !== expectedAudio || (!isMutedHandoffAudio && currentTrackId && currentTrackId !== requestedTrackId)) return;
         if (!expectedAudio.paused) expectedAudio.pause();
-        if (r.$pendingFeedTrackId === requestedTrackId) r.$pendingFeedTrackId = "";
-        r.$pendingFeedSeekTime = null;
         r.$restoreFeedAudioMute(requestedTrackId);
       };
       const afterNativePlaySettles = () => {
@@ -740,6 +802,8 @@ r.$handoffFeedPlayer = async function handoffFeedPlayer(requestedTrackId = "") {
       if (r.$suppressedFeedTrackId && String(feed.track.id || requestedTrackId || "") === r.$suppressedFeedTrackId) {
         r.$pendingFeedTrackId = "";
         r.$pendingFeedSeekTime = null;
+        r.$pendingFeedSeekFraction = null;
+        r.$pendingFeedSeekTrackId = "";
         const suppressedAudio = r.$getAudio();
         if (suppressedAudio && !suppressedAudio.paused) suppressedAudio.pause();
         r.$restoreFeedAudioMute(feed.track.id || requestedTrackId);
@@ -755,9 +819,14 @@ r.$handoffFeedPlayer = async function handoffFeedPlayer(requestedTrackId = "") {
       r.$feedHandoffBusy = true;
       r.$feedHandoffTrackId = String(feed.track.id || requestedTrackId || "");
       try {
-        const prepared = await r.$prepareExternalNowPlaying(feed.track, [], { trustProvidedStreams: true });
+        // Feed stories only expose Bandcamp's stream_redirect endpoint. Resolve
+        // the release metadata first so the offscreen player receives the final
+        // bcbits media URL instead of depending on a cross-origin redirect.
+        const prepared = await r.$prepareExternalNowPlaying(feed.track);
         if (prepared.index < 0) return false;
         if (prepared.request !== r.$playlistPlayRequest) return false;
+        const preparedDuration = Number(prepared.queue[prepared.index]?.duration) || 0;
+        if (r.$pendingFeedSeekFraction !== null && preparedDuration) r.$pendingFeedSeekTime = r.$pendingFeedSeekFraction * preparedDuration;
         const handoffSeekRevision = r.$pendingFeedSeekRevision;
         const handoffCurrentTime = r.$pendingFeedSeekTime === null ? feed.currentTime : r.$pendingFeedSeekTime;
         const response = await r.$runtimeMessage({
@@ -776,8 +845,13 @@ r.$handoffFeedPlayer = async function handoffFeedPlayer(requestedTrackId = "") {
         });
         if (!response?.ok) return false;
         if (prepared.request !== r.$playlistPlayRequest) return false;
+        const responseDuration = Number(response.state?.duration) || Number(response.state?.track?.duration) || 0;
+        if (r.$pendingFeedSeekTime === null && r.$pendingFeedSeekFraction !== null && responseDuration) {
+          r.$pendingFeedSeekTime = r.$pendingFeedSeekFraction * responseDuration;
+        }
         r.$applySeamlessState(response.state);
-        if (r.$pendingFeedSeekTime !== null && r.$pendingFeedSeekRevision !== handoffSeekRevision) {
+        if (r.$pendingFeedSeekTime !== null
+          && (r.$pendingFeedSeekRevision !== handoffSeekRevision || Math.abs(r.$pendingFeedSeekTime - handoffCurrentTime) > 0.05)) {
           await r.$seamlessCommand(MESSAGES.SEAMLESS_SEEK, { currentTime: r.$pendingFeedSeekTime });
         }
         r.$finishFeedAudioHandoff(r.$feedHandoffTrackId, r.$getAudio());
@@ -793,6 +867,10 @@ r.$scheduleFeedHandoff = function scheduleFeedHandoff(trackId, attempt = 0) {
       if (requestedTrackId === r.$suppressedFeedTrackId) {
         r.$pendingFeedTrackId = "";
         r.$pendingFeedSeekTime = null;
+        r.$pendingFeedSeekFraction = null;
+        r.$pendingFeedSeekTrackId = "";
+        r.$syncFeedPagePlaybackUi();
+        r.$renderPlayer();
         return;
       }
       r.$pendingFeedTrackId = requestedTrackId;
@@ -809,9 +887,19 @@ r.$scheduleFeedHandoff = function scheduleFeedHandoff(trackId, attempt = 0) {
         else {
           r.$pendingFeedTrackId = "";
           r.$pendingFeedSeekTime = null;
+          r.$pendingFeedSeekFraction = null;
+          r.$pendingFeedSeekTrackId = "";
+          r.$syncFeedPagePlaybackUi();
+          r.$renderPlayer();
           r.$restoreFeedAudioMute(requestedTrackId);
+          const fallbackControl = document.querySelector(`.track_play_auxiliary[data-trackid="${CSS.escape(requestedTrackId)}"]`);
+          if (fallbackControl) {
+            r.$feedNativeFallbackTrackId = requestedTrackId;
+            r.$feedNativeFallbackUntil = Date.now() + 5000;
+            fallbackControl.click();
+          }
         }
-      }, attempt ? 90 : 40);
+      }, attempt ? 90 : 0);
     };
 }
 

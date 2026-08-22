@@ -10,25 +10,32 @@ window.setTimeout(async () => {
   const pageDjRoot = document.querySelector(".inline_player > .bandcamp-hub-page-dj-host")?.shadowRoot;
   const pageDjHost = document.querySelector(".inline_player > .bandcamp-hub-page-dj-host");
   const pageOpenedDj = Boolean(
-    pageDjRoot?.querySelector(".hub-dj-card")
+    pageDjRoot?.querySelector(".hub-dj-card-page")
     && !root?.querySelector(".hub-dj-card")
     && root?.querySelector(".hub-dj-player-button")?.getAttribute("aria-expanded") === "false"
     && pageDjButton?.getAttribute("aria-expanded") === "true"
     && pageDjButton?.classList.contains("is-active")
-    && !pageDjButton?.textContent.trim()
-    && getComputedStyle(pageDjButton).width === "32px"
-    && getComputedStyle(pageDjButton).borderRadius === "4px"
+    && pageDjButton?.hidden
+    && pageDjRoot?.querySelector(".hub-dj-page-tempo-input")
+    && pageDjRoot?.querySelector(".hub-dj-page-close")
+    && !pageDjRoot?.querySelector(".hub-dj-waveform, .hub-dj-deck-controls")
     && getComputedStyle(pageDjHost).maxWidth === "none"
     && pageDjHost?.getBoundingClientRect().width > 420
   );
   root?.querySelector(".hub-dj-player-button")?.click();
-  const mirroredControlSet = Boolean(root?.querySelector(".hub-dj-card"))
+  const splitControlSet = Boolean(root?.querySelector(".hub-dj-waveform"))
+    && Boolean(root?.querySelector(".hub-dj-deck-controls"))
     && root?.querySelectorAll(".hub-dj-card button, .hub-dj-card input").length
-      === pageDjRoot?.querySelectorAll(".hub-dj-card button, .hub-dj-card input").length;
+      > pageDjRoot?.querySelectorAll(".hub-dj-card button, .hub-dj-card input").length;
   root?.querySelector(".hub-dj-player-button")?.click();
   const inlineRemainsOpen = !root?.querySelector(".hub-dj-card")
-    && Boolean(pageDjRoot?.querySelector(".hub-dj-card"))
+    && Boolean(pageDjRoot?.querySelector(".hub-dj-card-page"))
     && pageDjButton?.getAttribute("aria-expanded") === "true";
+  pageDjRoot?.querySelector(".hub-dj-page-close")?.click();
+  const pageHideRestoresButton = pageDjHost?.hidden
+    && !pageDjButton?.hidden
+    && pageDjButton?.getAttribute("aria-expanded") === "false";
+  pageDjButton?.click();
   root?.querySelector(".hub-dj-player-button")?.click();
   const knobDial = root?.querySelector(".hub-dj-knob-dial");
   const knobInput = knobDial?.querySelector(".hub-dj-knob-input");
@@ -195,8 +202,9 @@ window.setTimeout(async () => {
   const audio = document.querySelector("audio");
   document.title = root?.querySelector(".hub-dj-card")
     && pageOpenedDj
-    && mirroredControlSet
+    && splitControlSet
     && inlineRemainsOpen
+    && pageHideRestoresButton
     && audio.playbackRate === 1.055
     && Number(knobInput?.value) > 0
     && gainSlider?.value === "0"

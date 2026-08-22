@@ -16,6 +16,7 @@ const allowedRuntimeFiles = new Set([
   "THIRD_PARTY_NOTICES.md",
   "background.js",
   "cart-autosave.js",
+  "collection-playlists.css",
   "content.js",
   "feed-redirect.js",
   "hub.css",

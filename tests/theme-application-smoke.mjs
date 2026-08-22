@@ -4,6 +4,7 @@ import vm from "node:vm";
 import { readContentSource } from "./support/source.mjs";
 
 const source = readContentSource();
+const hubBaseCss = fs.readFileSync(new URL("../src/styles/hub/base.css", import.meta.url), "utf8");
 
 function extractFunction(name) {
   const match = new RegExp(`function\\s+${name}\\s*\\(`).exec(source);
@@ -80,11 +81,11 @@ vm.runInContext([
 
 assert.equal(context.palette.background.name, "themeBackground", "Modern page backgrounds should use the selected theme");
 assert.equal(context.palette.surface.name, "themeSurface", "Modern page content should use the selected theme");
-assert.equal(context.palette.surfaceRaised.name, "themeCard", "Modern page cards should use the selected theme card colour");
+assert.equal(context.palette.surfaceRaised.name, "themeSurface", "Modern page cards should use the selected page-content colour");
 assert.equal(context.palette.footerBackground.name, "themeBackground", "Modern page footers should not retain the original page colour");
 assert.equal(context.palette.link.name, "themeAccent", "Modern page controls should use the selected accent");
 assert.equal(context.palette.background.name, "themeBackground", "The page-theme switch should apply the selected theme independently of Match Bandcamp");
-assert.equal(properties.get("--bandkit-release-surface-raised"), "themeCard");
+assert.equal(properties.get("--bandkit-release-surface-raised"), "themeSurface");
 assert.equal(properties.get("--bandkit-release-footer-bg"), "themeBackground");
 assert.equal(properties.get("--bandkit-release-accent"), "themeAccent");
 
@@ -99,6 +100,16 @@ assert.match(source, /#HomepageApp \.g-section\.inverted\s*\{[\s\S]*?--bandkit-p
 assert.match(source, /#HomepageApp :is\(\.play-pause-button, \.play-button, \.artwork-play-button\)\.over-image\s*\{[\s\S]*?background-color:\s*transparent\s*!important/, "Home play hit areas must not cover playlist artwork");
 assert.match(source, /:is\(\.page-banners, \.banner-manager\) \.text-banner\s*\{[\s\S]*?background:\s*var\(--bandkit-page-surface\)\s*!important;[\s\S]*?color:\s*var\(--bandkit-page-text\)\s*!important/, "Terms and other page banners must use a readable themed surface");
 assert.match(source, /#DiscoverApp \.filters-banner :is\(\.chip-button, \.filter-button, \.follow-button, \.radio-item, \[role="option"\]\)[\s\S]*?color:\s*var\(--bandkit-page-card-text\)\s*!important/, "Discover filters must use card-corrected text instead of native genre colours");
+assert.match(source, /"--bandkit-page-card": colorString\(theme\.pageSurface\)[\s\S]*?"--bandkit-page-card-text": colorString\(theme\.text\)/,
+  "Bandcamp-owned cards must use Page content rather than the Bandkit content colour");
+assert.doesNotMatch(source, /surfaceRaised:\s*theme\.card/,
+  "the internal Bandkit content colour must not leak into modern page surfaces");
+assert.match(source, /const header = surface;[\s\S]*?"--hub-panel": colorString\(surface\)[\s\S]*?"--hub-wash": colorString\(surface\)/,
+  "the Bandkit panel, header, and scrolling surface must track the selected panel colour exactly");
+assert.match(source, /"--hub-panel-accent": "--hub-accent"[\s\S]*?"--hub-panel-ink": "--hub-ink"/,
+  "panel-contained cards must inherit the panel's accessible foreground roles");
+assert.match(hubBaseCss, /\.hub-content\s*\{[\s\S]*?--hub-card:\s*var\(--hub-panel\);[\s\S]*?--hub-card-footer:\s*var\(--hub-panel\);/,
+  "cards and card footers inside Bandkit panels must use the panel surface colour");
 assert.match(source, /#DiscoverApp \.filters-banner :is\(\.chip-button\.selected-tag, \.radio-item\.active,[\s\S]*?background:\s*var\(--bandkit-page-accent\)\s*!important;[\s\S]*?color:\s*var\(--bandkit-page-on-accent\)\s*!important/, "Selected Discover filters must use the accessible accent foreground pair");
 assert.match(source, /#DiscoverApp :is\(\.tag-search-wrapper, \.filters-banner\) input::placeholder[\s\S]*?color:\s*var\(--bandkit-page-card-muted\)\s*!important;[\s\S]*?opacity:\s*1\s*!important/, "Discover search placeholders must remain readable when themed");
 assert.match(source, /#PlaylistPage \.tracklist-pane\s*\{\s*background:\s*var\(--bandkit-page-surface\)\s*!important;/, "Playlist tracklists must match the page surface");
@@ -109,6 +120,12 @@ assert.match(source, /data-bandkit-page-theme="true"\]\[data-bandkit-feed-page="
 assert.match(source, /function applyShadowHeaderTheme\(\)[\s\S]*?--menubar-background-color[\s\S]*?--menubar-search-input-background-color/, "The shadow-DOM Bandcamp search and navigation header must receive the selected theme");
 assert.match(source, /function applyShadowHeaderTheme\(\)[\s\S]*?navbarAccent = readableColor\(theme\.accent, \[theme\.navbar\], 4\.5\)[\s\S]*?navbarBorder = readableColor/s, "Feed header accents and boundaries must pass through contrast correction");
 assert.match(source, /applyBandcampPageTheme\(\);\s*applyShadowHeaderTheme\(\);\s*applyModernReleaseLayout\(\);/, "Every appearance change must update the Bandcamp shadow header along with the page");
+assert.match(source, /function scheduleCustomThemePreview\(\)[\s\S]*?requestAnimationFrame\(applyCustomThemePreview\)/,
+  "continuous colour changes must be coalesced into animation frames so the native hue slider stays responsive");
+assert.match(source, /input\.addEventListener\("input",[\s\S]*?scheduleCustomThemePreview\(\);[\s\S]*?input\.addEventListener\("change", commitCustomThemeColour\)/,
+  "custom colours must preview continuously but persist only after the colour interaction commits");
+assert.doesNotMatch(source, /input\.addEventListener\("input",[\s\S]{0,500}?applyAppearance\(\)/,
+  "dragging a colour slider must not repeatedly rebuild the modern page layout");
 assert.match(source, /appearanceModeControl\.setAttribute\("role", "radiogroup"\)/, "Page colour modes should use one exclusive segmented control");
 assert.match(source, /state\.appearance\.pageAware = mode === "match";[\s\S]*?state\.appearance\.applyToPage = mode === "theme";/, "The appearance segments must keep Match page and Theme pages mutually exclusive");
 assert.match(source, /state\.appearance\.pageAware = !state\.appearance\.applyToPage;/, "Stored appearance preferences must migrate to one exclusive colour mode");

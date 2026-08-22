@@ -43,9 +43,31 @@
 }
 
 @media (max-width: 520px) {
-  .hub-data-home-warning {
+  .hub-backup-reminder {
     align-items: stretch;
-    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .hub-backup-reminder-save {
+    width: 100%;
+  }
+
+  .hub-backup-reminder-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hub-backup-reminder-later {
+    width: 100%;
+  }
+
+  .hub-backup-frequency-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hub-backup-frequency {
+    width: 100%;
   }
 
   .hub-player-content {

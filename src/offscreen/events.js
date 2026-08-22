@@ -5,6 +5,7 @@ export function installOffscreenEvents({
   handleCommand,
   nextTrack,
   previousTrack,
+  prioritizePlayback,
   seekToTime,
   sendState,
   setAutoplayRequested,
@@ -31,6 +32,8 @@ export function installOffscreenEvents({
   audio.addEventListener("timeupdate", () => sendState());
   audio.addEventListener("durationchange", () => sendState(true));
   audio.addEventListener("ratechange", () => sendState(true));
+  audio.addEventListener("waiting", () => prioritizePlayback?.());
+  audio.addEventListener("stalled", () => prioritizePlayback?.());
   audio.addEventListener("ended", () => {
     nextTrack().catch((error) => {
       setStatus("error");
@@ -70,10 +73,18 @@ export function installOffscreenEvents({
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!message || message.target !== "offscreen") return false;
     handleCommand(message)
-      .then((result) => sendResponse(message.type === MESSAGES.OFFSCREEN_ANALYZE_TRACKS
-        ? { ok: true, results: result }
-        : { ok: true, state: result }))
-      .catch((error) => sendResponse({ ok: false, error: error.message, state: stateSnapshot() }));
+      .then((result) => {
+        if (message.type === MESSAGES.OFFSCREEN_ANALYZE_TRACKS) {
+          sendResponse({ ok: true, results: result });
+          return;
+        }
+        sendResponse({ ok: true, state: result });
+      })
+      .catch((error) => sendResponse({
+        ok: false,
+        error: error.message,
+        state: stateSnapshot()
+      }));
     return true;
   });
 }

@@ -56,7 +56,7 @@
       runtime: {
         lastError: null,
         getURL: (path) => new URL(`/dist/unpacked/${path}`, location.href).href,
-        getManifest: () => ({ version: "0.7.8" }),
+        getManifest: () => ({ version: "0.7.9" }),
         sendMessage(_message, callback) { callback?.({ ok: true, state: window.fixturePlaybackState }); },
         onMessage: { addListener() {} }
       },

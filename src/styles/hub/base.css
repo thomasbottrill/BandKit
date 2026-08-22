@@ -6,6 +6,13 @@
   --hub-faint: #9ca3af;
   --hub-line: #e5e7eb;
   --hub-panel: #ffffff;
+  --hub-panel-accent: #087f9e;
+  --hub-panel-accent-soft: rgba(8, 127, 158, 0.12);
+  --hub-panel-ink: #111827;
+  --hub-panel-muted: #596170;
+  --hub-panel-faint: #596170;
+  --hub-panel-line: #777d87;
+  --hub-panel-on-accent: #ffffff;
   --hub-card: #ffffff;
   --hub-card-accent: #087f9e;
   --hub-card-accent-soft: rgba(8, 127, 158, 0.12);
@@ -77,9 +84,6 @@
   .hub-saved-playlist-icon-button,
   .hub-saved-playlist-back,
   .hub-cart-backup .hub-text-button,
-  .hub-settings-select,
-  .hub-settings-number,
-  .hub-data-home-row,
   .hub-player-more-menu,
   .hub-toolbar-actions-menu
 ) {
@@ -94,9 +98,7 @@
 
 :is(
   .hub-card-footer,
-  .hub-saved-cart-detail-heading,
-  .hub-theme-accessibility,
-  .hub-theme-name
+  .hub-saved-cart-detail-heading
 ) {
   --hub-accent: var(--hub-card-footer-accent);
   --hub-accent-soft: var(--hub-card-footer-accent-soft);
@@ -611,6 +613,22 @@ button {
 }
 
 .hub-content {
+  --hub-card: var(--hub-panel);
+  --hub-card-accent: var(--hub-panel-accent);
+  --hub-card-accent-soft: var(--hub-panel-accent-soft);
+  --hub-card-ink: var(--hub-panel-ink);
+  --hub-card-muted: var(--hub-panel-muted);
+  --hub-card-faint: var(--hub-panel-faint);
+  --hub-card-line: var(--hub-panel-line);
+  --hub-card-on-accent: var(--hub-panel-on-accent);
+  --hub-card-footer: var(--hub-panel);
+  --hub-card-footer-accent: var(--hub-panel-accent);
+  --hub-card-footer-accent-soft: var(--hub-panel-accent-soft);
+  --hub-card-footer-ink: var(--hub-panel-ink);
+  --hub-card-footer-muted: var(--hub-panel-muted);
+  --hub-card-footer-faint: var(--hub-panel-faint);
+  --hub-card-footer-line: var(--hub-panel-line);
+  --hub-card-footer-on-accent: var(--hub-panel-on-accent);
   background: var(--hub-wash);
   flex: 1 1 auto;
   min-height: 0;

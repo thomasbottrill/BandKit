@@ -11,7 +11,7 @@ const contentModules = [
   "../../src/content/index.js",
   ...[
     "runtime-shell", "persistence-playback", "playlist-io", "appearance", "modern-layout",
-    "layout-cart", "dj-playback", "dj-handoff", "collection-views", "activity-settings",
+    "layout-cart", "now-playing-actions", "dj-playback", "dj-page-tools", "dj-handoff", "collection-views", "collection-playlist-integration", "activity-settings",
     "player-shell", "page-player-ui", "page-commerce-analysis", "page-actions", "live-scanning",
     "lifecycle"
   ].map((filename) => `../../src/content/runtime/${filename}.js`)
@@ -42,5 +42,5 @@ export const readHubStyles = () => readStyleDirectory("hub", [
   "base.css", "dj.css", "dj-controls.css", "collections.css", "collections-details.css", "settings.css", "player.css", "responsive.css"
 ]);
 export const readModernStyles = () => readStyleDirectory("modern", [
-  "base.css", "artist-shell.css", "catalogue.css", "merch-video-community.css", "feed.css", "release.css", "release-details.css", "responsive.css"
+  "base.css", "artist-shell.css", "catalogue.css", "merch-video-community.css", "feed.css", "release.css", "tracklist-interactions.css", "collection-playlists.css", "release-details.css", "responsive.css"
 ]);

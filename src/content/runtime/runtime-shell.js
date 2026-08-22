@@ -78,7 +78,11 @@ r.$buildScrubWaveform = function buildScrubWaveform(signature, width) {
       r.$scrubWaveformWidth = pixelWidth;
     };
 r.$refreshScrubWaveform = function refreshScrubWaveform(force = false, observedWidth = 0) {
-      const signature = `${runtimeLive.title || ""}\u0000${runtimeLive.artist || ""}\u0000${runtimeLive.pageUrl || ""}`;
+      const pendingTrackId = String(r.$pendingFeedTrackId || "");
+      const pendingTrack = pendingTrackId ? r.$getFeedPlayerState(pendingTrackId)?.track : null;
+      const signature = pendingTrackId
+        ? `${pendingTrackId}\u0000${pendingTrack?.title || ""}\u0000${pendingTrack?.artist || ""}`
+        : `${runtimeLive.title || ""}\u0000${runtimeLive.artist || ""}\u0000${runtimeLive.pageUrl || ""}`;
       if (!force && signature === r.$scrubWaveformSignature) return;
       const width = Math.max(80, Math.round(observedWidth || r.$scrubControl.getBoundingClientRect().width));
       if (signature === r.$scrubWaveformSignature && Math.abs(width - r.$scrubWaveformWidth) < 4) return;
@@ -422,18 +426,8 @@ r.$persistNowPlayingSession = function persistNowPlayingSession() {
 r.$saveState = updateRuntimeSaveState(function saveState() {
       r.$persistLocal({ [STORAGE_KEYS.STATE]: runtimeState });
       r.$persistNowPlayingSession();
-      r.$schedulePortableDataHomeSync();
+      r.$scheduleCollectionPlaylistSync?.();
     });
-r.$schedulePortableDataHomeSync = function schedulePortableDataHomeSync() {
-      if (!r.$dataDirectoryHandle || !r.$dataHomeReady || r.$localDataHomePermission !== "granted" || r.$storageDisabled) return;
-      window.clearTimeout(r.$portableDataSyncTimer);
-      r.$portableDataSyncTimer = window.setTimeout(() => {
-        r.$portableDataSyncTimer = 0;
-        void r.$flushPortableDataHome().catch((error) => {
-          if (error?.message) console.warn("Bandkit data-folder sync paused.", error);
-        });
-      }, 300);
-    };
 }
 
 export const registerRuntimeShell = [registerRuntimeShell1, registerRuntimeShell2, registerRuntimeShell3];
@@ -494,12 +488,7 @@ r.$bpmDraft = "";
 r.$toastTimer = undefined;
 r.$storageErrorToastAt = 0;
 r.$storageDisabled = false;
-r.$dataHomeReady = false;
-r.$dataDirectoryHandle = null;
-r.$localDataHomePermission = "missing";
-r.$portableDataSyncTimer = 0;
-r.$portableDataSyncBusy = false;
-r.$portableDataSyncPending = false;
+r.$backupSavedConfirmationUntil = 0;
 r.$scanTimer = undefined;
 r.$scanIdleCallback = undefined;
 r.$playerEventScanTimer = undefined;
@@ -540,8 +529,12 @@ r.$pendingPlaylistItemId = "";
 r.$feedSwitchPendingDisable = false;
 r.$pendingFeedTrackId = "";
 r.$pendingFeedSeekTime = null;
+r.$pendingFeedSeekFraction = null;
+r.$pendingFeedSeekTrackId = "";
 r.$pendingFeedSeekRevision = 0;
 r.$suppressedFeedTrackId = "";
+r.$feedNativeFallbackTrackId = "";
+r.$feedNativeFallbackUntil = 0;
 r.$feedHandoffTimer = 0;
 r.$feedNativePauseTimer = 0;
 r.$suppressModernControl = false;
@@ -560,6 +553,7 @@ r.$scrubWaveformWidth = 0;
 r.$scrubWaveformResizeObserver = null;
 r.$playerTrackRenderSignature = "";
 r.$playerPlaybackRenderState = "";
+r.$playerAnalysisRenderSignature = "";
 r.$bpmTapTimes = [];
 r.$resizeCursorStyle = null;
 r.$observedAudio = new WeakSet();
@@ -572,6 +566,7 @@ r.$cartArtistAttempted = new Set();
 r.$pageDjOpen = false;
 r.$pageDjHost = null;
 r.$pageDjShadow = null;
+r.$pageDjStyle = null;
 r.$pageDjSurface = null;
 r.$pagePlaylistMenu = null;
 r.$pagePlaylistMenuAnchor = null;
@@ -707,6 +702,13 @@ r.$panel.innerHTML = `
               <span class="hub-now-playing-label">Now Playing</span>
               <span class="hub-now-playing-count">0</span>
             </button>
+            <div class="hub-player-analysis" role="group" aria-label="Track BPM and key" hidden>
+              <span class="hub-player-analysis-badge hub-player-bpm-badge" hidden></span>
+              <span class="hub-player-analysis-badge hub-player-key-badge" hidden>
+                <span class="hub-player-key-camelot"></span>
+                <span class="hub-player-key-name"></span>
+              </span>
+            </div>
             <button class="hub-dj-player-button" type="button" aria-label="Open DJ tools" style="--hub-dj-icon:url('${asset("icon-dj.svg")}')"></button>
             <div class="hub-player-more-wrap">
               <button class="hub-player-more-button" type="button" aria-label="More track actions" aria-expanded="false">
@@ -773,6 +775,11 @@ r.$playerMoreButton = r.$player.querySelector(".hub-player-more-button");
 r.$playerMoreMenu = r.$player.querySelector(".hub-player-more-menu");
 r.$nowPlayingButton = r.$player.querySelector(".hub-now-playing-button");
 r.$nowPlayingCount = r.$player.querySelector(".hub-now-playing-count");
+r.$playerAnalysis = r.$player.querySelector(".hub-player-analysis");
+r.$playerBpmBadge = r.$player.querySelector(".hub-player-bpm-badge");
+r.$playerKeyBadge = r.$player.querySelector(".hub-player-key-badge");
+r.$playerKeyCamelot = r.$player.querySelector(".hub-player-key-camelot");
+r.$playerKeyName = r.$player.querySelector(".hub-player-key-name");
 r.$djPlayerButton = r.$player.querySelector(".hub-dj-player-button");
 r.$headerCloseButton = r.$panel.querySelector(".hub-close");
 r.$headerResetButton = r.$panel.querySelector(".hub-reset");

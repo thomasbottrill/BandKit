@@ -1,38 +1,41 @@
-import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState, updateRuntimeLive, updateRuntimeSeamless } from "./context.js";
-import { asset, createElement, portableBandcampUrl, resolveImage, resolvedTrackPageUrl, safeBandcampUrl } from "../core.js";
-import { DEFAULT_DATA_PARENT, MAX_PLAYLIST_ITEMS, MAX_SAVED_PLAYLISTS } from "../state.js";
+import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState, updateRuntimeLive, updateRuntimeSeamless, updateRuntimeState } from "./context.js";
+import { createElement, portableBandcampUrl, resolveImage, resolvedTrackPageUrl, safeBandcampUrl } from "../core.js";
+import { defaultState, MAX_PLAYLIST_ITEMS, MAX_SAVED_PLAYLISTS } from "../state.js";
 import { MESSAGES, STORAGE_KEYS } from "../../shared/contracts.js";
-import { dataHomeFolderName, saveDataDirectoryHandle, writeDataHomeToHandle } from "../../shared/data-home.js";
+import { BACKUP_FILENAME, restoreBackupFile, saveBackupFile } from "../../shared/backup-file.js";
 import { createPlaylistModel } from "../playlist-model.js";
 import { parseCartBackup, portableCartItem, portableCartRestore } from "../cart-model.js";
 
+const BACKUP_REMINDER_DAY_MS = 24 * 60 * 60 * 1000;
+const BACKUP_REMINDER_DAYS = new Set([0, 7, 14, 30]);
+
 function registerPersistencePlayback1(r) {
-r.$portableSettings = function portableSettings() {
+r.$portableSettings = function portableSettings(value = runtimeState) {
       return {
-        openHomeToFeed: Boolean(runtimeState.openHomeToFeed),
-        autoAnalyzeTracks: runtimeState.autoAnalyzeTracks !== false,
-        showTrackKeys: runtimeState.showTrackKeys !== false,
-        pageActionLabels: Boolean(runtimeState.pageActionLabels),
-        recordPlaylistMetadata: runtimeState.recordPlaylistMetadata !== false,
-        scrubberStyle: runtimeState.scrubberStyle,
-        musicBarSize: runtimeState.musicBarSize,
-        musicBarWidth: runtimeState.musicBarWidth,
-        musicBarCustomWidth: runtimeState.musicBarCustomWidth,
-        layoutMode: runtimeState.layoutMode,
-        dockSide: runtimeState.dockSide,
-        dockedWidth: runtimeState.dockedWidth,
-        appearance: structuredClone(runtimeState.appearance),
+        openHomeToFeed: Boolean(value.openHomeToFeed),
+        autoAnalyzeTracks: value.autoAnalyzeTracks !== false,
+        showTrackKeys: value.showTrackKeys !== false,
+        pageActionLabels: Boolean(value.pageActionLabels),
+        recordPlaylistMetadata: value.recordPlaylistMetadata !== false,
+        scrubberStyle: value.scrubberStyle,
+        musicBarSize: value.musicBarSize,
+        musicBarWidth: value.musicBarWidth,
+        musicBarCustomWidth: value.musicBarCustomWidth,
+        layoutMode: value.layoutMode,
+        dockSide: value.dockSide,
+        dockedWidth: value.dockedWidth,
+        appearance: structuredClone(value.appearance),
         dj: {
-          range: runtimeState.dj.range,
-          preservePitch: runtimeState.dj.preservePitch,
-          autoTempo: runtimeState.dj.autoTempo,
-          loopSize: runtimeState.dj.loopSize,
-          knobMode: runtimeState.dj.knobMode
+          range: value.dj.range,
+          preservePitch: value.dj.preservePitch,
+          autoTempo: value.dj.autoTempo,
+          loopSize: value.dj.loopSize,
+          knobMode: value.dj.knobMode
         }
       };
     };
-r.$portableActivity = function portableActivity() {
-      return runtimeState.activity.map((item) => ({
+r.$portableActivity = function portableActivity(value = runtimeState) {
+      return value.activity.map((item) => ({
         action: String(item.action || "activity").slice(0, 80),
         title: String(item.title || "Untitled track").slice(0, 500),
         artist: String(item.artist || "Unknown artist").slice(0, 500),
@@ -41,148 +44,138 @@ r.$portableActivity = function portableActivity() {
         createdAt: item.createdAt || null
       }));
     };
-r.$portableDataBackup = function portableDataBackup() {
+r.$portableDataBackup = function portableDataBackup(value = runtimeState) {
       const exportedAt = new Date().toISOString();
       return {
-        format: "bandkit-data-home",
-        version: 1,
+        format: "bandkit-backup",
+        version: 3,
         exportedAt,
         notice: "Bandkit does not collect or store bank account details, card numbers, passwords, or Bandcamp cookies.",
         playlists: {
-          nowPlaying: r.$normalizePlaylist(runtimeState.playlist).map(r.$portablePlaylistItem).filter(Boolean),
-          saved: r.$normalizeSavedPlaylists(runtimeState.savedPlaylists).map((playlist) => ({
+          nowPlaying: r.$normalizePlaylist(value.playlist).map(r.$portablePlaylistItem).filter(Boolean),
+          saved: r.$normalizeSavedPlaylists(value.savedPlaylists).map((playlist) => ({
             id: playlist.id,
             name: playlist.name,
             savedAt: playlist.savedAt,
+            modifiedAt: playlist.modifiedAt || playlist.savedAt,
             items: playlist.items.map(r.$portablePlaylistItem).filter(Boolean)
           }))
         },
         carts: {
-          current: runtimeState.cart.map((item) => portableCartItem(item)).filter(Boolean),
-          saved: r.$cartAutosave.normalizeSavedCarts(runtimeState.savedCarts).map((cart) => ({
+          current: value.cart.map((item) => portableCartItem(item)).filter(Boolean),
+          saved: r.$cartAutosave.normalizeSavedCarts(value.savedCarts).map((cart) => ({
             id: cart.id,
             name: cart.name,
             savedAt: cart.savedAt,
+            modifiedAt: cart.modifiedAt || cart.savedAt,
             sourcePage: portableBandcampUrl(cart.sourcePage),
             summary: cart.summary || null,
             items: (cart.items || []).map((item) => portableCartItem(item)).filter(Boolean)
           }))
         },
-        activity: r.$portableActivity(),
-        settings: r.$portableSettings()
+        activity: r.$portableActivity(value),
+        settings: r.$portableSettings(value)
       };
     };
-r.$flushPortableDataHome = async function flushPortableDataHome({ notify = false } = {}) {
-      if (!r.$dataHomeReady || !r.$dataDirectoryHandle || r.$localDataHomePermission !== "granted") return false;
-      if (r.$portableDataSyncBusy) {
-        r.$portableDataSyncPending = true;
-        return false;
-      }
-      r.$portableDataSyncBusy = true;
-      try {
-        const response = await writeDataHomeToHandle(r.$dataDirectoryHandle, r.$portableDataBackup());
-        if (!response?.ok) {
-          if (response?.needsPermission) {
-            const permissionWasGranted = r.$localDataHomePermission === "granted";
-            r.$localDataHomePermission = response.permission || "prompt";
-            if (r.$hubReady) {
-              r.$render();
-              if (permissionWasGranted) r.$showToast("Folder backup paused — restore access to keep your Bandkit folder up to date.", 6500);
-            }
-            return false;
-          }
-          if (response?.needsSetup) {
-            r.$dataDirectoryHandle = null;
-            r.$localDataHomePermission = "missing";
-            r.$dataHomeReady = runtimeState.dataFolderSetup === true;
-            if (r.$hubReady) r.$render();
-          }
-          throw new Error(response?.error || "Bandkit could not write to your data folder.");
-        }
-        if (response.folderName && runtimeState.dataFolderName !== response.folderName) {
-          runtimeState.dataFolderName = response.folderName;
-          r.$persistLocal({ [STORAGE_KEYS.STATE]: runtimeState });
-        }
-        if (notify) r.$showToast(`Bandkit is ready · saving to ${response.folderName}`);
-        return true;
-      } finally {
-        r.$portableDataSyncBusy = false;
-        if (r.$portableDataSyncPending) {
-          r.$portableDataSyncPending = false;
-          r.$schedulePortableDataHomeSync();
-        }
-      }
+r.$backupReminderDays = function backupReminderDays() {
+      const days = Number(runtimeState.backupReminderDays);
+      return BACKUP_REMINDER_DAYS.has(days) ? days : 7;
     };
-r.$savePortableDataHome = async function savePortableDataHome() {
-      r.$dataDirectoryHandle = await window.showDirectoryPicker({
-        id: "bandkit-data-home",
-        mode: "readwrite",
-        startIn: DEFAULT_DATA_PARENT
+r.$backupReminderState = function backupReminderState() {
+      if (Date.now() < Number(r.$backupSavedConfirmationUntil || 0)) return "saved";
+      if (runtimeState.backupIntroSeen !== true) return "intro";
+      const days = r.$backupReminderDays();
+      if (!days) return null;
+      const anchor = Math.max(
+        Date.parse(runtimeState.lastBackupAt || "") || 0,
+        Date.parse(runtimeState.backupReminderSnoozedAt || "") || 0
+      );
+      if (!anchor || Date.now() - anchor >= days * BACKUP_REMINDER_DAY_MS) return "due";
+      return null;
+    };
+r.$savePortableBackup = async function savePortableBackup() {
+      if (typeof globalThis.showSaveFilePicker !== "function") {
+        throw new Error("This version of Chrome cannot open the backup save window.");
+      }
+      const handle = await globalThis.showSaveFilePicker({
+        id: "bandkit-manual-backup",
+        suggestedName: BACKUP_FILENAME,
+        startIn: "downloads",
+        types: [{ description: "Bandkit backup", accept: { "application/json": [".json"] } }]
       });
-      await saveDataDirectoryHandle(r.$dataDirectoryHandle);
-      r.$localDataHomePermission = "granted";
-      r.$dataHomeReady = true;
-      runtimeState.dataFolderName = dataHomeFolderName(r.$dataDirectoryHandle);
-      runtimeState.dataFolderSetup = true;
-      runtimeSaveState();
-      r.$render();
-      await r.$flushPortableDataHome({ notify: true });
-      return true;
-    };
-r.$restorePortableDataHomeAccess = async function restorePortableDataHomeAccess({ notify = true } = {}) {
-      if (!r.$dataDirectoryHandle || typeof r.$dataDirectoryHandle.requestPermission !== "function") return false;
-      let permission = "denied";
-      try {
-        permission = await r.$dataDirectoryHandle.requestPermission({ mode: "readwrite" });
-      } catch {
-        permission = "denied";
-      }
-      r.$localDataHomePermission = permission;
-      if (permission !== "granted") {
-        if (r.$hubReady) r.$render();
-        if (notify) r.$showToast("Folder access was not restored. Your Chrome copy is safe, but folder backup remains paused.", 6500);
-        return false;
-      }
-      r.$dataHomeReady = true;
-      runtimeState.dataFolderSetup = true;
-      runtimeState.dataFolderName ||= dataHomeFolderName(r.$dataDirectoryHandle);
-      runtimeSaveState();
-      await r.$flushPortableDataHome({ notify });
+      const stored = await r.$storageGet(STORAGE_KEYS.STATE);
+      const latestState = stored?.[STORAGE_KEYS.STATE] || runtimeState;
+      const result = await saveBackupFile(handle, r.$portableDataBackup(latestState));
+      if (!result?.ok) throw new Error(result?.error || "Bandkit could not save the backup file.");
+      const savedAt = new Date().toISOString();
+      runtimeState.backupIntroSeen = true;
+      runtimeState.backupReminderSnoozedAt = null;
+      runtimeState.lastBackupAt = savedAt;
+      r.$backupSavedConfirmationUntil = Date.now() + 5000;
+      r.$persistLocal({
+        [STORAGE_KEYS.STATE]: {
+          ...latestState,
+          backupIntroSeen: true,
+          backupReminderSnoozedAt: null,
+          lastBackupAt: savedAt
+        }
+      });
       if (r.$hubReady) r.$render();
-      return true;
+      window.setTimeout(() => {
+        if (r.$hubReady && Date.now() >= r.$backupSavedConfirmationUntil) r.$render();
+      }, 5100);
+      r.$showToast("Backup saved");
+      return result;
     };
-r.$requireDataHome = function requireDataHome() {
-      if (r.$dataHomeReady) return true;
-      runtimeState.open = true;
-      r.$saveLayoutState();
-      r.$render();
-      return false;
-    };
-r.$renderDataHomeGate = function renderDataHomeGate() {
-      r.$panelTitle.textContent = "Set up Bandkit";
-      const gate = createElement("section", "hub-data-home-gate");
-      const icon = document.createElement("img");
-      icon.className = "hub-data-home-gate-icon";
-      icon.src = asset("icon-bandkit.svg");
-      icon.alt = "";
-      const heading = createElement("h2", "hub-data-home-gate-heading", "Choose where Bandkit saves");
-      const copy = createElement("p", "hub-data-home-gate-copy", "Pick a folder to create your Bandkit data home. Your playlists, saved carts, activity, and settings will stay organized there.");
-      const choose = createElement("button", "hub-data-home-gate-action", "Choose folder");
-      choose.type = "button";
-      choose.addEventListener("click", async () => {
-        choose.disabled = true;
-        choose.textContent = "Opening folder setup…";
-        try {
-          await r.$savePortableDataHome();
-        } catch (error) {
-          r.$showToast(error?.message || "Bandkit could not open folder setup.");
-        } finally {
-          choose.disabled = false;
-          choose.textContent = "Choose folder";
-        }
+r.$restorePortableBackup = async function restorePortableBackup() {
+      if (typeof globalThis.showOpenFilePicker !== "function") {
+        throw new Error("This version of Chrome cannot open the backup restore window.");
+      }
+      const [handle] = await globalThis.showOpenFilePicker({
+        id: "bandkit-manual-restore",
+        startIn: "downloads",
+        multiple: false,
+        types: [{ description: "Bandkit backup", accept: { "application/json": [".json"] } }]
       });
-      gate.append(icon, heading, copy, choose);
-      r.$content.append(gate);
+      const stored = await r.$storageGet(STORAGE_KEYS.STATE);
+      const latestState = stored?.[STORAGE_KEYS.STATE] || runtimeState;
+      const result = await restoreBackupFile(handle, latestState);
+      const reminderDays = BACKUP_REMINDER_DAYS.has(Number(latestState.backupReminderDays))
+        ? Number(latestState.backupReminderDays) : 7;
+      const nextState = {
+        ...defaultState,
+        ...result.state,
+        backupIntroSeen: true,
+        backupReminderDays: reminderDays,
+        backupReminderSnoozedAt: latestState.backupReminderSnoozedAt || null,
+        lastBackupAt: latestState.lastBackupAt || null
+      };
+      r.$state = updateRuntimeState(r.$app.replaceState(nextState));
+      r.$saveState();
+      r.$render();
+      const restored = Number(result.restoredPlaylists || 0) + Number(result.restoredCarts || 0);
+      const updated = Number(result.updatedPlaylists || 0) + Number(result.updatedCarts || 0);
+      r.$showToast(restored || updated
+        ? `Restored ${restored + updated} saved item${restored + updated === 1 ? "" : "s"}`
+        : "Backup checked — your saved items are already up to date");
+      return result;
+    };
+r.$snoozeBackupReminder = function snoozeBackupReminder() {
+      runtimeState.backupIntroSeen = true;
+      runtimeState.backupReminderSnoozedAt = new Date().toISOString();
+      r.$saveState();
+      r.$render();
+    };
+r.$runBackupAction = async function runBackupAction(button, action) {
+      button.disabled = true;
+      try {
+        return await action();
+      } catch (error) {
+        if (error?.name !== "AbortError") r.$showToast(error?.message || "Bandkit could not complete the backup action.");
+        return null;
+      } finally {
+        button.disabled = false;
+      }
     };
 r.$savedLayoutState = function savedLayoutState(value = runtimeState) {
       return {
@@ -197,62 +190,38 @@ r.$savedLayoutState = function savedLayoutState(value = runtimeState) {
     };
 }
 
-function registerDataHomePermission(r) {
-r.$refreshPortableDataHomePermission = async function refreshPortableDataHomePermission({ notify = false } = {}) {
-      if (!r.$dataDirectoryHandle || typeof r.$dataDirectoryHandle.queryPermission !== "function") return r.$localDataHomePermission;
-      const previousPermission = r.$localDataHomePermission;
-      let permission = "denied";
-      try {
-        permission = await r.$dataDirectoryHandle.queryPermission({ mode: "readwrite" });
-      } catch {
-        permission = "denied";
-      }
-      if (permission === previousPermission) return permission;
-      r.$localDataHomePermission = permission;
-      if (r.$hubReady) r.$render();
-      if (notify && permission !== "granted") {
-        r.$showToast("Folder backup needs access. Your Chrome copy is safe; restore access to resume folder updates.", 6500);
-      }
-      if (permission === "granted") void r.$flushPortableDataHome();
-      return permission;
-    };
-r.$renderDataHomePermissionWarning = function renderDataHomePermissionWarning() {
-      if (!r.$dataHomeReady || r.$localDataHomePermission === "granted") return null;
-      const warning = createElement("section", "hub-data-home-warning");
-      warning.setAttribute("role", "alert");
-      const copy = createElement("div", "hub-data-home-warning-copy");
+function registerBackupReminder(r) {
+r.$renderBackupReminder = function renderBackupReminder() {
+      const reminderState = r.$backupReminderState();
+      if (!reminderState) return null;
+      const gate = createElement("section", `hub-backup-reminder is-${reminderState}`);
+      const copy = createElement("div", "hub-backup-reminder-copy");
+      const heading = reminderState === "saved"
+        ? "Backup saved"
+        : reminderState === "intro" ? "Saved in Chrome" : "Ready for another backup?";
+      const message = reminderState === "saved"
+        ? `A portable copy was saved as ${BACKUP_FILENAME}.`
+        : reminderState === "intro"
+          ? "Your playlists and carts stay in Chrome. Save a portable copy whenever you like."
+          : "Your Chrome copy is up to date. Save a fresh portable copy when it suits you.";
       copy.append(
-        createElement("strong", "", "Folder backup paused"),
-        createElement("span", "", `Your data is still safe in Chrome, but Bandkit cannot update ${runtimeState.dataFolderName || "your selected folder"} until access is restored.`)
+        createElement("strong", "hub-backup-reminder-heading", heading),
+        createElement("span", "", message)
       );
-      const restore = createElement("button", "hub-data-home-warning-action", r.$dataDirectoryHandle ? "Restore access" : "Choose folder");
-      restore.type = "button";
-      restore.addEventListener("click", async () => {
-        restore.disabled = true;
-        try {
-          if (r.$dataDirectoryHandle) await r.$restorePortableDataHomeAccess();
-          else await r.$savePortableDataHome();
-        } catch (error) {
-          if (error?.name !== "AbortError") r.$showToast(error?.message || "Bandkit could not restore folder access.", 6500);
-        } finally {
-          restore.disabled = false;
-        }
-      });
-      warning.append(copy, restore);
-      r.$content.append(warning);
-      return warning;
-    };
-r.$placeDataHomePermissionWarning = function placeDataHomePermissionWarning(warning) {
-      if (!warning) return;
-      const header = [...r.$content.children].find((element) => element !== warning && element.matches(
-        ".hub-cart-view-header, .hub-saved-cart-detail-toolbar, .hub-section-heading"
-      ));
-      if (!header) return;
-      let anchor = header;
-      while (anchor.nextElementSibling && anchor.nextElementSibling !== warning && anchor.nextElementSibling.matches(".hub-cart-backup")) {
-        anchor = anchor.nextElementSibling;
+      gate.append(copy);
+      if (reminderState !== "saved") {
+        const actions = createElement("div", "hub-backup-reminder-actions");
+        const action = createElement("button", "hub-backup-reminder-save", "Save backup");
+        action.type = "button";
+        action.addEventListener("click", () => r.$runBackupAction(action, r.$savePortableBackup));
+        const later = createElement("button", "hub-backup-reminder-later", "Later");
+        later.setAttribute("aria-label", `Remind me in ${r.$backupReminderDays()} days`);
+        later.type = "button";
+        later.addEventListener("click", r.$snoozeBackupReminder);
+        actions.append(action, later);
+        gate.append(actions);
       }
-      anchor.after(warning);
+      return gate;
     };
 }
 
@@ -431,14 +400,15 @@ r.$hasSavedPlaylistCapacity = function hasSavedPlaylistCapacity() {
 r.$createSavedPlaylistWithTracks = function createSavedPlaylistWithTracks(tracks, suggestedName = "New playlist") {
       const items = r.$normalizePlaylist((Array.isArray(tracks) ? tracks : []).map(r.$capturePlaylistAnalysis));
       if (!items.length) return null;
-      if (!r.$requireDataHome()) return null;
       if (!r.$hasSavedPlaylistCapacity()) return null;
       const name = window.prompt("Name this playlist", suggestedName)?.trim();
       if (!name) return null;
+      const savedAt = new Date().toISOString();
       const snapshot = {
         id: `saved-playlist-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         name: name.slice(0, 120),
-        savedAt: new Date().toISOString(),
+        savedAt,
+        modifiedAt: savedAt,
         sourcePage: portableBandcampUrl(location.href),
         items
       };
@@ -450,15 +420,16 @@ r.$createSavedPlaylistWithTracks = function createSavedPlaylistWithTracks(tracks
       return snapshot;
     };
 r.$createEmptySavedPlaylist = function createEmptySavedPlaylist() {
-      if (!r.$requireDataHome()) return null;
       if (!r.$hasSavedPlaylistCapacity()) return null;
       const suggestedName = `Playlist ${runtimeState.savedPlaylists.length + 1}`;
       const name = window.prompt("Name this playlist", suggestedName)?.trim();
       if (!name) return null;
+      const savedAt = new Date().toISOString();
       const snapshot = {
         id: `saved-playlist-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         name: name.slice(0, 120),
-        savedAt: new Date().toISOString(),
+        savedAt,
+        modifiedAt: savedAt,
         sourcePage: portableBandcampUrl(location.href),
         items: []
       };
@@ -471,7 +442,6 @@ r.$createEmptySavedPlaylist = function createEmptySavedPlaylist() {
       return snapshot;
     };
 r.$addTracksToSavedPlaylist = function addTracksToSavedPlaylist(tracks, snapshotId) {
-      if (!r.$requireDataHome()) return 0;
       const snapshot = runtimeState.savedPlaylists.find((entry) => entry.id === snapshotId);
       const incoming = r.$normalizePlaylist((Array.isArray(tracks) ? tracks : []).map(r.$capturePlaylistAnalysis));
       if (!snapshot || !incoming.length) return 0;
@@ -490,6 +460,7 @@ r.$addTracksToSavedPlaylist = function addTracksToSavedPlaylist(tracks, snapshot
       }
       if (added) {
         snapshot.items = r.$normalizePlaylist(snapshot.items);
+        snapshot.modifiedAt = new Date().toISOString();
         runtimeSaveState();
         if (runtimeState.activeTab === "playlist" && runtimeState.playlistView === "saved") r.$render();
       }
@@ -603,7 +574,7 @@ r.$prepareExternalNowPlaying = async function prepareExternalNowPlaying(track, s
     };
 }
 
-export const registerPersistencePlayback = [registerPersistencePlayback1, registerDataHomePermission, registerPersistencePlayback2, registerPersistencePlayback3];
+export const registerPersistencePlayback = [registerPersistencePlayback1, registerBackupReminder, registerPersistencePlayback2, registerPersistencePlayback3];
 
 function setupPersistencePlayback1(r) {
 ({ canonicalPlaylistPageUrl: r.$canonicalPlaylistPageUrl, mergeHydratedPlaylist: r.$mergeHydratedPlaylist, normalizePlaylist: r.$normalizePlaylist, normalizePlaylistBpm: r.$normalizePlaylistBpm, normalizePlaylistItem: r.$normalizePlaylistItem, normalizePlaylistKey: r.$normalizePlaylistKey, normalizeSavedPlaylists: r.$normalizeSavedPlaylists, playlistTrackKey: r.$playlistTrackKey, playlistTracksMatch: r.$playlistTracksMatch, portablePlaylistItem: r.$portablePlaylistItem } = createPlaylistModel({

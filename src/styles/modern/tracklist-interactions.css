@@ -1,0 +1,67 @@
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play-col {
+  position: relative;
+  text-align: center !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play-col::before {
+  color: var(--bandkit-release-muted) !important;
+  content: attr(data-bandkit-track-number);
+  font-size: 12px;
+  left: 0;
+  line-height: 24px;
+  opacity: 1;
+  pointer-events: none;
+  position: absolute;
+  text-align: center;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: opacity 100ms ease;
+  width: 24px;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play-col > a {
+  opacity: 0;
+  transition: background-color 140ms ease, border-color 140ms ease, opacity 100ms ease;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track-number-col {
+  display: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view.bandkit-modern-track-unplayable {
+  cursor: default;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view.bandkit-modern-track-unplayable:is(:hover, :focus-within) {
+  background: var(--bandkit-release-surface-raised) !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view.bandkit-modern-track-unplayable :is(.play-col, .title-col) {
+  opacity: 0.52;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view.bandkit-modern-track-unplayable .title-col {
+  color: var(--bandkit-release-muted) !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view:not(.bandkit-modern-track-unplayable):is(:hover, :focus-within) .play-col::before,
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view.bandcamp-hub-is-playing .play-col::before,
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view:has(.play_status.playing) .play-col::before {
+  opacity: 0;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view:not(.bandkit-modern-track-unplayable):is(:hover, :focus-within) .play-col > a,
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view.bandcamp-hub-is-playing .play-col > a,
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view:has(.play_status.playing) .play-col > a {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view:not(.bandkit-modern-track-unplayable) .play-col::before {
+    opacity: 0;
+  }
+
+  html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view:not(.bandkit-modern-track-unplayable) .play-col > a {
+    opacity: 1;
+  }
+}

@@ -30,7 +30,12 @@ let enabled = true;
 const messages = [];
 const context = {
   document: {
-    querySelector(selector) { return selector === "#status" ? status : toggle; }
+    querySelector(selector) {
+      return {
+        "#status": status,
+        "#toggle": toggle
+      }[selector];
+    }
   },
   chrome: {
     runtime: {

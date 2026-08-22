@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { readContentSource, readModernStyles } from "./support/source.mjs";
 
-const [source, state, contracts, background, offscreen, releaseCss, hubCss] = await Promise.all([
+const [source, state, contracts, background, offscreen, releaseCss, hubCss, playerCss] = await Promise.all([
   Promise.resolve(readContentSource()),
   readFile(new URL("../src/content/state.js", import.meta.url), "utf8"),
   readFile(new URL("../src/shared/contracts.js", import.meta.url), "utf8"),
@@ -10,7 +10,8 @@ const [source, state, contracts, background, offscreen, releaseCss, hubCss] = aw
   Promise.all(["progressive.js", "analysis.js", "utils.js", "state.js", "events.js", "index.js"]
     .map((filename) => readFile(new URL(`../src/offscreen/${filename}`, import.meta.url), "utf8"))).then((parts) => parts.join("\n")),
   Promise.resolve(readModernStyles()),
-  readFile(new URL("../src/styles/hub/settings.css", import.meta.url), "utf8")
+  readFile(new URL("../src/styles/hub/settings.css", import.meta.url), "utf8"),
+  readFile(new URL("../src/styles/hub/player.css", import.meta.url), "utf8")
 ]);
 
 assert.match(state, /autoAnalyzeTracks:\s*true/, "page track analysis must default to automatic");
@@ -39,26 +40,64 @@ assert.doesNotMatch(offscreen, /async function loadTrack[\s\S]*?startProgressive
   "track switches must not retry the same Bandcamp stream through MediaSource");
 assert.match(offscreen, /compensatedHandoffTime\(currentTime, handoffStartedAt, autoplayRequested\)/,
   "native-to-offscreen handoffs must compensate for startup time without replaying audio");
+assert.match(offscreen, /if \(status === "loading"\) \{[\s\S]*?sendState\(true\);[\s\S]*?return stateSnapshot\(\);[\s\S]*?async function loadTrack[\s\S]*?pendingSeekRevision !== handoffSeekRevision[\s\S]*?latestSeekTime/,
+  "a startup seek must update playback intent without cancelling the in-flight media request");
+assert.match(offscreen, /PLAYBACK_ANALYSIS_HEADROOM_SECONDS\s*=\s*15[\s\S]*?PLAYBACK_ANALYSIS_DELAY_MS\s*=\s*8_000[\s\S]*?analysisNotBefore[\s\S]*?bufferedPlaybackHeadroom\(\) >= PLAYBACK_ANALYSIS_HEADROOM_SECONDS/,
+  "automatic track analysis must yield through startup, then resume after eight seconds with safe buffer headroom");
 assert.match(offscreen, /audio\.crossOrigin = "anonymous"/,
   "remote Bandcamp seek streams must stay audible through the Web Audio graph");
 assert.match(source, /function syncFeedPagePlaybackUi\(\)[\s\S]*?data-bandkit-feed-playback[\s\S]*?seamless\.isPlaying \? "playing" : "paused"/,
   "feed artwork controls must retain the remote Bandkit playback state after native audio handoff");
+assert.match(source, /function syncFeedPagePlaybackUi\(\)[\s\S]*?pendingFeedTrackId[\s\S]*?data-bandkit-feed-playback", "loading"[\s\S]*?aria-busy", "true"[\s\S]*?Loading /,
+  "a clicked Feed artwork control must immediately expose its pending playback state");
 assert.match(source, /const collectionControl = event\.target\.closest\('[^']*#wishlist-items \.collection-grid\[data-iswish="true"\][^']*\.track_play_auxiliary'\)/,
   "wishlist artwork controls must use the reliable collection playback handoff");
 assert.match(source, /const collectionGrids = \[\.\.\.document\.querySelectorAll\('[^']*#wishlist-items \.collection-grid\[data-iswish="true"\][^']*'\)\]/,
   "wishlist cards must be included in collection action injection");
 assert.match(source, /const isWishlistItem = Boolean\(card\.closest\('#wishlist-items \.collection-grid\[data-iswish="true"\]'\)\)[\s\S]*?\(!isWishlistItem && !downloadSource\)/,
   "wishlist cards must receive collection actions without requiring an owned-item download link");
-assert.match(source, /playlistButton\.classList\.add\("is-feed-compact-action", "is-collection-action"\)/,
-  "wishlist and owned collection add buttons must share the same compact collection component");
+assert.match(source, /function itemFromNode\(node\)[\s\S]*?"\.heading"[\s\S]*?"\.subhead"/,
+  "Bandcamp track search results must expose their title and artist to Add-control injection");
+assert.match(source, /const titleNode = node\.querySelector\("[^"]*\.heading"\)/,
+  "track search Add controls must attach beside the native search-result heading");
+assert.match(source, /playlistButton\.classList\.add\("is-collection-action"\);[\s\S]*?playlistButton\.classList\.toggle\("is-feed-compact-action", modernActions\)/,
+  "wishlist and owned collection add buttons must share the compact collection component only in modern mode");
 assert.match(source, /function finishFeedAudioHandoff[\s\S]*?addEventListener\("playing"[\s\S]*?window\.setTimeout\(finish, 500\)[\s\S]*?async function handoffFeedPlayer[\s\S]*?finishFeedAudioHandoff/,
   "feed playback must let Bandcamp's native play promise settle before pausing its muted handoff audio");
+assert.match(source, /const isMutedHandoffAudio = currentAudio === mutedFeedAudio[\s\S]{0,240}?isMutedHandoffAudio[\s\S]{0,120}?currentTrackId/,
+  "direct Feed playback must also restore the old native player's mute state after handoff");
 assert.match(source, /sameSeamlessFeedTrack[\s\S]*?!pendingFeedTrackId && !candidate\.paused[\s\S]*?if \(pendingFeedTrackId\) return;/,
   "feed maintenance must not pause Bandcamp's native player while its handoff play promise is settling");
 assert.match(source, /pendingFeedSeekTime[\s\S]*?handoffCurrentTime = pendingFeedSeekTime === null \? feed\.currentTime : pendingFeedSeekTime[\s\S]*?pendingFeedSeekRevision !== handoffSeekRevision[\s\S]*?SEAMLESS_SEEK/,
   "a feed seek made during handoff must be applied to the incoming track after playback starts");
+assert.match(source, /function feedStreamUrl\(trackId\)[\s\S]*?stream_redirect[\s\S]*?track_id[\s\S]*?seededFromPendingClick[\s\S]*?isPlaying: seededFromPendingClick/,
+  "feed playback must start from clicked story metadata before Bandcamp's native audio finishes loading");
 assert.match(source, /function scrubTarget\(\)[\s\S]*?pendingFeedTrackId \? getFeedPlayerState\(pendingFeedTrackId\)[\s\S]*?async function seekToScrubTarget[\s\S]*?if \(pendingFeedTrackId\)[\s\S]*?pendingFeedSeekRevision \+= 1[\s\S]*?if \(seamless\.enabled\)/,
   "an immediate feed scrub must target the incoming feed track before any previously active seamless track");
+assert.match(source, /function scrubTarget\(\)[\s\S]*?const fraction = Math\.max[\s\S]*?pendingFeedSeekFraction = target\.fraction[\s\S]*?pendingFeedSeekTime = target\.duration \? target\.currentTime : null[\s\S]*?if \(!target\.duration\) return/,
+  "a Feed seek fraction must survive while the incoming track duration is still unknown");
+assert.match(source, /function commitPageScrub\(control, fraction\)[\s\S]*?pendingFeedTrackId[\s\S]*?pendingFeedSeekRevision \+= 1[\s\S]*?SEAMLESS_SEEK/,
+  "feed page scrubbers must retain a seek while a track handoff is still pending");
+assert.match(source, /const pendingFeedLoading = Boolean\(pendingFeedTrackId\)[\s\S]*?const pendingFeedSeek = Boolean\([\s\S]*?pendingFeedSeekTrackId[\s\S]*?currentTime = pendingFeedLoading[\s\S]*?pendingFeedSeekTime[\s\S]*?classList\.toggle\("is-pending-seek", pendingFeedSeek\)[\s\S]*?aria-busy/,
+  "loading state updates must keep the Feed playhead pinned to the listener's pending seek");
+assert.match(source, /function refreshScrubWaveform[\s\S]*?const pendingTrackId = String\(pendingFeedTrackId[\s\S]*?pendingTrackId[\s\S]*?live\.title/,
+  "a clicked Feed track must replace the previous track's waveform identity immediately");
+assert.match(source, /const pendingFeedSeekQueued = pendingFeedSeekTrackId === String\(pendingFeedTrackId[\s\S]*?const pendingFeedSeekHasTime = pendingFeedSeekTime !== null[\s\S]*?const seekConfirmed = pendingFeedSeekHasTime[\s\S]*?const seekFailed = !pendingFeedSeekQueued/,
+  "stale state from the previous Feed track must not clear a queued fraction-only seek");
+assert.match(source, /const feedControl = onFeedPage \? event\.target\.closest\("\.track_play_auxiliary"\)[\s\S]*?event\.preventDefault\(\);[\s\S]*?event\.stopImmediatePropagation\(\);[\s\S]*?pendingFeedTrackId = clickedTrackId;[\s\S]*?scheduleFeedHandoff\(clickedTrackId\)/,
+  "Feed play clicks must start Bandkit directly instead of launching a duplicate native stream");
+assert.match(source, /pendingFeedTrackId = clickedTrackId;[\s\S]*?getFeedPlayerState\(clickedTrackId\)[\s\S]*?updateRuntimeLive\([\s\S]*?hasPlaybackStarted: true[\s\S]*?syncFeedPagePlaybackUi\(\);[\s\S]*?renderPlayer\(\);[\s\S]*?scheduleFeedHandoff\(clickedTrackId\)/,
+  "Feed clicks must populate the bottom player and card feedback before stream resolution begins");
+assert.match(source, /const pendingFeedState = pendingFeedLoading \? getFeedPlayerState\(pendingFeedTrackId\)[\s\S]*?const displayTrack = pendingFeedState\?\.track \|\| live[\s\S]*?Loading \$\{displayTrack\.title[\s\S]*?playerTitle\.textContent = displayTrack\.title/,
+  "incoming Feed metadata must stay pinned in the bottom player over stale playback messages");
+assert.match(source, /Feed stories only expose Bandcamp's stream_redirect endpoint[\s\S]*?prepareExternalNowPlaying\(feed\.track\)/,
+  "Feed startup must resolve the final media URL instead of trusting the cross-origin redirect as audio");
+assert.match(source, /const preparedDuration = Number\(prepared\.queue\[prepared\.index\]\?\.duration\)[\s\S]*?pendingFeedSeekFraction \* preparedDuration[\s\S]*?const handoffCurrentTime/,
+  "Feed handoff must translate an early seek fraction after resolved metadata supplies the duration");
+assert.match(playerCss, /@keyframes hub-pending-seek-pulse[\s\S]*?\.hub-scrub-control\.is-pending-seek \.hub-scrub-playhead[\s\S]*?animation: hub-pending-seek-pulse/,
+  "a pinned startup seek must expose a visible processing state");
+assert.match(playerCss, /@keyframes hub-playback-loading-spin[\s\S]*?\.hub-play-button\.is-loading::after[\s\S]*?animation: hub-playback-loading-spin/,
+  "the bottom playback control must visibly acknowledge a pending Feed click");
 assert.match(source, /data-bandkit-feed-playback=\\?"playing\\?"[\s\S]*?linear-gradient\(90deg,currentColor 0 35%,transparent 35% 65%,currentColor 65% 100%\)[\s\S]*?height:24px[\s\S]*?width:18px/,
   "the active feed card must use the same centered pause-bar geometry as the main album player");
 assert.match(releaseCss, /\.inline_player \.playbutton\.playing::before\s*\{[\s\S]*?linear-gradient\(90deg, var\(--bandkit-release-ink\) 0 35%, transparent 35% 65%, var\(--bandkit-release-ink\) 65% 100%\)[\s\S]*?height:\s*24px[\s\S]*?width:\s*18px/,
@@ -97,6 +136,8 @@ assert.match(source, /bandcamp-hub-page-tools\{[^}]*flex-wrap:nowrap[^}]*min-wid
   "page actions must fill one line beneath the player so navigation can align to the waveform edge");
 assert.match(source, /bandkit-page-transport-row\{[^}]*margin-left:auto[^}]*margin-right:-8px/,
   "page navigation must finish at the waveform's right edge");
+assert.match(source, /@media\(max-width:380px\)\{\.bandcamp-hub-page-tools\{[^}]*column-gap:6px!important;[^}]*flex-wrap:wrap!important\}/,
+  "very narrow release players must wrap page actions instead of widening the document");
 assert.match(source, /function ensureClassicTransportRow[\s\S]*?setPageActionLabel\(control, ""\)/,
   "Previous and Next controls must remain icon-only when page action labels are enabled");
 assert.match(source, /cartButton\.nextElementSibling !== playlistButton[\s\S]*?playlistButton\.nextElementSibling !== button[\s\S]*?button\.nextElementSibling !== overflowButton/,
@@ -109,14 +150,16 @@ assert.match(source, /resolveTrackPrice\(button, track\)[\s\S]*?bandcamp-hub-pag
   "the page cart control must resolve and expose the current track price");
 assert.match(source, /minimumFractionDigits:\s*Number\.isInteger\(amount\) \? 0 : 2/,
   "whole purchase prices must remain compact enough for the cart icon");
-assert.match(source, /`\$\{formatted\}\$\{minimum \? "\+" : ""\} \$\{code\}`/,
-  "compact purchase prices must preserve exact versus minimum-price semantics");
+assert.match(source, /`\$\{formatted\} \$\{code\}\$\{minimum \? " \+" : ""\}`/,
+  "compact purchase prices must show the currency before a clear trailing minimum-price plus");
 assert.match(source, /\.buyItem\.digital \.buyItemExtra\.secondaryText:not\(\.buyItemNyp\)/,
   "purchase prices must prefer the currency Bandcamp visibly presents for the release");
 assert.match(source, /script\[data-band-currency\][\s\S]*?getAttribute\("data-band-currency"\)/,
   "album prices must use Bandcamp's release currency before an unrelated checkout-cart currency");
 assert.match(source, /status: "name-your-price", label: "Name your price"/,
   "name-your-price releases must not present Bandcamp's internal suggested value as a payable minimum");
+assert.match(source, /const minimumPrice = Number\(current\?\.minimum_price\);[\s\S]*?minimumPrice > 0[\s\S]*?status: "priced"[\s\S]*?digitalOffer\.querySelector\("\.buyItemNyp"\)/,
+  "a positive Bandcamp minimum must take precedence over its generic name-your-price markup");
 assert.match(source, /free\s*=\s*\/free\\s\+download[\s\S]*?download_pref[\s\S]*?status: "free", label: "Free"/,
   "true free downloads must override misleading positive internal price metadata");
 assert.match(source, /status: "album-only", label: "Album only"/,
@@ -135,8 +178,8 @@ assert.match(source, /buyTrack\.after\(button\)/,
   "each track purchase action must appear before its add-to-playlist action");
 assert.match(source, /classList\.contains\("bandcamp-hub-page-buy"\)[\s\S]*?\^buy\(\?: track\)\?\$\/i/,
   "track-row refreshes must reuse a Buy control whose native Buy Track label was already shortened");
-assert.match(source, /node\.nodeType === 3[\s\S]*?buy track[\s\S]*?node\.textContent = "Buy"/,
-  "track purchase controls must use the compact Buy label without replacing their stable click target");
+assert.match(source, /modernActions && !isFreeDownload[\s\S]*?child\.nodeType === 3[\s\S]*?buy track[\s\S]*?child\.textContent = "Buy"/,
+  "modern track purchase controls must use the compact Buy label without replacing their stable click target");
 assert.match(source, /isFreeDownload\s*=\s*Boolean\(downloadTrack\s*&&\s*!nativeBuyTrack\)/,
   "a native download without a native purchase control must be treated as a free track download");
 assert.match(source, /setPageActionLabel\(buyTrack, isFreeDownload \? "Download" : "Buy"\)[\s\S]*?icon-downloads\.svg[\s\S]*?icon-cart\.svg/,
@@ -169,10 +212,10 @@ assert.match(source, /Page icon labels[\s\S]*?hub-page-action-labels-toggle/,
   "settings must include an opt-in page icon label switch");
 assert.match(source, /data-bandkit-page-action-labels="true"[\s\S]*?bandkit-page-action-label/,
   "page labels must expand only when the opt-in document mode is active");
-assert.match(source, /data-bandkit-modern-release="false"[^}]*data-bandkit-page-action-labels="true"[^}]*\.download-col\{[^}]*min-width:136px!important;[^}]*width:136px!important[^}]*\}[\s\S]*?\.download-col \.dl_link\{[^}]*display:flex!important;[^}]*flex-wrap:nowrap!important;[^}]*justify-content:flex-end!important/s,
-  "legacy release Add and Buy labels must share one non-wrapping action row");
-assert.match(source, /data-bandkit-modern-release="false"[^}]*data-bandkit-page-action-labels="true"[^}]*\.download-col \.bandcamp-hub-page-buy\{[^}]*min-width:max-content!important;[^}]*overflow:visible!important;[^}]*width:auto!important/s,
-  "legacy labeled Buy actions must not retain their clipped icon-only width");
+assert.match(source, /data-bandkit-modern-styling="false"[^}]*\[data-bandkit-label\]>\.bandkit-page-action-label\{display:none!important\}/,
+  "classic pages must suppress modern action labels instead of resizing Bandcamp's native action columns");
+assert.doesNotMatch(source, /data-bandkit-modern-release="false"[^}]*data-bandkit-page-action-labels="true"[^}]*\.download-col/,
+  "classic release pages must not retain legacy Bandkit sizing overrides for native action columns");
 assert.match(source, /bandcamp-hub-page-cart\.has-price[\s\S]*?width:auto/,
   "priced cart controls must retain their compact icon-and-price width when labels are off");
 assert.match(releaseCss, /\.inline_player\s*\{[\s\S]*?background:\s*transparent\s*!important;[\s\S]*?padding:\s*0\s*!important;/,
@@ -211,10 +254,10 @@ assert.match(source, /\.ui-dialog\.nu-dialog \{ color-scheme: light; \}/,
   "the native purchase dialog must retain its normal light form-control scheme under dark page themes");
 assert.match(hubCss, /\.hub-settings-copy \.hub-settings-version\s*\{[\s\S]*?background:\s*var\(--hub-control-bg\);[\s\S]*?color:\s*var\(--hub-control-fg\);/,
   "the release chip must use a contrast-safe foreground and background pair");
-assert.match(hubCss, /\.hub-settings-segment\.is-active\s*\{[\s\S]*?background:\s*var\(--hub-control-bg\);[\s\S]*?color:\s*var\(--hub-control-fg\);/,
-  "the active page-colour segment must use a contrast-safe foreground and background pair");
-assert.match(hubCss, /\.hub-settings-segment\s*\{[\s\S]*?color:\s*var\(--hub-card-ink\);/,
-  "inactive page-colour segments must use readable text on their card surface");
+assert.match(hubCss, /\.hub-settings-segment\.is-active\s*\{[\s\S]*?background:\s*color-mix\(in srgb, var\(--hub-accent\) 12%, var\(--hub-panel\)\);[\s\S]*?color:\s*var\(--hub-accent\);/,
+  "the active page-colour segment must use an accent indicator over the panel surface");
+assert.match(hubCss, /\.hub-settings-segment\s*\{[\s\S]*?background:\s*var\(--hub-panel\);[\s\S]*?color:\s*var\(--hub-ink\);/,
+  "inactive page-colour segments must use the panel surface rather than the content-card colour");
 assert.match(releaseCss, /\.inline_player \.play_cell > a\s*\{[^}]*height:\s*72px\s*!important;[^}]*width:\s*72px\s*!important/s,
   "the page-player play control must span the title, metadata, and scrubber block");
 assert.match(releaseCss, /\.inline_player \.track_info\s*\{[^}]*display:\s*grid\s*!important;[^}]*grid-template-columns:\s*max-content max-content minmax\(0, 1fr\)/s,

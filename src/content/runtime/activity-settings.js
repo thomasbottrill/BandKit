@@ -1,9 +1,8 @@
 import { runtimeSaveState, runtimeState, updateRuntimeState } from "./context.js";
 import { asset, createArt, createButtonIcon, createElement, createSectionHeading } from "../core.js";
 import { hexColor, hexString, luminance, mixColor } from "../color.js";
-import { BUILT_IN_THEMES, DEFAULT_DATA_FOLDER, FEEDBACK_FORM_URL, FEEDBACK_LIST_URL, MUSIC_BAR_WIDTHS, SUPPORT_PAYMENT_URL, defaultState } from "../state.js";
+import { BUILT_IN_THEMES, FEEDBACK_FORM_URL, FEEDBACK_LIST_URL, MUSIC_BAR_WIDTHS, SUPPORT_PAYMENT_URL, defaultState } from "../state.js";
 import { MESSAGES } from "../../shared/contracts.js";
-import { clearDataDirectoryHandle } from "../../shared/data-home.js";
 
 function registerActivitySettings1(r) {
 r.$renderActivity = function renderActivity() {
@@ -48,6 +47,31 @@ r.$renderActivity = function renderActivity() {
       r.$content.append(list);
       if (!runtimeState.activity.length) r.$content.append(createElement("div", "hub-empty", "Nothing recorded yet. Tracks you play will appear here with a link back to their Bandcamp page."));
     };
+}
+
+function createMusicBarAnalysisSetting(r) {
+  const row = createElement("div", "hub-settings-row hub-settings-subrow");
+  const copy = createElement("div", "hub-settings-copy");
+  copy.append(
+    createElement("strong", "", "BPM and key in music bar"),
+    createElement("span", "", "Show compact analysis badges beside DJ tools.")
+  );
+  const shown = runtimeState.showMusicBarAnalysis !== false;
+  const toggle = createElement("button", `hub-settings-toggle hub-music-bar-analysis-toggle${shown ? " is-active" : ""}`);
+  toggle.type = "button";
+  toggle.setAttribute("role", "switch");
+  toggle.setAttribute("aria-label", "Show BPM and key in music bar");
+  toggle.setAttribute("aria-checked", String(shown));
+  toggle.append(createElement("span", "hub-settings-toggle-thumb"));
+  toggle.addEventListener("click", () => {
+    runtimeState.showMusicBarAnalysis = runtimeState.showMusicBarAnalysis === false;
+    runtimeSaveState();
+    r.$renderPlayer();
+    r.$render();
+    r.$showToast(runtimeState.showMusicBarAnalysis ? "Music bar BPM and key shown" : "Music bar BPM and key hidden");
+  });
+  row.append(copy, toggle);
+  return row;
 }
 
 function registerPlaybackSettings(r) {
@@ -182,7 +206,7 @@ r.$renderPlaybackSettings = function renderPlaybackSettings() {
       musicBarWidthField.append(createElement("span", "", "Width"), musicBarWidthControl);
       musicBarControls.append(musicBarSizeField, musicBarWidthField);
       musicBarRow.append(musicBarCopy, musicBarControls);
-      playback.append(musicBarRow);
+      playback.append(musicBarRow, createMusicBarAnalysisSetting(r));
 
       const playlistMetadataRow = createElement("div", "hub-settings-row hub-settings-subrow");
       const playlistMetadataCopy = createElement("div", "hub-settings-copy");
@@ -322,13 +346,18 @@ r.$createAppearanceSettings = function createAppearanceSettings() {
 
 function registerAppearanceThemePicker(r) {
 r.$appendAppearanceThemePicker = function appendAppearanceThemePicker(appearance, appearanceMode) {
+      const customContent = runtimeState.appearance.customContentLinked === false
+        ? runtimeState.appearance.customCard
+        : runtimeState.appearance.customPageSurface;
       const availableThemes = [...BUILT_IN_THEMES, ...(runtimeState.appearance.savedThemes || []), {
         id: "custom",
         label: "Custom",
         accent: runtimeState.appearance.customAccent,
         scrubAccent: runtimeState.appearance.customScrubAccent || runtimeState.appearance.customAccent,
-        surface: runtimeState.appearance.customSurface,
-        card: runtimeState.appearance.customCard,
+        surface: runtimeState.appearance.customPanelLinked === false
+          ? runtimeState.appearance.customSurface
+          : customContent,
+        card: customContent,
         background: runtimeState.appearance.customPageBackground,
         pageSurface: runtimeState.appearance.customPageSurface,
         navbar: runtimeState.appearance.customNavbar,
@@ -367,10 +396,12 @@ r.$appendAppearanceThemePicker = function appendAppearanceThemePicker(appearance
         if (theme.id !== "custom") {
           runtimeState.appearance.customAccent = theme.accent;
           runtimeState.appearance.customScrubAccent = theme.scrubAccent && theme.scrubAccent !== theme.accent ? theme.scrubAccent : null;
-          runtimeState.appearance.customSurface = theme.surface;
-          runtimeState.appearance.customCard = theme.resolvedCard;
+          runtimeState.appearance.customSurface = theme.resolvedCard;
+          runtimeState.appearance.customPanelLinked = true;
+          runtimeState.appearance.customContentLinked = true;
           runtimeState.appearance.customPageBackground = theme.background || theme.surface;
           runtimeState.appearance.customPageSurface = theme.pageSurface || theme.surface;
+          runtimeState.appearance.customCard = runtimeState.appearance.customPageSurface;
           runtimeState.appearance.customNavbar = theme.resolvedNavbar;
           runtimeState.appearance.customText = theme.resolvedText;
           runtimeState.appearance.customSecondaryText = theme.resolvedSecondaryText;
@@ -461,17 +492,53 @@ r.$appendAppearanceThemePicker = function appendAppearanceThemePicker(appearance
     };
 }
 
+function registerCustomThemePreview(r) {
+r.$applyCustomThemePreview = function applyCustomThemePreview() {
+      r.$customThemePreviewFrame = 0;
+      r.$applyBandcampPageTheme();
+      r.$applyShadowHeaderTheme();
+      if (r.$modernReleasePalette) {
+        const palette = r.$themedModernReleasePalette(r.$modernReleasePalette);
+        r.$setModernReleasePalette(r.$accessibleModernPagePalette(palette));
+      }
+      r.$applySelectedTheme();
+      const accessibility = r.$content.querySelector(".hub-theme-accessibility");
+      if (accessibility) {
+        const theme = r.$accessibleAppearanceTheme();
+        accessibility.classList.toggle("is-adjusted", theme.adjusted);
+        accessibility.querySelector("strong").textContent = theme.adjusted ? "Contrast adjusted automatically" : "Accessible contrast";
+        accessibility.querySelector("span").textContent = `Text ${theme.textContrast.toFixed(1)}:1 · controls ${theme.accentContrast.toFixed(1)}:1`;
+      }
+    };
+r.$scheduleCustomThemePreview = function scheduleCustomThemePreview() {
+      if (r.$customThemePreviewFrame) return;
+      r.$customThemePreviewFrame = requestAnimationFrame(r.$applyCustomThemePreview);
+    };
+r.$commitCustomThemeColour = function commitCustomThemeColour() {
+      if (r.$customThemePreviewFrame) cancelAnimationFrame(r.$customThemePreviewFrame);
+      r.$applyCustomThemePreview();
+      runtimeSaveState();
+    };
+r.$containThemeColourPointer = function containThemeColourPointer(input) {
+      for (const eventName of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) {
+        input.addEventListener(eventName, (event) => event.stopPropagation());
+      }
+    };
+}
+
 function registerCustomThemeSettings(r) {
 r.$appendCustomThemeSettings = function appendCustomThemeSettings(appearance, appearanceMode) {
       if (appearanceMode === "theme" && runtimeState.appearance.preset === "custom") {
         const customPanel = createElement("div", "hub-custom-theme-panel");
         const customColours = createElement("div", "hub-custom-colours");
+        let contentInput = null;
+        let panelInput = null;
         for (const [key, label] of [
           ["customAccent", "Accent"],
-          ["customSurface", "Bandkit panel"],
-          ["customCard", "Bandkit content"],
           ["customPageBackground", "Page background"],
           ["customPageSurface", "Page content"],
+          ["customCard", "Bandkit content"],
+          ["customSurface", "Bandkit panel"],
           ["customNavbar", "Artist navigation"],
           ["customText", "Primary text"],
           ["customSecondaryText", "Secondary text"]
@@ -479,20 +546,88 @@ r.$appendCustomThemeSettings = function appendCustomThemeSettings(appearance, ap
           const field = createElement("label", "hub-colour-field");
           const input = createElement("input");
           input.type = "color";
-          input.value = runtimeState.appearance[key];
+          const contentLinked = key === "customCard" && runtimeState.appearance.customContentLinked !== false;
+          const panelLinked = key === "customSurface" && runtimeState.appearance.customPanelLinked !== false;
+          const resolvedContent = runtimeState.appearance.customContentLinked === false
+            ? runtimeState.appearance.customCard
+            : runtimeState.appearance.customPageSurface;
+          input.value = contentLinked
+            ? runtimeState.appearance.customPageSurface
+            : panelLinked ? resolvedContent : runtimeState.appearance[key];
           input.dataset.themeColour = key;
           input.setAttribute("aria-label", `${label} colour`);
+          r.$containThemeColourPointer(input);
+          let colourLink = null;
+          if (key === "customCard") {
+            contentInput = input;
+            colourLink = createElement("button", "hub-colour-link", "Use page");
+            colourLink.type = "button";
+            colourLink.disabled = contentLinked;
+            colourLink.title = contentLinked
+              ? "Bandkit content is following the Page content colour"
+              : "Reset Bandkit content to follow the Page content colour";
+            colourLink.addEventListener("click", () => {
+              Object.assign(runtimeState.appearance, {
+                customContentLinked: true, customCard: runtimeState.appearance.customPageSurface
+              });
+              if (runtimeState.appearance.customPanelLinked !== false) {
+                runtimeState.appearance.customSurface = runtimeState.appearance.customCard;
+              }
+              r.$applyAppearance();
+              runtimeSaveState();
+              r.$render();
+            });
+          } else if (key === "customSurface") {
+            panelInput = input;
+            colourLink = createElement("button", "hub-colour-link", "Use content");
+            colourLink.type = "button";
+            colourLink.disabled = panelLinked;
+            colourLink.title = panelLinked
+              ? "Bandkit panel is following the Bandkit content colour"
+              : "Reset Bandkit panel to follow the Bandkit content colour";
+            colourLink.addEventListener("click", () => {
+              Object.assign(runtimeState.appearance, {
+                customPanelLinked: true,
+                customSurface: runtimeState.appearance.customContentLinked === false
+                  ? runtimeState.appearance.customCard : runtimeState.appearance.customPageSurface
+              });
+              r.$applyAppearance();
+              runtimeSaveState();
+              r.$render();
+            });
+          }
           input.addEventListener("input", () => {
+            if (key === "customCard") {
+              runtimeState.appearance.customContentLinked = false;
+              colourLink.disabled = false;
+              colourLink.title = "Reset Bandkit content to follow the Page content colour";
+            } else if (key === "customSurface") {
+              runtimeState.appearance.customPanelLinked = false;
+              colourLink.disabled = false;
+              colourLink.title = "Reset Bandkit panel to follow the Bandkit content colour";
+            }
             runtimeState.appearance[key] = input.value;
+            if (key === "customPageSurface" && runtimeState.appearance.customContentLinked !== false) {
+              runtimeState.appearance.customCard = input.value;
+              if (contentInput) contentInput.value = input.value;
+            }
+            if ((key === "customCard" || key === "customPageSurface")
+              && runtimeState.appearance.customPanelLinked !== false
+              && (key === "customCard" || runtimeState.appearance.customContentLinked !== false)) {
+              runtimeState.appearance.customSurface = input.value;
+              if (panelInput) panelInput.value = input.value;
+            }
             if (key === "customAccent" && !runtimeState.appearance.customScrubAccent) {
               const scrubInput = customColours.querySelector('[data-theme-colour="customScrubAccent"]');
               if (scrubInput) scrubInput.value = input.value;
             }
-            r.$applyAppearance();
-            runtimeSaveState();
+            r.$scheduleCustomThemePreview();
           });
-          input.addEventListener("change", r.$render);
-          field.append(createElement("span", "", label), input);
+          input.addEventListener("change", r.$commitCustomThemeColour);
+          const control = colourLink ? createElement("div", "hub-colour-controls") : null;
+          if (control) control.append(colourLink, input);
+          if (["customCard", "customSurface"].includes(key)) field.classList.add("is-linked-colour");
+          field.append(createElement("span", "", label), control || input);
           customColours.append(field);
         }
         const scrubField = createElement("div", "hub-colour-field");
@@ -506,14 +641,14 @@ r.$appendCustomThemeSettings = function appendCustomThemeSettings(appearance, ap
         scrubInput.value = runtimeState.appearance.customScrubAccent || runtimeState.appearance.customAccent;
         scrubInput.dataset.themeColour = "customScrubAccent";
         scrubInput.setAttribute("aria-label", "Track scrub colour");
+        r.$containThemeColourPointer(scrubInput);
         scrubInput.addEventListener("input", () => {
           runtimeState.appearance.customScrubAccent = scrubInput.value;
           matchAccent.disabled = false;
           matchAccent.title = "Reset track scrub to follow the accent colour";
-          r.$applyAppearance();
-          runtimeSaveState();
+          r.$scheduleCustomThemePreview();
         });
-        scrubInput.addEventListener("change", r.$render);
+        scrubInput.addEventListener("change", r.$commitCustomThemeColour);
         matchAccent.addEventListener("click", () => {
           runtimeState.appearance.customScrubAccent = null;
           r.$applyAppearance();
@@ -540,8 +675,14 @@ r.$appendCustomThemeSettings = function appendCustomThemeSettings(appearance, ap
             label: label.slice(0, 28),
             accent: runtimeState.appearance.customAccent,
             scrubAccent: runtimeState.appearance.customScrubAccent || runtimeState.appearance.customAccent,
-            surface: runtimeState.appearance.customSurface,
-            card: runtimeState.appearance.customCard,
+            surface: runtimeState.appearance.customPanelLinked === false
+              ? runtimeState.appearance.customSurface
+              : runtimeState.appearance.customContentLinked === false
+                ? runtimeState.appearance.customCard
+                : runtimeState.appearance.customPageSurface,
+            card: runtimeState.appearance.customContentLinked === false
+              ? runtimeState.appearance.customCard
+              : runtimeState.appearance.customPageSurface,
             background: runtimeState.appearance.customPageBackground,
             pageSurface: runtimeState.appearance.customPageSurface,
             navbar: runtimeState.appearance.customNavbar,
@@ -613,6 +754,7 @@ r.$appendAppearanceToggles = function appendAppearanceToggles(appearance) {
       modernReleaseToggle.addEventListener("click", () => {
         runtimeState.appearance.modernReleasePages = !modernReleasePages;
         r.$applyAppearance();
+        r.$injectPlaylistButtons({ incremental: false });
         runtimeSaveState();
         r.$render();
         r.$showToast(runtimeState.appearance.modernReleasePages ? "Modern Bandcamp pages enabled" : "Classic Bandcamp pages restored");
@@ -733,37 +875,56 @@ r.$renderSettingsInfoCards = function renderSettingsInfoCards() {
 
       const privacy = createElement("section", "hub-card hub-settings-card");
       privacy.append(createElement("h2", "hub-settings-heading", "Privacy and data"));
-      const dataHomeRow = createElement("div", "hub-settings-row hub-data-home-row");
-      const dataHomeCopy = createElement("div", "hub-settings-copy");
-      const dataHomeStatus = runtimeState.dataFolderName
-        ? `Location: ${runtimeState.dataFolderName}${r.$localDataHomePermission === "granted" ? " · syncing automatically" : " · access required · folder backup paused"}`
-        : `Not set · default: Documents/${DEFAULT_DATA_FOLDER}`;
-      dataHomeCopy.append(
-        createElement("strong", "", "Your data folder"),
-        createElement("span", "hub-data-home-location", dataHomeStatus)
+      const backupRow = createElement("div", "hub-settings-row hub-backup-row");
+      const backupCopy = createElement("div", "hub-settings-copy");
+      const lastBackupDate = runtimeState.lastBackupAt ? new Date(runtimeState.lastBackupAt) : null;
+      const validLastBackupDate = lastBackupDate && !Number.isNaN(lastBackupDate.getTime());
+      const backupStatus = validLastBackupDate
+        ? `Saved in Chrome · last file backup ${lastBackupDate.toLocaleString()}`
+        : "Saved in Chrome · no file backup yet";
+      backupCopy.append(
+        createElement("strong", "", "Backup"),
+        createElement("span", "hub-backup-location", backupStatus)
       );
-      const chooseDataHomeLabel = r.$localDataHomePermission === "granted"
-        ? "Change"
-        : r.$dataDirectoryHandle ? "Restore access" : "Choose folder";
-      const chooseDataHome = createElement("button", "hub-settings-action hub-data-home-action", chooseDataHomeLabel);
-      chooseDataHome.type = "button";
-      chooseDataHome.addEventListener("click", async () => {
-        chooseDataHome.disabled = true;
-        try {
-          if (r.$dataDirectoryHandle && r.$localDataHomePermission !== "granted") await r.$restorePortableDataHomeAccess();
-          else await r.$savePortableDataHome();
-          r.$render();
-        } catch (error) {
-          if (error?.name !== "AbortError") r.$showToast(error?.message || "Bandkit could not write to that folder.");
-        } finally {
-          chooseDataHome.disabled = false;
-        }
+      const backupActions = createElement("div", "hub-settings-feedback-actions hub-backup-actions");
+      const saveBackup = createElement("button", "hub-settings-action hub-backup-action", "Save");
+      saveBackup.setAttribute("aria-label", "Save backup");
+      saveBackup.type = "button";
+      saveBackup.addEventListener("click", () => r.$runBackupAction(saveBackup, r.$savePortableBackup));
+      const restoreBackup = createElement("button", "hub-settings-action hub-backup-action", "Restore");
+      restoreBackup.setAttribute("aria-label", "Restore backup");
+      restoreBackup.type = "button";
+      restoreBackup.addEventListener("click", () => r.$runBackupAction(restoreBackup, r.$restorePortableBackup));
+      backupActions.append(saveBackup, restoreBackup);
+      backupRow.append(backupCopy, backupActions);
+
+      const reminderRow = createElement("div", "hub-settings-row hub-backup-frequency-row");
+      const reminderCopy = createElement("div", "hub-settings-copy");
+      reminderCopy.append(
+        createElement("strong", "", "Backup reminder"),
+        createElement("span", "", "Choose how often Bandkit reminds you to save a fresh file.")
+      );
+      const reminderFrequency = createElement("select", "hub-settings-select hub-backup-frequency");
+      for (const [value, label] of [["7", "Every week"], ["14", "Every 2 weeks"], ["30", "Every month"], ["0", "Off"]]) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        option.selected = r.$backupReminderDays() === Number(value);
+        reminderFrequency.append(option);
+      }
+      reminderFrequency.addEventListener("change", () => {
+        runtimeState.backupReminderDays = Number(reminderFrequency.value);
+        if (runtimeState.backupIntroSeen !== true) runtimeState.backupIntroSeen = true;
+        runtimeState.backupReminderSnoozedAt = new Date().toISOString();
+        r.$saveState();
+        r.$render();
+        r.$showToast(Number(reminderFrequency.value) ? `Backup reminders set to ${reminderFrequency.selectedOptions[0].textContent.toLowerCase()}` : "Backup reminders turned off");
       });
-      dataHomeRow.append(dataHomeCopy, chooseDataHome);
+      reminderRow.append(reminderCopy, reminderFrequency);
       const deleteData = createElement("button", "hub-settings-action hub-settings-danger", "Delete all Bandkit data");
       deleteData.type = "button";
       deleteData.addEventListener("click", async () => {
-        if (!window.confirm("Delete all Bandkit settings, playlists, cart backups, activity and playback data from this browser? Portable copies in your data folder will not be deleted. This cannot be undone.")) return;
+        if (!window.confirm("Delete all Bandkit settings, playlists, cart backups, activity and playback data from this browser? Any backup file you previously saved will remain. This cannot be undone.")) return;
         deleteData.disabled = true;
         r.$storageDisabled = true;
         const response = await r.$runtimeMessage({ type: MESSAGES.DELETE_ALL_DATA });
@@ -773,15 +934,14 @@ r.$renderSettingsInfoCards = function renderSettingsInfoCards() {
           r.$showToast(response?.error || "Bandkit data could not be deleted.");
           return;
         }
-        await clearDataDirectoryHandle().catch(() => {});
-        r.$dataDirectoryHandle = null;
         r.$state = updateRuntimeState(structuredClone(defaultState));
         r.$layoutRevision = 0;
         r.$showToast("All Bandkit data deleted");
         window.setTimeout(() => location.reload(), 500);
       });
       privacy.append(
-        dataHomeRow,
+        backupRow,
+        reminderRow,
         deleteData
       );
       r.$content.append(privacy);
@@ -833,6 +993,6 @@ r.$renderSettings = function renderSettings() {
     };
 }
 
-export const registerActivitySettings = [registerPlaybackSettings, registerBrowsingSettings, registerAppearanceSettingsShell, registerAppearanceThemePicker, registerSavedThemeSettings, registerCustomThemeSettings, registerAppearanceToggles, registerAppearanceSettingsFinish, registerSettingsInfoCards, registerActivitySettings1, registerActivitySettings2];
+export const registerActivitySettings = [registerPlaybackSettings, registerBrowsingSettings, registerAppearanceSettingsShell, registerAppearanceThemePicker, registerSavedThemeSettings, registerCustomThemePreview, registerCustomThemeSettings, registerAppearanceToggles, registerAppearanceSettingsFinish, registerSettingsInfoCards, registerActivitySettings1, registerActivitySettings2];
 
 export const setupActivitySettings = [];

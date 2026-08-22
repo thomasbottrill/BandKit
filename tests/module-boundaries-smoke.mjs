@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { createAppContext } from "../src/content/app-context.js";
 import { parseCartBackup, portableCartItem } from "../src/content/cart-model.js";
-import { contrast, hexColor } from "../src/content/color.js";
+import { accessibleScrubberPalette, contrast, hexColor } from "../src/content/color.js";
 import { safeBandcampReleaseUrl } from "../src/content/core.js";
 import { createPlaylistModel } from "../src/content/playlist-model.js";
 import { defaultState } from "../src/content/state.js";
-import { waveformPathData } from "../src/content/waveform.js";
+import { waveformAmplitudes, waveformPathData } from "../src/content/waveform.js";
 import { MESSAGES, STORAGE_KEYS } from "../src/shared/contracts.js";
 
 const context = createAppContext(defaultState);
@@ -45,7 +45,14 @@ assert.equal(playlist.playlistTracksMatch(normalized[0], { ...normalized[0], pag
 
 assert.equal(safeBandcampReleaseUrl("http://artist.bandcamp.com/track/nope"), "");
 assert.ok(contrast(hexColor("#000000"), hexColor("#ffffff")) >= 21);
+const scrubberPalette = accessibleScrubberPalette(hexColor("#777777"), hexColor("#ffffff"));
+assert.equal(scrubberPalette.remaining.a, 1, "Unplayed waveform bars must use a fully opaque colour");
+assert.ok(contrast(scrubberPalette.remaining, scrubberPalette.surface) >= 2,
+  "Unplayed waveform bars must retain useful contrast against their surface");
 assert.ok(waveformPathData("fixture", 320).pathData.length > 100);
+assert.deepEqual(waveformAmplitudes("fixture", 32), waveformAmplitudes("fixture", 32),
+  "Fallback waveform samples must be deterministic");
+assert.equal(waveformAmplitudes("fixture", 32).length, 32);
 assert.equal(portableCartItem({ title: "Test", url: "https://artist.bandcamp.com/album/test" }).title, "Test");
 assert.throws(() => parseCartBackup("{}"), /not a supported Bandkit cart backup/);
 

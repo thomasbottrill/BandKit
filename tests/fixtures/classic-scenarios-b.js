@@ -525,9 +525,11 @@ Object.assign(window.fixtureScenarios, {
     const pageDjHost = document.querySelector(".inline_player > .bandcamp-hub-page-dj-host");
     document.title = pageDjButton?.classList.contains("is-active")
       && pageDjButton?.getAttribute("aria-expanded") === "true"
-      && pageDjButton?.getAttribute("aria-label") === "Hide DJ tools on this page"
+      && pageDjButton?.getAttribute("aria-label") === "Show BPM and tempo controls on this page"
+      && pageDjButton?.hidden
       && !pageDjHost?.hidden
-      && Boolean(pageDjHost?.shadowRoot?.querySelector(".hub-dj-card"))
+      && Boolean(pageDjHost?.shadowRoot?.querySelector(".hub-dj-card-page"))
+      && Boolean(pageDjHost?.shadowRoot?.querySelector(".hub-dj-page-close"))
       ? "PASS: persisted page DJ fixture"
       : "FAIL: persisted page DJ fixture";
     return;

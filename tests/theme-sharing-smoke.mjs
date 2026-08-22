@@ -84,6 +84,12 @@ assert.match(source, /preset = "custom";[\s\S]*?Deleted theme/, "Deleting the ac
 assert.match(source, /importThemeInput\.accept = "\.json,application\/json"/);
 assert.match(source, /customScrubAccent: null/, "Track scrub colours should follow the accent by default");
 assert.match(source, /"Use accent"/, "The custom scrub colour should be resettable to the accent");
+assert.match(source, /customPanelLinked: true/, "Bandkit panel colours should follow Bandkit content by default");
+assert.match(source, /customContentLinked: true/, "Bandkit content colours should follow Page content by default");
+assert.match(source, /"Use page"/, "A separately edited Bandkit content colour should be resettable to Page content");
+assert.match(source, /"Use content"/, "A separately edited Bandkit panel colour should be resettable to Bandkit content");
+assert.match(extractFunction("appendCustomThemeSettings"), /\["customPageSurface", "Page content"\],[\s\S]*?\["customCard", "Bandkit content"\],[\s\S]*?\["customSurface", "Bandkit panel"\]/,
+  "Bandkit panel colour must sit directly below its linked Bandkit content control");
 assert.match(source, /accessibleScrubberPalette\(accessible\.preferredScrubAccent, card\)/, "The scrub override should feed the player palette");
 assert.match(source, /function elementText\(root, selectors\) \{\s*if \(!root\) return "";/, "Page analysis should tolerate pages without an inline player");
 

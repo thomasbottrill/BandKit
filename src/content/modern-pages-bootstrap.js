@@ -42,6 +42,7 @@ import { STORAGE_KEYS } from "../shared/contracts.js";
   };
 
   const restoreClassicPage = () => {
+    root.dataset.bandkitModernStyling = "false";
     root.dataset.bandkitModernPage = "false";
     root.dataset.bandkitModernRelease = "false";
     delete root.dataset.bandkitModernPageType;
@@ -63,6 +64,7 @@ import { STORAGE_KEYS } from "../shared/contracts.js";
     }
     root.dataset.bandkitEnabled = "true";
     const enabled = stored?.[STORAGE_KEYS.STATE]?.appearance?.modernReleasePages !== false;
+    root.dataset.bandkitModernStyling = String(enabled);
     if (!enabled) restoreClassicPage();
   });
 })();

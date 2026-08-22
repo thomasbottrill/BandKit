@@ -78,5 +78,7 @@ export function accessibleScrubberPalette(preferredAccent, surface) {
   const background = surface || white;
   const accent = readableColor(preferredAccent || { r: 29, g: 160, b: 195, a: 1 }, [background], 3).color;
   const halo = contrast(background, white) >= contrast(background, black) ? white : black;
-  return { accent, surface: background, halo };
+  const remaining = readableColor(mixColor(background, halo, 0.28), [background], 2).color;
+  remaining.a = 1;
+  return { accent, surface: background, halo, remaining };
 }

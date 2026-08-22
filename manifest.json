@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bandkit",
-  "version": "0.7.8",
+  "version": "0.7.9",
   "minimum_chrome_version": "116",
   "description": "A Bandcamp companion for continuous playback, queues, playlists, cart backups, activity, and DJ controls.",
   "icons": {
@@ -132,6 +132,7 @@
     {
       "resources": [
         "assets/icon-*.svg",
+        "collection-playlists.css",
         "hub.css",
         "modern-release.css"
       ],

@@ -32,6 +32,7 @@ let eqHighDb = 0;
 let loadToken = 0;
 let mediaRequestToken = 0;
 let pendingSeekTime = null;
+let pendingSeekRevision = 0;
 let bpmAnalysisToken = 0;
 let detectedBpm = null;
 let automaticBpm = null;
@@ -46,11 +47,15 @@ const playbackPriorityControllers = new WeakSet();
 const bpmOverrides = new Map();
 const ANALYSIS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const ANALYSIS_CACHE_MAX_ENTRIES = 250;
-const PLAYBACK_PRIORITY_GRACE_MS = 250;
+const PLAYBACK_PRIORITY_GRACE_MS = 750;
+const PLAYBACK_ANALYSIS_HEADROOM_SECONDS = 15;
+const PLAYBACK_ANALYSIS_RETRY_MS = 500;
+const PLAYBACK_ANALYSIS_DELAY_MS = 8_000;
 let bpmOverridesLoaded = false;
 let analysisCacheLoaded = false;
 let analysisCachePersistTimer = null;
 let playbackPriorityUntil = 0;
+let analysisNotBefore = 0;
 let audioContext = null;
 let sourceNode = null;
 let filterNode = null;
@@ -153,6 +158,7 @@ function cacheAnalysisResult(key, result) {
 
 function prioritizePlayback() {
   playbackPriorityUntil = Date.now() + PLAYBACK_PRIORITY_GRACE_MS;
+  analysisNotBefore = Math.max(analysisNotBefore, Date.now() + PLAYBACK_ANALYSIS_DELAY_MS);
   for (const controller of analysisFetchControllers) {
     playbackPriorityControllers.add(controller);
     controller.abort();
@@ -165,6 +171,30 @@ async function waitForPlaybackPriority() {
       window.setTimeout(resolve, 25);
     });
   }
+}
+
+function bufferedPlaybackHeadroom() {
+  const ranges = audio.buffered;
+  const currentTime = finiteNumber(audio.currentTime);
+  if (!ranges?.length) return 0;
+  for (let index = 0; index < ranges.length; index += 1) {
+    if (currentTime >= ranges.start(index) - 0.25 && currentTime <= ranges.end(index) + 0.25) {
+      return Math.max(0, ranges.end(index) - currentTime);
+    }
+  }
+  return 0;
+}
+
+async function waitForAnalysisHeadroom(token, trackUrl) {
+  while (token === bpmAnalysisToken && currentTrack()?.url === trackUrl) {
+    if (!enabled || audio.paused || audio.ended) return true;
+    if (Date.now() >= analysisNotBefore
+      && bufferedPlaybackHeadroom() >= PLAYBACK_ANALYSIS_HEADROOM_SECONDS) return true;
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, PLAYBACK_ANALYSIS_RETRY_MS);
+    });
+  }
+  return false;
 }
 
 async function loadBpmOverrides() {
@@ -304,6 +334,7 @@ async function analyzeCurrentTrack(force = false) {
     let buffer;
     while (!buffer) {
       await waitForPlaybackPriority();
+      if (!force && !await waitForAnalysisHeadroom(token, track.url)) return stateSnapshot();
       try {
         buffer = await decodeTrackAnalysisAudio(AudioContextClass, track.url);
       } catch (error) {
@@ -521,12 +552,18 @@ function isTimeBuffered(time) {
 }
 
 async function seekToTime(currentTime) {
-  const request = ++mediaRequestToken;
   clearBeatLoop();
   const track = currentTrack();
   const duration = Number.isFinite(audio.duration) ? audio.duration : finiteNumber(track?.duration);
   const target = Math.max(0, Math.min(duration || Infinity, finiteNumber(currentTime)));
   pendingSeekTime = target;
+  pendingSeekRevision += 1;
+  if (status === "loading") {
+    prioritizePlayback();
+    sendState(true);
+    return stateSnapshot();
+  }
+  const request = ++mediaRequestToken;
   try {
   const needsRemoteRangeSeek = Boolean(
     track?.url
@@ -594,6 +631,7 @@ async function loadTrack(index, currentTime = 0, autoplay = false, handoffStarte
   const track = currentTrack();
   const token = ++loadToken;
   const mediaRequest = ++mediaRequestToken;
+  const handoffSeekRevision = pendingSeekRevision;
   pendingSeekTime = Math.max(0, finiteNumber(currentTime));
   autoplayRequested = Boolean(autoplay);
   clearBeatLoop();
@@ -622,11 +660,19 @@ async function loadTrack(index, currentTime = 0, autoplay = false, handoffStarte
     audio.load();
     await applyDjOptions({ rate: audio.playbackRate || 1, preservePitch, filterValue, gainDb });
     if (token !== loadToken || mediaRequest !== mediaRequestToken) return stateSnapshot();
-    const seekTime = compensatedHandoffTime(currentTime, handoffStartedAt, autoplayRequested);
-    if (seekTime > 0 || !autoplayRequested) {
+    const requestedSeekTime = Math.max(0, pendingSeekTime === null
+      ? finiteNumber(currentTime)
+      : finiteNumber(pendingSeekTime));
+    if (requestedSeekTime > 0 || !autoplayRequested) {
       await waitForMetadata(token);
     }
     if (token !== loadToken || mediaRequest !== mediaRequestToken) return stateSnapshot();
+    const latestSeekTime = Math.max(0, pendingSeekTime === null
+      ? finiteNumber(currentTime)
+      : finiteNumber(pendingSeekTime));
+    const seekTime = pendingSeekRevision !== handoffSeekRevision
+      ? latestSeekTime
+      : compensatedHandoffTime(currentTime, handoffStartedAt, autoplayRequested);
     if (Number.isFinite(audio.duration)) audio.currentTime = Math.min(seekTime, Math.max(0, audio.duration - 0.1));
     pendingSeekTime = null;
     status = "paused";
@@ -911,6 +957,7 @@ installOffscreenEvents({
   handleCommand,
   nextTrack,
   previousTrack,
+  prioritizePlayback,
   seekToTime,
   sendState,
   setAutoplayRequested: (value) => { autoplayRequested = value; },

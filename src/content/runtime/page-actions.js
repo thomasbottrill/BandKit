@@ -29,6 +29,7 @@ r.$currentInlinePlaylistTrack = function currentInlinePlaylistTrack() {
 r.$injectPageDjToolsLink = function injectPageDjToolsLink() {
       r.$ensurePageStyles();
       r.$syncPageActionLabelMode();
+      const modernActions = Boolean(runtimeState.appearance.modernReleasePages);
       const player = document.querySelector(".inline_player");
       if (!player) return;
       let tools = player.querySelector(":scope > .bandcamp-hub-page-tools");
@@ -51,45 +52,65 @@ r.$injectPageDjToolsLink = function injectPageDjToolsLink() {
         tools.append(playlistButton);
       }
       r.$updatePagePlaylistButton(playlistButton, r.$currentInlinePlaylistTrack());
-      if (cartButton.nextElementSibling !== playlistButton) cartButton.after(playlistButton);
       let button = tools.querySelector(".bandcamp-hub-page-dj");
       if (!button) {
         button = document.createElement("button");
         button.className = "bandcamp-hub-page-dj";
         button.type = "button";
-        button.style.setProperty("--hub-dj-icon", `url('${asset("icon-dj.svg")}')`);
-        button.setAttribute("aria-label", "Show DJ tools on this page");
+        button.style.setProperty("--hub-dj-icon", `url('${asset("icon-bpm.svg")}')`);
+        button.setAttribute("aria-label", "Show BPM and tempo controls on this page");
         tools.append(button);
       }
-      r.$setPageActionLabel(button, "DJ tools");
-      if (playlistButton.nextElementSibling !== button) playlistButton.after(button);
-      let overflowButton = tools.querySelector(".bandcamp-hub-page-overflow");
-      if (!overflowButton) {
-        overflowButton = r.$createPageReleaseOverflowButton();
-        tools.append(overflowButton);
+      r.$setPageActionLabel(button, "BPM");
+      if (!modernActions) {
+        tools.querySelectorAll(":scope > :not(.bandcamp-hub-page-playlist):not(.bandcamp-hub-page-dj)").forEach((control) => control.remove());
+        if (playlistButton.nextElementSibling !== button) playlistButton.after(button);
+      } else {
+        if (cartButton.nextElementSibling !== playlistButton) cartButton.after(playlistButton);
+        if (playlistButton.nextElementSibling !== button) playlistButton.after(button);
+        let overflowButton = tools.querySelector(".bandcamp-hub-page-overflow");
+        if (!overflowButton) {
+          overflowButton = r.$createPageReleaseOverflowButton();
+          tools.append(overflowButton);
+        }
+        r.$setPageActionLabel(overflowButton, "More");
+        r.$applyPageActionTheme(overflowButton);
+        if (button.nextElementSibling !== overflowButton) button.after(overflowButton);
+        const transportRow = tools.querySelector(":scope > .bandkit-page-transport-row");
+        if (transportRow && tools.lastElementChild !== transportRow) tools.append(transportRow);
       }
-      r.$setPageActionLabel(overflowButton, "More");
-      r.$applyPageActionTheme(overflowButton);
-      if (button.nextElementSibling !== overflowButton) button.after(overflowButton);
-      const transportRow = tools.querySelector(":scope > .bandkit-page-transport-row");
-      if (transportRow && tools.lastElementChild !== transportRow) tools.append(transportRow);
       let inlineHost = player.querySelector(":scope > .bandcamp-hub-page-dj-host");
       if (!inlineHost) {
         inlineHost = document.createElement("div");
         inlineHost.className = "bandcamp-hub-page-dj-host";
-        tools.after(inlineHost);
       }
-      const pageDjNeedsMount = r.$pageDjHost !== inlineHost || !inlineHost.shadowRoot;
+      inlineHost.classList.toggle("is-classic-page-dj", !modernActions);
+      if (inlineHost.nextElementSibling !== tools) tools.before(inlineHost);
+      const pageDjNeedsMount = r.$pageDjHost !== inlineHost
+        || !inlineHost.shadowRoot
+        || !r.$pageDjSurface?.isConnected
+        || r.$pageDjSurface.getRootNode() !== inlineHost.shadowRoot;
+      const pageDjCss = `${r.$style.textContent}\n:host{display:block}.hub-page-dj-surface{background:transparent;border:1px solid transparent;border-radius:6px;container-type:inline-size;padding:10px;width:100%}.hub-page-dj-surface:is(:hover,:focus-within){border-color:var(--hub-line)}.hub-page-dj-surface .hub-dj-card{background:transparent;border:0;box-shadow:none;margin:0;overflow:visible;padding:0}:host(.is-classic-page-dj) .hub-dj-card-page{grid-template-columns:minmax(0,1fr);row-gap:10px}:host(.is-classic-page-dj) .hub-dj-card-page .hub-dj-analysis-row{box-sizing:border-box;grid-column:1;grid-template-columns:minmax(76px,1fr) minmax(44px,max-content) minmax(48px,max-content);padding-right:28px;width:100%}:host(.is-classic-page-dj) .hub-dj-page-tempo{grid-column:1;width:100%}:host(.is-classic-page-dj) .hub-dj-page-modes{grid-column:1;grid-template-columns:repeat(2,minmax(48px,max-content));justify-self:start}:host(.is-classic-page-dj) .hub-dj-page-close{position:absolute;right:0;top:0}@container(max-width:280px){:host(.is-classic-page-dj) .hub-dj-card-page .hub-dj-analysis-row{grid-template-columns:minmax(64px,1fr) 42px 46px;gap:3px}}`;
       if (pageDjNeedsMount) {
         r.$pageDjHost = inlineHost;
         r.$pageDjShadow = inlineHost.shadowRoot || inlineHost.attachShadow({ mode: "open" });
         r.$pageDjShadow.replaceChildren();
-        const inlineStyle = document.createElement("style");
-        inlineStyle.textContent = `${r.$style.textContent}\n:host{display:block}.hub-page-dj-surface{background:var(--hub-card);border:1px solid var(--hub-line);border-radius:6px;padding:12px;width:100%}.hub-page-dj-surface .hub-dj-card{background:transparent;border:0;box-shadow:none;margin:0;overflow:visible;padding:0}`;
+        r.$pageDjStyle = document.createElement("style");
+        r.$pageDjStyle.dataset.bandkitPageDjStyle = "true";
+        r.$pageDjStyle.textContent = pageDjCss;
         r.$pageDjSurface = document.createElement("div");
         r.$pageDjSurface.className = "hub-page-dj-surface";
-        r.$pageDjShadow.append(inlineStyle, r.$pageDjSurface);
+        r.$pageDjShadow.append(r.$pageDjStyle, r.$pageDjSurface);
         r.$syncPageDjTheme();
+      } else if (!r.$pageDjStyle?.isConnected
+        || r.$pageDjStyle.getRootNode() !== r.$pageDjShadow
+        || !r.$pageDjStyle.textContent.trim()) {
+        r.$pageDjStyle = document.createElement("style");
+        r.$pageDjStyle.dataset.bandkitPageDjStyle = "true";
+        r.$pageDjStyle.textContent = pageDjCss;
+        r.$pageDjShadow.prepend(r.$pageDjStyle);
+      } else if (r.$pageDjStyle.textContent !== pageDjCss) {
+        r.$pageDjStyle.textContent = pageDjCss;
       }
       if (pageDjNeedsMount || (r.$pageDjOpen && !r.$pageDjSurface.firstElementChild)) r.$renderPageDjTools();
       else r.$pageDjHost.hidden = !r.$pageDjOpen;
@@ -370,6 +391,7 @@ r.$playCollectionCard = async function playCollectionCard(card, control) {
       }
     };
 r.$injectCollectionItemActions = function injectCollectionItemActions() {
+      const modernActions = Boolean(runtimeState.appearance.modernReleasePages);
       const collectionGrids = [...document.querySelectorAll('#collection-items .collection-grid[data-ismain="true"][data-iswish="false"], #wishlist-items .collection-grid[data-iswish="true"]')];
       document.documentElement.dataset.bandkitCollectionPage = String(collectionGrids.length > 0);
       if (!collectionGrids.length) return;
@@ -383,13 +405,15 @@ r.$injectCollectionItemActions = function injectCollectionItemActions() {
         let actionRow = titleDetails.querySelector(":scope > .bandkit-collection-action-row");
         if (!actionRow) {
           actionRow = document.createElement("div");
-          actionRow.className = "bandkit-feed-action-row bandkit-collection-action-row";
+          actionRow.className = "bandkit-collection-action-row";
           titleDetails.append(actionRow);
         }
+        actionRow.classList.toggle("bandkit-feed-action-row", modernActions);
 
         let playlistButton = card.querySelector(".bandcamp-hub-page-playlist");
         if (!playlistButton) playlistButton = r.$createPagePlaylistButton();
-        playlistButton.classList.add("is-feed-compact-action", "is-collection-action");
+        playlistButton.classList.add("is-collection-action");
+        playlistButton.classList.toggle("is-feed-compact-action", modernActions);
         playlistButton.classList.remove("is-feed-add-to", "is-feed-sidebar-action");
         playlistButton._bandkitOwned = !isWishlistItem;
         r.$updatePagePlaylistButton(playlistButton, track);
@@ -416,6 +440,7 @@ r.$injectCollectionItemActions = function injectCollectionItemActions() {
 function registerPageActionInjectionHelpers(r) {
 r.$injectFeedPageActions = function injectFeedPageActions({ incremental, onFeedPage }) {
       if (onFeedPage) {
+        const modernActions = Boolean(runtimeState.appearance.modernReleasePages);
         const feedControls = document.querySelectorAll([
           `.story-innards a${incremental ? ":not([data-bandkit-feed-action-scanned])" : ""}`,
           `.story-innards button${incremental ? ":not([data-bandkit-feed-action-scanned])" : ""}`,
@@ -438,11 +463,11 @@ r.$injectFeedPageActions = function injectFeedPageActions({ incremental, onFeedP
           }
 
           const sidebarCard = purchaseAction.closest(".collection-grid .collection-item-container");
-          button.classList.add("is-feed-compact-action");
-          button.classList.toggle("is-feed-sidebar-action", Boolean(sidebarCard));
+          button.classList.toggle("is-feed-compact-action", modernActions);
+          button.classList.toggle("is-feed-sidebar-action", modernActions && Boolean(sidebarCard));
           r.$setPageActionLabel(button, "Add");
           button.title = `Add ${track.title} to Now Playing or a playlist`;
-          purchaseAction.classList.add("bandkit-feed-purchase-action");
+          purchaseAction.classList.toggle("bandkit-feed-purchase-action", modernActions);
           const purchaseLabel = /^pre[- ]?order$/i.test(r.$pageActionControlText(purchaseAction)) ? "Pre-order" : "Buy now";
           r.$setPageActionLabel(purchaseAction, purchaseLabel);
           purchaseAction.title = `${purchaseLabel} ${track.album || track.title}`;
@@ -457,11 +482,11 @@ r.$injectFeedPageActions = function injectFeedPageActions({ incremental, onFeedP
             }
           }
           const actionList = purchaseAction.closest("ul");
-          actionList?.classList.add("bandkit-feed-action-row");
-          if (sidebarCard) actionList?.classList.add("bandkit-feed-sidebar-actions");
+          actionList?.classList.toggle("bandkit-feed-action-row", modernActions);
+          actionList?.classList.toggle("bandkit-feed-sidebar-actions", modernActions && Boolean(sidebarCard));
           const hearMoreAction = [...(actionList?.querySelectorAll("a, button") || [])].find((control) => /^hear more$/i.test(r.$pageActionControlText(control)));
           if (hearMoreAction) {
-            hearMoreAction.classList.add("bandkit-feed-hear-more-action");
+            hearMoreAction.classList.toggle("bandkit-feed-hear-more-action", modernActions);
             r.$setPageActionLabel(hearMoreAction, "Hear more");
             hearMoreAction.title = `Hear more from ${track.album || track.artist || track.title}`;
             hearMoreAction.setAttribute("aria-label", hearMoreAction.title);
@@ -469,20 +494,26 @@ r.$injectFeedPageActions = function injectFeedPageActions({ incremental, onFeedP
           }
           const wishlistItem = actionList?.querySelector("li[id^='collect-item_']")
             || [...(actionList?.querySelectorAll("li") || [])].find((item) => /^(?:in )?wishlist$/i.test(r.$pageActionControlText(item)));
-          wishlistItem?.classList.add("bandkit-feed-wishlist-action");
-          wishlistItem?.style.setProperty("--bandkit-feed-wishlist-icon", `url('${asset("icon-wishlist.svg")}')`);
+          wishlistItem?.classList.toggle("bandkit-feed-wishlist-action", modernActions);
+          if (modernActions) {
+            wishlistItem?.style.setProperty("--bandkit-feed-wishlist-icon", `url('${asset("icon-wishlist.svg")}')`);
+            wishlistItem?.style.setProperty("--bandkit-feed-wishlist-filled-icon", `url('${asset("icon-wishlist-filled.svg")}')`);
+          } else {
+            wishlistItem?.style.removeProperty("--bandkit-feed-wishlist-icon");
+            wishlistItem?.style.removeProperty("--bandkit-feed-wishlist-filled-icon");
+          }
           const wishlistControl = wishlistItem?.querySelector(".wishlist-msg")
             || [...(wishlistItem?.querySelectorAll("a, button") || [])].find((control) => /^wishlist$/i.test(r.$pageActionControlText(control)));
           const wishlistedControl = wishlistItem?.querySelector(".wishlisted-msg > span:first-child")
             || [...(wishlistItem?.querySelectorAll("a, button") || [])].find((control) => /^in wishlist$/i.test(r.$pageActionControlText(control)));
           if (wishlistControl) {
-            wishlistControl.classList.add("bandkit-feed-wishlist-control");
+            wishlistControl.classList.toggle("bandkit-feed-wishlist-control", modernActions);
             r.$setPageActionLabel(wishlistControl, "Wishlist");
             wishlistControl.title = `Add ${track.album || track.title} to your wishlist`;
             wishlistControl.setAttribute("aria-label", wishlistControl.title);
           }
           if (wishlistedControl) {
-            wishlistedControl.classList.add("bandkit-feed-wishlist-control");
+            wishlistedControl.classList.toggle("bandkit-feed-wishlist-control", modernActions);
             r.$setPageActionLabel(wishlistedControl, "Wishlisted");
             wishlistedControl.title = `${track.album || track.title} is in your wishlist`;
             wishlistedControl.setAttribute("aria-label", wishlistedControl.title);
@@ -620,6 +651,7 @@ r.$injectPlaylistButtons = function injectPlaylistButtons({ incremental = false 
         if (node.matches(".discover-player") && node.closest(".focused-result, .discover-detail")?.querySelector(".bandcamp-hub-page-playlist.is-discover-add-to")) continue;
         const isClassicTrackRow = node.matches(".track_row_view");
         if (isClassicTrackRow) {
+          const modernActions = Boolean(runtimeState.appearance.modernReleasePages);
           const actionCell = node.querySelector(".download-col, .track-row-actions");
           if (!actionCell) continue;
           const nativeControls = [...actionCell.querySelectorAll("a, button")]
@@ -640,7 +672,7 @@ r.$injectPlaylistButtons = function injectPlaylistButtons({ incremental = false 
             if (buyTrack) buyTrack.after(button);
             else actionCell.append(button);
           }
-          if (!buyTrack) {
+          if (!buyTrack && modernActions) {
             buyTrack = document.createElement("button");
             buyTrack.type = "button";
             buyTrack.className = "bandcamp-hub-page-buy bandkit-generated-track-buy";
@@ -652,29 +684,32 @@ r.$injectPlaylistButtons = function injectPlaylistButtons({ incremental = false 
             });
             button.before(buyTrack);
           }
-          buyTrack._bandkitTrack = track;
           button.classList.remove("bandcamp-hub-page-buy");
           button.style.removeProperty("--hub-buy-icon");
-          buyTrack.classList.add("bandcamp-hub-page-buy");
-          buyTrack.classList.toggle("is-download-action", isFreeDownload);
-          if (!isFreeDownload) {
-            for (const node of [...buyTrack.childNodes]) {
-              if (node.nodeType === 3 && /^\s*buy track\s*$/i.test(node.textContent || "")) node.textContent = "Buy";
+          if (buyTrack) {
+            buyTrack._bandkitTrack = track;
+            buyTrack.classList.toggle("bandcamp-hub-page-buy", modernActions);
+            buyTrack.classList.toggle("is-download-action", modernActions && isFreeDownload);
+            if (modernActions && !isFreeDownload) {
+              for (const child of [...buyTrack.childNodes]) {
+                if (child.nodeType === 3 && /^\s*buy track\s*$/i.test(child.textContent || "")) child.textContent = "Buy";
+              }
             }
+            r.$setPageActionLabel(buyTrack, isFreeDownload ? "Download" : "Buy");
+            if (modernActions) buyTrack.style.setProperty("--hub-buy-icon", `url('${asset(isFreeDownload ? "icon-downloads.svg" : "icon-cart.svg")}')`);
+            else buyTrack.style.removeProperty("--hub-buy-icon");
+            r.$applyPageActionTheme(buyTrack);
+            buyTrack.setAttribute("aria-label", `${isFreeDownload ? "Download" : "Buy"} ${track.title}`);
+            buyTrack.title = buyTrack.getAttribute("aria-label");
+            if (buyTrack.nextElementSibling !== button) buyTrack.after(button);
           }
-          r.$setPageActionLabel(buyTrack, isFreeDownload ? "Download" : "Buy");
-          buyTrack.style.setProperty("--hub-buy-icon", `url('${asset(isFreeDownload ? "icon-downloads.svg" : "icon-cart.svg")}')`);
           r.$applyPageActionTheme(button);
-          r.$applyPageActionTheme(buyTrack);
-          buyTrack.setAttribute("aria-label", `${isFreeDownload ? "Download" : "Buy"} ${track.title}`);
-          buyTrack.title = buyTrack.getAttribute("aria-label");
-          if (buyTrack.nextElementSibling !== button) buyTrack.after(button);
           r.$updatePagePlaylistButton(button, track);
           continue;
         }
         if (node.matches(".collection-item-container") && document.documentElement.dataset.bandkitFeedPage === "true") continue;
         if (node.closest('#collection-items .collection-grid[data-ismain="true"][data-iswish="false"], #wishlist-items .collection-grid[data-iswish="true"]')) continue;
-        const titleNode = node.querySelector(".track-title, .title-text, .player-info .title, .fav-track-title, .collection-item-title, .title");
+        const titleNode = node.querySelector(".track-title, .title-text, .player-info .title, .fav-track-title, .collection-item-title, .title, .heading");
         const target = titleNode?.closest("a")?.parentElement || titleNode?.parentElement || node;
         let button = target.querySelector(":scope > .bandcamp-hub-page-playlist");
         if (!button) {

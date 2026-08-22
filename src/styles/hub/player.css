@@ -128,6 +128,44 @@
   justify-content: flex-end;
 }
 
+.hub-player-analysis {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hub-player-analysis[hidden],
+.hub-player-analysis-badge[hidden] {
+  display: none;
+}
+
+.hub-player-analysis-badge {
+  align-items: center;
+  background: var(--hub-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--hub-accent) 32%, transparent);
+  border-radius: 999px;
+  color: var(--hub-accent);
+  display: inline-flex;
+  font-size: 9px;
+  font-weight: 750;
+  gap: 3px;
+  height: 22px;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 0 7px;
+  white-space: nowrap;
+}
+
+.hub-player-key-name {
+  opacity: 0.78;
+}
+
+.hub-player[data-content-width="tight"] .hub-player-key-name,
+.hub-player.is-compact .hub-player-key-name {
+  display: none;
+}
+
 .hub-now-playing-button {
   align-items: center;
   background: transparent;
@@ -441,16 +479,54 @@
   width: 16px;
 }
 
+@keyframes hub-playback-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+.hub-play-button.is-loading:disabled {
+  opacity: 1;
+  position: relative;
+}
+
+.hub-play-button.is-loading .hub-button-icon {
+  visibility: hidden;
+}
+
+.hub-play-button.is-loading::after {
+  animation: hub-playback-loading-spin 700ms linear infinite;
+  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 50%;
+  border-top-color: currentColor;
+  box-sizing: border-box;
+  content: "";
+  height: 16px;
+  position: absolute;
+  width: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-play-button.is-loading::after {
+    animation: none;
+    border-color: currentColor;
+    opacity: 0.65;
+  }
+}
+
 .hub-skip-button {
+  align-items: center;
   background: transparent;
   border: 0;
   cursor: pointer;
+  display: flex;
+  height: 20px;
+  justify-content: center;
   padding: 0;
+  width: 20px;
 }
 
 .hub-skip-button img {
-  height: 20px;
-  width: 20px;
+  height: 15px;
+  width: 15px;
 }
 
 .hub-previous-button img {
@@ -570,6 +646,29 @@
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
   width: 9px;
+}
+
+@keyframes hub-pending-seek-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px var(--hub-scrub-halo), 0 0 0 3px color-mix(in srgb, var(--hub-scrub-accent) 12%, transparent); }
+  50% { box-shadow: 0 0 0 1px var(--hub-scrub-halo), 0 0 0 7px color-mix(in srgb, var(--hub-scrub-accent) 28%, transparent); }
+}
+
+.hub-scrub-control.is-pending-seek .hub-scrub-playhead {
+  animation: hub-pending-seek-pulse 900ms ease-in-out infinite;
+  height: 22px;
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  width: 9px;
+}
+
+.hub-scrub-control.is-pending-seek .hub-scrub-waveform {
+  opacity: 0.72;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-scrub-control.is-pending-seek .hub-scrub-playhead {
+    animation: none;
+  }
 }
 
 .hub-scrub-control.is-traditional::before,

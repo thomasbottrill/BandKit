@@ -132,10 +132,14 @@ r.$applySavedLayout = function applySavedLayout() {
       } else if (!runtimeState.layout) {
         r.$clearPanelInlineLayout();
       } else {
-        const width = Math.min(Math.max(320, runtimeState.layout.width), window.innerWidth - 16);
-        const height = Math.min(Math.max(520, runtimeState.layout.height), window.innerHeight - 16);
-        const left = Math.min(Math.max(8, runtimeState.layout.left), window.innerWidth - width - 8);
-        const top = Math.min(Math.max(8, runtimeState.layout.top), window.innerHeight - height - 8);
+        const savedWidth = Number(runtimeState.layout.width) || 420;
+        const savedHeight = Number(runtimeState.layout.height) || 620;
+        const savedLeft = Number(runtimeState.layout.left) || 8;
+        const savedTop = Number(runtimeState.layout.top) || 8;
+        const width = Math.max(1, Math.min(Math.max(320, savedWidth), Math.max(1, window.innerWidth - 16)));
+        const height = Math.max(1, Math.min(Math.max(520, savedHeight), Math.max(1, window.innerHeight - 16)));
+        const left = Math.max(8, Math.min(Math.max(8, window.innerWidth - width - 8), savedLeft));
+        const top = Math.max(8, Math.min(Math.max(8, window.innerHeight - height - 8), savedTop));
         r.$panel.style.left = `${left}px`;
         r.$panel.style.right = "auto";
         r.$panel.style.top = `${top}px`;
@@ -248,7 +252,6 @@ r.$shareCart = function shareCart(items = runtimeState.cart, cartName = "Bandcam
     };
 r.$importAndRestoreCart = async function importAndRestoreCart(file, button) {
       if (!file) return;
-      if (!r.$requireDataHome()) return;
       button.disabled = true;
       try {
         if (file.size > 5 * 1024 * 1024) throw new Error("Cart backups must be smaller than 5 MB.");
@@ -310,7 +313,6 @@ r.$saveCartSnapshot = function saveCartSnapshot() {
         r.$showToast("There is no cart to save yet.");
         return;
       }
-      if (!r.$requireDataHome()) return;
       const now = new Date();
       const suggestedName = `Cart — ${now.toLocaleDateString()} ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
       const name = window.prompt("Name this saved cart", suggestedName)?.trim();
@@ -330,7 +332,6 @@ r.$saveCartSnapshot = function saveCartSnapshot() {
       r.$showToast(`Saved “${name}”`);
     };
 r.$createEmptySavedCart = function createEmptySavedCart() {
-      if (!r.$requireDataHome()) return null;
       const suggestedName = `Cart ${runtimeState.savedCarts.filter((snapshot) => !r.$cartAutosave.isAutoSavedCart(snapshot)).length + 1}`;
       const name = window.prompt("Name this saved cart", suggestedName)?.trim();
       if (!name) return null;
@@ -433,7 +434,6 @@ r.$cartItemsForTracks = async function cartItemsForTracks(tracks, requestedItemT
       }).filter(Boolean);
     };
 r.$addTracksToSavedCart = async function addTracksToSavedCart(tracks, snapshotId) {
-      if (!r.$requireDataHome()) return 0;
       const snapshot = runtimeState.savedCarts.find((entry) => entry.id === snapshotId && !r.$cartAutosave.isAutoSavedCart(entry));
       if (!snapshot) return 0;
       const items = await r.$cartItemsForTracks(tracks, "t");
@@ -537,67 +537,8 @@ r.$positionPlaylistDestinationMenu = function positionPlaylistDestinationMenu(me
       const availableRight = window.innerWidth - parentBounds.right;
       menu.classList.toggle("opens-left", availableRight < submenuWidth + 14);
     };
-r.$populatePlaylistDestinationMenu = function populatePlaylistDestinationMenu(menu, trigger, track, view = "destinations") {
-      const close = () => {
-        menu.hidden = true;
-        trigger.setAttribute("aria-expanded", "false");
-      };
-      const showView = (nextView) => {
-        r.$populatePlaylistDestinationMenu(menu, trigger, track, nextView);
-        r.$positionPlaylistDestinationMenu(menu);
-        menu.querySelector(".hub-playlist-menu-option")?.focus();
-      };
-      menu.replaceChildren();
-      if (view === "playlists" || view === "playlists-only") {
-        if (view !== "playlists-only") {
-          menu.append(r.$createPlaylistMenuOption("← Add destination", () => showView("destinations"), { back: true }));
-        }
-        menu.append(r.$createPlaylistMenuOption("＋ New playlist", () => {
-          close();
-          r.$createSavedPlaylistWithTracks([track], `${track.artist || "Bandcamp"} playlist`);
-        }));
-        for (const snapshot of runtimeState.savedPlaylists) {
-          const alreadyAdded = snapshot.items.some((item) => r.$playlistTracksMatch(item, track));
-          menu.append(r.$createPlaylistMenuOption(`${alreadyAdded ? "✓" : "＋"} ${snapshot.name}`, () => {
-            close();
-            r.$addTrackToSavedPlaylist(track, snapshot.id);
-          }, { disabled: alreadyAdded }));
-        }
-        if (!runtimeState.savedPlaylists.length) menu.append(createElement("div", "hub-playlist-menu-empty", "No playlists yet"));
-      } else if (view === "carts") {
-        const savedCarts = runtimeState.savedCarts.filter((snapshot) => !r.$cartAutosave.isAutoSavedCart(snapshot));
-        menu.append(
-          r.$createPlaylistMenuOption("← Add destination", () => r.$populatePlaylistDestinationMenu(menu, trigger, track), { back: true }),
-          r.$createPlaylistMenuOption("＋ Current Bandcamp cart", () => {
-            close();
-            void r.$addTracksToCurrentCart([track]);
-          })
-        );
-        for (const snapshot of savedCarts) {
-          menu.append(r.$createPlaylistMenuOption(`＋ ${snapshot.name}`, () => {
-            close();
-            void r.$addTracksToSavedCart([track], snapshot.id);
-          }));
-        }
-        if (!savedCarts.length) menu.append(createElement("div", "hub-playlist-menu-empty", "No saved carts yet"));
-      } else {
-        const inPlaying = runtimeState.playlist.some((item) => r.$playlistTracksMatch(item, track));
-        menu.append(
-          r.$createPlaylistMenuOption(inPlaying ? "✓ In Now Playing" : "＋ Add to Now Playing", () => {
-            close();
-            r.$addTrackToPlaylist(track);
-          }, { disabled: inPlaying }),
-          r.$createPlaylistMenuOption("＋ Add to Playlist…", () => {
-            showView("playlists");
-          }),
-          r.$createPlaylistMenuOption("＋ Add to Cart…", () => {
-            showView("carts");
-          })
-        );
-      }
-    };
 r.$closeSiblingDestinationMenus = function closeSiblingDestinationMenus(wrapper, keepMenu) {
-      const actions = wrapper.closest(".hub-queue-actions");
+      const actions = wrapper.closest(".hub-queue-actions, .hub-playlist-track-actions");
       for (const menu of actions?.querySelectorAll(".hub-playlist-destination-menu") || []) {
         if (menu === keepMenu) continue;
         menu.hidden = true;
@@ -820,14 +761,17 @@ r.$renderPanelContent = function renderPanelContent() {
       // leave raw children inside an inset-free section layout.
       r.$content.classList.remove("is-section-layout", "is-empty-now-playing");
       r.$content.replaceChildren();
-      if (!r.$dataHomeReady) r.$renderDataHomeGate();
-      else {
-        if (runtimeState.activeTab === "playlist") r.$renderPlaylist();
-        if (runtimeState.activeTab === "cart") r.$renderCart();
-        if (runtimeState.activeTab === "activity") r.$renderActivity();
-        if (runtimeState.activeTab === "settings") r.$renderSettings();
-        const dataHomeWarning = r.$renderDataHomePermissionWarning();
-        r.$placeDataHomePermissionWarning(dataHomeWarning);
+      if (runtimeState.activeTab === "playlist") r.$renderPlaylist();
+      if (runtimeState.activeTab === "cart") r.$renderCart();
+      if (runtimeState.activeTab === "activity") r.$renderActivity();
+      if (runtimeState.activeTab === "settings") r.$renderSettings();
+      const backupPrompt = r.$renderBackupReminder();
+      if (backupPrompt) {
+        const heading = r.$content.querySelector(
+          ".hub-cart-view-header, .hub-saved-cart-detail-toolbar, .hub-section-heading"
+        );
+        if (heading) heading.after(backupPrompt);
+        else r.$content.prepend(backupPrompt);
       }
       r.$mountPanelClose();
       r.$organizePanelContentScrolling();

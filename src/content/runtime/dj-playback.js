@@ -2,6 +2,7 @@ import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState, updateRun
 import { asset, createElement } from "../core.js";
 import { MESSAGES } from "../../shared/contracts.js";
 import { registerDjHandoff } from "./dj-handoff.js";
+import { waveformAmplitudes } from "../waveform.js";
 
 function registerDjPlayback1(r) {
 r.$renderDjTools = function renderDjTools() {
@@ -21,10 +22,12 @@ function registerDjWaveformControl(r) {
 r.$createDjWaveform = function createDjWaveform() {
 const waveformButton = createElement("button", "hub-dj-waveform");
         waveformButton.type = "button";
-        waveformButton.disabled = !runtimeSeamless.enabled || !runtimeSeamless.waveform?.length;
+        waveformButton.disabled = !runtimeSeamless.enabled || !(Number(runtimeSeamless.duration) > 0);
         waveformButton.setAttribute("aria-label", "Track waveform. Click to seek.");
         const waveformCanvas = createElement("canvas", "hub-dj-waveform-canvas");
-        waveformButton.append(waveformCanvas);
+        const waveformPlayhead = createElement("span", "hub-dj-waveform-playhead");
+        waveformButton.style.setProperty("--hub-dj-waveform-progress", `${Math.max(0, Math.min(1, Number(runtimeSeamless.progress) || 0)) * 100}%`);
+        waveformButton.append(waveformCanvas, waveformPlayhead);
         waveformButton.addEventListener("click", (event) => {
           const duration = Number(runtimeSeamless.duration) || 0;
           if (!duration) return;
@@ -134,14 +137,14 @@ r.$createDjAnalysis = function createDjAnalysis(bpm) {
       keyReadout.title = runtimeSeamless.detectedKey?.name ? `Detected key: ${runtimeSeamless.detectedKey.name}` : "Musical key is detected automatically";
       keyReadout.append(
         createElement("span", "", "KEY"),
-        createElement("strong", "", runtimeSeamless.detectedKey?.camelot || (runtimeSeamless.bpmStatus === "analyzing" ? "…" : "—")),
-        createElement("small", "", runtimeSeamless.detectedKey?.shortName || "")
+        createElement("strong", "hub-dj-key-name", runtimeSeamless.detectedKey?.shortName || (runtimeSeamless.bpmStatus === "analyzing" ? "…" : "—")),
+        createElement("small", "hub-dj-key-camelot", runtimeSeamless.detectedKey?.camelot || "")
       );
 
       const tap = createElement("button", "hub-dj-action hub-dj-compact-action", "Tap");
       tap.type = "button";
-      tap.disabled = !runtimeSeamless.enabled;
-      tap.title = "Tap repeatedly to set this track's BPM";
+      tap.disabled = !runtimeSeamless.enabled || !bpm;
+      tap.title = bpm ? "Tap repeatedly to match this track's playback tempo" : "Analyze BPM before using Tap tempo";
       tap.addEventListener("click", () => {
         const now = performance.now();
         if (!r.$bpmTapTimes.length || now - r.$bpmTapTimes.at(-1) > 2200) r.$bpmTapTimes = [];
@@ -153,15 +156,17 @@ r.$createDjAnalysis = function createDjAnalysis(bpm) {
         while (tappedBpm < 70) tappedBpm *= 2;
         while (tappedBpm > 180) tappedBpm /= 2;
         tappedBpm = Math.round(tappedBpm * 10) / 10;
-        bpmInput.value = String(tappedBpm);
-        if (runtimeState.dj.autoTempo && bpm) {
-          const detectedBase = Number(runtimeSeamless.automaticBpm) || bpm;
-          const targetRate = Math.max(0.35, Math.min(2, tappedBpm / detectedBase));
-          runtimeState.dj.rate = targetRate;
-          void r.$seamlessCommand(MESSAGES.SEAMLESS_SET_RATE, { rate: targetRate, preservePitch: runtimeState.dj.preservePitch });
-        } else {
-          void r.$seamlessCommand(MESSAGES.SEAMLESS_SET_BPM, { bpm: tappedBpm });
-        }
+        const baseBpm = Number(runtimeSeamless.detectedBpm) || bpm;
+        const targetRate = Math.max(0.35, Math.min(2, tappedBpm / baseBpm));
+        runtimeState.dj.autoTempo = false;
+        runtimeState.dj.rate = targetRate;
+        runtimeSaveState();
+        bpmLabel.classList.remove("is-active");
+        refreshDisplayedBpm();
+        void r.$seamlessCommand(MESSAGES.SEAMLESS_SET_RATE, {
+          rate: targetRate,
+          preservePitch: runtimeState.dj.preservePitch
+        });
       });
 
       const autoBpm = createElement("button", `hub-dj-action hub-dj-compact-action hub-dj-status-button${runtimeState.dj.autoTempo ? " is-active" : ""}`, runtimeSeamless.bpmStatus === "analyzing" ? "…" : "Auto");
@@ -172,12 +177,18 @@ r.$createDjAnalysis = function createDjAnalysis(bpm) {
       autoBpm.title = runtimeState.dj.autoTempo ? "Turn off automatic tempo control" : "Use the automatically detected BPM to control playback tempo";
       autoBpm.addEventListener("click", () => {
         r.$bpmTapTimes = [];
-        runtimeState.dj.autoTempo = !runtimeState.dj.autoTempo;
-        if (!runtimeState.dj.autoTempo) runtimeState.dj.rate = 1;
+        const restoreAutomaticBpm = !runtimeState.dj.autoTempo;
+        runtimeState.dj.autoTempo = restoreAutomaticBpm;
+        runtimeState.dj.rate = 1;
         runtimeSaveState();
         r.$renderDjTools();
-        if (runtimeState.dj.autoTempo) void r.$seamlessCommand(MESSAGES.SEAMLESS_ANALYZE_BPM);
-        else void r.$seamlessCommand(MESSAGES.SEAMLESS_SET_RATE, { rate: 1, preservePitch: runtimeState.dj.preservePitch });
+        void r.$seamlessCommand(MESSAGES.SEAMLESS_SET_RATE, {
+          rate: 1,
+          preservePitch: runtimeState.dj.preservePitch
+        }).then(() => {
+          if (restoreAutomaticBpm) return r.$seamlessCommand(MESSAGES.SEAMLESS_RESET_BPM);
+          return null;
+        });
       });
       analysisRow.append(bpmEditor, keyReadout, tap, autoBpm);
       return { analysisRow, refreshDisplayedBpm };
@@ -741,7 +752,7 @@ r.$createDjToolsCard = function createDjToolsCard({ includeWaveform = true } = {
 function registerDjPlayback3(r) {
 r.$drawDjWaveform = function drawDjWaveform(canvas) {
       window.requestAnimationFrame(() => {
-        const points = runtimeSeamless.waveform || [];
+        const analyzedPoints = runtimeSeamless.waveform || [];
         const bounds = canvas.getBoundingClientRect();
         const ratio = Math.min(2, window.devicePixelRatio || 1);
         const width = Math.max(1, Math.round(bounds.width * ratio));
@@ -751,15 +762,25 @@ r.$drawDjWaveform = function drawDjWaveform(canvas) {
         const context = canvas.getContext("2d");
         if (!context) return;
         context.clearRect(0, 0, width, height);
-        const styles = getComputedStyle(r.$host);
-        const played = styles.getPropertyValue("--hub-accent").trim() || "#1da0c3";
-        const remaining = styles.getPropertyValue("--hub-line").trim() || "#d1d5db";
+        const root = canvas.getRootNode();
+        const themeHost = root instanceof ShadowRoot ? root.host : r.$host;
+        const styles = getComputedStyle(themeHost);
+        const played = styles.getPropertyValue("--hub-scrub-accent").trim() || "#1da0c3";
+        const remaining = styles.getPropertyValue("--hub-scrub-remaining").trim() || "#cbd0d5";
         const progress = Math.max(0, Math.min(1, Number(runtimeSeamless.progress) || 0));
+        const barCount = Math.max(28, Math.min(180, Math.round(bounds.width / 4)));
+        const signature = `${runtimeSeamless.track?.title || runtimeLive.title || ""}\u0000${runtimeSeamless.track?.artist || runtimeLive.artist || ""}\u0000${runtimeSeamless.track?.pageUrl || runtimeLive.pageUrl || ""}`;
+        const points = analyzedPoints.length
+          ? Array.from({ length: barCount }, (_, index) => analyzedPoints[Math.min(analyzedPoints.length - 1, Math.floor((index / barCount) * analyzedPoints.length))])
+          : waveformAmplitudes(signature, barCount).map((value) => (value / 20) * 100);
         const barWidth = width / Math.max(1, points.length);
         for (let index = 0; index < points.length; index += 1) {
           const amplitude = Math.max(2 * ratio, (Number(points[index]) / 100) * (height - 4 * ratio));
           context.fillStyle = index / points.length <= progress ? played : remaining;
-          context.fillRect(index * barWidth, (height - amplitude) / 2, Math.max(1, barWidth - ratio), amplitude);
+          const visualWidth = Math.max(1.5 * ratio, Math.min(2.4 * ratio, barWidth * 0.62));
+          context.beginPath();
+          context.roundRect(index * barWidth + (barWidth - visualWidth) / 2, (height - amplitude) / 2, visualWidth, amplitude, visualWidth / 2);
+          context.fill();
         }
       });
     };
@@ -825,6 +846,34 @@ r.$applySeamlessState = function applySeamlessState(nextState) {
         }
       }
       r.$seamless = updateRuntimeSeamless({ ...runtimeSeamless, ...incomingState });
+      const pendingFeedSeekTrackId = String(r.$pendingFeedSeekTrackId || "");
+      const activeSeamlessTrackId = String(runtimeSeamless.track?.id || "");
+      if (pendingFeedSeekTrackId) {
+        const pendingFeedSeekQueued = pendingFeedSeekTrackId === String(r.$pendingFeedTrackId || "");
+        const pendingFeedSeekHasTime = r.$pendingFeedSeekTime !== null;
+        const pendingSeekTime = Number(r.$pendingFeedSeekTime) || 0;
+        const activeTime = Number(runtimeSeamless.currentTime) || 0;
+        const seekConfirmed = pendingFeedSeekHasTime
+          && runtimeSeamless.status !== "loading"
+          && activeSeamlessTrackId === pendingFeedSeekTrackId
+          && activeTime >= Math.max(0, pendingSeekTime - 1.5)
+          && activeTime <= pendingSeekTime + 5;
+        const seekFailed = !pendingFeedSeekQueued && (
+          !runtimeSeamless.enabled
+          || runtimeSeamless.status === "error"
+          || (activeSeamlessTrackId && activeSeamlessTrackId !== pendingFeedSeekTrackId)
+        );
+        if (seekConfirmed || seekFailed) {
+          r.$pendingFeedSeekTime = null;
+          r.$pendingFeedSeekFraction = null;
+          r.$pendingFeedSeekTrackId = "";
+          if (r.$pendingFeedTrackId === pendingFeedSeekTrackId) r.$pendingFeedTrackId = "";
+        }
+      } else if (r.$pendingFeedTrackId
+        && runtimeSeamless.status !== "loading"
+        && activeSeamlessTrackId === r.$pendingFeedTrackId) {
+        r.$pendingFeedTrackId = "";
+      }
       if (runtimeSeamless.enabled && !r.$pendingFeedTrackId) r.$silenceNativePagePlayback();
       if (r.$pendingPlaylistItemId && runtimeSeamless.status !== "loading") {
         const pendingItem = runtimeState.playlist.find((item) => item.playlistItemId === r.$pendingPlaylistItemId);

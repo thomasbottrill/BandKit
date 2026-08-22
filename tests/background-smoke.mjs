@@ -1,17 +1,21 @@
 import assert from "node:assert/strict";
 
 let runtimeListener;
+let installedListener;
 let commandListener;
-let tabRemovedListener;
+const tabRemovedListeners = [];
 let tabUpdatedListener;
 let offscreenCreated = false;
 let offscreenCreateCalls = 0;
+let offscreenCreateDetails = null;
 let injected = false;
 let injectedFiles = [];
 let tabMessageCalls = 0;
 const tabMessages = [];
 let createdBackgroundTab = null;
 let removedTabId = null;
+const tabUpdates = [];
+const windowUpdates = [];
 const reloadedTabIds = [];
 const offscreenMessages = [];
 let bandcampTabs = [{ id: 7, url: "https://artist.bandcamp.com/album/fixture" }];
@@ -77,8 +81,13 @@ globalThis.chrome = {
   runtime: {
     id: "fixture-extension",
     getURL: (path) => `chrome-extension://fixture-extension/${path}`,
-    getContexts: async () => offscreenCreated ? [{ contextType: "OFFSCREEN_DOCUMENT" }] : [],
+    getContexts: async (query) => {
+      return query?.contextTypes?.includes("OFFSCREEN_DOCUMENT") && offscreenCreated
+        ? [{ contextType: "OFFSCREEN_DOCUMENT" }]
+        : [];
+    },
     onMessage: { addListener(listener) { runtimeListener = listener; } },
+    onInstalled: { addListener(listener) { installedListener = listener; } },
     async sendMessage(message) {
       if (message.target === "offscreen") {
         offscreenMessages.push(message);
@@ -102,8 +111,9 @@ globalThis.chrome = {
     }
   },
   offscreen: {
-    async createDocument() {
+    async createDocument(details) {
       offscreenCreateCalls += 1;
+      offscreenCreateDetails = details;
       offscreenCreated = true;
     },
     async closeDocument() {
@@ -124,13 +134,14 @@ globalThis.chrome = {
     session: {
       async get(key) { return { [key]: session[key] }; },
       async set(values) { Object.assign(session, values); },
+      async remove(key) { delete session[key]; },
       async clear() {
         for (const key of Object.keys(session)) delete session[key];
       }
     }
   },
   tabs: {
-    onRemoved: { addListener(listener) { tabRemovedListener = listener; } },
+    onRemoved: { addListener(listener) { tabRemovedListeners.push(listener); } },
     onUpdated: { addListener(listener) { tabUpdatedListener = listener; } },
     async query() { return bandcampTabs; },
     async create(details) {
@@ -138,17 +149,30 @@ globalThis.chrome = {
       return createdBackgroundTab;
     },
     async get(tabId) {
+      if (tabId === 7) return { id: 7, windowId: 1, status: "complete", url: "https://artist.bandcamp.com/album/fixture" };
       return tabId === 20
         ? { id: 20, status: "complete", url: "https://artist.bandcamp.com/album/fixture-album" }
         : { id: tabId, status: "complete", url: "https://artist.bandcamp.com/album/fixture" };
     },
     async remove(tabId) { removedTabId = tabId; },
     async reload(tabId) { reloadedTabIds.push(tabId); },
+    async update(tabId, details) {
+      tabUpdates.push({ tabId, details });
+      return { id: tabId, ...details };
+    },
     async sendMessage(tabId, message) {
       tabMessageCalls += 1;
       tabMessages.push({ tabId, message });
       if (!injected) throw new Error("No receiver");
       return { ok: true };
+    }
+  },
+  windows: {
+    async get(windowId) { return { id: windowId, type: "normal" }; },
+    async getLastFocused() { return { id: 1, type: "normal" }; },
+    async update(windowId, details) {
+      windowUpdates.push({ windowId, details });
+      return { id: windowId, ...details };
     }
   },
   scripting: {
@@ -161,6 +185,10 @@ globalThis.chrome = {
 };
 
 await import(`../src/background/index.js?smoke=${Date.now()}`);
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(reloadedTabIds, [7], "a newly loaded extension context must refresh existing Bandcamp tabs once");
+assert.equal(session.bandkitRuntimeContextReady, true);
+reloadedTabIds.length = 0;
 
 function send(message, sender) {
   return new Promise((resolve) => {
@@ -226,6 +254,7 @@ assert.equal(response.state.queue.length, 1);
 const playbackQueue = response.state.queue;
 assert.equal(offscreenCreated, true);
 assert.equal(offscreenCreateCalls, 1);
+assert.deepEqual(offscreenCreateDetails.reasons, ["BLOBS"]);
 
 offscreenCreated = false;
 session.bandcampHubPlayback = {
@@ -237,13 +266,14 @@ session.bandcampHubPlayback = {
   queue: playbackQueue
 };
 offscreenMessages.length = 0;
+const offscreenCreateCallsBeforeConcurrentCommands = offscreenCreateCalls;
 const [resumedPlayback, advancedPlayback] = await Promise.all([
   send({ type: "BANDCAMP_HUB_SEAMLESS_PLAY_PAUSE" }, { url: "https://artist.bandcamp.com/album/fixture" }),
   send({ type: "BANDCAMP_HUB_SEAMLESS_NEXT" }, { url: "https://artist.bandcamp.com/album/fixture" })
 ]);
 assert.equal(resumedPlayback.ok, true);
 assert.equal(advancedPlayback.ok, true);
-assert.equal(offscreenCreateCalls, 2, "concurrent commands must share one offscreen recreation");
+assert.equal(offscreenCreateCalls, offscreenCreateCallsBeforeConcurrentCommands + 1, "concurrent commands must share one offscreen recreation");
 assert.equal(offscreenMessages.filter((message) => message.type === "BANDCAMP_HUB_OFFSCREEN_RESTORE").length, 1);
 assert.equal(offscreenMessages[0].state.currentTime, 43);
 assert.equal(offscreenMessages[0].state.isPlaying, true);
@@ -410,7 +440,7 @@ activationResponse = await send({ type: "BANDCAMP_HUB_SET_ENABLED", enabled: fal
 assert.equal(activationResponse.enabled, false);
 assert.equal(local.bandcampHubEnabled, false);
 assert.equal(local.bandcampHubState, savedStateBeforeDeactivation, "deactivation must preserve user settings and data");
-assert.equal(offscreenCreated, false, "deactivation must close background playback");
+assert.equal(offscreenCreated, true, "deactivation must stop playback without dropping the reusable hidden playback context");
 assert.equal(session.bandcampHubPlayback.enabled, false);
 assert.ok(reloadedTabIds.includes(7), "open Bandcamp tabs must reload into the inactive state");
 
@@ -471,6 +501,7 @@ response = await send({
 assert.equal(response.ok, true);
 assert.deepEqual(local, {});
 assert.deepEqual(session, {});
+assert.equal(offscreenCreated, false, "deleting all browser data must close the playback context without deleting downloaded backups");
 assert.ok(tabMessages.some(({ message }) => message.type === "BANDCAMP_HUB_PLAYBACK_CLEARED"));
 
 response = await send({
@@ -511,7 +542,7 @@ session.bandcampHubPlayback = {
 };
 offscreenMessages.length = 0;
 bandcampTabs = [];
-await tabRemovedListener(7, { isWindowClosing: false });
+await Promise.all(tabRemovedListeners.map((listener) => listener(7, { isWindowClosing: false })));
 assert.equal(offscreenMessages.at(-1).type, "BANDCAMP_HUB_OFFSCREEN_PAUSE",
   "closing the final Bandcamp tab must explicitly pause background audio");
 assert.equal(offscreenCreated, true, "last-tab pause must retain the offscreen queue for a later resume");
@@ -530,5 +561,11 @@ await commandListener("toggle-bandkit");
 assert.equal(injected, true);
 assert.deepEqual(injectedFiles, ["cart-autosave.js", "content.js"]);
 assert.ok(tabMessageCalls >= 2);
+
+reloadedTabIds.length = 0;
+delete session.bandkitRuntimeContextReady;
+await installedListener({ reason: "update" });
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(reloadedTabIds, [7], "an extension reload must refresh open Bandcamp tabs into the new context");
 
 console.log("background coordination smoke test passed");

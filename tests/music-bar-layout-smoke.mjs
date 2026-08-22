@@ -6,6 +6,7 @@ const source = readContentSource();
 const css = readHubStyles();
 
 assert.match(source, /musicBarWidth:\s*"default"/, "Music bar width must default to the standard 800px layout");
+assert.match(source, /showMusicBarAnalysis:\s*true/, "Music bar BPM and key badges must be visible by default");
 assert.match(source, /\["default", "Default \(800 px\)"\]/, "Settings must expose the default music bar width");
 assert.match(source, /\["tight", "Tight \(640 px\)"\]/, "Settings must expose a tight music bar width");
 assert.match(source, /\["wide", "Wide \(1120 px\)"\]/, "Settings must expose a wide music bar width");
@@ -23,7 +24,13 @@ assert.match(source, /showingSavedCarts \? state\.savedCarts\.length : state\.ca
 assert.doesNotMatch(source, /function toggleSectionPanel\(tabId\)[\s\S]{0,300}state\.cartView\s*=/, "The shared cart music-bar slot must reopen the last active inner tab");
 assert.ok(fs.existsSync(new URL("../assets/icon-saved-cart.svg", import.meta.url)), "The saved-cart music-bar state must have a dedicated icon");
 assert.match(source, /player\.dataset\.contentWidth = width/, "Saved width selection must reach the player layout");
-assert.match(source, /hub-player-tools[\s\S]*?hub-dj-player-button[\s\S]*?hub-player-more-wrap/, "DJ tools must appear before More actions in the music bar");
+assert.match(source, /hub-player-tools[\s\S]*?hub-player-analysis[\s\S]*?hub-dj-player-button[\s\S]*?hub-player-more-wrap/, "Analysis badges must appear immediately before DJ tools and More actions");
+assert.match(source, /BPM and key in music bar[\s\S]*?hub-music-bar-analysis-toggle[\s\S]*?showMusicBarAnalysis = state\.showMusicBarAnalysis === false/, "Settings must let users hide music-bar analysis badges");
+assert.match(source, /const showPlayerAnalysis = state\.showMusicBarAnalysis !== false[\s\S]*?playerAnalysis\.hidden = !showPlayerAnalysis/, "The music bar must respect its analysis visibility setting");
+assert.match(css, /\.hub-player-analysis-badge\s*\{[^}]*background:\s*var\(--hub-accent-soft\);[^}]*border-radius:\s*999px;[^}]*font-size:\s*9px;/s,
+  "Music-bar BPM and key must render as compact themed badges");
+assert.match(css, /\.hub-skip-button\s*\{[^}]*height:\s*20px;[^}]*width:\s*20px;[\s\S]*?\.hub-skip-button img\s*\{[^}]*height:\s*15px;[^}]*width:\s*15px;/s,
+  "music-bar Previous and Next must preserve their footprint while rendering the reduced shared glyph");
 assert.doesNotMatch(css, /\.hub-player\.is-compact \.hub-player-content\s*\{[^}]*max-width:\s*none/s, "Compact mode must not override the standard default width");
 assert.match(css, /data-content-width="tight"[^}]*max-width:\s*640px/s, "Tight width must cap player content at 640px");
 assert.match(css, /data-content-width="wide"[^}]*width:\s*min\(1120px/s, "Wide width must cap player content at 1120px");

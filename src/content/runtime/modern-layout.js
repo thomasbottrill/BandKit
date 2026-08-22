@@ -595,7 +595,7 @@ r.$themedModernReleasePalette = function themedModernReleasePalette(palette) {
         ...palette,
         background: theme.background,
         surface: theme.pageSurface,
-        surfaceRaised: theme.card,
+        surfaceRaised: theme.pageSurface,
         text: theme.text,
         secondary: theme.muted,
         link: theme.accent,
@@ -626,7 +626,9 @@ r.$clearModernReleasePalette = function clearModernReleasePalette() {
     };
 r.$applyModernReleaseLayout = function applyModernReleaseLayout() {
       const pageType = r.$modernBandcampPageType();
-      const enabled = Boolean(runtimeState.appearance.modernReleasePages && pageType);
+      const modernStyling = Boolean(runtimeState.appearance.modernReleasePages);
+      const enabled = Boolean(modernStyling && pageType);
+      document.documentElement.dataset.bandkitModernStyling = String(modernStyling);
       if (enabled) {
         if (!r.$modernReleasePalette) r.$modernReleasePalette = r.$captureModernReleasePalette();
         if (pageType === "release") r.$prepareModernReleaseLayout();
@@ -658,27 +660,42 @@ r.$setThemeVariables = function setThemeVariables(variables) {
       r.$pageActionThemeCache = null;
       for (const [name, value] of Object.entries(variables)) {
         r.$host.style.setProperty(name, value);
-        r.$pageDjHost?.style.setProperty(name, value);
         for (const button of document.querySelectorAll(".bandcamp-hub-page-dj, .bandcamp-hub-page-overflow, .bandcamp-hub-page-playlist, .bandcamp-hub-page-cart, .bandcamp-hub-page-buy, .inline_player .play_cell > a, #track_table .play-col > a, .bandkit-page-skip-control, #DiscoverApp .results-grid-item .image-container > .play-pause-button, #DiscoverApp .results-grid-item .image-container > .play-button, #DiscoverApp .focused-result > .artwork-play-button, #DiscoverApp .focused-result > .play-pause-button, #DiscoverApp .focused-result > .play-button, #DiscoverApp .discover-detail > .play-pause-button, #DiscoverApp .discover-detail > .play-button")) button.style.setProperty(name, value);
       }
+      for (const [panelRole, sourceRole] of Object.entries({
+        "--hub-panel-accent": "--hub-accent",
+        "--hub-panel-accent-soft": "--hub-accent-soft",
+        "--hub-panel-ink": "--hub-ink",
+        "--hub-panel-muted": "--hub-muted",
+        "--hub-panel-faint": "--hub-faint",
+        "--hub-panel-line": "--hub-line",
+        "--hub-panel-on-accent": "--hub-on-accent"
+      })) r.$host.style.setProperty(panelRole, variables[sourceRole]);
+      r.$syncPageDjTheme?.();
     };
 r.$syncPageDjTheme = function syncPageDjTheme() {
       if (!r.$pageDjHost) return;
-      const styles = getComputedStyle(r.$host);
-      for (const name of [
-        "--hub-accent", "--hub-accent-soft", "--hub-ink", "--hub-muted", "--hub-faint",
-        "--hub-line", "--hub-panel", "--hub-card", "--hub-card-footer", "--hub-header",
-        "--hub-hover", "--hub-on-accent", "--hub-wash",
-        "--hub-card-accent", "--hub-card-accent-soft", "--hub-card-ink", "--hub-card-muted",
-        "--hub-card-faint", "--hub-card-line", "--hub-card-on-accent",
-        "--hub-card-footer-accent", "--hub-card-footer-accent-soft", "--hub-card-footer-ink",
-        "--hub-card-footer-muted", "--hub-card-footer-faint", "--hub-card-footer-line",
-        "--hub-card-footer-on-accent"
-      ]) {
-        const value = styles.getPropertyValue(name);
-        r.$pageDjHost.style.setProperty(name, value);
-        for (const button of document.querySelectorAll(".bandcamp-hub-page-dj, .bandcamp-hub-page-overflow, .bandcamp-hub-page-playlist, .bandcamp-hub-page-cart, .bandcamp-hub-page-buy, .inline_player .play_cell > a, #track_table .play-col > a, .bandkit-page-skip-control, #DiscoverApp .results-grid-item .image-container > .play-pause-button, #DiscoverApp .results-grid-item .image-container > .play-button, #DiscoverApp .focused-result > .artwork-play-button, #DiscoverApp .focused-result > .play-pause-button, #DiscoverApp .focused-result > .play-button, #DiscoverApp .discover-detail > .play-pause-button, #DiscoverApp .discover-detail > .play-button")) button.style.setProperty(name, value);
-      }
+      const page = getComputedStyle(document.documentElement);
+      const hub = getComputedStyle(r.$host);
+      const first = (...names) => names.map((name) => page.getPropertyValue(name).trim()).find(Boolean) || "";
+      const surface = first("--bandkit-release-surface", "--bandkit-page-surface") || hub.getPropertyValue("--hub-card");
+      const ink = first("--bandkit-release-ink", "--bandkit-page-surface-text") || hub.getPropertyValue("--hub-ink");
+      const muted = first("--bandkit-page-surface-muted", "--bandkit-release-muted") || hub.getPropertyValue("--hub-muted");
+      const line = first("--bandkit-page-surface-border", "--bandkit-release-line") || hub.getPropertyValue("--hub-line");
+      const accent = first("--bandkit-page-surface-accent", "--bandkit-release-accent") || hub.getPropertyValue("--hub-accent");
+      const accentSoft = first("--bandkit-page-surface-accent-soft", "--bandkit-release-accent-soft") || hub.getPropertyValue("--hub-accent-soft");
+      const onAccent = first("--bandkit-page-surface-on-accent", "--bandkit-release-on-accent") || hub.getPropertyValue("--hub-on-accent");
+      for (const [name, value] of Object.entries({
+        "--hub-panel": surface, "--hub-card": surface, "--hub-card-footer": surface,
+        "--hub-header": surface, "--hub-wash": surface, "--hub-ink": ink,
+        "--hub-card-ink": ink, "--hub-muted": muted, "--hub-card-muted": muted,
+        "--hub-faint": muted, "--hub-card-faint": muted, "--hub-line": line,
+        "--hub-card-line": line, "--hub-accent": accent, "--hub-card-accent": accent,
+        "--hub-accent-soft": accentSoft, "--hub-card-accent-soft": accentSoft,
+        "--hub-on-accent": onAccent, "--hub-card-on-accent": onAccent,
+        "--hub-scrub-accent": accent, "--hub-scrub-remaining": line,
+        "--hub-scrub-surface": surface
+      })) r.$pageDjHost.style.setProperty(name, value);
     };
 r.$accessibleSurfaceRole = function accessibleSurfaceRole(background, preferredText, preferredMuted, preferredAccent) {
       const white = { r: 255, g: 255, b: 255, a: 1 };
@@ -721,7 +738,7 @@ r.$updateThemeFromPage = function updateThemeFromPage() {
       const activeCardColor = mixColor(cardColor, cardRole.accent, 0.18);
       const controlPalette = accessibleControlPalette([panelColor, cardColor, activeCardColor], cardRole.accent);
       const scrubberPalette = accessibleScrubberPalette(cardRole.accent, cardColor);
-      const scrubberRemaining = mixColor(cardColor, cardRole.muted, 0.35);
+      const scrubberRemaining = scrubberPalette.remaining;
 
       const variables = {
         "--hub-accent": colorString(panelRole.accent),
@@ -779,12 +796,12 @@ r.$applySelectedTheme = function applySelectedTheme() {
       const cardRole = r.$accessibleSurfaceRole(card, accessible.cardText, accessible.cardMuted, accessible.cardAccent);
       const cardFooter = mixColor(card, surface, 0.12);
       const cardFooterRole = r.$accessibleSurfaceRole(cardFooter, accessible.cardText, accessible.cardMuted, accessible.cardAccent);
-      const header = mixColor(surface, card, 0.2);
+      const header = surface;
       const headerRole = r.$accessibleSurfaceRole(header, ink, muted, accent);
       const activeCard = mixColor(card, cardRole.accent, 0.18);
       const controlPalette = accessibleControlPalette([surface, card, activeCard], cardRole.accent);
       const scrubberPalette = accessibleScrubberPalette(accessible.preferredScrubAccent, card);
-      const scrubberRemaining = mixColor(card, cardRole.muted, 0.35);
+      const scrubberRemaining = scrubberPalette.remaining;
       r.$setThemeVariables({
         "--hub-accent": colorString(panelRole.accent),
         "--hub-accent-soft": colorString(panelRole.accent, dark ? 0.24 : 0.13),
@@ -822,7 +839,7 @@ r.$applySelectedTheme = function applySelectedTheme() {
         "--hub-scrub-remaining": colorString(scrubberRemaining),
         "--hub-scrub-surface": colorString(scrubberPalette.surface),
         "--hub-scrub-halo": colorString(scrubberPalette.halo, 0.62),
-        "--hub-wash": colorString(mixColor(surface, card, 0.25), 0.96)
+        "--hub-wash": colorString(surface)
       });
     };
 }

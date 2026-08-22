@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
-import { readContentSource, readModernStyles } from "./support/source.mjs";
+import { readContentSource, readHubStyles, readModernStyles } from "./support/source.mjs";
 
 const source = readContentSource();
 const css = readModernStyles();
+const hubCss = readHubStyles();
 const manifest = JSON.parse(fs.readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));
+const lifecycleSource = fs.readFileSync(new URL("../src/content/runtime/lifecycle.js", import.meta.url), "utf8");
+const pageActionsSource = fs.readFileSync(new URL("../src/content/runtime/page-actions.js", import.meta.url), "utf8");
+const collectionPlaylistsSource = fs.readFileSync(new URL("../src/content/runtime/collection-playlist-integration.js", import.meta.url), "utf8");
 
 function extractFunction(name) {
   const match = new RegExp(`function\\s+${name}\\s*\\(`).exec(source);
@@ -164,8 +168,8 @@ assert.match(source, /purchaseAction\.matches\("a\[href\]"\)[\s\S]*?target\.hash
 assert.match(source, /cartButton\.nextElementSibling !== playlistButton[\s\S]*?playlistButton\.nextElementSibling !== button[\s\S]*?button\.nextElementSibling !== overflowButton/, "Release actions must remain ordered Buy, Add, DJ, then More");
 assert.match(source, /bandkit-page-skip-control", index \? "is-next" : "is-previous"[\s\S]*?--bandkit-skip-icon[\s\S]*?icon-skip\.svg/,
   "release Previous and Next controls must use the music player's shared Skip icon asset");
-assert.match(source, /\.bandkit-page-skip-control::before\{[^}]*background:currentColor;[^}]*height:20px;[^}]*mask:var\(--bandkit-skip-icon\)[^}]*width:20px\}[\s\S]*?\.bandkit-page-skip-control\.is-previous::before\{transform:rotate\(180deg\)\}/,
-  "release navigation must render the shared Next icon and rotate the same glyph for Previous");
+assert.match(source, /\.bandkit-page-skip-control::before\{[^}]*background:currentColor;[^}]*height:15px;[^}]*mask:var\(--bandkit-skip-icon\)[^}]*width:15px\}[\s\S]*?\.bandkit-page-skip-control\.is-previous::before\{transform:rotate\(180deg\)\}/,
+  "release navigation must render the reduced shared Next icon and rotate the same glyph for Previous");
 assert.match(source, /\.bandkit-page-skip-control\{[^}]*border:1px solid transparent!important;[^}]*color:var\(--hub-accent,[^}]*\}[\s\S]*?\.bandkit-page-skip-control:is\(:hover,:focus-visible\)\{[^}]*background:var\(--hub-accent-soft,[^}]*border-color:var\(--hub-accent,[^}]*box-shadow:none!important;[^}]*transform:none!important/,
   "release Previous and Next controls must be borderless at rest and use the shared motionless hover treatment");
 assert.match(source, /function ensureClassicTransportRow[\s\S]*?applyPageActionTheme\(tools\)/,
@@ -176,8 +180,90 @@ assert.match(source, /function markModernTrackAvailability[\s\S]*?play-col > a[\
   "each track-list Play control must receive the exact resolved page-action palette");
 assert.match(source, /function setThemeVariables[\s\S]*?\.inline_player \.play_cell > a, #track_table \.play-col > a, \.bandkit-page-skip-control/,
   "theme changes must directly update large, track-list, and navigation controls with the shared action palette");
-assert.match(source, /function syncPageDjTheme[\s\S]*?\.inline_player \.play_cell > a, #track_table \.play-col > a, \.bandkit-page-skip-control/,
-  "page-theme resyncs must keep every transport control aligned with the action buttons");
+assert.match(source, /function syncPageDjTheme[\s\S]*?--bandkit-release-surface[\s\S]*?--bandkit-page-surface[\s\S]*?--hub-panel[\s\S]*?--hub-scrub-surface/,
+  "page DJ tools must derive their panel, controls, and waveform palette from the page rather than the music bar");
+assert.match(source, /function renderPageDjTools[\s\S]*?createPageDjToolsCard\(\)/,
+  "page DJ tools must use their compact page-only composition");
+const pageDjToolsFunction = extractFunction("createPageDjToolsCard");
+assert.match(source, /bandcamp-hub-page-dj[\s\S]*?icon-bpm\.svg[\s\S]*?Show BPM and tempo controls on this page/,
+  "the on-page compact BPM controls must use a tempo gauge instead of the full DJ tools icon");
+assert.match(source, /hub-dj-player-button[\s\S]*?icon-dj\.svg/,
+  "the music bar must retain the full DJ tools icon");
+assert.match(pageDjToolsFunction, /createDjAnalysis\(bpm\)/,
+  "compact page DJ tools must reuse the BPM, Tap, and Auto controls");
+assert.match(pageDjToolsFunction, /querySelector\("\.hub-dj-key"\)\?\.remove\(\)/,
+  "compact page DJ tools must remove the duplicate key readout");
+assert.match(pageDjToolsFunction, /hub-dj-page-tempo-input/,
+  "compact page DJ tools must include a horizontal tempo control");
+assert.doesNotMatch(pageDjToolsFunction, /hub-dj-page-tempo-output|tempoOutput/,
+  "compact page DJ tools must not spend horizontal space on a tempo percentage readout");
+assert.doesNotMatch(pageDjToolsFunction, /hub-dj-page-tempo-label/,
+  "compact page DJ tools must not spend horizontal space on a visible Tempo label");
+assert.match(pageDjToolsFunction, /hub-dj-page-close/,
+  "compact page DJ tools must retain BPM, Tap, Auto, horizontal tempo, and an internal hide control");
+assert.match(pageDjToolsFunction, /card\.append\(analysisRow, tempo, modes, close\)/,
+  "compact page DJ tools must place analysis, tempo, modes, and Close on one ordered row");
+assert.match(pageDjToolsFunction, /icon-close\.svg[\s\S]*?hub-dj-page-modes[\s\S]*?hub-dj-mode-button[\s\S]*?hub-dj-master/,
+  "compact page DJ tools must use a themed icon close control and retain tempo-range and Master Tempo buttons");
+assert.doesNotMatch(pageDjToolsFunction, /createDjWaveform|createDjEqControls|createDjPerformancePanel|createDjFaderPanel/,
+  "compact page DJ tools must omit the waveform, EQ, platter, beat-loop, jog, vinyl-speed, and full fader controls");
+const djAnalysisFunction = extractFunction("createDjAnalysis");
+assert.match(djAnalysisFunction, /hub-dj-key-name[^\n]*detectedKey\?\.shortName[\s\S]*?hub-dj-key-camelot[^\n]*detectedKey\?\.camelot/,
+  "DJ key readouts must prioritize the familiar musical key and show Camelot notation secondarily");
+assert.match(djAnalysisFunction, /const baseBpm = Number\(seamless\.detectedBpm\) \|\| bpm;[\s\S]*?const targetRate = Math\.max\(0\.35, Math\.min\(2, tappedBpm \/ baseBpm\)\);[\s\S]*?state\.dj\.rate = targetRate;[\s\S]*?SEAMLESS_SET_RATE, \{[\s\S]*?rate: targetRate/,
+  "a completed Tap tempo must convert the tapped BPM into a playback-rate change from the track's detected BPM");
+assert.doesNotMatch(djAnalysisFunction, /tappedBpm[\s\S]*?SEAMLESS_SET_BPM/,
+  "Tap tempo must not rewrite track BPM metadata instead of retiming the audio");
+assert.match(djAnalysisFunction, /const restoreAutomaticBpm = !state\.dj\.autoTempo;[\s\S]*?state\.dj\.rate = 1;[\s\S]*?SEAMLESS_SET_RATE[\s\S]*?if \(restoreAutomaticBpm\) return seamlessCommand\(MESSAGES\.SEAMLESS_RESET_BPM\)/,
+  "re-enabling Auto must reset tempo and restore the track's analyzed BPM instead of retaining the tapped override");
+assert.match(hubCss, /\.hub-dj-card-page :is\(\.hub-dj-compact-action, \.hub-dj-mode-button, \.hub-dj-page-close\):is\(:hover, :focus-visible\)\s*\{[^}]*background:\s*var\(--hub-accent-soft\);[^}]*border-color:\s*var\(--hub-accent\);/s,
+  "page DJ actions must use the page-themed action hover treatment instead of a white card fill");
+assert.match(hubCss, /\.hub-dj-card-page :is\(\.hub-dj-compact-action, \.hub-dj-mode-button\)\.is-active\s*\{[^}]*background:\s*var\(--hub-accent\);[^}]*border-color:\s*var\(--hub-accent\);[^}]*color:\s*var\(--hub-on-accent\);/s,
+  "page DJ Auto and Master Tempo active states must use the page theme's accent palette");
+assert.match(hubCss, /\.hub-dj-card-page \.hub-dj-status-button\.is-active \.hub-dj-active-dot\s*\{[^}]*background:\s*var\(--hub-on-accent\);/s,
+  "page DJ active indicators must retain contrast against the page-themed active fill");
+assert.match(hubCss, /\.hub-dj-card-page\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto minmax\(135px, 1fr\) auto 22px;[^}]*position:\s*relative;/s,
+  "the page DJ card must keep analysis, tempo, modes, and Close on one compact row");
+assert.match(hubCss, /\.hub-dj-card-page \.hub-dj-analysis-row\s*\{[^}]*grid-template-columns:\s*76px 32px 40px;[^}]*justify-content:\s*start;/s,
+  "the page DJ analysis group must fit decimal BPM values while reserving only the width needed for Tap and Auto");
+assert.match(hubCss, /\.hub-dj-page-tempo\s*\{[^}]*display:\s*block;[^}]*min-width:\s*0;/s,
+  "the page tempo slider must use the full width freed by removing its percentage readout");
+assert.match(hubCss, /\.hub-dj-page-close\s*\{[^}]*height:\s*22px;[^}]*opacity:\s*0;[^}]*position:\s*static;[^}]*width:\s*22px;/s,
+  "the page DJ close control must stay subtle at the row's top-right edge until interaction");
+assert.match(hubCss, /\.hub-dj-card-page :is\(\.hub-dj-compact-action, \.hub-dj-mode-button, \.hub-dj-page-close\)\s*\{[^}]*background:\s*transparent;[^}]*border:\s*1px solid transparent;[^}]*border-radius:\s*4px;[^}]*box-shadow:\s*none;[^}]*color:\s*var\(--hub-accent\);/s,
+  "all compact page DJ buttons must share the resting page-action button treatment");
+assert.match(hubCss, /\.hub-dj-page-tempo-input\s*\{[^}]*var\(--hub-scrub-accent\)[^}]*var\(--hub-scrub-remaining\)[^}]*height:\s*4px;/s,
+  "the page tempo rail must use the waveform's solid played and remaining colours");
+assert.match(hubCss, /\.hub-dj-page-tempo-input::-webkit-slider-thumb\s*\{[^}]*background:\s*var\(--hub-scrub-accent\);[^}]*border:\s*2px solid var\(--hub-scrub-surface\);[^}]*height:\s*18px;[^}]*width:\s*7px;/s,
+  "the page tempo handle must match the waveform playhead geometry and palette");
+assert.match(source, /function syncPageDjToolsUi[\s\S]*?button\.hidden = pageDjOpen/,
+  "the page DJ launcher must remain hidden while its inline tools are open");
+assert.match(source, /:is\(\.collect-item\.wishlisted \.bandkit-feed-wishlist-action,\.bandkit-feed-wishlist-action\.wishlisted\) \.wishlist-msg\.bandkit-feed-wishlist-control\{display:none!important\}/,
+  "wishlisted Feed items and sidebar releases must hide the inactive native wishlist half instead of showing a duplicate heart");
+assert.match(source, /\.bandkit-feed-wishlist-action \.wishlisted-msg>\.view\{display:none!important\}/,
+  "the compact Feed wishlist control must not add Bandcamp's separate wishlist-view arrow");
+assert.match(source, /\.bandkit-feed-wishlist-action\{flex:0 0 auto!important;margin-left:4px!important\}/,
+  "the compact Feed wishlist control must have extra separation from the preceding pre-order action");
+assert.match(source, /\.bandkit-feed-wishlist-action :is\(\.wishlist-msg\.bandkit-feed-wishlist-control,\.wishlisted-msg>\.bandkit-feed-wishlist-control\)\{background:transparent!important;border-color:transparent!important\}/,
+  "Feed wishlist controls must remain transparent and borderless in both states");
+assert.match(source, /:is\(\.collect-item\.wishlisted \.bandkit-feed-wishlist-action,\.bandkit-feed-wishlist-action\.wishlisted\) \.wishlisted-msg>\.bandkit-feed-wishlist-control\{background:transparent!important;border-color:transparent!important;color:#ff9c00!important\}/,
+  "the single visible Feed wishlist heart must use Bandcamp's original orange after it is wishlisted");
+assert.match(source, /:is\(\.collect-item\.wishlisted \.bandkit-feed-wishlist-action,\.bandkit-feed-wishlist-action\.wishlisted\) \.wishlisted-msg>\.bandkit-feed-wishlist-control::before\{mask-image:var\(--bandkit-feed-wishlist-filled-icon\)!important;-webkit-mask-image:var\(--bandkit-feed-wishlist-filled-icon\)!important\}/,
+  "the visible wishlisted Feed control must swap the outline heart for a filled heart");
+assert.match(source, /body\.feed :is\(\.bandkit-feed-action-row,\.bandkit-feed-sidebar-actions\) :is\([^}]+\)\{background:transparent!important;border-color:transparent!important\}/,
+  "Feed action buttons must not show backing or borders at rest");
+assert.match(source, /body\.feed :is\(\.bandkit-feed-action-row,\.bandkit-feed-sidebar-actions\) :is\([^}]+\):is\(:hover,:focus-visible\)\{background:rgba\(6,135,245,\.1\)!important;border-color:currentColor!important\}/,
+  "Feed action buttons must restore their backing on hover or keyboard focus");
+assert.match(source, /\.story-innards>\.tralbum-wrapper-collect-controls \.bandkit-feed-action-row\{opacity:0!important;pointer-events:none!important;transition:opacity 120ms ease\}[\s\S]*?\.story-innards:is\(:hover,:focus-within\)>\.tralbum-wrapper-collect-controls \.bandkit-feed-action-row\{opacity:1!important;pointer-events:auto!important\}/,
+  "Feed action rows must reveal only when their overall card is hovered or keyboard-focused");
+assert.match(source, /\.story-innards:is\(:hover,:focus-within\) \.bandkit-feed-action-row \[data-bandkit-label\]>\.bandkit-page-action-label\{display:inline-block!important/,
+  "revealed Feed action buttons must include their labels");
+assert.match(source, /\.bandkit-feed-wishlist-action\{flex:0 0 auto!important;margin-left:4px!important\}[\s\S]*?\.bandkit-feed-wishlist-action \.wishlisted-msg\{align-items:center!important;display:none!important;margin:0!important;padding:0!important\}[\s\S]*?:is\(\.collect-item\.wishlisted \.bandkit-feed-wishlist-action,\.bandkit-feed-wishlist-action\.wishlisted\) \.wishlisted-msg\{display:flex!important\}/,
+  "the wishlisted and unwishlisted controls must retain the same stable gap from the preceding purchase action");
+assert.match(source, /body\.feed :is\(\.collect-item\.wishlisted \.bandkit-feed-wishlist-action,\.bandkit-feed-wishlist-action\.wishlisted\) \.wishlisted-msg>\.bandkit-feed-wishlist-control:is\(:hover,:focus-visible\)\{background:color-mix\(in srgb,#ff9c00 14%,transparent\)!important;border-color:#ff9c00!important\}/,
+  "the orange wishlisted heart must regain an orange backing only on hover or keyboard focus");
+assert.match(source, /function drawDjWaveform[\s\S]*?--hub-scrub-accent[\s\S]*?--hub-scrub-remaining[\s\S]*?waveformAmplitudes[\s\S]*?roundRect/,
+  "DJ tools must share the regular scrubber palette and rounded waveform treatment");
 assert.match(source, /\.bandcamp-hub-page-tools :is\([^}]*\):not\(\.is-active\):not\(\.is-added\)\{[^}]*background:transparent!important;[^}]*border-color:transparent!important/,
   "the primary page action row must keep button outlines hidden until interaction");
 assert.match(css, /\.bandcamp-hub-page-tools :is\([^)]*\.bandcamp-hub-page-playlist,[^)]*\.bandcamp-hub-page-cart,[^)]*\.bandcamp-hub-page-dj,[^)]*\.bandcamp-hub-page-overflow[^)]*\)\s*\{[^}]*color:\s*var\(--hub-accent, var\(--bandkit-release-accent\)\)\s*!important;/s,
@@ -198,6 +284,18 @@ assert.match(css, /#track_table \.play_status\s*\{[^}]*background:\s*none\s*!imp
   "the native track-list glyph layer must inherit the resolved page-action color");
 assert.match(css, /#track_table \.track_row_view:is\(:hover, :focus-within\)\s*\{[^}]*background:\s*color-mix\([^}]*box-shadow:\s*none;/s,
   "each track row must expose a subtle whole-row hover and keyboard-focus tint without a side marker");
+assert.match(source, /playCell\.dataset\.bandkitTrackNumber\s*=\s*String\(trackNumber \|\| displayedTrackNumber \|\| index \+ 1\)/,
+  "each modern track row must expose its number in the shared number/play slot");
+assert.match(css, /#track_table \.track-number-col\s*\{\s*display:\s*none\s*!important;/s,
+  "the redundant number column must be removed so track titles gain its width");
+assert.match(css, /#track_table \.play-col > a\s*\{[^}]*opacity:\s*0;/s,
+  "track play controls must remain hidden in the resting pointer state");
+assert.match(css, /\.track_row_view:not\(\.bandkit-modern-track-unplayable\):is\(:hover, :focus-within\) \.play-col > a,[\s\S]*?\.track_row_view\.bandcamp-hub-is-playing \.play-col > a,[\s\S]*?\.track_row_view:has\(\.play_status\.playing\) \.play-col > a\s*\{\s*opacity:\s*1;/,
+  "hovered, keyboard-focused, and playing tracks must reveal their play or pause control");
+assert.match(css, /\.track_row_view\.bandkit-modern-track-unplayable:is\(:hover, :focus-within\)\s*\{\s*background:\s*var\(--bandkit-release-surface-raised\)\s*!important;/,
+  "unavailable pre-release tracks must not receive the interactive row hover tint");
+assert.match(css, /\.track_row_view\.bandkit-modern-track-unplayable :is\(\.play-col, \.title-col\)\s*\{\s*opacity:\s*0\.52;/,
+  "unavailable pre-release tracks must retain readable but clearly muted metadata");
 assert.match(css, /#recommendations_container \.album-art-container > :is\(\.play-button, \.play-pause-button, \.playbutton, \.bandcamp-hub-page-playlist\.is-recommendation-add-to\)\s*\{[^}]*background:\s*color-mix\([^}]*border:\s*1px solid var\(--bandkit-release-accent\)\s*!important;[^}]*border-radius:\s*4px\s*!important;[^}]*height:\s*36px\s*!important;[^}]*width:\s*36px\s*!important;/s,
   "More to explore Play and Add controls must share the same high-contrast square treatment");
 assert.match(css, /\.recommended-album:is\(:hover, :focus-within, \.bandkit-recommendation-current\)[^{]*\.playbutton\)\s*\{[^}]*opacity:\s*1\s*!important;/s,
@@ -301,16 +399,40 @@ assert.match(css, /\.bandkit-modern-gift-control:is\(:hover, :focus-visible\)\s*
 assert.match(css, /body\.tralbum-page \.ui-dialog\.nu-dialog\s*\{[^}]*color-scheme:\s*light;/s,
   "Bandcamp purchase dialogs must retain light native fields and checkboxes on dark matched palettes");
 assert.doesNotMatch(source, /createPageGiftButton|is-album-add-all/, "Gift and album-wide actions must not remain as standalone release buttons");
-assert.match(source, /applyPageActionTheme\(button\);\s*applyPageActionTheme\(buyTrack\);/, "Per-track add and buy actions should inherit the shared page-action palette");
+assert.match(source, /if \(buyTrack\)[\s\S]*?applyPageActionTheme\(buyTrack\);[\s\S]*?applyPageActionTheme\(button\);/, "Per-track add and buy actions should inherit the shared page-action palette when those controls exist");
 assert.match(source, /function applyPageActionTheme\(control\)[\s\S]*?"--hub-card"/, "Dynamically inserted page actions must inherit the matched Bandcamp card background");
 assert.match(source, /function openPagePlaylistMenu\(anchor, selection, view = "destinations"\)[\s\S]*?applyPageActionTheme\(pagePlaylistMenu\)/,
   "Page Add and ellipsis menus must receive the canonical current page or theme palette");
 assert.match(source, /\.bandcamp-hub-page-playlist-menu\{[^}]*background:var\(--hub-card,#fff\);[^}]*border:1px solid var\(--hub-line,[^}]*color:var\(--hub-ink,#111\);/s,
   "Page action menus must paint their surface, outline, and text from the applied palette");
 assert.match(source, /function updatePagePlaylistButton\(button, track\)[\s\S]*?applyPageActionTheme\(button\);/, "Every refreshed Add button must reapply the current Match Bandcamp palette");
+assert.match(source, /dataset\.bandkitModernStyling = String\(modernStyling\)/,
+  "the Modern Bandcamp pages preference must expose a separate visual-style gate across page types");
+assert.match(source, /button\.classList\.toggle\("is-feed-compact-action", modernActions\)/,
+  "Feed Add controls must drop their modern compact class when classic pages are selected");
+assert.match(source, /purchaseAction\.classList\.toggle\("bandkit-feed-purchase-action", modernActions\)/,
+  "native Feed purchase controls must only receive Bandkit's modern button treatment in modern mode");
+assert.match(source, /wishlistItem\?\.classList\.toggle\("bandkit-feed-wishlist-action", modernActions\)/,
+  "native Feed wishlist controls must only receive Bandkit's modern heart treatment in modern mode");
+assert.match(source, /if \(!modernActions\) \{[\s\S]*?:not\(\.bandcamp-hub-page-playlist\):not\(\.bandcamp-hub-page-dj\)[\s\S]*?playlistButton\.after\(button\)/,
+  "classic release pages must retain the injected Add and BPM controls in the page action row");
+assert.match(source, /html\[data-bandkit-modern-styling="false"\] :is\(\.bandcamp-hub-page-playlist:not\(\.is-feed-add-to\),\.bandcamp-hub-page-tools>\.bandcamp-hub-page-dj\)\{[^}]*background:transparent!important;[^}]*border:0!important;[^}]*color:inherit!important;[^}]*font:inherit!important;/,
+  "classic Add and BPM controls must inherit the surrounding page typography and colour without Bandkit button chrome");
+assert.match(source, /html\[data-bandkit-modern-styling="false"\] :is\(\.bandcamp-hub-page-playlist:not\(\.is-feed-add-to\),\.bandcamp-hub-page-tools>\.bandcamp-hub-page-dj\)::before\{[^}]*height:16px!important;[^}]*width:16px!important\}/,
+  "icon-only classic Add and BPM controls must remain visible even though their text is visually suppressed");
+assert.match(source, /html\[data-bandkit-modern-styling="false"\] \.track_row_view \.bandcamp-hub-page-playlist\.is-track-action\{margin-left:10px!important\}/,
+  "classic track rows must leave a readable gap between Bandcamp's Buy link and the Add control");
+assert.match(source, /html\[data-bandkit-modern-styling="false"\] \[data-bandkit-label\]>\.bandkit-page-action-label\{display:none!important\}/,
+  "modern page-action labels must stay hidden in classic mode");
+assert.doesNotMatch(source, /html\[data-bandkit-modern-release="false"\] body\.tralbum-page \.inline_player \.playbutton::before/,
+  "classic release pages must retain Bandcamp's native play icons");
 assert.match(css, /#track_table \.download-col :is\(\.bandcamp-hub-page-playlist\.is-track-action, \.bandcamp-hub-page-buy\)\s*\{[^}]*border:\s*1px solid var\(--hub-line,[^}]*color:\s*var\(--hub-accent,/s, "Per-track actions should use the same border and accent variables as the page controls");
 assert.match(source, /function bindPageScrubDrag\(control\)[\s\S]*?pointerdown[\s\S]*?pointermove[\s\S]*?pointerup/, "Page scrubbers should support continuous pointer dragging");
 assert.match(source, /previewPageScrub[\s\S]*?--bandkit-page-scrub-progress/, "Page scrubbers should preview the playhead position while dragging");
+assert.match(source, /const fraction = drag\.fraction;[\s\S]*?commitPageScrub\(control, fraction\)/, "Page scrubbers should commit the last stable drag position instead of trusting pointer-up coordinates");
+assert.match(source, /containThemeColourPointer[\s\S]*?pointerdown[\s\S]*?stopPropagation/, "Theme colour sliders should not bubble pointer gestures into draggable panel chrome");
+assert.match(source, /const maxLeft = Math\.max\(8, window\.innerWidth - dragging\.width - 8\);[\s\S]*?Math\.max\(8, Math\.min\(maxLeft,/, "Panel dragging must clamp to a valid viewport range even when the panel nearly fills the screen");
+assert.match(source, /const savedWidth = Number\(state\.layout\.width\) \|\| 420;[\s\S]*?Math\.max\(8, window\.innerWidth - width - 8\)/, "Saved panel geometry must reject invalid values and preserve an on-screen inset");
 assert.match(source, /commitPageScrub[\s\S]*?MESSAGES\.SEAMLESS_SEEK/, "Page scrubbers should commit the previewed position on release");
 assert.match(css, /body\.feed #stories-vm\s*\{[^}]*grid-column:\s*1/s, "Feed stories must occupy the wide column regardless of DOM order");
 assert.match(css, /body\.feed #stories-vm > h2,[\s\S]*?body\.feed #stories > h2\s*\{[^}]*display:\s*none\s*!important/s, "Both live Feed heading locations must remove the redundant Fan Activity divider");
@@ -339,5 +461,35 @@ assert.match(css, /#merch-grid > \.merch-grid-item\s*\{[^}]*border:\s*1px solid 
 assert.match(css, /\.tralbum-wrapper > \.tralbum-wrapper-col1\s*\{[^}]*grid-column:\s*1\s*!important;[^}]*grid-row:\s*1\s*!important/s, "Feed artwork and metadata must stay in the primary media column");
 assert.match(css, /\.tralbum-wrapper > \.tralbum-wrapper-col2\s*\{[^}]*grid-column:\s*2\s*!important;[^}]*grid-row:\s*1\s*!important/s, "Feed supporter details must stay beside the primary media column");
 assert.match(css, /height:\s*280px\s*!important;[^}]*width:\s*280px\s*!important/s, "Feed artwork must render at the larger square size");
+assert.match(lifecycleSource, /const leavePageRuntime = \(event\) => \{[\s\S]*?if \(!event\.persisted\) [^;]*cleanup\(\);/,
+  "Bandkit must preserve its runtime when Chrome places a page in the back-forward cache");
+assert.match(lifecycleSource, /const resumePageRuntime = \(event\) => \{[\s\S]*?injectPageDjToolsLink\(\)[\s\S]*?event\.persisted[\s\S]*?scanLivePlayer\(\)[\s\S]*?scheduleLivePlayerMaintenance\(0\)/,
+  "every page-show must validate page controls before cached pages resume live scanning");
+assert.match(lifecycleSource, /visibilitychange[\s\S]*?!document\.hidden[\s\S]*?injectPageDjToolsLink\(\)[\s\S]*?scheduleLivePlayerMaintenance\(120\)/,
+  "returning to a visible tab must immediately validate the page DJ surface and stylesheet");
+assert.match(pageActionsSource, /pageDjNeedsMount =[\s\S]*?!r\.\$pageDjSurface\?\.isConnected[\s\S]*?getRootNode\(\) !== inlineHost\.shadowRoot/,
+  "an empty or detached inline DJ surface must be rebuilt instead of leaving a blank shell");
+assert.match(pageActionsSource, /inlineHost\.nextElementSibling !== tools\) tools\.before\(inlineHost\)/,
+  "the compact DJ and BPM section must sit below the waveform and above the page action and transport row");
+assert.match(pageActionsSource, /inlineHost\.classList\.toggle\("is-classic-page-dj", !modernActions\)/,
+  "the page DJ host must expose classic mode to its isolated shadow layout");
+assert.match(pageActionsSource, /:host\(\.is-classic-page-dj\) \.hub-dj-card-page\{grid-template-columns:minmax\(0,1fr\);row-gap:10px\}[\s\S]*?\.hub-dj-analysis-row\{[^}]*grid-column:1;[^}]*grid-template-columns:minmax\(76px,1fr\)[^}]*width:100%\}[\s\S]*?\.hub-dj-page-tempo\{grid-column:1;width:100%\}[\s\S]*?\.hub-dj-page-modes\{grid-column:1;/,
+  "classic release pages must stack analysis, the full-width tempo rail, and tempo mode controls without collisions");
+assert.match(pageActionsSource, /container-type:inline-size[\s\S]*?@container\(max-width:280px\)[\s\S]*?grid-template-columns:minmax\(64px,1fr\) 42px 46px/,
+  "the classic page DJ controls must adapt again at very narrow player widths");
+assert.match(pageActionsSource, /pageDjStyle\.dataset\.bandkitPageDjStyle = "true"[\s\S]*?!r\.\$pageDjStyle\?\.isConnected[\s\S]*?!r\.\$pageDjStyle\.textContent\.trim\(\)[\s\S]*?prepend\(r\.\$pageDjStyle\)/,
+  "a missing or emptied page DJ stylesheet must be restored without discarding the live controls");
+assert.match(pageActionsSource, /r\.\$pageDjStyle\.textContent !== pageDjCss[\s\S]*?r\.\$pageDjStyle\.textContent = pageDjCss/,
+  "an early page DJ mount must replace its stale stylesheet after the full hub CSS loads");
+assert.match(collectionPlaylistsSource, /collection-playlists-tab[\s\S]*?host\?\.shadowRoot[\s\S]*?:scope \.results > ul\.card-grid/,
+  "saved BandKit playlists must cross Bandcamp's Collection shadow root and mount into its live playlist grid");
+assert.match(collectionPlaylistsSource, /chrome\.runtime\.getURL\("collection-playlists\.css"\)[\s\S]*?root\.prepend\(stylesheet\)/,
+  "Collection playlist styles must load inside Bandcamp's playlist shadow root");
+assert.match(collectionPlaylistsSource, /runtimeState\.playlistView = "saved"[\s\S]*?runtimeState\.selectedSavedPlaylistId = playlist\.id/,
+  "Collection playlist cards must open the matching BandKit saved-playlist detail");
+assert.match(collectionPlaylistsSource, /bandkit-collection-private-badge[\s\S]*?<span>Private<\/span>[\s\S]*?icon-bandkit\.svg/,
+  "BandKit Collection cards must show the private badge followed by the BandKit icon");
+assert.match(css, /\.bandkit-collection-playlist-art\s*\{[^}]*aspect-ratio:\s*4 \/ 3;[^}]*display:\s*grid/s,
+  "BandKit playlist mosaics must match Bandcamp's four-by-three card artwork");
 
 console.log("Modern Bandcamp page routing checks passed.");

@@ -155,7 +155,6 @@ r.$savePlaylistSnapshot = function savePlaylistSnapshot(items = runtimeState.pla
         r.$showToast("There is no playlist to save yet.");
         return;
       }
-      if (!r.$requireDataHome()) return;
       if (!r.$hasSavedPlaylistCapacity()) return;
       const now = new Date();
       const suggestedName = `Playlist — ${now.toLocaleDateString()} ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
@@ -165,6 +164,7 @@ r.$savePlaylistSnapshot = function savePlaylistSnapshot(items = runtimeState.pla
         id: `saved-playlist-${Date.now()}`,
         name: name.slice(0, 120),
         savedAt: now.toISOString(),
+        modifiedAt: now.toISOString(),
         sourcePage: portableBandcampUrl(location.href),
         items: structuredClone(playlistItems)
       });
@@ -383,7 +383,6 @@ r.$parsePlaylistBackup = function parsePlaylistBackup(text) {
     };
 r.$importPlaylist = async function importPlaylist(file, button) {
       if (!file) return;
-      if (!r.$requireDataHome()) return;
       if (!r.$hasSavedPlaylistCapacity()) return;
       button.disabled = true;
       try {
@@ -394,6 +393,7 @@ r.$importPlaylist = async function importPlaylist(file, button) {
           id: `playlist-import-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           name: imported.name === "Bandkit playlist" && fallbackName ? fallbackName.slice(0, 120) : imported.name,
           savedAt: imported.savedAt,
+          modifiedAt: imported.savedAt || new Date().toISOString(),
           sourcePage: imported.sourcePage,
           items: imported.items
         };
@@ -422,13 +422,18 @@ r.$reportDiagnostic = function reportDiagnostic(status, error = "") {
 r.$selectedAppearanceTheme = function selectedAppearanceTheme() {
       const selectedTheme = [...BUILT_IN_THEMES, ...(runtimeState.appearance.savedThemes || [])].find((theme) => theme.id === runtimeState.appearance.preset);
       if (runtimeState.appearance.preset === "custom") {
+        const content = runtimeState.appearance.customContentLinked === false
+          ? runtimeState.appearance.customCard
+          : runtimeState.appearance.customPageSurface;
         return {
           id: "custom",
           label: "Custom",
           accent: runtimeState.appearance.customAccent,
           scrubAccent: runtimeState.appearance.customScrubAccent || runtimeState.appearance.customAccent,
-          surface: runtimeState.appearance.customSurface,
-          card: runtimeState.appearance.customCard,
+          surface: runtimeState.appearance.customPanelLinked === false
+            ? runtimeState.appearance.customSurface
+            : content,
+          card: content,
           background: runtimeState.appearance.customPageBackground,
           pageSurface: runtimeState.appearance.customPageSurface,
           navbar: runtimeState.appearance.customNavbar,
@@ -535,7 +540,9 @@ r.$importAppearanceTheme = async function importAppearanceTheme(file, button) {
         runtimeState.appearance.customAccent = savedTheme.accent;
         runtimeState.appearance.customScrubAccent = savedTheme.scrubAccent === savedTheme.accent ? null : savedTheme.scrubAccent;
         runtimeState.appearance.customSurface = savedTheme.surface;
+        runtimeState.appearance.customPanelLinked = savedTheme.surface === savedTheme.card;
         runtimeState.appearance.customCard = savedTheme.card;
+        runtimeState.appearance.customContentLinked = savedTheme.card === savedTheme.pageSurface;
         runtimeState.appearance.customPageBackground = savedTheme.background;
         runtimeState.appearance.customPageSurface = savedTheme.pageSurface;
         runtimeState.appearance.customNavbar = savedTheme.navbar;

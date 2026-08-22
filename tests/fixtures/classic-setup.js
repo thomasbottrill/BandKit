@@ -40,7 +40,6 @@ if (location.search.includes("header-shadow-cart")) {
 }
 window.fixtureStored = (location.search.includes("cart-ui") || location.search.includes("cart-roundtrip")) ? {
   bandcampHubState: {
-    dataFolderSetup: true,
     open: true,
     activeTab: "cart",
     cartView: "saved",
@@ -93,7 +92,6 @@ if (location.search.includes("appearance-reskin")) {
 }
 if (location.search.includes("theme-management")) {
   window.fixtureStored = { bandcampHubState: {
-    dataFolderSetup: true,
     open: true,
     activeTab: "settings",
     appearance: {

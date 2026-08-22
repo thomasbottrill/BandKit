@@ -20,7 +20,7 @@ for (const name of iconNames) {
   assert.match(svg, /class="lucide lucide-/, `${name} must retain its Lucide identity`);
   assert.match(svg, /viewBox="0 0 24 24"/, `${name} must use Lucide's standard geometry`);
 
-  if (name === "icon-play.svg" || name === "icon-pause.svg") {
+  if (["icon-play.svg", "icon-pause.svg", "icon-skip.svg"].includes(name)) {
     assert.match(svg, /fill="#9CA3AF"/, `${name} must use a solid fill`);
     assert.match(svg, /stroke="none"/, `${name} must not retain an outline stroke`);
   }

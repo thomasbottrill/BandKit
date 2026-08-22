@@ -100,6 +100,7 @@
     const feedItem = document.querySelector("#feed-item");
     const secondFeedItem = document.querySelector("#feed-item-two");
     const sidebarFeedItem = document.querySelector("#feed-sidebar-item");
+    if (location.search.includes("early-feed-seek")) secondFeedItem.querySelector(".time_total").textContent = "";
     document.querySelector("#append-feed-stories").addEventListener("click", () => {
       const source = secondFeedItem.closest(".story");
       const fragment = document.createDocumentFragment();
@@ -128,7 +129,7 @@
       band_name: "Second Feed Artist",
       band_url: "https://second-feed.bandcamp.com/",
       featured_track_title: "Second Feed Track",
-      featured_track_duration: 190
+      featured_track_duration: location.search.includes("early-feed-seek") ? 0 : 190
     });
     sidebarFeedItem.dataset.itemJson = JSON.stringify({
       item_title: "Sidebar Release",
@@ -145,6 +146,8 @@
     let feedDuration = 260;
     let feedMuted = false;
     window.fixtureFeedNativeStarts = [];
+    window.fixtureEarlySeekSamples = [];
+    window.fixtureEarlyClickFeedback = null;
     Object.defineProperties(feedAudio, {
       paused: { get: () => feedPaused },
       ended: { get: () => false },
@@ -158,7 +161,7 @@
       feedPaused = true;
       feedAudio.dispatchEvent(new Event("pause"));
     };
-    secondFeedItem.querySelector(".track_play_auxiliary").addEventListener("click", () => {
+    const startSecondFeedNativeAudio = () => {
       window.fixtureFeedNativeStarts.push({ id: "999116642", muted: feedAudio.muted });
       feedItem.classList.remove("playing");
       secondFeedItem.classList.add("playing");
@@ -182,6 +185,13 @@
           state: structuredClone(window.fixtureSeamlessState)
         }, {}, () => {});
       }
+    };
+    secondFeedItem.querySelector(".track_play_auxiliary").addEventListener("click", () => {
+      if (location.search.includes("early-feed-seek")) {
+        window.setTimeout(startSecondFeedNativeAudio, 650);
+        return;
+      }
+      startSecondFeedNativeAudio();
     });
     window.fixtureStored = location.search.includes("collection-actions") ? {
       bandcampHubState: {
@@ -238,7 +248,25 @@
       index: 0,
       track: window.fixtureStored.bandcampHubState.playlist[0],
       queue: window.fixtureStored.bandcampHubState.playlist
+    } : location.search.includes("early-feed-seek") ? {
+      enabled: true,
+      status: "playing",
+      isPlaying: true,
+      currentTime: 24,
+      duration: 260,
+      progress: 24 / 260,
+      index: 0,
+      track: {
+        id: "888227773",
+        title: "Feed Fixture Track",
+        artist: "Feed Fixture Artist",
+        duration: 260,
+        pageUrl: "https://fixture-feed.bandcamp.com/album/feed-fixture-album",
+        url: "https://t4.bcbits.com/stream/fixture-feed-track"
+      },
+      queue: []
     } : { enabled: false, status: "idle" };
+    window.fixturePreviousSeamlessState = structuredClone(window.fixtureSeamlessState);
     const fixtureChrome = {
       runtime: {
         lastError: null,
@@ -263,7 +291,23 @@
             } else callback?.({ ok: true, items });
           } else if (message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE") {
             const index = Math.max(0, Math.min(message.queue.length - 1, Number(message.index) || 0));
-            const duration = Number(message.queue[index]?.duration) || 260;
+            const duration = Number(message.queue[index]?.duration) || (location.search.includes("early-feed-seek") ? 240 : 260);
+            if (location.search.includes("early-feed-seek") && message.queue[index]?.id === "999116642") {
+              const staleLoadingState = {
+                enabled: true,
+                status: "loading",
+                isPlaying: false,
+                currentTime: Number(message.currentTime) || 0,
+                duration,
+                progress: 0,
+                index,
+                track: message.queue[index],
+                queue: message.queue
+              };
+              window.fixtureSeamlessState = staleLoadingState;
+              window.setTimeout(() => callback?.({ ok: true, state: structuredClone(staleLoadingState) }), 180);
+              return;
+            }
             window.fixtureSeamlessState = {
               enabled: true,
               status: "playing",
@@ -289,6 +333,30 @@
               queue: message.queue
             };
             callback?.({ ok: true, state: window.fixtureSeamlessState });
+          } else if (message.type === "BANDCAMP_HUB_SEAMLESS_SEEK" && location.search.includes("early-feed-seek")) {
+            const target = Number(message.currentTime) || 0;
+            window.fixtureSeamlessState = {
+              ...window.fixtureSeamlessState,
+              enabled: true,
+              status: "loading",
+              isPlaying: false,
+              currentTime: target,
+              progress: target / (Number(window.fixtureSeamlessState.duration) || 190)
+            };
+            callback?.({ ok: true, state: structuredClone(window.fixtureSeamlessState) });
+            window.setTimeout(() => {
+              window.fixtureSeamlessState = {
+                ...window.fixtureSeamlessState,
+                status: "playing",
+                isPlaying: true,
+                currentTime: target,
+                progress: target / (Number(window.fixtureSeamlessState.duration) || 190)
+              };
+              window.fixtureRuntimeListener?.({
+                type: "BANDCAMP_HUB_SEAMLESS_STATE",
+                state: structuredClone(window.fixtureSeamlessState)
+              }, {}, () => {});
+            }, 260);
           } else if (message.type === "BANDCAMP_HUB_SEAMLESS_UPDATE_QUEUE") {
             const queue = Array.isArray(message.queue) ? message.queue : [];
             if (!queue.length) {
@@ -346,7 +414,38 @@
       }
       const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
       root?.querySelector(".hub-dj-player-button")?.click();
+      window.fixtureSecondFeedClickAt = performance.now();
+      const previousWaveformPath = root?.querySelector(".hub-scrub-waveform-remaining")?.getAttribute("d") || "";
       secondFeedItem.querySelector(".track_play_auxiliary")?.click();
+      if (location.search.includes("early-feed-seek")) {
+        window.fixtureEarlyClickFeedback = {
+          cardState: secondFeedItem.getAttribute("data-bandkit-feed-playback"),
+          cardBusy: secondFeedItem.querySelector(".track_play_auxiliary")?.getAttribute("aria-busy"),
+          cardLabel: secondFeedItem.querySelector(".track_play_auxiliary")?.getAttribute("aria-label"),
+          playerTitle: root?.querySelector(".hub-player-title")?.textContent,
+          playerLoading: root?.querySelector(".hub-play-button")?.classList.contains("is-loading"),
+          playerLabel: root?.querySelector(".hub-play-button")?.getAttribute("aria-label"),
+          waveformChanged: previousWaveformPath !== (root?.querySelector(".hub-scrub-waveform-remaining")?.getAttribute("d") || "")
+        };
+        window.setTimeout(() => {
+          const scrubber = root?.querySelector(".hub-scrub-slider");
+          if (!scrubber) return;
+          scrubber.value = "600";
+          scrubber.dispatchEvent(new Event("input", { bubbles: true }));
+          scrubber.dispatchEvent(new Event("change", { bubbles: true }));
+          window.fixtureRuntimeListener?.({
+            type: "BANDCAMP_HUB_SEAMLESS_STATE",
+            state: structuredClone(window.fixturePreviousSeamlessState)
+          }, {}, () => {});
+          [40, 210].forEach((delay) => window.setTimeout(() => {
+            window.fixtureEarlySeekSamples.push({
+              value: Number(scrubber.value),
+              time: root?.querySelector(".hub-current-time")?.textContent || "",
+              busy: scrubber.closest(".hub-scrub-control")?.getAttribute("aria-busy")
+            });
+          }, delay));
+        }, 20);
+      }
       if (!location.search.includes("bridge-second-track")) {
         window.setTimeout(() => {
           feedPaused = false;
@@ -426,7 +525,7 @@
       const enabledMessages = window.fixtureMessages.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE");
       const secondTrackEnables = enabledMessages.filter((message) => message.queue?.[message.index || 0]?.id === "999116642");
       const playbackDisables = window.fixtureMessages.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_DISABLE");
-      const mutedNativeHandoff = window.fixtureFeedNativeStarts.at(-1)?.muted === true && feedAudio.muted === false;
+      const bypassedNativeFeedLoad = window.fixtureFeedNativeStarts.length === 0 && feedPaused && feedAudio.muted === false;
       const nowPlayingHeader = root?.querySelector(".hub-now-playing-header");
       const mainFeedActions = [...secondFeedItem.closest(".story-innards")?.querySelectorAll(".bandkit-feed-action-row :is(.is-feed-compact-action, .bandkit-feed-purchase-action, .bandkit-feed-wishlist-control, .bandkit-feed-hear-more-action)") || []];
       const sidebarActions = [...document.querySelectorAll("#feed-sidebar-item .bandkit-feed-sidebar-actions :is(.is-feed-sidebar-action, .bandkit-feed-purchase-action, .wishlist-msg, .bandkit-feed-hear-more-action)")];
@@ -436,6 +535,32 @@
       const collectionPlayResolve = collectionResolveMessages.find((message) => message.items?.some((item) => item.id === "collection-album-track"));
       const promotedPlaylistTitles = window.fixtureStored.bandcampHubState?.playlist?.map((item) => item.title) || [];
       const nowPlayingCards = [...(root?.querySelectorAll(".hub-playlist-track") || [])];
+      if (location.search.includes("early-feed-seek")) {
+        const secondEnable = enabledMessages.find((message) => message.queue?.[message.index || 0]?.id === "999116642");
+        const seekMessages = window.fixtureMessages.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_SEEK");
+        const retainedEarlySeek = Math.abs(Number(secondEnable?.currentTime) - 144) < 0.5
+          || seekMessages.some((message) => Math.abs(Number(message.currentTime) - 144) < 0.5);
+        const pinnedDuringLoad = window.fixtureEarlySeekSamples.length === 2
+          && window.fixtureEarlySeekSamples.every((sample) => sample.value >= 595)
+          && window.fixtureEarlySeekSamples[0].busy === "true"
+          && window.fixtureEarlySeekSamples[1].time === "2:24";
+        const immediateFeedback = window.fixtureEarlyClickFeedback?.cardState === "loading"
+          && window.fixtureEarlyClickFeedback.cardBusy === "true"
+          && window.fixtureEarlyClickFeedback.cardLabel === "Loading Second Feed Track"
+          && window.fixtureEarlyClickFeedback.playerTitle === "Second Feed Track"
+          && window.fixtureEarlyClickFeedback.playerLoading === true
+          && window.fixtureEarlyClickFeedback.playerLabel === "Loading Second Feed Track"
+          && window.fixtureEarlyClickFeedback.waveformChanged === true;
+        document.title = secondEnable
+          && secondEnable.__at - window.fixtureSecondFeedClickAt < 650
+          && retainedEarlySeek
+          && pinnedDuringLoad
+          && immediateFeedback
+          && window.fixtureSeamlessState.track?.id === "999116642"
+          ? "PASS: immediate Feed seek stays pinned through loading fixture"
+          : `FAIL: early Feed seek enable:${Math.round(secondEnable?.__at || 0)}/${secondEnable?.currentTime ?? "none"} seeks:${seekMessages.map((message) => message.currentTime).join("|")} samples:${window.fixtureEarlySeekSamples.map((sample) => `${sample.value}/${sample.time}/${sample.busy}`).join("|")} feedback:${JSON.stringify(window.fixtureEarlyClickFeedback)} active:${window.fixtureSeamlessState.track?.id || "none"}`;
+        return;
+      }
       if (location.search.includes("collection-actions")) {
         document.title = ownedCollectionActions.length === 3
           && ownedCollectionActions.every((actions) => actions.length === 2
@@ -485,7 +610,7 @@
         && enabledMessages.at(-1)?.queue?.[enabledMessages.at(-1)?.index || 0]?.id === "999116642"
         && secondTrackEnables.length === 1
         && playbackDisables.length === 0
-        && mutedNativeHandoff
+        && bypassedNativeFeedLoad
         && nowPlayingHeader?.childNodes[0]?.textContent?.trim() === "Now Playing"
         && root?.querySelectorAll(".hub-now-playing-toolbar .hub-playlist-toolbar-icon").length === 2
         && root?.querySelectorAll(".hub-now-playing-toolbar .hub-toolbar-menu-action").length === 4
@@ -494,7 +619,7 @@
         && getComputedStyle(document.querySelector("#track_play_waypoint")).display === "none"
         && getComputedStyle(root?.querySelector(".hub-player")).zIndex === "2147483647"
         ? "PASS: Bandcamp Feed player fixture"
-        : `FAIL: ${title?.textContent || "no title"} / ${artist?.textContent || "no artist"} / activity:${activity[0]?.title || "none"} playlist:${playlist.map((track) => track.title).join("|")}/${window.fixtureStored.bandcampHubState?.playlistMode || "none"} enables:${enabledMessages.length}/${secondTrackEnables.length}/${enabledMessages.at(-1)?.queue?.[enabledMessages.at(-1)?.index || 0]?.id || "none"} disables:${playbackDisables.length} muted:${mutedNativeHandoff} toolbar:${root?.querySelectorAll(".hub-now-playing-toolbar .hub-playlist-toolbar-icon").length}/${root?.querySelector(".hub-now-playing-toolbar .hub-cart-backup-time")?.textContent || "none"} seq:${window.fixtureMessages.filter((message) => ["BANDCAMP_HUB_SEAMLESS_ENABLE","BANDCAMP_HUB_SEAMLESS_DISABLE","BANDCAMP_HUB_RESOLVE_PLAYLIST_ITEMS"].includes(message.type)).map((message) => `${Math.round(message.__at)}:${message.type.replace("BANDCAMP_HUB_", "")}:${message.queue?.[message.index || 0]?.id || message.items?.[0]?.id || "-"}`).join(",")}`;
+        : `FAIL: ${title?.textContent || "no title"} / ${artist?.textContent || "no artist"} / activity:${activity[0]?.title || "none"} playlist:${playlist.map((track) => track.title).join("|")}/${window.fixtureStored.bandcampHubState?.playlistMode || "none"} enables:${enabledMessages.length}/${secondTrackEnables.length}/${enabledMessages.at(-1)?.queue?.[enabledMessages.at(-1)?.index || 0]?.id || "none"} disables:${playbackDisables.length} native-bypassed:${bypassedNativeFeedLoad} toolbar:${root?.querySelectorAll(".hub-now-playing-toolbar .hub-playlist-toolbar-icon").length}/${root?.querySelector(".hub-now-playing-toolbar .hub-cart-backup-time")?.textContent || "none"} seq:${window.fixtureMessages.filter((message) => ["BANDCAMP_HUB_SEAMLESS_ENABLE","BANDCAMP_HUB_SEAMLESS_DISABLE","BANDCAMP_HUB_RESOLVE_PLAYLIST_ITEMS"].includes(message.type)).map((message) => `${Math.round(message.__at)}:${message.type.replace("BANDCAMP_HUB_", "")}:${message.queue?.[message.index || 0]?.id || message.items?.[0]?.id || "-"}`).join(",")}`;
     }, 1900);
   </script>
 </body>

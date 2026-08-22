@@ -106,9 +106,9 @@ r.$compactPagePrice = function compactPagePrice(value, currency = "USD", minimum
           minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
           maximumFractionDigits: 2
         }).format(amount);
-        return `${formatted}${minimum ? "+" : ""} ${code}`;
+        return `${formatted} ${code}${minimum ? " +" : ""}`;
       } catch {
-        return `${amount.toFixed(Number.isInteger(amount) ? 0 : 2)}${minimum ? "+" : ""} ${code}`;
+        return `${amount.toFixed(Number.isInteger(amount) ? 0 : 2)} ${code}${minimum ? " +" : ""}`;
       }
     };
 r.$pageCartCurrency = function pageCartCurrency() {
@@ -183,11 +183,11 @@ r.$visibleDigitalPrice = function visibleDigitalPrice(digitalOffer) {
       const visibleAmount = footer?.querySelector(".base-text-color")?.textContent?.replace(/\s+/g, " ").trim() || "";
       const visibleCurrency = footer?.querySelector(".buyItemExtra.secondaryText:not(.buyItemNyp)")?.textContent?.replace(/\s+/g, " ").trim().toUpperCase() || "";
       if (visibleAmount && /^[A-Z]{3}$/.test(visibleCurrency)) {
-        return { label: `${visibleAmount}${minimum ? "+" : ""} ${visibleCurrency}`, minimum };
+        return { label: `${visibleAmount} ${visibleCurrency}${minimum ? " +" : ""}`, minimum };
       }
       const visiblePrice = priceCopy.match(/(?:(?:A|C|NZ|US)\$|[$£€¥])\s?\d[\d,.]*(?:\s*[A-Z]{3})?|\d[\d,.]*\s+[A-Z]{3}/)?.[0];
       if (!visiblePrice) return null;
-      const normalizedPrice = visiblePrice.replace(/\s+/g, " ").trim().replace(/\+?\s+([A-Z]{3})$/, `${minimum ? "+" : ""} $1`);
+      const normalizedPrice = visiblePrice.replace(/\s+/g, " ").trim().replace(/\+?\s+([A-Z]{3})$/, ` $1${minimum ? " +" : ""}`);
       return { label: normalizedPrice, minimum };
     };
 r.$resolvedPurchaseMetadata = function resolvedPurchaseMetadata(metadata) {
@@ -195,7 +195,6 @@ r.$resolvedPurchaseMetadata = function resolvedPurchaseMetadata(metadata) {
       const minimumPrice = Number(metadata?.minimumPrice);
       const currency = metadata?.currency || r.$pageCartCurrency();
       if (status === "free") return { status, label: "Free", actionLabel: "Download", minimumPrice: 0 };
-      if (status === "name-your-price") return { status, label: "Name your price", actionLabel: "Buy", minimumPrice: 0 };
       if (status === "album-only") return { status, label: "Album only", actionLabel: "Buy album", minimumPrice: null };
       if (status === "unavailable") return { status, label: "Unavailable", actionLabel: "", disabled: true, minimumPrice: null };
       if (Number.isFinite(minimumPrice) && minimumPrice > 0) {
@@ -207,6 +206,7 @@ r.$resolvedPurchaseMetadata = function resolvedPurchaseMetadata(metadata) {
           minimum: metadata?.priceIsMinimum !== false
         };
       }
+      if (status === "name-your-price") return { status, label: "Name your price", actionLabel: "Buy", minimumPrice: 0 };
       if (status === "preorder") return { status, label: "Pre-order", actionLabel: "Pre-order", minimumPrice: null };
       return { status: "buy", label: "Buy", actionLabel: "", minimumPrice: null };
     };
@@ -240,10 +240,6 @@ r.$digitalPurchaseDetails = function digitalPurchaseDetails() {
           minimumPrice: Number(current?.minimum_price)
         };
       }
-      if (preorder) return { status: "preorder", label: "Pre-order", actionLabel: "Pre-order", control };
-      if (digitalOffer.querySelector(".buyItemNyp") || /name\s+your\s+price/i.test(offerCopy) || Number(current?.minimum_price) === 0) {
-        return { status: "name-your-price", label: "Name your price", actionLabel: "Buy", control, minimumPrice: 0 };
-      }
       const minimumPrice = Number(current?.minimum_price);
       if (Number.isFinite(minimumPrice) && minimumPrice > 0) {
         const minimum = current?.is_set_price !== 1;
@@ -255,6 +251,10 @@ r.$digitalPurchaseDetails = function digitalPurchaseDetails() {
           minimum,
           minimumPrice
         };
+      }
+      if (preorder) return { status: "preorder", label: "Pre-order", actionLabel: "Pre-order", control };
+      if (digitalOffer.querySelector(".buyItemNyp") || /name\s+your\s+price/i.test(offerCopy) || minimumPrice === 0) {
+        return { status: "name-your-price", label: "Name your price", actionLabel: "Buy", control, minimumPrice: 0 };
       }
       return { status: "buy", label: "Buy", actionLabel: "", control };
     };
@@ -291,7 +291,7 @@ r.$updatePageCartButton = function updatePageCartButton(button, track) {
               : status === "owned"
                 ? `${itemLabel} is already in your collection`
                 : purchase?.minimumPrice > 0
-                  ? `${status === "preorder" ? "Pre-order" : "Buy"} ${itemLabel} for ${detail}${purchase?.minimum ? " or more" : ""}`
+                  ? `${status === "preorder" ? "Pre-order" : "Buy"} ${itemLabel} for ${purchase?.minimum ? `${detail.replace(/\s*\+$/, "")} or more` : detail}`
                   : status === "preorder"
                     ? `Pre-order ${itemLabel}`
                     : `Buy ${itemLabel}`;

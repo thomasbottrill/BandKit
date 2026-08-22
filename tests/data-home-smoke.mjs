@@ -3,88 +3,121 @@ import fs from "node:fs";
 import { readContentSource } from "./support/source.mjs";
 
 const source = readContentSource();
-const dataHomeSource = fs.readFileSync(new URL("../src/shared/data-home.js", import.meta.url), "utf8");
-const settingsCss = fs.readFileSync(new URL("../src/styles/hub/settings.css", import.meta.url), "utf8");
+const manifest = JSON.parse(fs.readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));
+const backgroundSource = fs.readFileSync(new URL("../src/background/index.js", import.meta.url), "utf8");
+const backupFileSource = fs.readFileSync(new URL("../src/shared/backup-file.js", import.meta.url), "utf8");
+const contractsSource = fs.readFileSync(new URL("../src/shared/contracts.js", import.meta.url), "utf8");
+const offscreenSource = fs.readFileSync(new URL("../src/offscreen/index.js", import.meta.url), "utf8");
+const buildSource = fs.readFileSync(new URL("../scripts/build.mjs", import.meta.url), "utf8");
 
-assert.match(source, /const DEFAULT_DATA_PARENT = "documents";/,
-  "the data-home parent should default to the operating system Documents folder");
-assert.match(source, /const DEFAULT_DATA_FOLDER = "Bandkit";/,
-  "the default data directory should be named Bandkit");
-assert.match(source, /showDirectoryPicker\(\{[\s\S]*?startIn: DEFAULT_DATA_PARENT/,
-  "the data-home picker should open in Documents on macOS and Windows");
-assert.match(dataHomeSource, /getDirectoryHandle\(DEFAULT_DATA_FOLDER, \{ create: true \}\)/,
-  "Bandkit should be created automatically after Documents access is approved");
-assert.match(source, /`Location: \$\{state\.dataFolderName\}\$\{localDataHomePermission === "granted"/,
-  "the selected data-folder location should remain visible in settings");
-assert.match(source, /function renderDataHomeGate\(\)[\s\S]*?Choose where Bandkit saves[\s\S]*?Choose folder/,
-  "an unconfigured install should render a blocking in-panel folder setup gate");
-assert.doesNotMatch(source, /ONE-TIME SETUP|This is required before you can create or save playlists and carts/,
-  "the setup card should omit redundant labels around its primary action");
-assert.match(source, /if \(!dataHomeReady\) renderDataHomeGate\(\)/,
-  "the setup gate should replace section content until the data folder is ready");
-assert.match(source, /function requireDataHome\(\)[\s\S]*?state\.open = true;[\s\S]*?render\(\);/,
-  "save actions should bring the setup gate back into view");
-assert.doesNotMatch(source, /Reconnect|Connect backup/,
-  "playlist, cart, and settings UI should not use the old reconnect language");
-assert.match(source, /function renderDataHomePermissionWarning\(\)[\s\S]*?Folder backup paused[\s\S]*?still safe in Chrome[\s\S]*?Restore access/,
-  "paused folder access must render a persistent, actionable warning without implying browser data was lost");
-assert.match(settingsCss, /\.hub-data-home-warning\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;/s,
-  "the paused-folder warning must remain visible while the user scrolls any Bandkit section");
-assert.match(source, /activeTab === "playlist"[\s\S]*?renderDataHomePermissionWarning\(\)[\s\S]*?placeDataHomePermissionWarning/,
-  "the folder warning must be added to every configured Bandkit section after its panel content is rendered");
-assert.match(source, /function placeDataHomePermissionWarning\(warning\)[\s\S]*?hub-section-heading[\s\S]*?matches\("\.hub-cart-backup"\)[\s\S]*?anchor\.after\(warning\)/,
-  "the folder warning must sit below each panel heading and its action-button row");
-assert.match(source, /visibilitychange[\s\S]*?refreshPortableDataHomePermission\(\{ notify: true \}\)/,
-  "returning to a Bandcamp tab must recheck folder permission and surface a newly paused backup");
-assert.doesNotMatch(source, /renderPortableBackupStatus/,
-  "playlist and cart views should not render a folder-status row");
-assert.match(dataHomeSource, /saveDataDirectoryHandle[\s\S]*?store\.put\(handle, DIRECTORY_KEY\)/,
-  "the selected directory handle should be persisted in browser IndexedDB");
-assert.match(dataHomeSource, /configured:\s*true[\s\S]*?permission[\s\S]*?handle/,
-  "a persisted directory handle should remain configured even when Chrome pauses write permission");
-assert.match(source, /dataHomeReady = initialDataHomeStatus\?\.configured === true \|\| savedState\?\.dataFolderSetup === true/,
-  "extension reloads should use the durable setup marker instead of reopening first-launch onboarding");
-assert.match(source, /localDataHomePermission = initialDataHomeStatus\?\.permission \|\| "missing"/,
-  "startup must use the directory handle's real permission state");
-assert.doesNotMatch(source, /live-verification override|configured\) localDataHomePermission = "prompt"/,
-  "test overrides must never force configured users into the restore state");
-assert.match(dataHomeSource, /needsPermission:\s*true/,
-  "paused access to a persisted handle should not be misclassified as missing setup");
-assert.match(source, /function requireDataHome\(\)\s*\{\s*if \(dataHomeReady\) return true;/,
-  "save actions should proceed without reopening onboarding once a folder has been selected");
-assert.doesNotMatch(source, /function requireDataHome\(\)[\s\S]{0,400}requestPermission/,
-  "routine save actions should not trigger a recurring browser permission prompt");
-assert.match(source, /dataDirectoryHandle && localDataHomePermission !== "granted"[\s\S]*?restorePortableDataHomeAccess/,
-  "settings should restore the persisted folder handle before offering a replacement picker");
-assert.match(source, /access required · folder backup paused/,
-  "Privacy and data settings must state clearly when the selected folder is not being updated");
-assert.match(source, /Folder backup needs access[\s\S]*?6500/,
-  "a newly detected permission loss must remain visible as a long-duration toast as well as a persistent warning");
-assert.match(source, /showDirectoryPicker\([\s\S]*?saveDataDirectoryHandle\(dataDirectoryHandle\)/,
-  "the in-panel action should open the native picker directly and persist its result");
-assert.match(source, /function schedulePortableDataHomeSync\(\)[\s\S]*?setTimeout\([\s\S]*?300\);/,
-  "portable backup writes should be automatically debounced after browser state changes");
-assert.match(source, /function saveState\(\)[\s\S]*?schedulePortableDataHomeSync\(\);/,
-  "every saved state change should schedule an external backup when connected");
-assert.match(dataHomeSource, /\? `Documents\/\$\{DEFAULT_DATA_FOLDER\}`/,
-  "selecting the default Bandkit directory should display Documents/Bandkit");
-assert.match(source, /state\.dataFolderName = `Documents\/\$\{DEFAULT_DATA_FOLDER\}`;[\s\S]*?saveState\(\);/,
-  "existing Bandkit-only labels should migrate to Documents/Bandkit");
-assert.match(source, /`Not set · default: Documents\/\$\{DEFAULT_DATA_FOLDER\}`/,
-  "the unconfigured state should show the intended default without claiming it already exists");
-for (const folder of ["Playlists", "Carts", "Activity", "Settings"]) {
-  assert.match(dataHomeSource, new RegExp(`getDirectoryHandle\\(\\"${folder}\\"`),
-    `the portable data home should contain a ${folder} directory`);
+assert.equal(manifest.permissions.includes("downloads"), false,
+  "manual backups must not depend on Chrome's global download preference");
+assert.equal(fs.existsSync(new URL("../backup.html", import.meta.url)), false,
+  "the obsolete extension-owned folder setup page must not be packaged");
+assert.doesNotMatch(buildSource, /src\/backup|backup\.html|backup\.css/,
+  "the build must not include legacy folder-setup assets");
+assert.doesNotMatch(`${backgroundSource}\n${offscreenSource}\n${contractsSource}`, /DATA_HOME|dataDirectoryHandle|backup-file connection/,
+  "background and offscreen contexts must not retain the unused continuous-folder protocol");
+assert.match(backupFileSource, /BACKUP_FILENAME\s*=\s*"BandKit Backup\.json"/);
+assert.match(backupFileSource, /deletions:[\s\S]*?playlists:[\s\S]*?carts:/,
+  "the one backup file must retain deletion history");
+assert.doesNotMatch(backupFileSource, /indexedDB|directory|README_FILENAME|syncLibrary|bandkit-index/,
+  "the manual backup helper must not retain folder handles or split-backup migration code");
+assert.match(source, /showSaveFilePicker\([\s\S]*?suggestedName:\s*BACKUP_FILENAME[\s\S]*?startIn:\s*"downloads"/,
+  "Save backup must open Finder directly with one suggested JSON filename");
+assert.match(source, /showOpenFilePicker\([\s\S]*?restoreBackupFile/,
+  "Settings must provide a direct one-file restore flow");
+assert.match(source, /Your playlists and carts stay in Chrome/,
+  "first use must clearly explain where the live copy is stored");
+assert.match(source, /Ready for another backup\?/,
+  "a due reminder must use calm, optional backup language");
+assert.match(source, /Save backup[\s\S]*?"Later"[\s\S]*?Remind me in/,
+  "the reminder card must have one primary action and one deferral action");
+assert.match(source, /const backupPrompt = renderBackupReminder\(\);[\s\S]*?if \(heading\) heading\.after\(backupPrompt\)/,
+  "the reminder card must appear directly beneath the active panel header");
+assert.match(source, /\[\["7", "Every week"\], \["14", "Every 2 weeks"\], \["30", "Every month"\], \["0", "Off"\]\]/,
+  "Settings must retain its reminder frequencies");
+assert.match(source, /Saved in Chrome · last file backup/,
+  "Settings must show the last successful portable backup time");
+assert.doesNotMatch(source, /showDirectoryPicker|Backup paused|Resume backup|Restore access|Change backup location|requireDataHome|dataFolderSetup|dataFolderName/,
+  "content code must not retain the obsolete connected-folder model or its no-op gates");
+assert.match(source, /chrome\.storage\.onChanged[\s\S]*?backupIntroSeen[\s\S]*?backupReminderDays[\s\S]*?backupReminderSnoozedAt[\s\S]*?lastBackupAt/,
+  "backup status and reminder metadata must stay synchronized across open Bandcamp tabs");
+assert.match(source, /showOpenFilePicker[\s\S]*?storageGet\(STORAGE_KEYS\.STATE\)[\s\S]*?restoreBackupFile\(handle, latestState\)/,
+  "restore must merge into the freshest Chrome copy instead of a stale tab snapshot");
+assert.match(source, /showSaveFilePicker[\s\S]*?storageGet\(STORAGE_KEYS\.STATE\)[\s\S]*?portableDataBackup\(latestState\)/,
+  "manual save must export the freshest Chrome copy when several Bandcamp tabs are open");
+
+class FakeFileHandle {
+  constructor(name) {
+    this.kind = "file";
+    this.name = name;
+    this.content = "";
+  }
+  async queryPermission() { return "granted"; }
+  async createWritable() {
+    return {
+      write: async (value) => { this.content = String(value); },
+      close: async () => {}
+    };
+  }
+  async getFile() {
+    return { text: async () => this.content };
+  }
 }
-assert.match(source, /Portable copies in your data folder will not be deleted\./,
-  "browser-data deletion should explain that user-owned copies remain");
-assert.doesNotMatch(source, /The data folder is a readable, portable copy organized into/,
-  "the data-home settings UI should stay concise");
-assert.doesNotMatch(source, /Stored on this device/,
-  "the data-home settings UI should not include a second explanatory row");
-assert.match(dataHomeSource, /playlistIndex\[index\]\.file/,
-  "saved playlists should use their collision-safe indexed filenames");
-assert.match(dataHomeSource, /cartIndex\[index\]\.file/,
-  "saved carts should use their collision-safe indexed filenames");
 
-console.log("organized data home smoke test passed");
+const { BACKUP_FILENAME, restoreBackupFile, saveBackupFile } = await import(`../src/shared/backup-file.js?smoke=${Date.now()}`);
+const backupFile = new FakeFileHandle(BACKUP_FILENAME);
+const fixture = {
+  format: "bandkit-data-home",
+  version: 2,
+  exportedAt: "2026-08-21T01:00:00.000Z",
+  playlists: {
+    nowPlaying: [{ title: "Playing" }],
+    saved: [{ id: "playlist-one", name: "Playlist One", savedAt: "2026-08-21T00:00:00.000Z", modifiedAt: "2026-08-21T01:00:00.000Z", items: [{ title: "Track One" }] }]
+  },
+  carts: {
+    current: [{ title: "Current Cart" }],
+    saved: [{ id: "cart-one", name: "Cart One", savedAt: "2026-08-21T00:00:00.000Z", modifiedAt: "2026-08-21T01:00:00.000Z", items: [{ title: "Release One" }] }]
+  }
+};
+
+let result = await saveBackupFile(backupFile, fixture);
+assert.equal(result.ok, true);
+let saved = JSON.parse(backupFile.content);
+assert.equal(saved.format, "bandkit-backup");
+assert.equal(saved.version, 3);
+assert.equal(saved.playlists.saved[0].name, "Playlist One");
+assert.equal(saved.carts.saved[0].name, "Cart One");
+assert.deepEqual(Object.keys(saved).sort(), ["activity", "carts", "deletions", "exportedAt", "format", "notice", "playlists", "settings", "version"].sort(),
+  "all restore data must live in one self-contained JSON document");
+
+const sourceContent = backupFile.content;
+result = await restoreBackupFile(backupFile, { savedPlaylists: [], savedCarts: [] });
+assert.equal(result.restoredPlaylists, 1);
+assert.equal(result.restoredCarts, 1);
+assert.equal(result.state.playlist[0].title, "Playing");
+assert.equal(result.state.cart[0].title, "Current Cart");
+assert.equal(backupFile.content, sourceContent,
+  "restore must read and merge a backup without silently rewriting the chosen file");
+
+const localState = {
+  savedPlaylists: [{ id: "local-playlist", name: "Local Playlist", modifiedAt: "2026-08-21T04:00:00.000Z", items: [] }],
+  savedCarts: [{ id: "local-cart", name: "Local Cart", modifiedAt: "2026-08-21T04:00:00.000Z", items: [] }]
+};
+result = await restoreBackupFile(backupFile, localState);
+assert.deepEqual(new Set(result.state.savedPlaylists.map((item) => item.id)), new Set(["local-playlist", "playlist-one"]));
+assert.deepEqual(new Set(result.state.savedCarts.map((item) => item.id)), new Set(["local-cart", "cart-one"]));
+
+await saveBackupFile(backupFile, {
+  ...fixture,
+  exportedAt: "2026-08-21T02:00:00.000Z",
+  playlists: { ...fixture.playlists, saved: [] }
+});
+saved = JSON.parse(backupFile.content);
+assert.equal(saved.playlists.saved.length, 0);
+assert.equal(saved.deletions.playlists[0].id, "playlist-one");
+result = await restoreBackupFile(backupFile, { savedPlaylists: [], savedCarts: fixture.carts.saved });
+assert.equal(result.restoredPlaylists, 0, "a deliberately deleted playlist must not be resurrected");
+
+console.log("manual single-file backup, merge, and deletion smoke test passed");

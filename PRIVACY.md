@@ -1,6 +1,6 @@
 # Bandkit Privacy Policy
 
-Effective date: 12 August 2026
+Effective date: 21 August 2026
 
 Bandkit is a Chrome extension that adds playback, playlist, cart-recovery, listening-history, appearance and DJ controls to Bandcamp pages. This policy explains the information Bandkit handles to provide those features.
 
@@ -26,7 +26,7 @@ Bandkit does not collect or store bank account details, payment-card numbers, pa
 
 The optional **Settings → Support → Support Bandkit** link opens a Stripe-hosted page for a one-off tip supporting Bandkit's continued development. Bandkit does not receive, process or store payment-card, billing or payment credential information. Payment information is provided directly to Stripe only if you choose to use its external checkout.
 
-You can use **Settings → Privacy and data → Your data folder** to create a portable copy. The folder picker opens in the operating system's Documents folder by default on macOS and Windows; after you approve that location, Bandkit automatically creates `Documents/Bandkit` and organizes the copy into `Playlists`, `Carts`, `Activity` and `Settings`. Chrome's local extension storage remains the live working copy. While the folder is connected, Bandkit automatically refreshes the portable copy when its browser-saved state changes; the interface says when folder access needs reconnecting.
+Chrome's local extension storage is Bandkit's live working copy and is not removed by normal cache, cookie, or browsing-history clearing. Users can manually create one portable `BandKit Backup.json` file containing their playlists, carts, current state and deletion history. Bandkit writes the file only when the user chooses **Save**, and reads a selected file only when the user chooses **Restore**. Restoring merges saved playlists and carts into the current Chrome copy rather than replacing the whole local library. Bandkit can show an optional periodic reminder to save a fresh file.
 
 Bandkit does not operate an analytics service or developer server. The developer does not receive the settings, playlists, cart backups, activity or playback data stored by the extension. Bandkit does not sell data, use data for advertising or build advertising profiles.
 

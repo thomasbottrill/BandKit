@@ -1,8 +1,7 @@
 import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState, updateRuntimeState } from "./context.js";
 import { formatDuration, portableBandcampUrl } from "../core.js";
-import { DEFAULT_DATA_FOLDER, MAX_SAVED_THEMES, MUSIC_BAR_WIDTHS } from "../state.js";
+import { MAX_SAVED_THEMES, MUSIC_BAR_WIDTHS } from "../state.js";
 import { MESSAGES, STORAGE_KEYS } from "../../shared/contracts.js";
-import { dataHomeStatus } from "../../shared/data-home.js";
 
 function registerLifecycle1(r) {
 r.$scrubTarget = function scrubTarget() {
@@ -15,22 +14,33 @@ r.$scrubTarget = function scrubTarget() {
         ? Number(pendingFeed.duration) || Number(pendingFeedData.featured_track_duration) || 0
         : r.$pendingFeedTrackId ? Number(pendingFeedData.featured_track_duration) || 0
         : runtimeSeamless.enabled ? Number(runtimeSeamless.duration) || 0 : Number(r.$getAudio()?.duration) || Number(runtimeLive.duration) || 0;
+      const fraction = Math.max(0, Math.min(1, Number(r.$scrubSlider.value) / 1000));
       return {
         duration,
-        currentTime: (Number(r.$scrubSlider.value) / 1000) * duration
+        fraction,
+        currentTime: fraction * duration
       };
     };
 r.$seekToScrubTarget = async function seekToScrubTarget() {
       window.clearTimeout(r.$pendingSeekTimer);
       const target = r.$scrubTarget();
-      if (!target.duration) return;
       if (r.$pendingFeedTrackId) {
-        r.$pendingFeedSeekTime = target.currentTime;
+        r.$pendingFeedSeekFraction = target.fraction;
+        r.$pendingFeedSeekTime = target.duration ? target.currentTime : null;
+        r.$pendingFeedSeekTrackId = r.$pendingFeedTrackId;
         r.$pendingFeedSeekRevision += 1;
+        if (!target.duration) return;
+        if (runtimeSeamless.enabled && String(runtimeSeamless.track?.id || "") === r.$pendingFeedTrackId) {
+          await r.$seamlessCommand(MESSAGES.SEAMLESS_SEEK, { currentTime: target.currentTime });
+          return;
+        }
         const feedAudio = r.$getAudio();
-        if (feedAudio?.duration) feedAudio.currentTime = target.currentTime;
+        if (feedAudio?.duration && r.$feedStreamTrackId(feedAudio.currentSrc || feedAudio.src) === r.$pendingFeedTrackId) {
+          feedAudio.currentTime = target.currentTime;
+        }
         return;
       }
+      if (!target.duration) return;
       if (runtimeSeamless.enabled) {
         await r.$seamlessCommand(MESSAGES.SEAMLESS_SEEK, { currentTime: target.currentTime });
         return;
@@ -239,7 +249,7 @@ r.$initializeHeaderMount = function initializeHeaderMount() {
 }
 
 function registerRuntimeStateRestore(r) {
-r.$restoreRuntimeState = function restoreRuntimeState({ saved, savedState, savedNowPlaying, initialDataHomeStatus }) {
+r.$restoreRuntimeState = function restoreRuntimeState({ saved, savedState, savedNowPlaying }) {
       const sessionQueue = savedNowPlaying;
       const useSessionQueue = Array.isArray(sessionQueue?.playlist);
       if (savedState) {
@@ -285,22 +295,9 @@ r.$restoreRuntimeState = function restoreRuntimeState({ saved, savedState, saved
       const hideShoppingCart = Boolean(runtimeState.appearance.hidePageCart || runtimeState.appearance.hideHeaderCart);
       runtimeState.appearance.hidePageCart = hideShoppingCart;
       runtimeState.appearance.hideHeaderCart = hideShoppingCart;
-      if (String(runtimeState.dataFolderName || "").toLowerCase() === DEFAULT_DATA_FOLDER.toLowerCase()) {
-        runtimeState.dataFolderName = `Documents/${DEFAULT_DATA_FOLDER}`;
-        runtimeSaveState();
-      }
-      if (initialDataHomeStatus?.folderName && runtimeState.dataFolderName !== initialDataHomeStatus.folderName) {
-        runtimeState.dataFolderName = initialDataHomeStatus.folderName;
-        runtimeSaveState();
-      }
-      if (initialDataHomeStatus?.configured && runtimeState.dataFolderSetup !== true) {
-        runtimeState.dataFolderSetup = true;
-        runtimeSaveState();
-      }
-      if (!r.$dataHomeReady) {
-        runtimeState.open = true;
-        runtimeSaveState();
-      }
+      const backupReminderDays = Number(runtimeState.backupReminderDays);
+      runtimeState.backupReminderDays = [0, 7, 14, 30].includes(backupReminderDays) ? backupReminderDays : 7;
+      runtimeState.backupIntroSeen = runtimeState.backupIntroSeen === true;
       const discoveredFeedUrl = r.$discoverBandcampFeedUrl();
       if (discoveredFeedUrl && discoveredFeedUrl !== runtimeState.feedUrl) {
         runtimeState.feedUrl = discoveredFeedUrl;
@@ -344,7 +341,6 @@ r.$init = async function init() {
         : null;
       const savedPromise = r.$storageGet([STORAGE_KEYS.STATE, STORAGE_KEYS.LAYOUT]);
       const nowPlayingPromise = r.$runtimeMessage({ type: MESSAGES.GET_NOW_PLAYING });
-      const dataHomeStatusPromise = dataHomeStatus();
       const styleUrl = new URL(chrome.runtime.getURL("hub.css"));
       styleUrl.searchParams.set("v", chrome.runtime.getManifest().version);
       const modernStyleUrl = new URL(chrome.runtime.getURL("modern-release.css"));
@@ -353,11 +349,8 @@ r.$init = async function init() {
       const modernCssPromise = earlyModernPageBootstrap
         ? Promise.resolve("")
         : fetch(modernStyleUrl.href).then((response) => response.text());
-      const [saved, initialDataHomeStatus, savedNowPlaying] = await Promise.all([savedPromise, dataHomeStatusPromise, nowPlayingPromise]);
-      r.$localDataHomePermission = initialDataHomeStatus?.permission || "missing";
+      const [saved, savedNowPlaying] = await Promise.all([savedPromise, nowPlayingPromise]);
       const savedState = saved[STORAGE_KEYS.STATE];
-      r.$dataDirectoryHandle = initialDataHomeStatus?.handle || null;
-      r.$dataHomeReady = initialDataHomeStatus?.configured === true || savedState?.dataFolderSetup === true;
       if (earlyModernPageBootstrap) {
         runtimeState.appearance = {
           ...runtimeState.appearance,
@@ -377,7 +370,7 @@ r.$init = async function init() {
       }
       const headerMount = r.$initializeHeaderMount();
 
-      if (r.$restoreRuntimeState({ saved, savedState, savedNowPlaying, initialDataHomeStatus })) return;
+      if (r.$restoreRuntimeState({ saved, savedState, savedNowPlaying })) return;
       await r.$syncSeamlessState();
       r.$applyAppearance();
       r.$syncTrackKeyVisibilityMode();
@@ -392,7 +385,6 @@ r.$init = async function init() {
       }
       r.$scanLivePlayer();
       r.$render();
-      r.$schedulePortableDataHomeSync();
       void r.$refreshIncompletePlaylistMetadata();
       r.$runPendingTrackAction();
       if (!r.$scanTimer && !r.$scanIdleCallback) r.$scheduleLivePlayerMaintenance();
@@ -400,11 +392,23 @@ r.$init = async function init() {
       window.addEventListener("scroll", () => {
         r.$lastPageScrollAt = Date.now();
       }, { passive: true });
-      window.addEventListener("pageshow", () => void r.$syncSeamlessState());
+      const resumePageRuntime = (event) => {
+        void r.$syncSeamlessState();
+        r.$injectPageDjToolsLink();
+        if (!event.persisted) return;
+        r.$applyAppearance();
+        r.$scanLivePlayer();
+        r.$render();
+        r.$scheduleLivePlayerMaintenance(0);
+      };
+      const leavePageRuntime = (event) => {
+        if (!event.persisted) r.$app.cleanup();
+      };
+      window.addEventListener("pageshow", resumePageRuntime);
       document.addEventListener("visibilitychange", () => {
         if (!document.hidden) {
           void r.$syncSeamlessState();
-          void r.$refreshPortableDataHomePermission({ notify: true });
+          r.$injectPageDjToolsLink();
           r.$scheduleLivePlayerMaintenance(120);
         }
       });
@@ -416,6 +420,8 @@ r.$init = async function init() {
         r.$schedulePlayerSectionGeometry();
       });
       r.$app.registerCleanup(() => {
+        window.removeEventListener("pageshow", resumePageRuntime);
+        window.removeEventListener("pagehide", leavePageRuntime);
         window.clearTimeout(r.$scanTimer);
         window.clearTimeout(r.$playerEventScanTimer);
         if (r.$scanIdleCallback && "cancelIdleCallback" in window) window.cancelIdleCallback(r.$scanIdleCallback);
@@ -443,11 +449,8 @@ r.$init = async function init() {
         r.$saveLayoutState();
         r.$setResizeCursor("");
       });
-      window.addEventListener("pagehide", () => r.$app.cleanup(), { once: true });
+      window.addEventListener("pagehide", leavePageRuntime);
       r.$hubReady = true;
-      if (r.$dataHomeReady && r.$localDataHomePermission !== "granted") {
-        r.$showToast("Folder backup needs access. Your Chrome copy is safe; restore access in Bandkit.", 6500);
-      }
       r.$reportDiagnostic("ready");
     };
 }
@@ -537,12 +540,16 @@ chrome.storage.onChanged?.addListener((changes, area) => {
         ? runtimeState.playlistMode
         : incoming.playlistMode === "manual" ? "manual" : "browse";
       const savedPlaylists = r.$normalizeSavedPlaylists(incoming.savedPlaylists);
-      const dataFolderName = String(incoming.dataFolderName || "");
-      const dataFolderSetup = incoming.dataFolderSetup === true;
+      const backupIntroSeen = incoming.backupIntroSeen === true;
+      const backupReminderDays = [0, 7, 14, 30].includes(Number(incoming.backupReminderDays))
+        ? Number(incoming.backupReminderDays) : 7;
+      const backupReminderSnoozedAt = incoming.backupReminderSnoozedAt || null;
+      const lastBackupAt = incoming.lastBackupAt || null;
       const autoAnalyzeTracks = incoming.autoAnalyzeTracks !== false;
       const showTrackKeys = incoming.showTrackKeys !== false;
       const pageActionLabels = Boolean(incoming.pageActionLabels);
       const recordPlaylistMetadata = incoming.recordPlaylistMetadata !== false;
+      const showMusicBarAnalysis = incoming.showMusicBarAnalysis !== false;
       const scrubberStyle = incoming.scrubberStyle === "traditional" ? "traditional" : "waveform";
       const musicBarSize = incoming.musicBarSize === "compact" ? "compact" : "standard";
       const musicBarWidth = MUSIC_BAR_WIDTHS.includes(incoming.musicBarWidth) ? incoming.musicBarWidth : "default";
@@ -566,24 +573,29 @@ chrome.storage.onChanged?.addListener((changes, area) => {
         && showTrackKeys === (runtimeState.showTrackKeys !== false)
         && pageActionLabels === Boolean(runtimeState.pageActionLabels)
         && recordPlaylistMetadata === (runtimeState.recordPlaylistMetadata !== false)
+        && showMusicBarAnalysis === (runtimeState.showMusicBarAnalysis !== false)
         && scrubberStyle === runtimeState.scrubberStyle
         && musicBarSize === runtimeState.musicBarSize
         && musicBarWidth === runtimeState.musicBarWidth
         && musicBarCustomWidth === runtimeState.musicBarCustomWidth
-        && dataFolderName === runtimeState.dataFolderName
-        && dataFolderSetup === (runtimeState.dataFolderSetup === true)
+        && backupIntroSeen === (runtimeState.backupIntroSeen === true)
+        && backupReminderDays === Number(runtimeState.backupReminderDays)
+        && backupReminderSnoozedAt === (runtimeState.backupReminderSnoozedAt || null)
+        && lastBackupAt === (runtimeState.lastBackupAt || null)
         && !appearanceChanged) return;
       runtimeState.savedCarts = savedCarts;
       runtimeState.playlist = playlist;
       runtimeState.playlistMode = playlistMode;
       runtimeState.savedPlaylists = savedPlaylists;
-      runtimeState.dataFolderName = dataFolderName;
-      runtimeState.dataFolderSetup = dataFolderSetup;
-      if (r.$localDataHomePermission === "missing") r.$dataHomeReady = dataFolderSetup;
+      runtimeState.backupIntroSeen = backupIntroSeen;
+      runtimeState.backupReminderDays = backupReminderDays;
+      runtimeState.backupReminderSnoozedAt = backupReminderSnoozedAt;
+      runtimeState.lastBackupAt = lastBackupAt;
       runtimeState.autoAnalyzeTracks = autoAnalyzeTracks;
       runtimeState.showTrackKeys = showTrackKeys;
       runtimeState.pageActionLabels = pageActionLabels;
       runtimeState.recordPlaylistMetadata = recordPlaylistMetadata;
+      runtimeState.showMusicBarAnalysis = showMusicBarAnalysis;
       runtimeState.scrubberStyle = scrubberStyle;
       runtimeState.musicBarSize = musicBarSize;
       runtimeState.musicBarWidth = musicBarWidth;

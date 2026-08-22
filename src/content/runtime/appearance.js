@@ -169,7 +169,7 @@ r.$applyBandcampPageTheme = function applyBandcampPageTheme() {
       const variables = {
         "--bandkit-page-background": colorString(theme.background),
         "--bandkit-page-surface": colorString(theme.pageSurface),
-        "--bandkit-page-card": colorString(theme.card),
+        "--bandkit-page-card": colorString(theme.pageSurface),
         "--bandkit-page-navbar": colorString(theme.navbar),
         "--bandkit-page-navbar-text": colorString(theme.navbarText),
         "--bandkit-page-text": colorString(theme.text),
@@ -190,12 +190,12 @@ r.$applyBandcampPageTheme = function applyBandcampPageTheme() {
         "--bandkit-page-accent-soft": colorString(theme.accent, dark ? 0.16 : 0.1),
         "--bandkit-page-border": colorString(theme.border),
         "--bandkit-page-on-accent": colorString(theme.onAccent),
-        "--bandkit-page-card-text": colorString(theme.cardText),
-        "--bandkit-page-card-muted": colorString(theme.cardMuted),
-        "--bandkit-page-card-accent": colorString(theme.cardAccent),
-        "--bandkit-page-card-accent-soft": colorString(theme.cardAccent, luminance(theme.card) < 0.34 ? 0.16 : 0.1),
-        "--bandkit-page-card-border": colorString(theme.cardBorder),
-        "--bandkit-page-card-on-accent": colorString(theme.cardOnAccent),
+        "--bandkit-page-card-text": colorString(theme.text),
+        "--bandkit-page-card-muted": colorString(theme.muted),
+        "--bandkit-page-card-accent": colorString(theme.accent),
+        "--bandkit-page-card-accent-soft": colorString(theme.accent, luminance(theme.pageSurface) < 0.34 ? 0.16 : 0.1),
+        "--bandkit-page-card-border": colorString(theme.border),
+        "--bandkit-page-card-on-accent": colorString(theme.onAccent),
         "--bandkit-page-scheme": dark ? "dark" : "light"
       };
       for (const [name, value] of Object.entries(variables)) document.documentElement.style.setProperty(name, value);
@@ -342,10 +342,13 @@ r.$markModernTrackAvailability = function markModernTrackAvailability(trackTable
       const trackInfo = r.$getBandcampPageData()?.tralbum?.trackinfo || [];
       const rows = [...trackTable.querySelectorAll(".track_row_view")];
       for (const [index, row] of rows.entries()) {
+        const playCell = row.querySelector(".play-col");
         const control = row.querySelector(".play-col > a");
         r.$applyPageActionTheme(control);
         const relation = row.getAttribute("rel") || "";
         const trackNumber = Number(relation.match(/(?:^|[&;\s])tracknum=(\d+)/i)?.[1] || 0);
+        const displayedTrackNumber = Number.parseInt(row.querySelector(".track_number")?.textContent || "", 10);
+        if (playCell) playCell.dataset.bandkitTrackNumber = String(trackNumber || displayedTrackNumber || index + 1);
         const track = trackInfo[trackNumber > 0 ? trackNumber - 1 : index];
         const hasTrackAvailability = Boolean(track && Object.prototype.hasOwnProperty.call(track, "file"));
         const hasPlayableFile = Boolean(track?.file && Object.values(track.file).some((value) => typeof value === "string" && value.trim()));
@@ -357,7 +360,10 @@ r.$markModernTrackAvailability = function markModernTrackAvailability(trackTable
           || nativeStyle?.visibility === "hidden";
         row.classList.toggle("bandkit-modern-track-unplayable", hasTrackAvailability ? !hasPlayableFile : nativelyUnavailable);
       }
-      r.$modernReleaseCleanups.push(() => rows.forEach((row) => row.classList.remove("bandkit-modern-track-unplayable")));
+      r.$modernReleaseCleanups.push(() => rows.forEach((row) => {
+        row.classList.remove("bandkit-modern-track-unplayable");
+        delete row.querySelector(".play-col")?.dataset.bandkitTrackNumber;
+      }));
     };
 }
 

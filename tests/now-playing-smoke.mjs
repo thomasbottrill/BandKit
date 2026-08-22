@@ -2,10 +2,17 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 import { MESSAGES } from "../src/shared/contracts.js";
+import { playlistAlbumLabel } from "../src/content/runtime/collection-views.js";
 import { readContentSource, readHubStyles } from "./support/source.mjs";
 
 const source = readContentSource();
 const hubCss = readHubStyles();
+
+assert.equal(playlistAlbumLabel({ title: "Fears (Ecstasy Mix)", artist: "Shuffle Progression", album: "Shuffle Progression - Fears EP" }), "Fears EP");
+assert.equal(playlistAlbumLabel({ title: "Fears (Ecstasy Mix)", artist: "Shuffle Progression", album: "Fears EP — Shuffle Progression" }), "Fears EP");
+assert.equal(playlistAlbumLabel({ title: "Fears EP", artist: "Shuffle Progression", album: "Fears EP" }), "");
+assert.equal(playlistAlbumLabel({ title: "Fears (Ecstasy Mix)", artist: "Shuffle Progression", album: "Shuffle Progression" }), "");
+assert.equal(playlistAlbumLabel({ title: "Fears (Ecstasy Mix)", artist: "Shuffle Progression", album: "Fears EP" }), "Fears EP");
 
 function extractFunction(name) {
   const match = new RegExp(`(?:async\\s+)?function\\s+${name}\\s*\\(`).exec(source);
@@ -49,6 +56,23 @@ assert.match(extractFunction("applySeamlessState"), /playlistAnalysisChanged[\s\
   "routine playback analysis updates must preserve Now Playing card DOM identity");
 assert.doesNotMatch(extractFunction("renderPlaylistTrack"), /hub-playlist-position-play/,
   "Now Playing rows must not retain a separate play column before the artwork");
+assert.doesNotMatch(extractFunction("renderPlaylistTrack"), /is-play-action|createTrackActionControls|createPlaylistDestinationControl/,
+  "Now Playing rows must not restore the legacy right-side play, add, wishlist, or cart action cluster");
+assert.match(extractFunction("renderPlaylistTrack"), /createNowPlayingTrackActions\(card, item\)/,
+  "each Now Playing row must install its shared ellipsis and context-menu actions");
+assert.match(extractFunction("renderPlaylistTrack"), /hub-playlist-detail-row[\s\S]*?playlistAlbumLabel\(item\)[\s\S]*?detailRow\.append\(analysisMeta\)/,
+  "Now Playing cards must show a deduplicated album/time and analysis on one compact metadata row");
+assert.match(hubCss, /\.hub-playlist-detail-row\s*\{[^}]*display:\s*flex;[^}]*margin-top:\s*2px;/s,
+  "Now Playing cards must keep album, duration, BPM, and key on one compact line");
+const nowPlayingActionsSource = extractFunction("createNowPlayingTrackActions");
+assert.match(nowPlayingActionsSource, /hub-playlist-track-more[\s\S]*?aria-haspopup[\s\S]*?icon-more\.svg/,
+  "each Now Playing row must expose a single accessible ellipsis menu trigger");
+assert.match(nowPlayingActionsSource, /addEventListener\("contextmenu"[\s\S]*?preventDefault\(\)[\s\S]*?openMenu\(\)/,
+  "right-clicking a Now Playing row must open the same action menu as its ellipsis trigger");
+const destinationMenuSource = extractFunction("populatePlaylistDestinationMenu");
+for (const label of ["Add to playlist", "Add to cart", "Add to wishlist", "Remove from Now Playing"]) {
+  assert.ok(destinationMenuSource.includes(label), `Now Playing menus must include ${label}`);
+}
 assert.match(hubCss, /\.hub-playlist-track\s*\{[\s\S]*?grid-template-columns:\s*40px minmax\(0, 1fr\) auto;[\s\S]*?padding:\s*12px;/,
   "Now Playing rows must use a padded three-column layout with a 40px media slot");
 assert.match(hubCss, /\.hub-saved-playlist-track\s*\{[^}]*grid-template-columns:\s*28px 40px minmax\(0, 1fr\) auto;/s,

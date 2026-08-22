@@ -65,6 +65,16 @@
   outline: 0;
 }
 
+.hub-playlist-track-more {
+  border-color: transparent;
+}
+
+.hub-playlist-track-menu {
+  min-width: 190px;
+  right: 0;
+  top: calc(100% + 4px);
+}
+
 .hub-playlist-icon-button.is-play-action {
   background: transparent;
   border-color: var(--hub-line);

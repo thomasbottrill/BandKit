@@ -2,6 +2,31 @@ import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState } from "./
 import { asset, createArt, createButtonIcon, createElement, formatCartPrice, formatDuration, resolveImage } from "../core.js";
 import { MESSAGES } from "../../shared/contracts.js";
 
+export function playlistAlbumLabel(item) {
+  const artist = String(item?.artist || "").trim();
+  const title = String(item?.title || "").trim();
+  let album = String(item?.album || "").trim();
+  if (!album) return "";
+  if (artist) {
+    const separators = [" - ", " – ", " — ", " · ", " | ", ": "];
+    for (const separator of separators) {
+      const prefix = `${artist}${separator}`;
+      const suffix = `${separator}${artist}`;
+      if (album.toLocaleLowerCase().startsWith(prefix.toLocaleLowerCase())) {
+        album = album.slice(prefix.length).trim();
+        break;
+      }
+      if (album.toLocaleLowerCase().endsWith(suffix.toLocaleLowerCase())) {
+        album = album.slice(0, -suffix.length).trim();
+        break;
+      }
+    }
+  }
+  const normalizedAlbum = album.toLocaleLowerCase();
+  if (!normalizedAlbum || normalizedAlbum === artist.toLocaleLowerCase() || normalizedAlbum === title.toLocaleLowerCase()) return "";
+  return album;
+}
+
 function registerCollectionViews1(r) {
 r.$renderCartViewTabs = function renderCartViewTabs(metaText) {
       const header = createElement("div", "hub-cart-view-header");
@@ -303,6 +328,7 @@ r.$moveSavedPlaylistItem = function moveSavedPlaylistItem(snapshot, fromIndex, t
       const [item] = snapshot.items.splice(fromIndex, 1);
       snapshot.items.splice(toIndex, 0, item);
       snapshot.items = r.$normalizePlaylist(snapshot.items);
+      snapshot.modifiedAt = new Date().toISOString();
       runtimeSaveState();
       r.$render();
     };
@@ -314,6 +340,7 @@ r.$removeSavedPlaylistItem = function removeSavedPlaylistItem(snapshot, item) {
       if (!window.confirm(`Remove “${item.title}” from “${snapshot.name}”?`)) return false;
       snapshot.items.splice(index, 1);
       snapshot.items = r.$normalizePlaylist(snapshot.items);
+      snapshot.modifiedAt = new Date().toISOString();
       runtimeSaveState();
       r.$render();
       r.$showToast(`Removed “${item.title}” from “${snapshot.name}”`);
@@ -466,7 +493,7 @@ r.$syncCurrentPlaylistAnalysisUi = function syncCurrentPlaylistAnalysisUi() {
         }
         if (current?.textContent === next.textContent && current.getAttribute("aria-label") === next.getAttribute("aria-label")) continue;
         if (current) current.replaceWith(next);
-        else card.querySelector(".hub-track-copy")?.append(next);
+        else (card.querySelector(".hub-playlist-detail-row") || card.querySelector(".hub-track-copy"))?.append(next);
       }
     };
 }
@@ -518,36 +545,14 @@ r.$renderPlaylistTrack = function renderPlaylistTrack(item, index) {
         r.$createPageLink(item.title, item.pageUrl, "hub-track-title hub-inline-link"),
         r.$createPageLink(item.artist, item.artistUrl || item.pageUrl, "hub-track-artist hub-inline-link")
       );
-      const details = [item.album, item.duration ? formatDuration(item.duration) : "", item.restoreError].filter(Boolean).join(" · ");
-      if (details) copy.append(createElement("span", `hub-playlist-meta${item.restoreError ? " is-error" : ""}`, details));
+      const detailRow = createElement("div", "hub-playlist-detail-row");
+      const details = [playlistAlbumLabel(item), item.duration ? formatDuration(item.duration) : "", item.restoreError].filter(Boolean).join(" · ");
+      if (details) detailRow.append(createElement("span", `hub-playlist-meta${item.restoreError ? " is-error" : ""}`, details));
       const analysisMeta = r.$createPlaylistAnalysisMeta(item);
-      if (analysisMeta) copy.append(analysisMeta);
+      if (analysisMeta) detailRow.append(analysisMeta);
+      if (detailRow.childElementCount) copy.append(detailRow);
 
-      const actions = createElement("div", "hub-playlist-track-actions");
-      const remove = createElement("button", "hub-playlist-icon-button");
-      remove.type = "button";
-      remove.title = "Remove from playlist";
-      remove.setAttribute("aria-label", `Remove ${item.title} from playlist`);
-      remove.append(createButtonIcon("icon-close.svg"));
-      remove.addEventListener("click", () => {
-        r.$suppressRemovedFeedTrack(item);
-        if (r.$pendingPlaylistItemId === item.playlistItemId) {
-          r.$playlistPlayRequest += 1;
-          r.$playlistPlaybackStartingRequest = 0;
-          r.$playlistPlaybackStarting = false;
-          r.$pendingPlaylistItemId = "";
-        }
-        runtimeState.playlist.splice(index, 1);
-        if (!runtimeState.playlist.length) {
-          void r.$clearNowPlayingPlayback();
-          return;
-        }
-        runtimeSaveState();
-        void r.$syncActivePlaylistQueue();
-        r.$render();
-        r.$injectPlaylistButtons();
-      });
-      actions.append(remove);
+      const actions = r.$createNowPlayingTrackActions(card, item);
       card.append(mediaToggle, copy, actions);
       return card;
     };
@@ -736,6 +741,7 @@ r.$renameSavedPlaylist = function renameSavedPlaylist(snapshot) {
       const name = window.prompt("Rename this playlist", snapshot.name)?.trim();
       if (!name) return;
       snapshot.name = name.slice(0, 120);
+      snapshot.modifiedAt = new Date().toISOString();
       runtimeSaveState();
       r.$render();
     };

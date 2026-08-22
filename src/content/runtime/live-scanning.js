@@ -86,6 +86,13 @@ r.$scanLivePlayer = function scanLivePlayer() {
           }
           const requestedFeedTrackId = r.$pendingFeedTrackId;
           const feedState = r.$getFeedPlayerState(requestedFeedTrackId);
+          const feedStateTrackId = String(feedState?.track?.id || "");
+          if (feedStateTrackId
+            && feedStateTrackId === r.$feedNativeFallbackTrackId
+            && Date.now() < r.$feedNativeFallbackUntil) {
+            r.$restoreFeedAudioMute(feedStateTrackId);
+            return;
+          }
           if (feedState && r.$feedSwitchPendingDisable) {
             if (requestedFeedTrackId) r.$scheduleFeedHandoff(requestedFeedTrackId);
             return;
@@ -332,6 +339,7 @@ r.$layoutToggleButton.addEventListener("click", r.$toggleLayoutMode);
 r.$panelHeader.addEventListener("pointerdown", (event) => {
       if (r.$panel.classList.contains("is-contextual") || runtimeState.layoutMode === "docked" || event.button !== 0 || event.target.closest("button, a, input, select")) return;
       const rect = r.$panel.getBoundingClientRect();
+      if (![event.clientX, event.clientY, rect.left, rect.top, rect.width, rect.height].every(Number.isFinite)) return;
       r.$dragging = {
         pointerId: event.pointerId,
         startX: event.clientX,
@@ -352,8 +360,11 @@ r.$panelHeader.addEventListener("pointerdown", (event) => {
     });
 r.$panelHeader.addEventListener("pointermove", (event) => {
       if (!r.$dragging || event.pointerId !== r.$dragging.pointerId) return;
-      const left = Math.min(Math.max(8, r.$dragging.left + event.clientX - r.$dragging.startX), window.innerWidth - r.$dragging.width - 8);
-      const top = Math.min(Math.max(8, r.$dragging.top + event.clientY - r.$dragging.startY), window.innerHeight - r.$dragging.height - 8);
+      if (![event.clientX, event.clientY].every(Number.isFinite)) return;
+      const maxLeft = Math.max(8, window.innerWidth - r.$dragging.width - 8);
+      const maxTop = Math.max(8, window.innerHeight - r.$dragging.height - 8);
+      const left = Math.max(8, Math.min(maxLeft, r.$dragging.left + event.clientX - r.$dragging.startX));
+      const top = Math.max(8, Math.min(maxTop, r.$dragging.top + event.clientY - r.$dragging.startY));
       r.$panel.style.left = `${left}px`;
       r.$panel.style.top = `${top}px`;
       r.$schedulePlayerSectionGeometry();
@@ -472,6 +483,9 @@ document.addEventListener("click", (event) => {
       if (feedControl.closest('#collection-items .collection-grid[data-ismain="true"][data-iswish="false"]')) return;
       const clickedTrackId = String(feedControl.dataset.trackid || feedControl.closest("[data-trackid]")?.dataset.trackid || "");
       if (!clickedTrackId) return;
+      if (clickedTrackId === r.$feedNativeFallbackTrackId && Date.now() < r.$feedNativeFallbackUntil) return;
+      r.$feedNativeFallbackTrackId = "";
+      r.$feedNativeFallbackUntil = 0;
       r.$suppressedFeedTrackId = "";
       r.$releaseExplicitPlaybackClear();
       const controlsCurrentSeamlessTrack = Boolean(runtimeSeamless.enabled && clickedTrackId === String(runtimeSeamless.track?.id || ""));
@@ -481,9 +495,39 @@ document.addEventListener("click", (event) => {
         void r.$seamlessCommand(MESSAGES.SEAMLESS_PLAY_PAUSE);
         return;
       }
-      r.$muteFeedAudioForHandoff(clickedTrackId);
-      if (r.$pendingFeedTrackId !== clickedTrackId) r.$pendingFeedSeekTime = null;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (r.$pendingFeedTrackId !== clickedTrackId) {
+        r.$pendingFeedSeekTime = null;
+        r.$pendingFeedSeekFraction = null;
+        r.$pendingFeedSeekTrackId = "";
+      }
       r.$pendingFeedTrackId = clickedTrackId;
+      const pendingFeed = r.$getFeedPlayerState(clickedTrackId);
+      if (pendingFeed?.track) {
+        r.$live = updateRuntimeLive({
+          ...runtimeLive,
+          available: true,
+          hasPlaybackStarted: true,
+          isPlaying: false,
+          title: pendingFeed.track.title,
+          artist: pendingFeed.track.artist,
+          art: pendingFeed.track.art,
+          pageUrl: pendingFeed.track.pageUrl,
+          artistUrl: pendingFeed.track.artistUrl,
+          currentTime: pendingFeed.currentTime,
+          duration: pendingFeed.duration,
+          progress: pendingFeed.progress,
+          tracks: pendingFeed.queue
+        });
+      }
+      r.$syncFeedPagePlaybackUi();
+      r.$renderPlayer();
+      r.$muteFeedAudioForHandoff(clickedTrackId);
+      r.$scheduleFeedHandoff(clickedTrackId);
+      const nativeAudio = r.$getAudio();
+      if (nativeAudio && !nativeAudio.paused) nativeAudio.pause();
+      window.setTimeout(r.$scanLivePlayer, 160);
     }, true);
 }
 
@@ -532,6 +576,7 @@ document.addEventListener("click", (event) => {
       const feedControl = onFeedPage ? event.target.closest(".track_play_auxiliary") : null;
       if (feedControl) {
         const clickedTrackId = String(feedControl.dataset.trackid || feedControl.closest("[data-trackid]")?.dataset.trackid || "");
+        if (clickedTrackId === r.$feedNativeFallbackTrackId && Date.now() < r.$feedNativeFallbackUntil) return;
         const controlsCurrentSeamlessTrack = Boolean(
           runtimeSeamless.enabled
           && clickedTrackId
@@ -543,7 +588,11 @@ document.addEventListener("click", (event) => {
           void r.$seamlessCommand(MESSAGES.SEAMLESS_PLAY_PAUSE);
           return;
         }
-        if (clickedTrackId && r.$pendingFeedTrackId !== clickedTrackId) r.$pendingFeedSeekTime = null;
+        if (clickedTrackId && r.$pendingFeedTrackId !== clickedTrackId) {
+          r.$pendingFeedSeekTime = null;
+          r.$pendingFeedSeekFraction = null;
+          r.$pendingFeedSeekTrackId = "";
+        }
         if (clickedTrackId) r.$pendingFeedTrackId = clickedTrackId;
         if (r.$feedHandoffBusy && clickedTrackId && clickedTrackId !== r.$feedHandoffTrackId) {
           r.$playlistPlayRequest += 1;

@@ -1,8 +1,6 @@
 export const MAX_PLAYLIST_ITEMS = 500;
 export const MAX_SAVED_PLAYLISTS = 30;
 export const MAX_SAVED_THEMES = 12;
-export const DEFAULT_DATA_PARENT = "documents";
-export const DEFAULT_DATA_FOLDER = "Bandkit";
 export const FEEDBACK_FORM_URL = "https://fir-fruitadens-b76.notion.site/1ddbcd8a2d994a1c9e6f40906a34d5cd?pvs=105";
 export const FEEDBACK_LIST_URL = "https://fir-fruitadens-b76.notion.site/9eb94149121d422e8068ffad2b67007b?v=92708ba1dd9a4ee1b86e449e4219650f";
 export const SUPPORT_PAYMENT_URL = "https://buy.stripe.com/cNi00jgyeeifgIIdPU6Ri00";
@@ -31,6 +29,7 @@ export const defaultState = {
   showTrackKeys: true,
   pageActionLabels: false,
   recordPlaylistMetadata: true,
+  showMusicBarAnalysis: true,
   scrubberStyle: "waveform",
   musicBarSize: "standard",
   musicBarWidth: "default",
@@ -46,7 +45,9 @@ export const defaultState = {
     customAccent: "#1da0c3",
     customScrubAccent: null,
     customSurface: "#ffffff",
+    customPanelLinked: true,
     customCard: "#ffffff",
+    customContentLinked: true,
     customPageBackground: "#eef2f4",
     customPageSurface: "#ffffff",
     customNavbar: "#ffffff",
@@ -83,8 +84,10 @@ export const defaultState = {
   savedPlaylists: [],
   playlistView: "current",
   selectedSavedPlaylistId: null,
-  dataFolderName: "",
-  dataFolderSetup: false,
+  backupIntroSeen: false,
+  backupReminderDays: 7,
+  backupReminderSnoozedAt: null,
+  lastBackupAt: null,
   sectionPanelHeight: null,
   wishlistTrackKeys: [],
   activity: []

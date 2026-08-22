@@ -1,0 +1,145 @@
+.bandkit-collection-playlist-card {
+  display: block;
+  min-width: 0;
+}
+
+.bandkit-collection-playlist-surface {
+  color: var(--gray900, #222);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+
+.bandkit-collection-playlist-open {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  font: inherit;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.bandkit-collection-playlist-art {
+  aspect-ratio: 4 / 3;
+  background: var(--gray200, #e9e9e9);
+  border-radius: 4px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.bandkit-collection-playlist-art[data-count="1"] {
+  display: block;
+}
+
+.bandkit-collection-playlist-art[data-count="2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: 1fr;
+}
+
+.bandkit-collection-playlist-art[data-count="3"] .bandkit-collection-playlist-artwork:first-child {
+  grid-row: 1 / -1;
+}
+
+.bandkit-collection-playlist-artwork {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.bandkit-collection-playlist-placeholder {
+  height: 42px;
+  left: 50%;
+  opacity: 0.45;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 42px;
+}
+
+.bandkit-collection-playlist-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-top: 12px;
+}
+
+.bandkit-collection-playlist-date,
+.bandkit-collection-playlist-subtitle {
+  color: var(--gray700, #666);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.bandkit-collection-playlist-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bandkit-collection-playlist-open:is(:hover, :focus-visible) .bandkit-collection-playlist-title {
+  color: var(--blue500, #1da0c3);
+  text-decoration: underline;
+}
+
+.bandkit-collection-playlist-footer {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-height: 28px;
+  padding-top: 8px;
+}
+
+.bandkit-collection-private-badge {
+  align-items: center;
+  background: var(--gray200, #eee);
+  border-radius: 4px;
+  color: var(--gray700, #666);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 4px;
+  line-height: 20px;
+  padding: 0 7px;
+}
+
+.bandkit-collection-private-badge svg {
+  fill: currentColor;
+  height: 14px;
+  width: 14px;
+}
+
+.bandkit-collection-origin {
+  align-items: center;
+  display: inline-flex;
+  height: 20px;
+  justify-content: center;
+  width: 20px;
+}
+
+.bandkit-collection-origin img {
+  display: block;
+  height: 17px;
+  width: 17px;
+}
+
+@media (max-width: 600px) {
+  .bandkit-collection-playlist-copy {
+    padding-top: 10px;
+  }
+}

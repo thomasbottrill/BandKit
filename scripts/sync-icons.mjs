@@ -10,6 +10,7 @@ const iconMap = {
   "icon-activity.svg": "activity.svg",
   "icon-add-all.svg": "list-plus.svg",
   "icon-back.svg": "chevron-left.svg",
+  "icon-bpm.svg": "gauge.svg",
   "icon-cart.svg": "shopping-cart.svg",
   "icon-chevron.svg": "chevron-down.svg",
   "icon-clear.svg": "list-x.svg",
@@ -36,7 +37,6 @@ const iconMap = {
   "icon-saved-cart.svg": "shopping-basket.svg",
   "icon-settings.svg": "settings.svg",
   "icon-share.svg": "share.svg",
-  "icon-skip.svg": "skip-forward.svg",
   "icon-trash.svg": "trash-2.svg",
   "icon-wishlist.svg": "heart.svg"
 };
@@ -53,6 +53,12 @@ const filledPlaybackIcons = {
 <svg class="lucide lucide-pause" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#9CA3AF" stroke="none">
   <rect x="14" y="3" width="5" height="18" rx="1" />
   <rect x="5" y="3" width="5" height="18" rx="1" />
+</svg>
+`,
+  "icon-skip.svg": `<!-- @license lucide-static v1.31.0 - ISC -->
+<svg class="lucide lucide-skip-forward" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#9CA3AF" stroke="none">
+  <path d="M4 5.35a1.75 1.75 0 0 1 2.65-1.5l10.5 6.65a1.75 1.75 0 0 1 0 3L6.65 20.15A1.75 1.75 0 0 1 4 18.65z" />
+  <rect x="19" y="4" width="2" height="16" rx="1" />
 </svg>
 `
 };

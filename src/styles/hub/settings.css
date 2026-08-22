@@ -85,7 +85,7 @@
 .hub-settings-select {
   -webkit-appearance: none;
   appearance: none;
-  background: var(--hub-card);
+  background-color: var(--hub-panel);
   background-image:
     linear-gradient(45deg, transparent 50%, currentColor 50%),
     linear-gradient(135deg, currentColor 50%, transparent 50%);
@@ -109,7 +109,7 @@
 }
 
 .hub-settings-number {
-  background: var(--hub-card);
+  background: var(--hub-panel);
   border: 1px solid var(--hub-line);
   border-radius: 4px;
   color: var(--hub-ink);
@@ -180,8 +180,8 @@
 }
 
 .hub-settings-toggle {
-  background: var(--hub-line);
-  border: 0;
+  background: var(--hub-panel);
+  border: 1px solid var(--hub-line);
   border-radius: 999px;
   cursor: pointer;
   flex: 0 0 auto;
@@ -193,20 +193,21 @@
 }
 
 .hub-settings-toggle.is-active {
-  background: var(--hub-accent);
+  background: var(--hub-panel);
 }
 
 .hub-settings-toggle-thumb {
-  background: var(--hub-card);
+  background: var(--hub-muted);
   border-radius: 999px;
   display: block;
-  height: 18px;
+  height: 16px;
   transform: translateX(0);
   transition: transform 150ms ease;
-  width: 18px;
+  width: 16px;
 }
 
 .hub-settings-toggle.is-active .hub-settings-toggle-thumb {
+  background: var(--hub-accent);
   transform: translateX(16px);
 }
 
@@ -224,7 +225,7 @@
 }
 
 .hub-settings-segmented {
-  background: var(--hub-card);
+  background: var(--hub-panel);
   border: 1px solid var(--hub-line);
   border-radius: 5px;
   display: grid;
@@ -235,10 +236,10 @@
 }
 
 .hub-settings-segment {
-  background: transparent;
-  border: 0;
+  background: var(--hub-panel);
+  border: 1px solid transparent;
   border-radius: 3px;
-  color: var(--hub-card-ink);
+  color: var(--hub-ink);
   cursor: pointer;
   font-size: 10px;
   font-weight: 700;
@@ -260,9 +261,10 @@
 }
 
 .hub-settings-segment.is-active {
-  background: var(--hub-control-bg);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
-  color: var(--hub-control-fg);
+  background: color-mix(in srgb, var(--hub-accent) 12%, var(--hub-panel));
+  border-color: var(--hub-accent);
+  box-shadow: none;
+  color: var(--hub-accent);
 }
 
 .hub-theme-picker-field {
@@ -280,7 +282,7 @@
 
 .hub-theme-combobox {
   align-items: center;
-  background: var(--hub-card);
+  background: var(--hub-panel);
   border: 1px solid var(--hub-line);
   border-radius: 4px;
   color: var(--hub-ink);
@@ -342,7 +344,7 @@
 }
 
 .hub-theme-options {
-  background: var(--hub-card);
+  background: var(--hub-panel);
   border: 1px solid var(--hub-line);
   border-radius: 5px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
@@ -534,7 +536,8 @@
 
 .hub-theme-accessibility {
   align-items: center;
-  background: var(--hub-card-footer);
+  background: var(--hub-panel);
+  border: 1px solid var(--hub-line);
   border-radius: 5px;
   color: var(--hub-ink);
   display: flex;
@@ -580,7 +583,7 @@
 }
 
 .hub-theme-name {
-  background: var(--hub-card-footer);
+  background: var(--hub-panel);
   border: 1px solid var(--hub-line);
   border-radius: 4px;
   color: var(--hub-ink);
@@ -612,9 +615,14 @@
   padding: 5px 2px;
 }
 
+.hub-colour-field.is-linked-colour {
+  grid-column: 1 / -1;
+}
+
 .hub-colour-field input {
-  background: transparent;
-  border: 0;
+  background: var(--hub-panel);
+  border: 1px solid var(--hub-line);
+  border-radius: 3px;
   cursor: pointer;
   height: 23px;
   padding: 0;
@@ -671,86 +679,41 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.hub-data-home-row {
+.hub-backup-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.hub-backup-row {
   align-items: flex-start;
-  background: var(--hub-card);
+  background: var(--hub-panel);
   border: 1px solid var(--hub-line);
   border-radius: 6px;
   padding: 10px;
 }
 
-.hub-settings-action.hub-data-home-action {
+.hub-settings-action.hub-backup-action {
   flex: 0 0 auto;
+  font-size: 11px;
+  height: 30px;
   margin: 0;
-  min-height: 32px;
+  min-height: 30px;
+  padding: 4px 10px;
   width: auto;
 }
 
-.hub-settings-action.hub-data-home-action:disabled {
+.hub-settings-action.hub-backup-action:disabled {
   cursor: wait;
   opacity: 0.65;
 }
 
-.hub-data-home-location {
+.hub-backup-location {
   overflow-wrap: anywhere;
 }
 
-.hub-data-home-warning {
-  align-items: center;
-  background: color-mix(in srgb, #f59e0b 13%, var(--hub-card));
-  border: 1px solid color-mix(in srgb, #d97706 42%, transparent);
-  border-radius: 6px;
-  color: var(--hub-card-ink);
-  display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  margin-bottom: 12px;
-  padding: 11px 12px;
-  position: sticky;
-  top: 0;
-  z-index: 5;
-}
-
-.hub-data-home-warning-copy {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.hub-data-home-warning-copy strong {
-  font-size: 13px;
-}
-
-.hub-data-home-warning-copy span {
-  color: var(--hub-card-muted);
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.hub-data-home-warning-action {
-  background: var(--hub-control-bg);
-  border: 1px solid var(--hub-control-border);
-  border-radius: var(--hub-control-radius);
-  color: var(--hub-control-fg);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 750;
-  min-height: 34px;
-  padding: 6px 10px;
-}
-
-.hub-data-home-warning-action:hover:not(:disabled) {
-  filter: brightness(0.92);
-}
-
-.hub-data-home-warning-action:focus-visible {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hub-control-focus) 30%, transparent);
-  outline: 0;
-}
-
-.hub-data-home-warning-action:disabled {
-  cursor: wait;
-  opacity: 0.65;
+.hub-backup-frequency-row {
+  margin-top: 12px;
 }
 
 .hub-settings-action.hub-settings-danger {
@@ -818,59 +781,95 @@
   max-width: 800px;
   width: min(calc(100% - 48px), calc(100% - 704px));
 }
-.hub-data-home-gate {
+.hub-backup-reminder {
   align-items: center;
-  align-self: stretch;
+  background: color-mix(in srgb, var(--hub-accent) 9%, var(--hub-card));
+  border: 1px solid color-mix(in srgb, var(--hub-accent) 28%, var(--hub-line));
+  border-radius: 10px;
   color: var(--hub-ink);
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-height: min(410px, var(--hub-section-panel-height));
-  padding: 34px 28px;
-  text-align: center;
+  gap: 12px;
+  justify-content: space-between;
+  margin: 8px 0 4px;
+  padding: 10px 12px;
 }
 
-.hub-data-home-gate-icon {
-  height: 42px;
-  margin-bottom: 14px;
-  width: 42px;
-}
-
-.hub-data-home-gate-heading {
+.hub-backup-reminder-heading {
   color: var(--hub-ink);
-  font-size: 21px;
-  line-height: 1.2;
-  margin: 0 0 10px;
+  display: block;
+  font-size: 14px;
+  line-height: 1.35;
+  margin: 0 0 1px;
 }
 
-.hub-data-home-gate-copy {
+.hub-backup-reminder-copy {
   color: var(--hub-muted);
-  margin: 0;
-  max-width: 330px;
+  font-size: 12px;
+  line-height: 1.45;
+  min-width: 0;
 }
 
-.hub-data-home-gate-action {
+.hub-backup-reminder-save {
   background: var(--hub-accent);
   border: 1px solid var(--hub-accent);
   border-radius: 7px;
   color: var(--hub-on-accent);
   cursor: pointer;
   font-weight: 750;
-  margin-top: 22px;
-  min-height: 42px;
-  padding: 0 20px;
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
 }
 
-.hub-data-home-gate-action:hover:not(:disabled) {
+.hub-backup-reminder-save:hover:not(:disabled) {
   filter: brightness(0.92);
 }
 
-.hub-data-home-gate-action:focus-visible {
+.hub-backup-reminder-save:focus-visible {
   outline: 3px solid var(--hub-accent-soft);
   outline-offset: 3px;
 }
 
-.hub-data-home-gate-action:disabled {
+.hub-backup-reminder-save:disabled {
   cursor: wait;
   opacity: 0.68;
+}
+
+.hub-backup-reminder.is-saved {
+  background: color-mix(in srgb, #24a56a 10%, var(--hub-card));
+  border-color: color-mix(in srgb, #24a56a 42%, var(--hub-line));
+}
+
+.hub-backup-reminder-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.hub-backup-reminder-later {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--hub-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 34px;
+  padding: 0 6px;
+}
+
+.hub-backup-reminder-later:hover {
+  color: var(--hub-ink);
+}
+
+.hub-backup-reminder-later:focus-visible {
+  outline: 3px solid var(--hub-accent-soft);
+  outline-offset: 2px;
+}
+
+.hub-backup-frequency {
+  flex: 0 0 auto;
+  min-width: 142px;
 }

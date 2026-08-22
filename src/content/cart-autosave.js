@@ -117,6 +117,7 @@
       autoSaved: true,
       createdAt: existing?.createdAt || savedAt,
       savedAt,
+      modifiedAt: savedAt,
       sourcePage: options.sourcePage || existing?.sourcePage || "",
       summary: options.summary ? clone(options.summary) : null,
       items: clone(cartItems)
@@ -146,6 +147,7 @@
       name: normalizedName,
       autoSaved: false,
       savedAt,
+      modifiedAt: savedAt,
       sourcePage: options.sourcePage || autoSnapshot?.sourcePage || "",
       summary: options.summary ? clone(options.summary) : null,
       items: clone(cartItems)
