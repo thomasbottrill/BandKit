@@ -1,8 +1,9 @@
+import { attachMenuKeyNavigation, attachMenuTriggerKeyNavigation } from "../menu-keyboard.js";
 import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState } from "./context.js";
 import { asset, createButtonIcon, createElement, escapeHtml, formatCartPrice, portableBandcampUrl, resolvedTrackPageUrl, safeBandcampUrl } from "../core.js";
 import { MESSAGES } from "../../shared/contracts.js";
-import { parseCartBackup, portableCartItem } from "../cart-model.js";
-
+import { cartActivityIdentity, parseCartBackup, portableCartItem } from "../cart-model.js";
+import { registerLayoutCartRendering } from "./layout-cart-rendering.js";
 function registerLayoutCart1(r) {
 r.$applyAppearance = function applyAppearance() {
       if (!r.$modernReleasePalette && r.$modernBandcampPageType()) {
@@ -100,7 +101,7 @@ r.$applyLayoutMode = function applyLayoutMode() {
       r.$panel.classList.toggle("is-dock-right", docked && dockSide === "right");
       r.$panelHeader.setAttribute("aria-label", docked ? `Bandkit docked to the ${dockSide}` : "Drag to move Bandkit");
       r.$layoutToggleButton.classList.toggle("is-docked", docked);
-      r.$layoutToggleButton.querySelector("img").src = asset(docked ? "icon-floating.svg" : "icon-dock.svg");
+      r.$layoutToggleButton.querySelector(".hub-button-icon")?.style.setProperty("--hub-icon", `url('${asset(docked ? "icon-floating.svg" : "icon-dock.svg")}')`);
       r.$layoutToggleButton.setAttribute("aria-label", docked ? "Return Bandkit to floating mode" : `Dock Bandkit to the ${dockSide}`);
       r.$layoutToggleButton.title = docked ? "Return Bandkit to floating mode" : `Dock Bandkit to the ${dockSide}`;
       r.$syncDockedControls();
@@ -111,8 +112,7 @@ r.$applyLayoutMode = function applyLayoutMode() {
 r.$toggleLayoutMode = function toggleLayoutMode() {
       runtimeState.layoutMode = runtimeState.layoutMode === "docked" ? "floating" : "docked";
       r.$applyLayoutMode();
-      runtimeSaveState();
-      r.$saveLayoutState();
+      runtimeSaveState(); r.$saveLayoutState();
       if (runtimeState.activeTab === "settings") r.$render();
       r.$showToast(runtimeState.layoutMode === "docked" ? `Bandkit docked to the ${runtimeState.dockSide}` : "Bandkit returned to floating mode");
     };
@@ -179,12 +179,10 @@ r.$resetPanelLayout = function resetPanelLayout() {
       runtimeState.dockedWidth = 420;
       runtimeState.launcherPosition = null;
       r.$applyLayoutMode();
-      runtimeSaveState();
-      r.$saveLayoutState();
+      runtimeSaveState(); r.$saveLayoutState();
       r.$showToast("Bandkit panel and launcher positions reset");
     };
 }
-
 function registerLayoutCart2(r) {
 r.$syncDockedControls = function syncDockedControls() {
       const docked = runtimeState.layoutMode === "docked";
@@ -205,10 +203,12 @@ r.$createCartDocument = function createCartDocument(items = runtimeState.cart, c
       const payload = {
         format: includeRestore ? "bandkit-cart" : "bandkit-cart-share",
         version: 1,
+        name: safeName,
         exportedAt: exportedAt.toISOString(),
         sourcePage: portableBandcampUrl(location.href),
         summary: summary && typeof summary === "object" ? {
           subtotal: Number.isFinite(Number(summary.subtotal)) ? Number(summary.subtotal) : null,
+          total: Number.isFinite(Number(summary.total)) ? Number(summary.total) : null,
           currency: /^[A-Z]{3}$/.test(summary.currency || "") ? summary.currency : null
         } : null,
         items: cartItems.map((item) => portableCartItem(item, { includeRestore })).filter(Boolean)
@@ -257,7 +257,7 @@ r.$importAndRestoreCart = async function importAndRestoreCart(file, button) {
         if (file.size > 5 * 1024 * 1024) throw new Error("Cart backups must be smaller than 5 MB.");
         const imported = parseCartBackup(await file.text());
         const fallbackName = String(file.name || "Imported cart").replace(/\.(?:html?|json)$/i, "").replace(/^bandcamp-cart-?/i, "Cart ").trim();
-        const saved = r.$cartAutosave.saveNamedCart(runtimeState.savedCarts, imported.items, fallbackName || "Imported cart", {
+        const saved = r.$cartAutosave.saveNamedCart(runtimeState.savedCarts, imported.items, imported.name || fallbackName || "Imported cart", {
           id: `cart-import-${Date.now()}`,
           savedAt: imported.savedAt,
           sourcePage: imported.sourcePage,
@@ -277,12 +277,30 @@ r.$importAndRestoreCart = async function importAndRestoreCart(file, button) {
         button.disabled = false;
       }
     };
-r.$exportActivity = function exportActivity() {
+}
+function registerLayoutCartActivity(r) {
+r.$createActivityDocument = function createActivityDocument(items = runtimeState.activity) {
       const exportedAt = new Date();
-      const rows = runtimeState.activity.map((item) => {
+      const activityItems = Array.isArray(items) ? items : [];
+      const dateKey = (value) => {
+        const date = new Date(value || 0);
+        if (!Number.isFinite(date.getTime())) return "";
+        const pad = (part) => String(part).padStart(2, "0");
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+      };
+      const today = dateKey(exportedAt);
+      const yesterdayValue = new Date(`${today}T12:00:00`);
+      yesterdayValue.setDate(yesterdayValue.getDate() - 1);
+      const yesterday = dateKey(yesterdayValue);
+      const recentDates = [...new Set(activityItems.map((item) => dateKey(item.createdAt || item.time)).filter(Boolean))]
+        .sort((left, right) => right.localeCompare(left))
+        .slice(0, 7);
+      const initialDate = recentDates[0] || today;
+      const rows = activityItems.map((item) => {
         const trackUrl = safeBandcampUrl(item.url);
         const artistUrl = safeBandcampUrl(item.artistUrl) || r.$artistUrlFromPageUrl(trackUrl);
         const createdAt = item.createdAt ? new Date(item.createdAt) : null;
+        const itemDate = createdAt && !Number.isNaN(createdAt.getTime()) ? dateKey(createdAt) : "";
         const timestamp = createdAt && !Number.isNaN(createdAt.getTime())
           ? createdAt.toLocaleString()
           : item.time || "Recorded locally";
@@ -292,22 +310,40 @@ r.$exportActivity = function exportActivity() {
         const artist = artistUrl
           ? `<a href="${escapeHtml(artistUrl)}" target="_blank" rel="noopener">${escapeHtml(item.artist || "Unknown artist")}</a>`
           : escapeHtml(item.artist || "Unknown artist");
-        return `
-        <li>
-          <div class="entry"><span class="action">${escapeHtml(item.action || "activity")}</span> ${track} by ${artist}</div>
-          <time${createdAt && !Number.isNaN(createdAt.getTime()) ? ` datetime="${escapeHtml(createdAt.toISOString())}"` : ""}>${escapeHtml(timestamp)}</time>
-          ${trackUrl ? `<div class="url"><a href="${escapeHtml(trackUrl)}" target="_blank" rel="noopener">${escapeHtml(trackUrl)}</a></div>` : ""}
-        </li>`;
+        const action = String(item.action || "activity").replaceAll("-", " ");
+        return `<article class="item activity-entry" data-date="${escapeHtml(itemDate)}">${r.$collectionArtwork(item.art, item.title || "Bandcamp activity", trackUrl)}<div><div class="kind">${escapeHtml(action)}</div><h2>${track}</h2><p class="byline">by ${artist}</p><div class="chips"><span class="chip">${escapeHtml(action)}</span></div><time${createdAt && !Number.isNaN(createdAt.getTime()) ? ` datetime="${escapeHtml(createdAt.toISOString())}"` : ""}>${escapeHtml(timestamp)}</time></div></article>`;
       }).join("");
-      const documentText = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bandcamp activity log</title><style>body{font:16px/1.5 system-ui,sans-serif;max-width:860px;margin:48px auto;padding:0 24px;color:#17202a;background:#fff}h1{margin-bottom:4px}ol{padding-left:24px}li{margin:0 0 22px;padding-left:6px}.entry{font-size:17px}.action{display:inline-block;border-radius:4px;background:#dbeafe;color:#1e3a8a;font-size:12px;font-weight:700;padding:2px 6px;text-transform:capitalize}time,.url{display:block;color:#64748b;font-size:13px;margin-top:4px}.url a{font-size:12px}a{color:#1687a7;overflow-wrap:anywhere}</style></head><body><h1>Bandcamp activity log</h1><p>Exported by Bandkit on ${escapeHtml(exportedAt.toLocaleString())}. ${runtimeState.activity.length} entr${runtimeState.activity.length === 1 ? "y" : "ies"}.</p><ol>${rows || "<li>No activity had been recorded when this file was created.</li>"}</ol></body></html>`;
-      const blobUrl = URL.createObjectURL(new Blob([documentText], { type: "text/html" }));
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = `bandcamp-activity-${exportedAt.toISOString().slice(0, 10)}.html`;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-      r.$showToast(`Downloaded an activity log with ${runtimeState.activity.length} entr${runtimeState.activity.length === 1 ? "y" : "ies"}`);
+      const quickButtons = recentDates.map((date) => {
+        const label = date === today ? "Today" : date === yesterday ? "Yesterday" : new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+        return `<button class="date-choice" type="button" data-date="${date}">${escapeHtml(label)}</button>`;
+      }).join("");
+      const calendarSvg = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/></svg>';
+      const controls = `<div class="activity-date-controls"><div class="date-shortcuts">${quickButtons}<label id="activity-date-custom" class="date-custom">${calendarSvg}<span>Choose date…</span><input id="activity-date-input" class="date-custom-input" type="date" value="${initialDate}" aria-label="Choose another activity date"></label></div><p id="activity-date-status" class="date-status" aria-live="polite"></p></div>`;
+      const extraStyles = `.activity-date-controls{margin-top:20px}.date-shortcuts{display:flex;flex-wrap:wrap;gap:7px;position:relative}.date-choice,.date-custom{align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:999px;color:var(--ink);cursor:pointer;display:inline-flex;font:700 12px/1 system-ui,sans-serif;min-height:34px;padding:0 12px}.date-choice:is(:hover,:focus-visible),.date-choice[aria-pressed="true"],.date-custom:is(:hover,:focus-within){background:#edf6f8;border-color:var(--accent);color:var(--accent);outline:0}.date-custom{gap:6px;overflow:hidden;position:relative}.date-custom svg{fill:none;height:15px;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:2;width:15px}.date-custom-input{cursor:pointer;height:100%;inset:0;opacity:0;position:absolute;width:100%}.date-custom-input::-webkit-calendar-picker-indicator{cursor:pointer;height:100%;inset:0;margin:0;opacity:0;padding:0;position:absolute;width:100%}.date-status{color:var(--muted);font-size:12px;margin:10px 0 0}.activity-entry time{color:var(--muted);display:block;font-size:12px;margin-top:8px}.activity-entry[hidden]{display:none}.activity-empty[hidden]{display:none}`;
+      const script = `(()=>{const rows=[...document.querySelectorAll('.activity-entry')],buttons=[...document.querySelectorAll('.date-choice')],input=document.querySelector('#activity-date-input'),status=document.querySelector('#activity-date-status'),empty=document.querySelector('#activity-empty');const format=value=>new Date(value+'T00:00:00').toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long',year:'numeric'});const select=value=>{let count=0;for(const row of rows){const show=row.dataset.date===value;row.hidden=!show;if(show)count+=1}for(const button of buttons)button.setAttribute('aria-pressed',String(button.dataset.date===value));input.value=value;status.textContent=format(value)+' · '+count+' '+(count===1?'entry':'entries');empty.hidden=count!==0};for(const button of buttons)button.addEventListener('click',()=>select(button.dataset.date));input.addEventListener('change',()=>{if(input.value)select(input.value)});select('${initialDate}')})();`;
+      return {
+        count: activityItems.length,
+        filename: `bandcamp-activity-${exportedAt.toISOString().slice(0, 10)}.html`,
+        title: "Bandcamp activity log",
+        text: `${activityItems.length} activity entr${activityItems.length === 1 ? "y" : "ies"} exported from Bandkit`,
+        html: r.$sharedCollectionDocument({
+          title: "Bandcamp activity log",
+          eyebrow: "Bandkit activity",
+          summary: `${activityItems.length} entr${activityItems.length === 1 ? "y" : "ies"} across all recorded dates · Exported ${exportedAt.toLocaleString()}`,
+          controls,
+          rows,
+          afterContent: '<div id="activity-empty" class="empty activity-empty" hidden>No activity was recorded on this date.</div>',
+          extraStyles,
+          script
+        })
+      };
     };
+r.$exportActivity = function exportActivity() {
+      const documentData = r.$createActivityDocument();
+      r.$downloadHtmlDocument(documentData, `Downloaded an activity log with ${documentData.count} entr${documentData.count === 1 ? "y" : "ies"}`);
+    };
+}
+function registerLayoutCart2b(r) {
 r.$saveCartSnapshot = function saveCartSnapshot() {
       if (!runtimeState.cart.length) {
         r.$showToast("There is no cart to save yet.");
@@ -348,6 +384,7 @@ r.$createEmptySavedCart = function createEmptySavedCart() {
       runtimeState.savedCarts = result.savedCarts;
       runtimeState.cartView = "saved";
       runtimeSaveState();
+      r.$saveLayoutState();
       r.$render();
       r.$showToast(`Created “${result.snapshot.name}”`);
       return result.snapshot;
@@ -365,6 +402,7 @@ r.$restoreSavedCart = async function restoreSavedCart(items, { fallbackTrack = n
       runtimeState.cartView = "current";
       runtimeState.selectedSavedCartId = null;
       runtimeSaveState();
+      r.$saveLayoutState();
       r.$render();
       const failed = result.failed?.length || 0;
       const summary = result.error
@@ -374,7 +412,6 @@ r.$restoreSavedCart = async function restoreSavedCart(items, { fallbackTrack = n
       return { ok: !result.error, ...result, summary };
     };
 }
-
 function registerLayoutCart3(r) {
 r.$addResolvedItemsToCart = async function addResolvedItemsToCart(sourceItems) {
       const resolved = await r.$runtimeMessage({ type: MESSAGES.RESOLVE_CART_ITEMS, items: sourceItems });
@@ -397,6 +434,25 @@ r.$addResolvedItemsToCart = async function addResolvedItemsToCart(sourceItems) {
         }));
       });
       return result;
+    };
+r.$recoverMissingCartItems = function recoverMissingCartItems(items) {
+      const missingItems = Array.isArray(items) ? items : [];
+      if (!missingItems.length) {
+        r.$cartRecoverySignature = "";
+        r.$cartRecoveryKeys = null;
+        return;
+      }
+      const signature = missingItems.map(cartActivityIdentity).filter(Boolean).sort().join("\n");
+      if (!signature || r.$cartRecoverySignature === signature) return;
+      r.$cartRecoverySignature = signature;
+      r.$cartRecoveryKeys = new Set(signature.split("\n"));
+      r.$showToast(`Restoring ${missingItems.length} protected cart item${missingItems.length === 1 ? "" : "s"} to Bandcamp…`);
+      void r.$addResolvedItemsToCart(missingItems).then((result) => {
+        r.$cartRecoveryKeys = null;
+        if (result.error || result.failed?.length) {
+          r.$showToast(`Your backup is safe. Bandcamp restored ${result.added || 0}; ${result.failed?.length || 0} still need attention.`);
+        } else r.$showToast(`Restored ${result.added || 0} protected cart item${result.added === 1 ? "" : "s"} to Bandcamp.`);
+      });
     };
 r.$cartItemsForTracks = async function cartItemsForTracks(tracks, requestedItemType = "t") {
       const sourceTracks = r.$normalizePlaylist(Array.isArray(tracks) ? tracks : []);
@@ -463,6 +519,7 @@ r.$addTracksToSavedCart = async function addTracksToSavedCart(tracks, snapshotId
       if (runtimeState.activeTab === "cart" && runtimeState.cartView === "saved") r.$render();
       const limitSuffix = accepted.length < additions.length ? " · 100-item limit reached" : "";
       r.$showToast(`Added ${accepted.length} item${accepted.length === 1 ? "" : "s"} to “${snapshot.name}”${limitSuffix}`);
+      r.$showCompactPanelNotice("icon-saved-cart.svg", `Added to ${snapshot.name}`, snapshot.items.length);
       return accepted.length;
     };
 r.$addTracksToCurrentCart = async function addTracksToCurrentCart(tracks) {
@@ -473,15 +530,20 @@ r.$addTracksToCurrentCart = async function addTracksToCurrentCart(tracks) {
     };
 r.$removeLiveCartItem = async function removeLiveCartItem(item) {
       const requestId = `remove-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const removalKey = cartActivityIdentity(item);
+      r.$cartRemovalKeys ||= new Set();
+      if (removalKey) r.$cartRemovalKeys.add(removalKey);
       return new Promise((resolve) => {
         const timeout = window.setTimeout(() => {
           document.removeEventListener("bandkit:cart-remove-result", onResult);
+          if (removalKey) r.$cartRemovalKeys.delete(removalKey);
           resolve({ requestId, removed: false, error: "Bandcamp did not finish removing the item in time." });
         }, 12000);
         const onResult = (event) => {
           if (event.detail?.requestId !== requestId) return;
           window.clearTimeout(timeout);
           document.removeEventListener("bandkit:cart-remove-result", onResult);
+          window.setTimeout(() => r.$cartRemovalKeys?.delete(removalKey), 1000);
           resolve(event.detail);
         };
         document.addEventListener("bandkit:cart-remove-result", onResult);
@@ -517,11 +579,22 @@ r.$addQueuedItemToCart = async function addQueuedItemToCart(track, requestedItem
         button.disabled = false;
       }
     };
-r.$createPlaylistMenuOption = function createPlaylistMenuOption(label, onClick, { disabled = false, back = false } = {}) {
-      const option = createElement("button", `hub-playlist-menu-option${back ? " is-back" : ""}`, label);
+r.$createPlaylistMenuOption = function createPlaylistMenuOption(label, onClick, { disabled = false, back = false, wishlist = false, active = false, prominent = false, icon = "" } = {}) {
+      const option = createElement("button", `hub-playlist-menu-option${back ? " is-back" : ""}${wishlist ? " is-wishlist" : ""}${active ? " is-active" : ""}${prominent ? " is-prominent" : ""}`);
       option.type = "button";
       option.disabled = disabled;
       option.setAttribute("role", "menuitem");
+      if (wishlist || icon) {
+        const iconElement = createElement("span", "hub-playlist-menu-option-icon");
+        iconElement.style.setProperty("--hub-playlist-option-icon", `url('${asset(wishlist ? active ? "icon-wishlist-filled.svg" : "icon-wishlist.svg" : icon)}')`);
+        option.append(iconElement, createElement("span", "hub-playlist-menu-option-label", label));
+        if (wishlist) option.setAttribute("aria-pressed", String(active));
+      } else {
+        const glyph = label.match(/^([＋✓←])\s+/);
+        if (glyph) option.append(createElement("span", "hub-playlist-menu-option-glyph", glyph[1]), createElement("span", "hub-playlist-menu-option-label", label.slice(glyph[0].length)));
+        else option.textContent = label;
+        if (glyph) option.setAttribute("aria-label", label);
+      }
       option.addEventListener("click", onClick);
       return option;
     };
@@ -576,6 +649,8 @@ r.$createPlaylistDestinationControl = function createPlaylistDestinationControl(
           trigger.setAttribute("aria-expanded", "false");
         }
       }, 50));
+      attachMenuKeyNavigation(menu);
+      attachMenuTriggerKeyNavigation(trigger, menu);
       wrapper.append(trigger, menu);
       return wrapper;
     };
@@ -610,6 +685,8 @@ r.$createCartDestinationControl = function createCartDestinationControl(track, {
         await r.$addQueuedItemToCart(track, "a", addAlbum);
       });
       menu.append(addTrack, addAlbum);
+      attachMenuKeyNavigation(menu, { onEscape: () => { close(); trigger.focus(); } });
+      attachMenuTriggerKeyNavigation(trigger, menu);
       trigger.addEventListener("click", () => {
         const opening = menu.hidden;
         if (opening) r.$closeSiblingDestinationMenus(wrapper, menu);
@@ -633,13 +710,11 @@ r.$createTrackActionControls = function createTrackActionControls(track, { label
       wishlist.title = wishlisted ? `${track.title} is in your Bandcamp wishlist` : trackPageUrl ? `Add ${track.title} to your Bandcamp wishlist` : "No individual Bandcamp track page is available";
       wishlist.setAttribute("aria-label", wishlisted ? `${track.title} is wishlisted` : `Add ${track.title} to wishlist`);
       wishlist.setAttribute("aria-pressed", String(wishlisted));
-      wishlist.append(createButtonIcon("icon-wishlist.svg"));
-      if (labeled) wishlist.append(document.createTextNode(wishlisted ? "Wishlisted" : "Wishlist"));
+      wishlist.append(createButtonIcon(wishlisted ? "icon-wishlist-filled.svg" : "icon-wishlist.svg"));
+      if (labeled) wishlist.append(document.createTextNode(wishlisted ? "In Wishlist" : "Wishlist"));
       wishlist.addEventListener("click", () => {
-        if (wishlisted) r.$showToast(`“${track.title}” is already in your Bandcamp wishlist.`);
-        else void r.$openTrackAction(track, "wishlist");
+        void r.$openTrackAction(track, "wishlist", { active: !wishlisted });
       });
-
       const cart = r.$createCartDestinationControl(track, { labeled });
       actions.append(playlist, wishlist);
       if (!hideCart) actions.append(cart);
@@ -664,148 +739,6 @@ r.$currentLiveTrack = function currentLiveTrack() {
         duration: runtimeSeamless.duration || runtimeLive.duration,
         url: runtimeSeamless.track?.url || r.$getAudio()?.currentSrc || r.$getAudio()?.src || ""
       };
-    };
-}
-
-function registerLayoutCart5(r) {
-r.$renderPlayerMoreActions = function renderPlayerMoreActions() {
-      const track = r.$currentLiveTrack();
-      const inPlaylist = runtimeState.playlist.some((item) => r.$playlistTracksMatch(item, track));
-      const hideCart = r.$trackIsOwnedOnCollectionPage(track);
-      const signature = runtimeLive.hasPlaybackStarted ? `${track.title}|${track.pageUrl}|${inPlaylist}|${hideCart}` : "";
-      r.$playerMoreButton.disabled = !signature || !resolvedTrackPageUrl(track);
-      if (signature === r.$playerActionSignature) return;
-      r.$playerActionSignature = signature;
-      r.$playerMoreMenu.hidden = true;
-      r.$playerMoreButton.setAttribute("aria-expanded", "false");
-      r.$playerMoreMenu.replaceChildren();
-      if (signature) r.$playerMoreMenu.append(r.$createTrackActionControls(track, { labeled: true, playlistsOnly: true, hideCart }));
-    };
-r.$render = function render() {
-      const panelHidden = !runtimeState.open;
-      if (panelHidden && r.$panel.contains(r.$shadow.activeElement)) {
-        const activeSectionControl = runtimeState.activeTab === "playlist"
-          ? r.$nowPlayingButton
-          : r.$headerShortcuts.querySelector(`[data-tab="${runtimeState.activeTab}"]`);
-        [activeSectionControl, r.$launcher, r.$nowPlayingButton]
-          .find((control) => control && !control.disabled && control.getClientRects().length)
-          ?.focus();
-      }
-      r.$panel.classList.toggle("is-hidden", panelHidden);
-      r.$panel.setAttribute("aria-hidden", String(panelHidden));
-      r.$panel.toggleAttribute("inert", panelHidden);
-      r.$launcher.classList.toggle("is-active", runtimeState.open);
-      r.$launcher.setAttribute("aria-expanded", String(runtimeState.open));
-      r.$syncDockedControls();
-      const labels = {
-        playlist: "Now Playing & Playlists",
-        cart: "Cart",
-        activity: "Activity",
-        settings: "Settings"
-      };
-      const availablePanelHeight = Math.max(220, window.innerHeight - 160);
-      const sectionPanelHeight = Math.max(220, Math.min(availablePanelHeight, Number(runtimeState.sectionPanelHeight) || availablePanelHeight));
-      r.$panel.style.setProperty("--hub-section-panel-height", `${sectionPanelHeight}px`);
-      r.$panelTitle.textContent = labels[runtimeState.activeTab] || "Bandkit";
-      r.$panel.setAttribute("aria-label", `${r.$panelTitle.textContent} panel`);
-      r.$panelHeader.setAttribute("aria-label", `${r.$panelTitle.textContent} panel header`);
-      for (const button of r.$headerShortcuts.querySelectorAll(".hub-header-shortcut")) {
-        const active = runtimeState.open && button.dataset.tab === runtimeState.activeTab;
-        const showingSavedCarts = button.dataset.tab === "cart" && runtimeState.cartView === "saved";
-        const count = button.dataset.tab === "cart"
-          ? showingSavedCarts ? runtimeState.savedCarts.length : runtimeState.cart.length
-          : 0;
-        button.classList.toggle("is-active", active);
-        button.setAttribute("aria-pressed", String(active));
-        button.classList.toggle("has-dot", count > 0);
-        const counter = button.querySelector(".hub-header-shortcut-count");
-        if (counter) counter.textContent = count > 99 ? "99+" : String(count);
-        if (button.dataset.tab === "cart") {
-          const cartLabel = showingSavedCarts ? "Saved carts" : "Cart";
-          const countLabel = showingSavedCarts
-            ? `${count} saved`
-            : `${count} item${count === 1 ? "" : "s"}`;
-          button.dataset.view = showingSavedCarts ? "saved" : "current";
-          button.querySelector(".hub-header-shortcut-icon")?.style.setProperty(
-            "--hub-icon",
-            `url('${asset(showingSavedCarts ? "icon-saved-cart.svg" : "icon-cart.svg")}')`
-          );
-          button.setAttribute("aria-label", `${cartLabel}, ${countLabel}`);
-          button.title = button.getAttribute("aria-label");
-        }
-      }
-      for (const button of r.$tabBar.querySelectorAll(".hub-tab")) {
-        const active = button.dataset.tab === runtimeState.activeTab;
-        const count = button.dataset.tab === "cart"
-          ? runtimeState.cart.length
-          : button.dataset.tab === "playlist" ? runtimeState.savedPlaylists.length : 0;
-        button.classList.toggle("is-active", active);
-        button.setAttribute("aria-current", active ? "page" : "false");
-        button.classList.toggle("has-dot", count > 0);
-        const counter = button.querySelector(".hub-tab-dot");
-        if (counter) counter.textContent = count > 99 ? "99+" : String(count);
-        if (button.dataset.tab === "playlist") {
-          button.setAttribute("aria-label", count ? `Now Playing and Playlists, ${count} saved` : "Now Playing and Playlists");
-          button.title = button.getAttribute("aria-label");
-        }
-      }
-
-      r.$renderPanelContent();
-      r.$renderDjTools();
-      r.$renderPlayer();
-      r.$schedulePlayerSectionGeometry();
-    };
-r.$renderPanelContent = function renderPanelContent() {
-      // Every panel refresh must finish by restoring the pinned header and
-      // scrolling body. Playback updates use this same path so they can never
-      // leave raw children inside an inset-free section layout.
-      r.$content.classList.remove("is-section-layout", "is-empty-now-playing");
-      r.$content.replaceChildren();
-      if (runtimeState.activeTab === "playlist") r.$renderPlaylist();
-      if (runtimeState.activeTab === "cart") r.$renderCart();
-      if (runtimeState.activeTab === "activity") r.$renderActivity();
-      if (runtimeState.activeTab === "settings") r.$renderSettings();
-      const backupPrompt = r.$renderBackupReminder();
-      if (backupPrompt) {
-        const heading = r.$content.querySelector(
-          ".hub-cart-view-header, .hub-saved-cart-detail-toolbar, .hub-section-heading"
-        );
-        if (heading) heading.after(backupPrompt);
-        else r.$content.prepend(backupPrompt);
-      }
-      r.$mountPanelClose();
-      r.$organizePanelContentScrolling();
-    };
-r.$organizePanelContentScrolling = function organizePanelContentScrolling() {
-      const children = [...r.$content.children];
-      const primaryHeaderIndex = children.findIndex((element) => element.matches(
-        ".hub-cart-view-header, .hub-saved-cart-detail-toolbar, .hub-section-heading"
-      ));
-      if (primaryHeaderIndex < 0) {
-        r.$content.classList.remove("is-section-layout");
-        return;
-      }
-      let pinnedEnd = primaryHeaderIndex;
-      for (let index = primaryHeaderIndex + 1; index < children.length; index += 1) {
-        if (!children[index].matches(".hub-cart-backup")) break;
-        pinnedEnd = index;
-      }
-      const pinned = createElement("div", "hub-content-pinned");
-      const scrollBody = createElement("div", "hub-content-scroll");
-      pinned.append(...children.slice(0, pinnedEnd + 1));
-      scrollBody.append(...children.slice(pinnedEnd + 1));
-      r.$content.replaceChildren(pinned, scrollBody);
-      r.$content.classList.add("is-section-layout");
-    };
-r.$mountPanelClose = function mountPanelClose() {
-      const anchor = runtimeState.activeTab === "cart"
-        ? r.$content.querySelector(".hub-saved-cart-detail-toolbar, .hub-cart-view-header")
-        : runtimeState.activeTab === "playlist"
-          ? r.$content.querySelector(".hub-saved-cart-detail-toolbar, .hub-playlist-view-header")
-            : r.$content.querySelector(".hub-section-heading");
-      if (!anchor) return;
-      anchor.classList.add("hub-panel-content-header");
-      anchor.append(r.$headerCloseButton);
     };
 }
 
@@ -860,6 +793,7 @@ r.$removeSavedCartItem = function removeSavedCartItem(snapshot, item) {
     };
 }
 
-export const registerLayoutCart = [registerLayoutCart1, registerLayoutCart2, registerLayoutCart3, registerLayoutCart4, registerLayoutCart5, registerLayoutCart6];
-
-export const setupLayoutCart = [];
+export const registerLayoutCart = [
+  registerLayoutCart1, registerLayoutCart2, registerLayoutCartActivity, registerLayoutCart2b,
+  registerLayoutCart3, registerLayoutCart4, registerLayoutCartRendering, registerLayoutCart6
+];

@@ -1,282 +1,186 @@
+import { createColourField } from "../components/colour-field.js";
+import { attachMenuKeyNavigation, attachMenuTriggerKeyNavigation } from "../menu-keyboard.js";
+import { createSettingsAction, createPlayerSettingLabel, createSettingsActionRow, createSettingsActions, createSettingsRow, createSettingsRowCopy, createSettingsToggle } from "../components/settings.js";
 import { runtimeSaveState, runtimeState, updateRuntimeState } from "./context.js";
-import { asset, createArt, createButtonIcon, createElement, createSectionHeading } from "../core.js";
+import { createTimelinePicker } from "../timeline-picker.js";
+import { createPlayerButtonSettings } from "../player-button-settings.js";
+import { appendControlsDrawers } from "../controls-settings.js";
+import { asset, createButtonIcon, createElement, createPanelCaret } from "../core.js";
 import { hexColor, hexString, luminance, mixColor } from "../color.js";
-import { BUILT_IN_THEMES, FEEDBACK_FORM_URL, FEEDBACK_LIST_URL, MUSIC_BAR_WIDTHS, SUPPORT_PAYMENT_URL, defaultState } from "../state.js";
+import { BUILT_IN_THEMES, FEEDBACK_FORM_URL, FEEDBACK_LIST_URL, SUPPORT_CONTACT_EMAIL, SUPPORT_PAYMENT_URL, defaultState } from "../state.js";
 import { MESSAGES } from "../../shared/contracts.js";
-
-function registerActivitySettings1(r) {
-r.$renderActivity = function renderActivity() {
-      r.$content.append(createSectionHeading("Activity", `${runtimeState.activity.length} entr${runtimeState.activity.length === 1 ? "y" : "ies"}`));
-      const latestActivityAt = runtimeState.activity.reduce((latest, item) => {
-        const timestamp = new Date(item.createdAt || item.time || 0).getTime();
-        return Number.isFinite(timestamp) ? Math.max(latest, timestamp) : latest;
-      }, 0);
-      const backup = createElement("div", "hub-cart-backup hub-activity-backup");
-      backup.append(createElement(
-        "div",
-        "hub-cart-backup-time",
-        latestActivityAt ? `Last updated ${new Date(latestActivityAt).toLocaleString()}` : "Not updated yet"
-      ));
-      const actions = createElement("div", "hub-toolbar");
-      const exportButton = r.$createPlaylistToolbarButton("Download activity", "icon-download-all.svg", r.$exportActivity);
-      exportButton.classList.add("hub-activity-download");
-      actions.append(exportButton);
-      backup.append(actions);
-      r.$content.append(backup);
-      const list = createElement("div", "hub-activity-list");
-      for (const item of runtimeState.activity.slice(0, 20)) {
-        const row = createElement("article", "hub-activity-item");
-        const artLink = r.$createPageLink("", item.url, "hub-art-link");
-        artLink.setAttribute("aria-label", `Open ${item.title}`);
-        artLink.append(createArt(item.art, true));
-        row.append(artLink);
-        const details = createElement("div", "hub-activity-details");
-        const copy = createElement("div", "hub-activity-copy");
-        copy.append(document.createTextNode(`You ${item.action} `));
-        copy.append(r.$createPageLink(item.title, item.url, "hub-inline-link"));
-        copy.append(document.createTextNode(" by "));
-        copy.append(r.$createPageLink(item.artist, item.artistUrl || item.url, "hub-inline-link"));
-        details.append(copy);
-        const meta = createElement("div", "hub-activity-meta");
-        const time = item.createdAt ? new Date(item.createdAt).toLocaleString() : item.time || "Recorded locally";
-        meta.append(createElement("span", `hub-event-chip ${item.action}`, item.action), createElement("span", "hub-meta", time));
-        details.append(meta);
-        row.append(details);
-        list.append(row);
-      }
-      r.$content.append(list);
-      if (!runtimeState.activity.length) r.$content.append(createElement("div", "hub-empty", "Nothing recorded yet. Tracks you play will appear here with a link back to their Bandcamp page."));
-    };
-}
-
-function createMusicBarAnalysisSetting(r) {
-  const row = createElement("div", "hub-settings-row hub-settings-subrow");
-  const copy = createElement("div", "hub-settings-copy");
-  copy.append(
-    createElement("strong", "", "BPM and key in music bar"),
-    createElement("span", "", "Show compact analysis badges beside DJ tools.")
-  );
-  const shown = runtimeState.showMusicBarAnalysis !== false;
-  const toggle = createElement("button", `hub-settings-toggle hub-music-bar-analysis-toggle${shown ? " is-active" : ""}`);
-  toggle.type = "button";
-  toggle.setAttribute("role", "switch");
-  toggle.setAttribute("aria-label", "Show BPM and key in music bar");
-  toggle.setAttribute("aria-checked", String(shown));
-  toggle.append(createElement("span", "hub-settings-toggle-thumb"));
-  toggle.addEventListener("click", () => {
-    runtimeState.showMusicBarAnalysis = runtimeState.showMusicBarAnalysis === false;
+import { appendSettingsDisclosureSections, createSettingsDisclosure, createSettingsOverviewCard, prepareSettingsDetail, resetSettingsDisclosures } from "../settings-drawer.js";
+import { registerSettingsOverview } from "../settings-overview.js";
+import { createCornerStyleSetting, createFrostedGlassSetting, createMusicBarAnalysisSetting, createMusicBarSettings, createPersistentMusicBarAnalysisSetting, createVisualizerSettings } from "../music-bar-settings.js";
+import { registerActivityView } from "./activity-view.js";
+import { createCustomScrubColourSetting, createCustomVisualizerColourSettings } from "./visualizer-settings.js";
+import { createControlsColourOverrides } from "../player-colour-overrides.js";
+import { createScrubberHandleSetting } from "../scrub-handle-picker.js";
+import { createThemeSourcePreview } from "../settings-option-previews.js";
+import { createSettingsPicker } from "../settings-picker.js";
+import { closeSettingsPopover, openSettingsPopover, settingsPopoverContainsFocus } from "../settings-popover.js";
+import { appendCustomThemeEditor, createCustomThemeSaveAction } from "./custom-theme-settings.js";
+function createTrackAnalysisSettings(r) {
+  const section = createElement("section", "hub-analysis-settings hub-settings-group");
+  section.hidden = runtimeState.djToolsEnabled === false;
+  const primaryRow = createSettingsRow({ className: "hub-analysis-primary-row" });
+  const primaryCopy = createSettingsRowCopy("Track analysis", "Automatically detect BPM and musical key on track pages.");
+  const enabled = runtimeState.autoAnalyzeTracks !== false;
+  const primaryToggle = createSettingsToggle({ checked: enabled, ariaLabel: "Enable track analysis", className: "hub-auto-analyze-toggle", controls: "hub-analysis-options", expanded: enabled });
+  primaryToggle.addEventListener("click", () => {
+    runtimeState.autoAnalyzeTracks = runtimeState.autoAnalyzeTracks === false;
     runtimeSaveState();
-    r.$renderPlayer();
+    r.$injectPageDjToolsLink();
     r.$render();
-    r.$showToast(runtimeState.showMusicBarAnalysis ? "Music bar BPM and key shown" : "Music bar BPM and key hidden");
+    r.$showToast(runtimeState.autoAnalyzeTracks ? "Track analysis enabled" : "Track analysis disabled");
   });
-  row.append(copy, toggle);
-  return row;
+  primaryRow.append(primaryCopy, primaryToggle);
+
+  const options = createElement("div", "hub-analysis-options hub-settings-dependent-options");
+  options.id = "hub-analysis-options";
+  options.hidden = !enabled;
+
+  const playlistRow = createSettingsRow({ className: "hub-analysis-option-row hub-playlist-metadata-row" });
+  const playlistCopy = createSettingsRowCopy("Save to playlists", "Store detected BPM and key on playlist track cards.");
+  const recordPlaylistMetadata = runtimeState.recordPlaylistMetadata !== false;
+  const playlistToggle = createSettingsToggle({ checked: recordPlaylistMetadata, ariaLabel: "Save BPM and key on playlists", className: "hub-playlist-metadata-toggle" });
+  playlistToggle.addEventListener("click", () => {
+    runtimeState.recordPlaylistMetadata = !(runtimeState.recordPlaylistMetadata !== false);
+    runtimeSaveState();
+    r.$render();
+    r.$showToast(runtimeState.recordPlaylistMetadata ? "Playlist analysis enabled" : "Playlist analysis disabled");
+  });
+  playlistRow.append(playlistCopy, playlistToggle);
+
+  const keysRow = createSettingsRow({ className: "hub-analysis-option-row hub-show-track-keys-row" });
+  const keysCopy = createSettingsRowCopy("Musical key", "Show familiar key names such as A minor alongside BPM.");
+  const showTrackKeys = runtimeState.showTrackKeys !== false;
+  const keysToggle = createSettingsToggle({ checked: showTrackKeys, ariaLabel: "Show musical keys", className: "hub-show-track-keys-toggle" });
+  keysToggle.addEventListener("click", () => {
+    runtimeState.showTrackKeys = runtimeState.showTrackKeys === false;
+    r.$syncTrackKeyVisibilityMode();
+    r.$syncPageTrackAnalysisUi();
+    runtimeSaveState();
+    r.$render();
+    r.$showToast(runtimeState.showTrackKeys ? "Musical keys shown" : "Musical keys hidden");
+  });
+  keysRow.append(keysCopy, keysToggle);
+
+  const camelotRow = createSettingsRow({ className: "hub-analysis-option-row hub-show-camelot-row" });
+  camelotRow.hidden = !showTrackKeys;
+  const camelotCopy = createSettingsRowCopy("Camelot notation", "Show DJ-style values such as 8A alongside BPM.");
+  const showCamelotNotation = runtimeState.showCamelotNotation === true;
+  const camelotToggle = createSettingsToggle({ checked: showCamelotNotation, ariaLabel: "Show Camelot notation", className: "hub-show-camelot-toggle" });
+  camelotToggle.addEventListener("click", () => {
+    runtimeState.showCamelotNotation = runtimeState.showCamelotNotation !== true;
+    r.$syncTrackKeyVisibilityMode();
+    r.$syncPageTrackAnalysisUi();
+    runtimeSaveState();
+    r.$render();
+    r.$showToast(runtimeState.showCamelotNotation ? "Camelot notation shown" : "Camelot notation hidden");
+  });
+  camelotRow.append(camelotCopy, camelotToggle);
+  options.append(playlistRow, keysRow, camelotRow, createMusicBarAnalysisSetting(r), createPersistentMusicBarAnalysisSetting(r));
+  section.append(primaryRow, options);
+  return section;
 }
 
 function registerPlaybackSettings(r) {
-r.$renderPlaybackSettings = function renderPlaybackSettings() {
+r.$renderPlaybackSettings = function renderPlaybackSettings(requestedSubView = runtimeState.settingsSubView) {
       const playback = createElement("section", "hub-card hub-settings-card");
-      playback.append(createElement("h2", "hub-settings-heading", "Playback"));
-      const knobRow = createElement("div", "hub-settings-row");
-      const knobCopy = createElement("div", "hub-settings-copy");
-      knobCopy.append(
-        createElement("strong", "", "Knob gesture"),
-        createElement("span", "", "Choose how DJ knobs respond.")
-      );
-      const knobMode = createElement("select", "hub-settings-select");
-      knobMode.setAttribute("aria-label", "Knob gesture");
-      for (const [value, label] of [
-        ["both", "Up/down + left/right"],
-        ["vertical", "Up and down"],
-        ["horizontal", "Left and right"],
-        ["radial", "Turn around the dial"]
-      ]) {
-        const option = createElement("option", "", label);
-        option.value = value;
-        option.selected = runtimeState.dj.knobMode === value;
-        knobMode.append(option);
+      playback.append(createElement("h2", "hub-settings-heading", "Player"));
+
+      const subView = ["design", "size", "timeline", "visualiser"].includes(requestedSubView)
+        ? requestedSubView : "index";
+      if (subView === "index") {
+        const stack = createElement("div", "hub-settings-overview-stack hub-settings-subview-stack");
+        for (const [id, title] of [["design", "Design"], ["size", "Size"], ["timeline", "Controls"], ["visualiser", "Visualiser"]]) {
+          stack.append(createSettingsOverviewCard({
+            id,
+            title,
+            onOpen: () => {
+              resetSettingsDisclosures();
+              runtimeState.settingsSubView = id;
+              runtimeSaveState();
+              r.$saveLayoutState?.();
+              r.$render();
+            }
+          }));
+        }
+        playback.append(stack);
+        const detail = prepareSettingsDetail(playback);
+        detail.classList.add("hub-player-settings", "is-subview-index");
+        r.$content.append(detail);
+        return;
       }
-      knobMode.addEventListener("change", () => {
-        runtimeState.dj.knobMode = knobMode.value;
-        runtimeSaveState();
-      });
-      knobRow.append(knobCopy, knobMode);
-      playback.append(knobRow);
 
-      const scrubberRow = createElement("div", "hub-settings-row hub-settings-subrow");
-      const scrubberCopy = createElement("div", "hub-settings-copy");
-      scrubberCopy.append(
-        createElement("strong", "", "Scrubber style"),
-        createElement("span", "", "Use the same timeline in the page player and music bar.")
-      );
-      const scrubberStyle = createElement("select", "hub-settings-select");
-      scrubberStyle.setAttribute("aria-label", "Scrubber style");
-      for (const [value, label] of [["traditional", "Traditional scrub head"], ["waveform", "Waveform"]]) {
-        const option = createElement("option", "", label);
-        option.value = value;
-        option.selected = runtimeState.scrubberStyle === value;
-        scrubberStyle.append(option);
-      }
-      scrubberStyle.addEventListener("change", () => {
-        runtimeState.scrubberStyle = scrubberStyle.value === "traditional" ? "traditional" : "waveform";
-        r.$syncScrubberStyles();
-        r.$ensurePagePlayerWaveforms();
-        runtimeSaveState();
-        r.$showToast(runtimeState.scrubberStyle === "traditional" ? "Traditional scrub heads enabled" : "Waveform scrubbers enabled");
+      const scrubberRow = createElement("div", "hub-player-setting-row hub-music-bar-scrubber-row");
+      const scrubberLabel = createPlayerSettingLabel("Style", "Choose the timeline design used in the page player and music bar.", { ariaLabel: "Style. Choose the timeline design used in the page player and music bar." });
+      const scrubberStyle = createTimelinePicker(r);
+      scrubberRow.append(scrubberLabel, scrubberStyle.element);
+      const scrubberHandleRow = createScrubberHandleSetting(r);
+      const scrubberWidthRow = createElement("div", "hub-player-setting-row hub-music-bar-scrubber-width-row");
+      const scrubberWidthLabel = createPlayerSettingLabel("Width", "Choose how far the music bar timeline extends.", { ariaLabel: "Width. Choose how far the music bar timeline extends." });
+      const scrubberWidth = createSettingsPicker({
+        ariaLabel: "Music bar timeline width",
+        options: [{ value: "small", label: "Small" }, { value: "default", label: "Medium" }, { value: "full", label: "Full" }],
+        value: runtimeState.musicBarScrubberWidth,
+        onChange: (nextWidth, label) => {
+          runtimeState.musicBarScrubberWidth = ["small", "full"].includes(nextWidth) ? nextWidth : "default";
+          r.$syncScrubberStyles();
+          r.$refreshScrubWaveform(true);
+          runtimeSaveState();
+          r.$showToast(`${label} music bar timeline enabled`);
+        }
       });
-      scrubberRow.append(scrubberCopy, scrubberStyle);
-      playback.append(scrubberRow);
+      scrubberWidthRow.append(scrubberWidthLabel, scrubberWidth.element);
+      const { styleSettings, sizeSettings } = createMusicBarSettings(r);
+      const controlColours = createControlsColourOverrides(r);
+      if (subView === "design") playback.append(styleSettings, createFrostedGlassSetting(r, { showBlendMode: true }), createCornerStyleSetting(r));
+      if (subView === "size") playback.append(sizeSettings);
+      if (subView === "timeline") appendControlsDrawers(
+        playback,
+        [controlColours.timeline, scrubberRow, scrubberStyle.customRows, scrubberWidthRow],
+        [controlColours.handle, scrubberHandleRow],
+        [controlColours.playback, createPlayerButtonSettings(r)]
+      );
+      if (subView === "visualiser") playback.append(createVisualizerSettings(r, { standalone: true }));
+      const detail = prepareSettingsDetail(playback);
+      detail.classList.add("hub-player-settings", `is-${subView}-subview`);
+      r.$content.append(detail);
+    };
 
-      const musicBarRow = createElement("div", "hub-settings-row hub-settings-subrow hub-settings-combined-row");
-      const musicBarCopy = createElement("div", "hub-settings-copy");
-      musicBarCopy.append(
-        createElement("strong", "", "Music bar"),
-        createElement("span", "", "Adjust its size and width.")
-      );
-      const musicBarSize = createElement("select", "hub-settings-select");
-      musicBarSize.setAttribute("aria-label", "Music bar size");
-      for (const [value, label] of [["compact", "Compact"], ["standard", "Standard"]]) {
-        const option = createElement("option", "", label);
-        option.value = value;
-        option.selected = runtimeState.musicBarSize === value;
-        musicBarSize.append(option);
-      }
-      musicBarSize.addEventListener("change", () => {
-        runtimeState.musicBarSize = musicBarSize.value === "compact" ? "compact" : "standard";
-        r.$syncMusicBarSize();
-        r.$renderPlayer();
-        runtimeSaveState();
-        r.$showToast(runtimeState.musicBarSize === "compact" ? "Compact music bar enabled" : "Standard music bar enabled");
+r.$renderToolsSettings = function renderToolsSettings() {
+      const tools = createElement("section", "hub-card hub-settings-card");
+      tools.append(createElement("h2", "hub-settings-heading", "Tools"));
+      const djToolsEnabled = runtimeState.djToolsEnabled !== false;
+      const djSettings = createElement("section", "hub-dj-settings hub-settings-group hub-settings-subrow");
+      djSettings.append(r.$createDjToolsSettingsRow());
+      const knobRow = createSettingsRow({ className: "hub-dj-secondary-row hub-settings-dependent-row" });
+      knobRow.hidden = !djToolsEnabled;
+      const knobCopy = createSettingsRowCopy("Knob gesture", "Choose how DJ knobs respond.");
+      const knobMode = createSettingsPicker({
+        ariaLabel: "Knob gesture",
+        options: [
+          { value: "both", label: "Up/down + left/right" },
+          { value: "vertical", label: "Up and down" },
+          { value: "horizontal", label: "Left and right" },
+          { value: "radial", label: "Turn around the dial" }
+        ],
+        value: runtimeState.dj.knobMode,
+        onChange: (nextMode) => {
+          runtimeState.dj.knobMode = nextMode;
+          runtimeSaveState();
+        }
       });
-      const musicBarWidth = createElement("select", "hub-settings-select");
-      musicBarWidth.setAttribute("aria-label", "Music bar width");
-      for (const [value, label] of [
-        ["default", "Default (800 px)"],
-        ["tight", "Tight (640 px)"],
-        ["wide", "Wide (1120 px)"],
-        ["full", "Full width"],
-        ["custom", "Custom"]
-      ]) {
-        const option = createElement("option", "", label);
-        option.value = value;
-        option.selected = runtimeState.musicBarWidth === value;
-        musicBarWidth.append(option);
-      }
-      const customMusicBarWidth = createElement("input", "hub-settings-number");
-      customMusicBarWidth.type = "number";
-      customMusicBarWidth.min = "480";
-      customMusicBarWidth.max = "2000";
-      customMusicBarWidth.step = "10";
-      customMusicBarWidth.value = String(runtimeState.musicBarCustomWidth);
-      customMusicBarWidth.hidden = runtimeState.musicBarWidth !== "custom";
-      customMusicBarWidth.setAttribute("aria-label", "Custom music bar width in pixels");
-      const musicBarWidthUnit = createElement("span", "hub-settings-unit", "px");
-      musicBarWidthUnit.hidden = customMusicBarWidth.hidden;
-      const musicBarWidthControl = createElement("div", "hub-settings-width-control");
-      musicBarWidthControl.append(musicBarWidth, customMusicBarWidth, musicBarWidthUnit);
-      const syncCustomWidthVisibility = () => {
-        const custom = musicBarWidth.value === "custom";
-        customMusicBarWidth.hidden = !custom;
-        musicBarWidthUnit.hidden = !custom;
-      };
-      musicBarWidth.addEventListener("change", () => {
-        runtimeState.musicBarWidth = MUSIC_BAR_WIDTHS.includes(musicBarWidth.value) ? musicBarWidth.value : "default";
-        syncCustomWidthVisibility();
-        r.$syncMusicBarWidth();
-        r.$renderPlayer();
-        runtimeSaveState();
-        const label = musicBarWidth.selectedOptions[0]?.textContent || "Default";
-        r.$showToast(`${label} music bar width enabled`);
-      });
-      customMusicBarWidth.addEventListener("input", () => {
-        runtimeState.musicBarCustomWidth = customMusicBarWidth.value;
-        r.$syncMusicBarWidth();
-      });
-      customMusicBarWidth.addEventListener("change", () => {
-        r.$syncMusicBarWidth();
-        customMusicBarWidth.value = String(runtimeState.musicBarCustomWidth);
-        runtimeSaveState();
-        r.$showToast(`Custom music bar width set to ${runtimeState.musicBarCustomWidth}px`);
-      });
-      const musicBarControls = createElement("div", "hub-settings-paired-controls");
-      const musicBarSizeField = createElement("label", "hub-settings-inline-field");
-      musicBarSizeField.append(createElement("span", "", "Size"), musicBarSize);
-      const musicBarWidthField = createElement("label", "hub-settings-inline-field");
-      musicBarWidthField.append(createElement("span", "", "Width"), musicBarWidthControl);
-      musicBarControls.append(musicBarSizeField, musicBarWidthField);
-      musicBarRow.append(musicBarCopy, musicBarControls);
-      playback.append(musicBarRow, createMusicBarAnalysisSetting(r));
-
-      const playlistMetadataRow = createElement("div", "hub-settings-row hub-settings-subrow");
-      const playlistMetadataCopy = createElement("div", "hub-settings-copy");
-      playlistMetadataCopy.append(
-        createElement("strong", "", "Playlist BPM and key"),
-        createElement("span", "", "Save detected analysis and show it on track cards.")
-      );
-      const recordPlaylistMetadata = runtimeState.recordPlaylistMetadata !== false;
-      const playlistMetadataToggle = createElement("button", `hub-settings-toggle hub-playlist-metadata-toggle${recordPlaylistMetadata ? " is-active" : ""}`);
-      playlistMetadataToggle.type = "button";
-      playlistMetadataToggle.setAttribute("role", "switch");
-      playlistMetadataToggle.setAttribute("aria-label", "Save BPM and key on playlists");
-      playlistMetadataToggle.setAttribute("aria-checked", String(recordPlaylistMetadata));
-      playlistMetadataToggle.append(createElement("span", "hub-settings-toggle-thumb"));
-      playlistMetadataToggle.addEventListener("click", () => {
-        runtimeState.recordPlaylistMetadata = !(runtimeState.recordPlaylistMetadata !== false);
-        runtimeSaveState();
-        r.$render();
-        r.$showToast(runtimeState.recordPlaylistMetadata ? "Playlist BPM and key enabled" : "Playlist BPM and key disabled");
-      });
-      playlistMetadataRow.append(playlistMetadataCopy, playlistMetadataToggle);
-      playback.append(playlistMetadataRow);
-
-      const autoAnalyzeRow = createElement("div", "hub-settings-row hub-settings-subrow");
-      const autoAnalyzeCopy = createElement("div", "hub-settings-copy");
-      autoAnalyzeCopy.append(
-        createElement("strong", "", "Auto-analyze tracks"),
-        createElement("span", "", "Show BPM and musical key beside tracks when an artist page opens.")
-      );
-      const autoAnalyzeTracks = runtimeState.autoAnalyzeTracks !== false;
-      const autoAnalyzeToggle = createElement("button", `hub-settings-toggle hub-auto-analyze-toggle${autoAnalyzeTracks ? " is-active" : ""}`);
-      autoAnalyzeToggle.type = "button";
-      autoAnalyzeToggle.setAttribute("role", "switch");
-      autoAnalyzeToggle.setAttribute("aria-label", "Auto-analyze tracks");
-      autoAnalyzeToggle.setAttribute("aria-checked", String(autoAnalyzeTracks));
-      autoAnalyzeToggle.append(createElement("span", "hub-settings-toggle-thumb"));
-      autoAnalyzeToggle.addEventListener("click", () => {
-        runtimeState.autoAnalyzeTracks = runtimeState.autoAnalyzeTracks === false;
-        runtimeSaveState();
-        r.$injectPageDjToolsLink();
-        r.$render();
-        r.$showToast(runtimeState.autoAnalyzeTracks ? "Automatic track analysis enabled" : "Manual track analysis enabled");
-      });
-      autoAnalyzeRow.append(autoAnalyzeCopy, autoAnalyzeToggle);
-      playback.append(autoAnalyzeRow);
-
-      const showTrackKeysRow = createElement("div", "hub-settings-row hub-settings-subrow");
-      const showTrackKeysCopy = createElement("div", "hub-settings-copy");
-      showTrackKeysCopy.append(
-        createElement("strong", "", "Show track keys"),
-        createElement("span", "", "Include Camelot and musical key columns beside analyzed BPM.")
-      );
-      const showTrackKeys = runtimeState.showTrackKeys !== false;
-      const showTrackKeysToggle = createElement("button", `hub-settings-toggle hub-show-track-keys-toggle${showTrackKeys ? " is-active" : ""}`);
-      showTrackKeysToggle.type = "button";
-      showTrackKeysToggle.setAttribute("role", "switch");
-      showTrackKeysToggle.setAttribute("aria-label", "Show track keys");
-      showTrackKeysToggle.setAttribute("aria-checked", String(showTrackKeys));
-      showTrackKeysToggle.append(createElement("span", "hub-settings-toggle-thumb"));
-      showTrackKeysToggle.addEventListener("click", () => {
-        runtimeState.showTrackKeys = runtimeState.showTrackKeys === false;
-        r.$syncTrackKeyVisibilityMode();
-        r.$syncPageTrackAnalysisUi();
-        runtimeSaveState();
-        r.$render();
-        r.$showToast(runtimeState.showTrackKeys ? "Track keys shown" : "Track keys hidden");
-      });
-      showTrackKeysRow.append(showTrackKeysCopy, showTrackKeysToggle);
-      playback.append(showTrackKeysRow);
-      r.$content.append(playback);
+      knobRow.append(knobCopy, knobMode.element);
+      djSettings.append(knobRow);
+      const djGroup = createSettingsDisclosure("DJ", "", "dj");
+      appendSettingsDisclosureSections(djGroup.content, djSettings);
+      const analysisGroup = createSettingsDisclosure("Analysis", "", "analysis");
+      appendSettingsDisclosureSections(analysisGroup.content, createTrackAnalysisSettings(r));
+      tools.append(djGroup.group, analysisGroup.group);
+      r.$content.append(prepareSettingsDetail(tools));
     };
 }
 
@@ -284,19 +188,10 @@ function registerBrowsingSettings(r) {
 r.$renderBrowsingSettings = function renderBrowsingSettings() {
       const browsing = createElement("section", "hub-card hub-settings-card");
       browsing.append(createElement("h2", "hub-settings-heading", "Browsing"));
-      const feedRow = createElement("div", "hub-settings-row");
-      const feedCopy = createElement("div", "hub-settings-copy");
-      feedCopy.append(
-        createElement("strong", "", "Open Bandcamp to your feed"),
-        createElement("span", "", "Use your music feed as the homepage.")
-      );
+      const feedRow = createSettingsRow();
+      const feedCopy = createSettingsRowCopy("Open Bandcamp to your feed", "Use your music feed as the homepage.");
       const openHomeToFeed = Boolean(runtimeState.openHomeToFeed);
-      const feedToggle = createElement("button", `hub-settings-toggle hub-feed-home-toggle${openHomeToFeed ? " is-active" : ""}`);
-      feedToggle.type = "button";
-      feedToggle.setAttribute("role", "switch");
-      feedToggle.setAttribute("aria-label", "Open Bandcamp to your feed");
-      feedToggle.setAttribute("aria-checked", String(openHomeToFeed));
-      feedToggle.append(createElement("span", "hub-settings-toggle-thumb"));
+      const feedToggle = createSettingsToggle({ checked: openHomeToFeed, ariaLabel: "Open Bandcamp to your feed", className: "hub-feed-home-toggle" });
       feedToggle.addEventListener("click", () => {
         runtimeState.openHomeToFeed = !runtimeState.openHomeToFeed;
         runtimeSaveState();
@@ -304,7 +199,7 @@ r.$renderBrowsingSettings = function renderBrowsingSettings() {
       });
       feedRow.append(feedCopy, feedToggle);
       browsing.append(feedRow);
-      r.$content.append(browsing);
+      r.$content.append(prepareSettingsDetail(browsing));
     };
 }
 
@@ -313,34 +208,49 @@ r.$createAppearanceSettings = function createAppearanceSettings() {
       const appearance = createElement("section", "hub-card hub-settings-card");
       appearance.append(createElement("h2", "hub-settings-heading", "Appearance"));
       const appearanceMode = runtimeState.appearance.applyToPage ? "theme" : "match";
-      const appearanceModeRow = createElement("div", "hub-settings-row hub-appearance-mode-row");
-      const appearanceModeCopy = createElement("div", "hub-settings-copy");
-      appearanceModeCopy.append(
-        createElement("strong", "", "Page colours"),
-        createElement("span", "", appearanceMode === "theme" ? "Apply a Bandkit theme across Bandcamp." : "Follow each Bandcamp page’s colours.")
-      );
-      const appearanceModeControl = createElement("div", "hub-settings-segmented");
-      appearanceModeControl.setAttribute("role", "radiogroup");
-      appearanceModeControl.setAttribute("aria-label", "Page colour mode");
-      for (const [mode, label] of [["match", "Match page"], ["theme", "Theme pages"]]) {
-        const modeButton = createElement("button", `hub-settings-segment${appearanceMode === mode ? " is-active" : ""}`, label);
-        modeButton.type = "button";
-        modeButton.setAttribute("role", "radio");
-        modeButton.setAttribute("aria-checked", String(appearanceMode === mode));
-        modeButton.dataset.appearanceMode = mode;
-        modeButton.addEventListener("click", () => {
+      const appearanceSource = appearanceMode === "match"
+        ? "match"
+        : runtimeState.appearance.preset === "custom" ? "custom" : "theme";
+      const appearanceModeRow = createSettingsRow({ className: "hub-appearance-mode-row" });
+      const appearanceModeCopy = createSettingsRowCopy("Source", "Use dynamic page colours, a curated palette, or custom colours.");
+      const appearanceModeControl = createSettingsPicker({
+        ariaLabel: "Colour source",
+        className: "hub-theme-source-picker",
+        renderPreview: createThemeSourcePreview,
+        options: [
+          { value: "match", label: "Dynamic" },
+          { value: "theme", label: "Curated" },
+          { value: "custom", label: "Custom" }
+        ],
+        value: appearanceSource,
+        onChange: (mode) => {
           runtimeState.appearance.pageAware = mode === "match";
-          runtimeState.appearance.applyToPage = mode === "theme";
+          runtimeState.appearance.applyToPage = mode !== "match";
+          if (mode === "custom") runtimeState.appearance.preset = "custom";
+          else if (mode === "theme" && runtimeState.appearance.preset === "custom") {
+            runtimeState.appearance.preset = "studio";
+          }
           r.$applyAppearance();
           runtimeSaveState();
           r.$render();
-          r.$showToast(mode === "theme" ? "Bandkit theme applied to Bandcamp" : "Matching Bandcamp page colours");
-        });
-        appearanceModeControl.append(modeButton);
-      }
-      appearanceModeRow.append(appearanceModeCopy, appearanceModeControl);
-      appearance.append(appearanceModeRow);
-      return { appearance, appearanceMode };
+          r.$showToast(mode === "custom" ? "Custom colours enabled"
+            : mode === "theme" ? "Palette applied to Bandcamp" : "Dynamic colours enabled");
+        }
+      });
+      appearanceModeRow.append(appearanceModeCopy, appearanceModeControl.element);
+      const themeDisclosure = createSettingsDisclosure("Colours", "", "colours");
+      const themeGroup = themeDisclosure.content;
+      themeGroup.classList.add("hub-theme-settings-group");
+      themeGroup.append(appearanceModeRow);
+      const surfaceGroup = createFrostedGlassSetting(r);
+      const cornerStyleGroup = createCornerStyleSetting(r);
+      const finishDisclosure = createSettingsDisclosure("Finish", "", "finish");
+      appendSettingsDisclosureSections(finishDisclosure.content, surfaceGroup, cornerStyleGroup);
+      const pageDisclosure = createSettingsDisclosure("Page", "", "page");
+      const pageOptionsGroup = pageDisclosure.content;
+      pageOptionsGroup.classList.add("hub-page-appearance-settings");
+      appearance.append(themeDisclosure.group, finishDisclosure.group, pageDisclosure.group);
+      return { appearance, appearanceMode, themeGroup, pageOptionsGroup };
     };
 }
 
@@ -349,11 +259,21 @@ r.$appendAppearanceThemePicker = function appendAppearanceThemePicker(appearance
       const customContent = runtimeState.appearance.customContentLinked === false
         ? runtimeState.appearance.customCard
         : runtimeState.appearance.customPageSurface;
-      const availableThemes = [...BUILT_IN_THEMES, ...(runtimeState.appearance.savedThemes || []), {
+      const customTheme = {
         id: "custom",
         label: "Custom",
+        group: "custom",
         accent: runtimeState.appearance.customAccent,
         scrubAccent: runtimeState.appearance.customScrubAccent || runtimeState.appearance.customAccent,
+        visualizerColors: [
+          runtimeState.appearance.customVisualizerColor1 || runtimeState.appearance.customAccent,
+          runtimeState.appearance.customVisualizerColor2 || runtimeState.appearance.customScrubAccent || runtimeState.appearance.customAccent,
+          runtimeState.appearance.customVisualizerColor3 || hexString(mixColor(
+            hexColor(runtimeState.appearance.customAccent),
+            hexColor(runtimeState.appearance.customScrubAccent || runtimeState.appearance.customAccent),
+            0.62
+          ))
+        ],
         surface: runtimeState.appearance.customPanelLinked === false
           ? runtimeState.appearance.customSurface
           : customContent,
@@ -363,7 +283,9 @@ r.$appendAppearanceThemePicker = function appendAppearanceThemePicker(appearance
         navbar: runtimeState.appearance.customNavbar,
         text: runtimeState.appearance.customText,
         secondaryText: runtimeState.appearance.customSecondaryText
-      }].map(({ id, label, accent, scrubAccent, surface, card, background, pageSurface, navbar, text, secondaryText }) => {
+      };
+      const availableThemes = [customTheme, ...BUILT_IN_THEMES, ...(runtimeState.appearance.savedThemes || [])]
+        .map(({ id, label, group, accent, scrubAccent, visualizerColors, surface, card, background, pageSurface, navbar, text, secondaryText }) => {
         const surfaceColor = hexColor(surface, { r: 255, g: 255, b: 255, a: 1 });
         const resolvedCard = card || hexString(luminance(surfaceColor) < 0.34
           ? mixColor(surfaceColor, { r: 255, g: 255, b: 255, a: 1 }, 0.07)
@@ -376,7 +298,7 @@ r.$appendAppearanceThemePicker = function appendAppearanceThemePicker(appearance
           luminance(hexColor(pageSurface || surface, surfaceColor)) < 0.34 ? 0.35 : 0.42
         ));
         return {
-          id, label, accent, scrubAccent, surface, card, background, pageSurface, navbar, text, secondaryText,
+          id, label, group: group || "saved", accent, scrubAccent, visualizerColors, surface, card, background, pageSurface, navbar, text, secondaryText,
           resolvedCard, resolvedText, resolvedNavbar, resolvedSecondaryText
         };
       });
@@ -391,103 +313,146 @@ r.$appendAppearanceThemePicker = function appendAppearanceThemePicker(appearance
         }
         return palette;
       };
-      const selectAppearanceTheme = (theme) => {
-        runtimeState.appearance.preset = theme.id;
-        if (theme.id !== "custom") {
-          runtimeState.appearance.customAccent = theme.accent;
-          runtimeState.appearance.customScrubAccent = theme.scrubAccent && theme.scrubAccent !== theme.accent ? theme.scrubAccent : null;
-          runtimeState.appearance.customSurface = theme.resolvedCard;
-          runtimeState.appearance.customPanelLinked = true;
-          runtimeState.appearance.customContentLinked = true;
-          runtimeState.appearance.customPageBackground = theme.background || theme.surface;
-          runtimeState.appearance.customPageSurface = theme.pageSurface || theme.surface;
-          runtimeState.appearance.customCard = runtimeState.appearance.customPageSurface;
-          runtimeState.appearance.customNavbar = theme.resolvedNavbar;
-          runtimeState.appearance.customText = theme.resolvedText;
-          runtimeState.appearance.customSecondaryText = theme.resolvedSecondaryText;
-        }
+      const applyAppearanceTheme = (theme) => {
+        const themeValues = theme.id === "custom" ? {} : {
+          customAccent: theme.accent, customScrubAccent: theme.scrubAccent && theme.scrubAccent !== theme.accent ? theme.scrubAccent : null,
+          customVisualizerColor1: theme.visualizerColors?.[0] || null, customVisualizerColor2: theme.visualizerColors?.[1] || null,
+          customVisualizerColor3: theme.visualizerColors?.[2] || null, customSurface: theme.resolvedCard,
+          customPanelLinked: true, customContentLinked: true, customPageBackground: theme.background || theme.surface,
+          customPageSurface: theme.pageSurface || theme.surface, customCard: theme.pageSurface || theme.surface,
+          customNavbar: theme.resolvedNavbar, customText: theme.resolvedText, customSecondaryText: theme.resolvedSecondaryText
+        };
+        Object.assign(runtimeState.appearance, { preset: theme.id, ...themeValues });
         r.$applyAppearance();
-        runtimeSaveState();
-        r.$render();
+      };
+      let themePreviewSnapshot = null;
+      let previewedThemeId = null;
+      const restoreAppearanceThemePreview = () => {
+        if (!themePreviewSnapshot) return;
+        Object.assign(runtimeState.appearance, themePreviewSnapshot); themePreviewSnapshot = null; previewedThemeId = null;
+        r.$applyAppearance();
+      };
+      const previewAppearanceTheme = (theme) => {
+        if (!theme || previewedThemeId === theme.id) return;
+        if (!themePreviewSnapshot) themePreviewSnapshot = { ...runtimeState.appearance };
+        else Object.assign(runtimeState.appearance, themePreviewSnapshot);
+        previewedThemeId = theme.id; applyAppearanceTheme(theme);
+      };
+      const selectAppearanceTheme = (theme) => {
+        if (themePreviewSnapshot) Object.assign(runtimeState.appearance, themePreviewSnapshot);
+        themePreviewSnapshot = null; previewedThemeId = null; applyAppearanceTheme(theme);
+        runtimeSaveState(); r.$render();
       };
 
       if (appearanceMode === "theme") {
-        const selectedTheme = availableThemes.find((theme) => theme.id === runtimeState.appearance.preset) || availableThemes[0];
-        const themeField = createElement("div", "hub-theme-picker-field");
-        themeField.append(createElement("p", "hub-settings-field-label", "Theme"));
+        const selectedTheme = availableThemes.find((theme) => theme.id === runtimeState.appearance.preset)
+          || availableThemes.find((theme) => theme.id === "studio")
+          || availableThemes[0];
+        const themeField = createSettingsRow({ className: "hub-theme-picker-field" });
+        const themeCopy = createSettingsRowCopy("Palette", "Choose the colours applied to Bandcamp pages.");
         const themePicker = createElement("div", "hub-theme-picker");
         const listboxId = "hub-theme-picker-options";
         const themeTrigger = createElement("button", "hub-theme-combobox");
-        themeTrigger.type = "button";
-        themeTrigger.setAttribute("role", "combobox");
-        themeTrigger.setAttribute("aria-label", "Theme");
-        themeTrigger.setAttribute("aria-controls", listboxId);
-        themeTrigger.setAttribute("aria-haspopup", "listbox");
+        themeTrigger.type = "button"; themeTrigger.setAttribute("role", "combobox"); themeTrigger.setAttribute("aria-label", "Palette");
+        themeTrigger.setAttribute("aria-controls", listboxId); themeTrigger.setAttribute("aria-haspopup", "listbox");
         themeTrigger.setAttribute("aria-expanded", "false");
+        const triggerMarker = createElement("span", "hub-theme-trigger-marker");
+        if (selectedTheme.id === "custom") {
+          const customIcon = createButtonIcon("icon-settings.svg");
+          customIcon.classList.add("hub-theme-custom-icon"); customIcon.setAttribute("aria-hidden", "true"); triggerMarker.append(customIcon);
+        }
         themeTrigger.append(
           createThemePalette(selectedTheme),
           createElement("span", "hub-theme-combobox-label", selectedTheme.label),
-          createElement("span", "hub-theme-combobox-chevron")
+          triggerMarker,
+          createPanelCaret("hub-theme-combobox-chevron")
         );
         const themeOptions = createElement("div", "hub-theme-options");
-        themeOptions.id = listboxId;
-        themeOptions.setAttribute("role", "listbox");
-        themeOptions.hidden = true;
+        themeOptions.id = listboxId; themeOptions.setAttribute("role", "listbox"); themeOptions.hidden = true;
         const setThemePickerOpen = (open) => {
-          themeOptions.hidden = !open;
+          if (open) openSettingsPopover(themeTrigger, themeOptions);
+          else { closeSettingsPopover(themeOptions); restoreAppearanceThemePreview(); }
           themeTrigger.setAttribute("aria-expanded", String(open));
           themePicker.classList.toggle("is-open", open);
         };
         themeTrigger.addEventListener("click", () => setThemePickerOpen(themeOptions.hidden));
+        const closeThemePicker = () => { setThemePickerOpen(false); themeTrigger.focus(); };
         themePicker.addEventListener("keydown", (event) => {
-          if (event.key !== "Escape" || themeOptions.hidden) return;
-          event.preventDefault();
-          setThemePickerOpen(false);
-          themeTrigger.focus();
+          if (event.key === "Escape" && !themeOptions.hidden) closeThemePicker();
         });
-        themePicker.addEventListener("focusout", () => {
+        attachMenuKeyNavigation(themeOptions, { onEscape: closeThemePicker });
+        attachMenuTriggerKeyNavigation(themeTrigger, themeOptions, { open: () => setThemePickerOpen(true) });
+        const handleThemePickerFocusout = () => {
           window.setTimeout(() => {
-            if (!themePicker.contains(r.$shadow.activeElement)) setThemePickerOpen(false);
+            if (!settingsPopoverContainsFocus(themePicker, themeOptions)) setThemePickerOpen(false);
           }, 0);
-        });
-        for (const theme of availableThemes) {
-          const option = createElement("button", `hub-theme-option${theme.id === selectedTheme.id ? " is-selected" : ""}`);
-          option.type = "button";
-          option.setAttribute("role", "option");
-          option.setAttribute("aria-selected", String(theme.id === selectedTheme.id));
-          option.dataset.themeId = theme.id;
-          option.append(
-            createThemePalette(theme),
-            createElement("span", "hub-theme-option-label", theme.label),
-            createElement("span", "hub-theme-option-check", "✓")
-          );
-          option.addEventListener("click", () => selectAppearanceTheme(theme));
-          themeOptions.append(option);
+        };
+        themePicker.addEventListener("focusout", handleThemePickerFocusout);
+        themeOptions.addEventListener("focusout", handleThemePickerFocusout);
+        for (const [group, label] of [["custom", "Your colours"], ["light", "Light"], ["dark", "Dark"], ["electric", "Electric"], ["print", "Print Lab"], ["wacky", "Wacky"], ["saved", "Saved"]]) {
+          const groupedThemes = availableThemes.filter((theme) => theme.group === group);
+          if (!groupedThemes.length) continue;
+          const optionGroup = createElement("div", "hub-theme-option-group");
+          const groupLabel = createElement("div", "hub-theme-option-group-label", label);
+          groupLabel.id = `hub-theme-option-group-${group}`;
+          optionGroup.setAttribute("role", "group");
+          optionGroup.setAttribute("aria-labelledby", groupLabel.id);
+          optionGroup.dataset.themeGroup = group;
+          optionGroup.append(groupLabel);
+          for (const theme of groupedThemes) {
+            const option = createElement("button", `hub-theme-option${theme.id === selectedTheme.id ? " is-selected" : ""}`);
+            option.type = "button"; option.setAttribute("role", "option");
+            option.setAttribute("aria-selected", String(theme.id === selectedTheme.id)); option.dataset.themeId = theme.id;
+            const optionMarker = createElement("span", "hub-theme-option-marker");
+            if (theme.id === "custom") {
+              const customIcon = createButtonIcon("icon-settings.svg");
+              customIcon.classList.add("hub-theme-custom-icon"); customIcon.setAttribute("aria-hidden", "true"); optionMarker.append(customIcon);
+            }
+            option.append(
+              createThemePalette(theme),
+              createElement("span", "hub-theme-option-label", theme.label)
+            );
+            if (optionMarker.childElementCount) option.append(optionMarker);
+            option.addEventListener("pointerenter", () => { if (!themeOptions.hidden) previewAppearanceTheme(theme); });
+            option.addEventListener("focus", () => { if (!themeOptions.hidden) previewAppearanceTheme(theme); });
+            option.addEventListener("click", () => {
+              setThemePickerOpen(false);
+              selectAppearanceTheme(theme);
+            });
+            optionGroup.append(option);
+          }
+          themeOptions.append(optionGroup);
         }
+        themeOptions.addEventListener("pointerleave", restoreAppearanceThemePreview);
         themePicker.append(themeTrigger, themeOptions);
-        themeField.append(themePicker);
+        themeField.append(themeCopy, themePicker);
         appearance.append(themeField);
 
-        const themeSharing = createElement("div", "hub-theme-sharing-row");
-        const downloadTheme = createElement("button", "hub-settings-action hub-theme-sharing-action", "Download selected");
+        const themeSharingActions = createElement("div", "hub-toolbar hub-theme-back-actions");
+        themeSharingActions.dataset.settingsBackActions = "true";
+        const downloadTheme = createElement("button", "hub-playlist-toolbar-icon hub-theme-sharing-action");
         downloadTheme.type = "button";
-        downloadTheme.prepend(createButtonIcon("icon-download-all.svg"));
+        downloadTheme.dataset.settingsTooltip = "Download the current Bandkit palette as a file.";
+        downloadTheme.setAttribute("aria-label", "Download palette");
+        downloadTheme.append(createButtonIcon("icon-download-all.svg"));
         downloadTheme.addEventListener("click", r.$exportAppearanceTheme);
         const importThemeInput = document.createElement("input");
         importThemeInput.type = "file";
         importThemeInput.accept = ".json,application/json";
         importThemeInput.hidden = true;
-        const importTheme = createElement("button", "hub-settings-action hub-theme-sharing-action", "Import theme");
+        const importTheme = createElement("button", "hub-playlist-toolbar-icon hub-theme-sharing-action");
         importTheme.type = "button";
-        importTheme.prepend(createButtonIcon("icon-import.svg"));
+        importTheme.dataset.settingsTooltip = "Import a Bandkit palette from a saved file.";
+        importTheme.setAttribute("aria-label", "Import palette");
+        importTheme.append(createButtonIcon("icon-import.svg"));
         importTheme.addEventListener("click", () => importThemeInput.click());
         importThemeInput.addEventListener("change", () => {
           const file = importThemeInput.files?.[0];
           importThemeInput.value = "";
           void r.$importAppearanceTheme(file, importTheme);
         });
-        themeSharing.append(downloadTheme, importTheme, importThemeInput);
-        appearance.append(themeSharing);
+        themeSharingActions.append(downloadTheme, importTheme, importThemeInput);
+        appearance.append(themeSharingActions);
       }
     };
 }
@@ -529,82 +494,87 @@ r.$containThemeColourPointer = function containThemeColourPointer(input) {
 function registerCustomThemeSettings(r) {
 r.$appendCustomThemeSettings = function appendCustomThemeSettings(appearance, appearanceMode) {
       if (appearanceMode === "theme" && runtimeState.appearance.preset === "custom") {
-        const customPanel = createElement("div", "hub-custom-theme-panel");
-        const customColours = createElement("div", "hub-custom-colours");
-        let contentInput = null;
-        let panelInput = null;
+        const customPanel = createElement("div", "hub-custom-theme-panel"), customColours = createElement("div", "hub-custom-colours");
+        appearance.querySelector("[data-settings-back-actions]")?.prepend(createCustomThemeSaveAction(r));
+        customColours.hidden = appendCustomThemeEditor(r, customPanel) === "simple";
+        const visualizerColours = createCustomVisualizerColourSettings(r);
+        const playerColourOverrides = createControlsColourOverrides(r);
+        const createColourGroup = (title, key) => {
+          const disclosure = createSettingsDisclosure(title, "", key);
+          disclosure.group.classList.add("hub-visualizer-colour-disclosure", "hub-theme-colour-disclosure");
+          disclosure.content.classList.add("hub-theme-colour-group");
+          customColours.append(disclosure.group);
+          return disclosure.content;
+        };
+        const bandcampColours = createColourGroup("Bandcamp", "theme-bandcamp-colours");
+        const bandkitColours = createColourGroup("Bandkit surfaces", "theme-bandkit-colours");
+        const playerColourGroup = createColourGroup("Player", "theme-player-colours");
+        let contentInput = null, panelInput = null;
         for (const [key, label] of [
           ["customAccent", "Accent"],
           ["customPageBackground", "Page background"],
           ["customPageSurface", "Page content"],
+          ["customNavbar", "Artist navigation"],
           ["customCard", "Bandkit content"],
           ["customSurface", "Bandkit panel"],
-          ["customNavbar", "Artist navigation"],
           ["customText", "Primary text"],
           ["customSecondaryText", "Secondary text"]
         ]) {
-          const field = createElement("label", "hub-colour-field");
-          const input = createElement("input");
-          input.type = "color";
           const contentLinked = key === "customCard" && runtimeState.appearance.customContentLinked !== false;
           const panelLinked = key === "customSurface" && runtimeState.appearance.customPanelLinked !== false;
           const resolvedContent = runtimeState.appearance.customContentLinked === false
             ? runtimeState.appearance.customCard
             : runtimeState.appearance.customPageSurface;
-          input.value = contentLinked
-            ? runtimeState.appearance.customPageSurface
-            : panelLinked ? resolvedContent : runtimeState.appearance[key];
+          const linked = key === "customCard" || key === "customSurface";
+          const { field, input, reset: colourLink, setOverridden: setColourOverridden } = createColourField({
+            label, tooltip: `Choose the ${label.toLowerCase()} colour.`, ariaLabel: null,
+            id: `bandkit-theme-colour-${key}`,
+            value: contentLinked ? runtimeState.appearance.customPageSurface
+              : panelLinked ? resolvedContent : runtimeState.appearance[key],
+            className: `hub-colour-field hub-player-setting-row hub-theme-colour-row${linked ? " is-linked-colour" : ""}`,
+            sourceLabel: linked ? key === "customCard" ? "From page" : "From content" : undefined,
+            resetLabel: key === "customCard" ? "Reset to page" : "Reset to content"
+          });
           input.dataset.themeColour = key;
-          input.setAttribute("aria-label", `${label} colour`);
           r.$containThemeColourPointer(input);
-          let colourLink = null;
           if (key === "customCard") {
             contentInput = input;
-            colourLink = createElement("button", "hub-colour-link", "Use page");
-            colourLink.type = "button";
-            colourLink.disabled = contentLinked;
-            colourLink.title = contentLinked
-              ? "Bandkit content is following the Page content colour"
-              : "Reset Bandkit content to follow the Page content colour";
+            setColourOverridden(!contentLinked);
             colourLink.addEventListener("click", () => {
               Object.assign(runtimeState.appearance, {
                 customContentLinked: true, customCard: runtimeState.appearance.customPageSurface
               });
+              input.value = runtimeState.appearance.customPageSurface;
+              setColourOverridden(false);
               if (runtimeState.appearance.customPanelLinked !== false) {
                 runtimeState.appearance.customSurface = runtimeState.appearance.customCard;
+                if (panelInput) panelInput.value = runtimeState.appearance.customCard;
               }
               r.$applyAppearance();
               runtimeSaveState();
-              r.$render();
             });
           } else if (key === "customSurface") {
             panelInput = input;
-            colourLink = createElement("button", "hub-colour-link", "Use content");
-            colourLink.type = "button";
-            colourLink.disabled = panelLinked;
-            colourLink.title = panelLinked
-              ? "Bandkit panel is following the Bandkit content colour"
-              : "Reset Bandkit panel to follow the Bandkit content colour";
+            setColourOverridden(!panelLinked);
             colourLink.addEventListener("click", () => {
               Object.assign(runtimeState.appearance, {
                 customPanelLinked: true,
                 customSurface: runtimeState.appearance.customContentLinked === false
                   ? runtimeState.appearance.customCard : runtimeState.appearance.customPageSurface
               });
+              input.value = runtimeState.appearance.customSurface;
+              setColourOverridden(false);
               r.$applyAppearance();
               runtimeSaveState();
-              r.$render();
             });
           }
           input.addEventListener("input", () => {
             if (key === "customCard") {
               runtimeState.appearance.customContentLinked = false;
-              colourLink.disabled = false;
-              colourLink.title = "Reset Bandkit content to follow the Page content colour";
+              setColourOverridden(true);
             } else if (key === "customSurface") {
               runtimeState.appearance.customPanelLinked = false;
-              colourLink.disabled = false;
-              colourLink.title = "Reset Bandkit panel to follow the Bandkit content colour";
+              setColourOverridden(true);
             }
             runtimeState.appearance[key] = input.value;
             if (key === "customPageSurface" && runtimeState.appearance.customContentLinked !== false) {
@@ -621,82 +591,16 @@ r.$appendCustomThemeSettings = function appendCustomThemeSettings(appearance, ap
               const scrubInput = customColours.querySelector('[data-theme-colour="customScrubAccent"]');
               if (scrubInput) scrubInput.value = input.value;
             }
+            if (key === "customAccent") visualizerColours.syncLinked();
             r.$scheduleCustomThemePreview();
           });
           input.addEventListener("change", r.$commitCustomThemeColour);
-          const control = colourLink ? createElement("div", "hub-colour-controls") : null;
-          if (control) control.append(colourLink, input);
-          if (["customCard", "customSurface"].includes(key)) field.classList.add("is-linked-colour");
-          field.append(createElement("span", "", label), control || input);
-          customColours.append(field);
+          (key.startsWith("customPage") || key === "customAccent" || key === "customNavbar"
+            ? bandcampColours : bandkitColours).append(field);
         }
-        const scrubField = createElement("div", "hub-colour-field");
-        const scrubControls = createElement("div", "hub-colour-controls");
-        const matchAccent = createElement("button", "hub-colour-link", "Use accent");
-        matchAccent.type = "button";
-        matchAccent.disabled = !runtimeState.appearance.customScrubAccent;
-        matchAccent.title = runtimeState.appearance.customScrubAccent ? "Reset track scrub to follow the accent colour" : "Track scrub is following the accent colour";
-        const scrubInput = createElement("input");
-        scrubInput.type = "color";
-        scrubInput.value = runtimeState.appearance.customScrubAccent || runtimeState.appearance.customAccent;
-        scrubInput.dataset.themeColour = "customScrubAccent";
-        scrubInput.setAttribute("aria-label", "Track scrub colour");
-        r.$containThemeColourPointer(scrubInput);
-        scrubInput.addEventListener("input", () => {
-          runtimeState.appearance.customScrubAccent = scrubInput.value;
-          matchAccent.disabled = false;
-          matchAccent.title = "Reset track scrub to follow the accent colour";
-          r.$scheduleCustomThemePreview();
-        });
-        scrubInput.addEventListener("change", r.$commitCustomThemeColour);
-        matchAccent.addEventListener("click", () => {
-          runtimeState.appearance.customScrubAccent = null;
-          r.$applyAppearance();
-          runtimeSaveState();
-          r.$render();
-        });
-        scrubControls.append(matchAccent, scrubInput);
-        scrubField.append(createElement("span", "", "Track scrub"), scrubControls);
-        customColours.append(scrubField);
-        const saveRow = createElement("div", "hub-save-theme-row");
-        const themeName = createElement("input", "hub-theme-name");
-        themeName.type = "text";
-        themeName.maxLength = 28;
-        themeName.placeholder = "Theme name";
-        themeName.setAttribute("aria-label", "Theme name");
-        const saveTheme = createElement("button", "hub-settings-action hub-save-theme", "Save theme");
-        saveTheme.type = "button";
-        saveTheme.addEventListener("click", () => {
-          if (!r.$hasSavedThemeCapacity()) return;
-          const number = (runtimeState.appearance.savedThemes || []).length + 1;
-          const label = themeName.value.trim() || `Custom ${number}`;
-          const savedTheme = {
-            id: `saved-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            label: label.slice(0, 28),
-            accent: runtimeState.appearance.customAccent,
-            scrubAccent: runtimeState.appearance.customScrubAccent || runtimeState.appearance.customAccent,
-            surface: runtimeState.appearance.customPanelLinked === false
-              ? runtimeState.appearance.customSurface
-              : runtimeState.appearance.customContentLinked === false
-                ? runtimeState.appearance.customCard
-                : runtimeState.appearance.customPageSurface,
-            card: runtimeState.appearance.customContentLinked === false
-              ? runtimeState.appearance.customCard
-              : runtimeState.appearance.customPageSurface,
-            background: runtimeState.appearance.customPageBackground,
-            pageSurface: runtimeState.appearance.customPageSurface,
-            navbar: runtimeState.appearance.customNavbar,
-            text: runtimeState.appearance.customText,
-            secondaryText: runtimeState.appearance.customSecondaryText
-          };
-          runtimeState.appearance.savedThemes = [...(runtimeState.appearance.savedThemes || []), savedTheme];
-          runtimeState.appearance.preset = savedTheme.id;
-          runtimeSaveState();
-          r.$render();
-          r.$showToast(`Saved theme “${savedTheme.label}”`);
-        });
-        saveRow.append(themeName, saveTheme);
-        customPanel.append(customColours, saveRow);
+        playerColourGroup.append(visualizerColours.group, playerColourOverrides.playback, playerColourOverrides.handle,
+          createCustomScrubColourSetting(r, visualizerColours));
+        customPanel.append(customColours);
         appearance.append(customPanel);
       }
     };
@@ -707,11 +611,12 @@ r.$appendSavedThemeSettings = function appendSavedThemeSettings(appearance, appe
       if (appearanceMode !== "theme") return;
       const savedTheme = (runtimeState.appearance.savedThemes || []).find((theme) => theme.id === runtimeState.appearance.preset);
       if (!savedTheme) return;
-      const actions = createElement("div", "hub-theme-management-row");
-      const renameTheme = createElement("button", "hub-settings-action hub-theme-management-action", "Rename saved");
+      const actions = createSettingsActions();
+      const renameTheme = createSettingsAction("Rename", { tag: "button", className: "hub-theme-management-action" });
       renameTheme.type = "button";
+      renameTheme.setAttribute("aria-label", "Rename saved palette");
       renameTheme.addEventListener("click", () => {
-        const label = window.prompt("Rename this saved theme", savedTheme.label)?.trim();
+        const label = window.prompt("Rename this saved palette", savedTheme.label)?.trim();
         if (!label) return;
         const nextLabel = label.slice(0, 28);
         runtimeState.appearance.savedThemes = runtimeState.appearance.savedThemes.map((theme) => (
@@ -719,38 +624,33 @@ r.$appendSavedThemeSettings = function appendSavedThemeSettings(appearance, appe
         ));
         runtimeSaveState();
         r.$render();
-        r.$showToast(`Renamed theme to “${nextLabel}”`);
+        r.$showToast(`Renamed palette to “${nextLabel}”`);
       });
-      const deleteTheme = createElement("button", "hub-settings-action hub-theme-management-action is-danger", "Delete saved");
+      const deleteTheme = createSettingsAction("Delete", { tag: "button", className: "hub-theme-management-action is-danger" });
       deleteTheme.type = "button";
+      deleteTheme.setAttribute("aria-label", "Delete saved palette");
       deleteTheme.addEventListener("click", () => {
-        if (!window.confirm(`Delete the saved theme “${savedTheme.label}”?`)) return;
+        if (!window.confirm(`Delete the saved palette “${savedTheme.label}”?`)) return;
         runtimeState.appearance.savedThemes = runtimeState.appearance.savedThemes.filter((theme) => theme.id !== savedTheme.id);
         runtimeState.appearance.preset = "custom";
         runtimeSaveState();
         r.$render();
-        r.$showToast(`Deleted theme “${savedTheme.label}”`);
+        r.$showToast(`Deleted palette “${savedTheme.label}”`);
       });
       actions.append(renameTheme, deleteTheme);
-      appearance.append(actions);
+      appearance.append(createSettingsActionRow({
+        label: "Saved palette", description: "Rename or delete this saved palette.",
+        actions, className: "hub-theme-management-row"
+      }));
     };
 }
 
 function registerAppearanceToggles(r) {
 r.$appendAppearanceToggles = function appendAppearanceToggles(appearance) {
-      const modernReleaseRow = createElement("div", "hub-settings-row hub-settings-subrow");
-      const modernReleaseCopy = createElement("div", "hub-settings-copy");
-      modernReleaseCopy.append(
-        createElement("strong", "", "Modern Bandcamp pages"),
-        createElement("span", "", "Refresh legacy feeds and artist pages.")
-      );
+      const modernReleaseRow = createSettingsRow({ className: "hub-settings-subrow" });
+      const modernReleaseCopy = createSettingsRowCopy("Modern Bandcamp pages", "Refresh legacy feeds and artist pages.");
       const modernReleasePages = Boolean(runtimeState.appearance.modernReleasePages);
-      const modernReleaseToggle = createElement("button", `hub-settings-toggle hub-modern-release-toggle${modernReleasePages ? " is-active" : ""}`);
-      modernReleaseToggle.type = "button";
-      modernReleaseToggle.setAttribute("role", "switch");
-      modernReleaseToggle.setAttribute("aria-label", "Use modern Bandcamp pages");
-      modernReleaseToggle.setAttribute("aria-checked", String(modernReleasePages));
-      modernReleaseToggle.append(createElement("span", "hub-settings-toggle-thumb"));
+      const modernReleaseToggle = createSettingsToggle({ checked: modernReleasePages, ariaLabel: "Use modern Bandcamp pages", className: "hub-modern-release-toggle" });
       modernReleaseToggle.addEventListener("click", () => {
         runtimeState.appearance.modernReleasePages = !modernReleasePages;
         r.$applyAppearance();
@@ -762,45 +662,10 @@ r.$appendAppearanceToggles = function appendAppearanceToggles(appearance) {
       modernReleaseRow.append(modernReleaseCopy, modernReleaseToggle);
       appearance.append(modernReleaseRow);
 
-      const pageActionLabelsRow = createElement("div", "hub-settings-row hub-settings-subrow");
-      const pageActionLabelsCopy = createElement("div", "hub-settings-copy");
-      pageActionLabelsCopy.append(
-        createElement("strong", "", "Page icon labels"),
-        createElement("span", "", "Show text beside Bandkit-enhanced page actions.")
-      );
-      const pageActionLabels = Boolean(runtimeState.pageActionLabels);
-      const pageActionLabelsToggle = createElement("button", `hub-settings-toggle hub-page-action-labels-toggle${pageActionLabels ? " is-active" : ""}`);
-      pageActionLabelsToggle.type = "button";
-      pageActionLabelsToggle.setAttribute("role", "switch");
-      pageActionLabelsToggle.setAttribute("aria-label", "Show page icon labels");
-      pageActionLabelsToggle.setAttribute("aria-checked", String(pageActionLabels));
-      pageActionLabelsToggle.append(createElement("span", "hub-settings-toggle-thumb"));
-      pageActionLabelsToggle.addEventListener("click", () => {
-        runtimeState.pageActionLabels = !runtimeState.pageActionLabels;
-        r.$syncPageActionLabelMode();
-        runtimeSaveState();
-        r.$pageActionsDirty = true;
-        r.$injectPageDjToolsLink();
-        r.$injectPlaylistButtons();
-        r.$render();
-        r.$showToast(runtimeState.pageActionLabels ? "Page icon labels enabled" : "Compact page icons enabled");
-      });
-      pageActionLabelsRow.append(pageActionLabelsCopy, pageActionLabelsToggle);
-      appearance.append(pageActionLabelsRow);
-
-      const hideCartRow = createElement("div", "hub-settings-row hub-settings-subrow");
-      const hideCartCopy = createElement("div", "hub-settings-copy");
-      hideCartCopy.append(
-        createElement("strong", "", "Hide shopping cart"),
-        createElement("span", "", "Use Bandkit’s Cart panel instead of Bandcamp’s carts.")
-      );
+      const hideCartRow = createSettingsRow({ className: "hub-settings-subrow" });
+      const hideCartCopy = createSettingsRowCopy("Hide shopping cart", "Use Bandkit’s Cart panel instead of Bandcamp’s carts.");
       const hideShoppingCart = Boolean(runtimeState.appearance.hidePageCart || runtimeState.appearance.hideHeaderCart);
-      const hideCartToggle = createElement("button", `hub-settings-toggle hub-hide-cart-toggle${hideShoppingCart ? " is-active" : ""}`);
-      hideCartToggle.type = "button";
-      hideCartToggle.setAttribute("role", "switch");
-      hideCartToggle.setAttribute("aria-label", "Hide shopping cart");
-      hideCartToggle.setAttribute("aria-checked", String(hideShoppingCart));
-      hideCartToggle.append(createElement("span", "hub-settings-toggle-thumb"));
+      const hideCartToggle = createSettingsToggle({ checked: hideShoppingCart, ariaLabel: "Hide shopping cart", className: "hub-hide-cart-toggle" });
       hideCartToggle.addEventListener("click", () => {
         const enabled = !hideShoppingCart;
         runtimeState.appearance.hidePageCart = enabled;
@@ -812,19 +677,10 @@ r.$appendAppearanceToggles = function appendAppearanceToggles(appearance) {
       hideCartRow.append(hideCartCopy, hideCartToggle);
       appearance.append(hideCartRow);
 
-      const nativePlayerRow = createElement("div", "hub-settings-row hub-settings-subrow");
-      const nativePlayerCopy = createElement("div", "hub-settings-copy");
-      nativePlayerCopy.append(
-        createElement("strong", "", "Hide Bandcamp music player"),
-        createElement("span", "", "Use only Bandkit’s music player.")
-      );
+      const nativePlayerRow = createSettingsRow({ className: "hub-settings-subrow" });
+      const nativePlayerCopy = createSettingsRowCopy("Hide Bandcamp music player", "Use only Bandkit’s music player.");
       const hideBandcampPlayer = Boolean(runtimeState.appearance.hideBandcampPlayer);
-      const nativePlayerToggle = createElement("button", `hub-settings-toggle${hideBandcampPlayer ? " is-active" : ""}`);
-      nativePlayerToggle.type = "button";
-      nativePlayerToggle.setAttribute("role", "switch");
-      nativePlayerToggle.setAttribute("aria-label", "Hide Bandcamp music player");
-      nativePlayerToggle.setAttribute("aria-checked", String(hideBandcampPlayer));
-      nativePlayerToggle.append(createElement("span", "hub-settings-toggle-thumb"));
+      const nativePlayerToggle = createSettingsToggle({ checked: hideBandcampPlayer, ariaLabel: "Hide Bandcamp music player" });
       nativePlayerToggle.addEventListener("click", () => {
         runtimeState.appearance.hideBandcampPlayer = !runtimeState.appearance.hideBandcampPlayer;
         r.$applyNativePlayerVisibility();
@@ -838,90 +694,65 @@ r.$appendAppearanceToggles = function appendAppearanceToggles(appearance) {
 
 function registerAppearanceSettingsFinish(r) {
 r.$finishAppearanceSettings = function finishAppearanceSettings(appearance) {
-      if (!runtimeState.appearance.pageAware) {
-        const accessibleTheme = r.$accessibleAppearanceTheme();
-        const accessibility = createElement("div", `hub-theme-accessibility${accessibleTheme.adjusted ? " is-adjusted" : ""}`);
-        accessibility.append(
-          createElement("strong", "", accessibleTheme.adjusted ? "Contrast adjusted automatically" : "Accessible contrast"),
-          createElement("span", "", `Text ${accessibleTheme.textContrast.toFixed(1)}:1 · controls ${accessibleTheme.accentContrast.toFixed(1)}:1`)
-        );
-        appearance.append(accessibility);
-      }
-      r.$content.append(appearance);
+      r.$content.append(prepareSettingsDetail(appearance));
     };
 }
 
 function registerSettingsInfoCards(r) {
-r.$renderSettingsInfoCards = function renderSettingsInfoCards() {
-      const feedback = createElement("section", "hub-card hub-settings-card");
-      feedback.append(createElement("h2", "hub-settings-heading", "Feedback"));
-      const feedbackCopy = createElement("div", "hub-settings-copy");
-      feedbackCopy.append(
-        createElement("strong", "", "Help improve Bandkit"),
-        createElement("span", "", "Report a bug or suggest a feature. Submissions and attachments are public.")
-      );
-      const feedbackActions = createElement("div", "hub-settings-feedback-actions");
-      const sendFeedback = createElement("a", "hub-settings-action", "Send feedback");
-      sendFeedback.href = FEEDBACK_FORM_URL;
-      sendFeedback.target = "_blank";
-      sendFeedback.rel = "noopener noreferrer";
-      const viewFeedback = createElement("a", "hub-settings-action", "View feedback");
-      viewFeedback.href = FEEDBACK_LIST_URL;
-      viewFeedback.target = "_blank";
-      viewFeedback.rel = "noopener noreferrer";
-      feedbackActions.append(sendFeedback, viewFeedback);
-      feedback.append(feedbackCopy, feedbackActions);
-      r.$content.append(feedback);
+r.$renderOnboardingSettings = function renderOnboardingSettings() {
+      r.$content.append(prepareSettingsDetail(r.$renderOnboardingSettingsCard()));
+    };
 
+r.$renderPrivacySettings = function renderPrivacySettings() {
       const privacy = createElement("section", "hub-card hub-settings-card");
       privacy.append(createElement("h2", "hub-settings-heading", "Privacy and data"));
-      const backupRow = createElement("div", "hub-settings-row hub-backup-row");
-      const backupCopy = createElement("div", "hub-settings-copy");
+      const backupBlock = createElement("section", "hub-backup-block");
       const lastBackupDate = runtimeState.lastBackupAt ? new Date(runtimeState.lastBackupAt) : null;
       const validLastBackupDate = lastBackupDate && !Number.isNaN(lastBackupDate.getTime());
       const backupStatus = validLastBackupDate
-        ? `Saved in Chrome · last file backup ${lastBackupDate.toLocaleString()}`
-        : "Saved in Chrome · no file backup yet";
-      backupCopy.append(
-        createElement("strong", "", "Backup"),
-        createElement("span", "hub-backup-location", backupStatus)
-      );
-      const backupActions = createElement("div", "hub-settings-feedback-actions hub-backup-actions");
-      const saveBackup = createElement("button", "hub-settings-action hub-backup-action", "Save");
+        ? lastBackupDate.toLocaleString()
+        : "Not yet saved";
+      const lastBackupRow = createSettingsRow({ className: "hub-settings-dependent-row" });
+      const lastBackupCopy = createSettingsRowCopy("Last backup", "See when the latest portable backup was saved.");
+      lastBackupRow.append(lastBackupCopy, createElement("span", "hub-settings-row-value hub-backup-location", backupStatus));
+      const backupActions = createSettingsActions("hub-backup-actions");
+      const saveBackup = createSettingsAction("Save", { tag: "button", className: "hub-backup-action" });
       saveBackup.setAttribute("aria-label", "Save backup");
       saveBackup.type = "button";
       saveBackup.addEventListener("click", () => r.$runBackupAction(saveBackup, r.$savePortableBackup));
-      const restoreBackup = createElement("button", "hub-settings-action hub-backup-action", "Restore");
+      const restoreBackup = createSettingsAction("Restore", { tag: "button", className: "hub-backup-action" });
       restoreBackup.setAttribute("aria-label", "Restore backup");
       restoreBackup.type = "button";
       restoreBackup.addEventListener("click", () => r.$runBackupAction(restoreBackup, r.$restorePortableBackup));
-      backupActions.append(saveBackup, restoreBackup);
-      backupRow.append(backupCopy, backupActions);
-
-      const reminderRow = createElement("div", "hub-settings-row hub-backup-frequency-row");
-      const reminderCopy = createElement("div", "hub-settings-copy");
-      reminderCopy.append(
-        createElement("strong", "", "Backup reminder"),
-        createElement("span", "", "Choose how often Bandkit reminds you to save a fresh file.")
-      );
-      const reminderFrequency = createElement("select", "hub-settings-select hub-backup-frequency");
-      for (const [value, label] of [["7", "Every week"], ["14", "Every 2 weeks"], ["30", "Every month"], ["0", "Off"]]) {
-        const option = document.createElement("option");
-        option.value = value;
-        option.textContent = label;
-        option.selected = r.$backupReminderDays() === Number(value);
-        reminderFrequency.append(option);
-      }
-      reminderFrequency.addEventListener("change", () => {
-        runtimeState.backupReminderDays = Number(reminderFrequency.value);
-        if (runtimeState.backupIntroSeen !== true) runtimeState.backupIntroSeen = true;
-        runtimeState.backupReminderSnoozedAt = new Date().toISOString();
-        r.$saveState();
-        r.$render();
-        r.$showToast(Number(reminderFrequency.value) ? `Backup reminders set to ${reminderFrequency.selectedOptions[0].textContent.toLowerCase()}` : "Backup reminders turned off");
+      const backupRow = createSettingsActionRow({
+        label: "Backup", description: "Save or restore a portable copy of your Bandkit data.",
+        actions: backupActions, className: "hub-backup-row"
       });
-      reminderRow.append(reminderCopy, reminderFrequency);
-      const deleteData = createElement("button", "hub-settings-action hub-settings-danger", "Delete all Bandkit data");
+
+      const reminderRow = createSettingsRow({ className: "hub-backup-frequency-row hub-settings-dependent-row" });
+      const reminderCopy = createSettingsRowCopy("Backup reminder", "Choose how often Bandkit reminds you to save a fresh file.");
+      const reminderFrequency = createSettingsPicker({
+        ariaLabel: "Backup reminder frequency",
+        className: "hub-backup-frequency",
+        options: [
+          { value: "7", label: "Every week" },
+          { value: "14", label: "Every 2 weeks" },
+          { value: "30", label: "Every month" },
+          { value: "0", label: "Off" }
+        ],
+        value: String(r.$backupReminderDays()),
+        onChange: (nextFrequency, label) => {
+          runtimeState.backupReminderDays = Number(nextFrequency);
+          if (runtimeState.backupIntroSeen !== true) runtimeState.backupIntroSeen = true;
+          runtimeState.backupReminderSnoozedAt = new Date().toISOString();
+          r.$saveState();
+          r.$render();
+          r.$showToast(Number(nextFrequency) ? `Backup reminders set to ${label.toLowerCase()}` : "Backup reminders turned off");
+        }
+      });
+      reminderRow.append(reminderCopy, reminderFrequency.element);
+      const deleteData = createSettingsAction("Delete", { tag: "button", className: "hub-settings-danger" });
+      deleteData.setAttribute("aria-label", "Delete all Bandkit data");
       deleteData.type = "button";
       deleteData.addEventListener("click", async () => {
         if (!window.confirm("Delete all Bandkit settings, playlists, cart backups, activity and playback data from this browser? Any backup file you previously saved will remain. This cannot be undone.")) return;
@@ -939,60 +770,61 @@ r.$renderSettingsInfoCards = function renderSettingsInfoCards() {
         r.$showToast("All Bandkit data deleted");
         window.setTimeout(() => location.reload(), 500);
       });
-      privacy.append(
-        backupRow,
-        reminderRow,
-        deleteData
-      );
-      r.$content.append(privacy);
+      backupActions.append(saveBackup, restoreBackup);
+      const dataRow = createSettingsActionRow({ tag: "div", label: "Data", description: "Permanently remove Bandkit settings, playlists, activity and playback data from this browser.", actions: deleteData });
+      backupBlock.append(backupRow, lastBackupRow, dataRow, reminderRow);
+      privacy.append(backupBlock);
+      r.$content.append(prepareSettingsDetail(privacy));
+    };
 
-      const about = createElement("section", "hub-card hub-settings-card");
-      about.append(createElement("h2", "hub-settings-heading", "About"));
-      const aboutRow = createElement("div", "hub-settings-row hub-about-brand");
+r.$renderAboutSettings = function renderAboutSettings() {
+      const info = createElement("section", "hub-card hub-settings-card");
+      info.append(createElement("h2", "hub-settings-heading", "About & support"));
+      const about = createElement("section", "hub-settings-info-rows");
+      const aboutRow = createSettingsRow({ className: "hub-about-brand" });
       const aboutIcon = document.createElement("img");
-      aboutIcon.className = "hub-about-brand-icon";
-      aboutIcon.src = asset("icon-bandkit.svg");
-      aboutIcon.alt = "";
-      const aboutCopy = createElement("div", "hub-settings-copy");
-      aboutCopy.append(
-        createElement("strong", "", "Bandkit"),
-        createElement("span", "hub-settings-version", `Release v${chrome.runtime.getManifest().version}`)
-      );
-      aboutRow.append(aboutIcon, aboutCopy);
-      about.append(createElement("p", "hub-settings-note", "Shortcut: Alt+Shift+B toggles the panel."), aboutRow);
-      r.$content.append(about);
+      aboutIcon.className = "hub-about-brand-logo";
+      aboutIcon.src = asset("logo-type-3.svg");
+      aboutIcon.alt = "Bandkit";
+      const aboutCopy = createSettingsRowCopy("Bandkit", "Your Bandcamp companion extension.");
+      aboutRow.append(aboutCopy, aboutIcon);
+      const releaseRow = createSettingsRow();
+      const releaseCopy = createSettingsRowCopy("Release", "See the installed Bandkit version.");
+      releaseRow.append(releaseCopy, createElement("span", "hub-settings-row-value", `v${chrome.runtime.getManifest().version}`));
+      about.append(aboutRow, releaseRow);
 
-      const support = createElement("section", "hub-card hub-settings-card hub-support-card");
-      support.append(createElement("h2", "hub-settings-heading", "Support"));
-      const supportCopy = createElement("div", "hub-settings-copy hub-support-copy");
-      supportCopy.append(
-        createElement("strong", "", "Enjoying Bandkit?"),
-        createElement("span", "", "Support continued development with a one-off tip. Payment is handled securely by Stripe.")
-      );
-      const supportLink = createElement("a", "hub-settings-action hub-support-action", "Support Bandkit");
+      const feedbackActions = createSettingsActions();
+      const sendFeedback = createSettingsAction("Send Feedback", { tag: "a" });
+      sendFeedback.href = FEEDBACK_FORM_URL;
+      sendFeedback.target = "_blank";
+      sendFeedback.rel = "noopener noreferrer";
+      sendFeedback.dataset.settingsTooltip = "Report a bug or suggest a feature. Submissions and attachments are public.";
+      const viewFeedback = createSettingsAction("View Feedback", { tag: "a" });
+      viewFeedback.href = FEEDBACK_LIST_URL;
+      viewFeedback.target = "_blank";
+      viewFeedback.rel = "noopener noreferrer";
+      feedbackActions.append(sendFeedback, viewFeedback);
+      const feedback = createSettingsActionRow({ tag: "section", label: "Feedback", description: "Send a suggestion or review existing feedback.", actions: feedbackActions });
+
+      const supportLink = createSettingsAction("Support Bandkit", { tag: "a", className: "hub-support-action" });
       supportLink.href = SUPPORT_PAYMENT_URL;
       supportLink.target = "_blank";
       supportLink.rel = "noopener noreferrer";
-      support.append(supportCopy, supportLink);
-      r.$content.append(support);
+      supportLink.dataset.settingsTooltip = "Support continued development with a one-off tip, handled securely by Stripe.";
+      const support = createSettingsActionRow({ tag: "section", label: "Support", description: "Support continued Bandkit development with a one-off tip.", actions: supportLink });
+
+      const contactLink = createSettingsAction(SUPPORT_CONTACT_EMAIL, { tag: "a", className: "hub-contact-action" });
+      contactLink.href = `mailto:${SUPPORT_CONTACT_EMAIL}`;
+      contactLink.dataset.settingsTooltip = `Open your email app to message ${SUPPORT_CONTACT_EMAIL}.`;
+      const contact = createSettingsActionRow({ tag: "section", label: "Contact", description: "Email the developer about a problem or question.", actions: contactLink });
+      info.append(about, feedback, support, contact);
+      r.$content.append(prepareSettingsDetail(info));
     };
 }
 
-function registerActivitySettings2(r) {
-r.$renderSettings = function renderSettings() {
-      r.$content.append(createSectionHeading("Settings"));
-      r.$renderPlaybackSettings();
-      r.$renderBrowsingSettings();
-      const { appearance, appearanceMode } = r.$createAppearanceSettings();
-      r.$appendAppearanceThemePicker(appearance, appearanceMode);
-      r.$appendSavedThemeSettings(appearance, appearanceMode);
-      r.$appendCustomThemeSettings(appearance, appearanceMode);
-      r.$appendAppearanceToggles(appearance);
-      r.$finishAppearanceSettings(appearance);
-      r.$renderSettingsInfoCards();
-    };
-}
-
-export const registerActivitySettings = [registerPlaybackSettings, registerBrowsingSettings, registerAppearanceSettingsShell, registerAppearanceThemePicker, registerSavedThemeSettings, registerCustomThemePreview, registerCustomThemeSettings, registerAppearanceToggles, registerAppearanceSettingsFinish, registerSettingsInfoCards, registerActivitySettings1, registerActivitySettings2];
-
-export const setupActivitySettings = [];
+export const registerActivitySettings = [
+  registerPlaybackSettings, registerBrowsingSettings, registerAppearanceSettingsShell,
+  registerAppearanceThemePicker, registerSavedThemeSettings, registerCustomThemePreview,
+  registerCustomThemeSettings, registerAppearanceToggles, registerAppearanceSettingsFinish,
+  registerSettingsInfoCards, registerActivityView, registerSettingsOverview
+];

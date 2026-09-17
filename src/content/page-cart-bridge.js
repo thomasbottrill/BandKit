@@ -35,18 +35,55 @@ export function installCartBridge() {
       if (field === "releases") data.releases = releaseData(value);
       else if (["string", "number", "boolean"].includes(typeof value) || value === null) data[field] = value;
     }
+    const nativeRow = [item?.local_id, item?.id]
+      .filter((value) => value !== undefined && value !== null && value !== "")
+      .map((value) => document.getElementById(`sidecart_item_${value}`))
+      .find(Boolean);
+    data.unavailable = Boolean(
+      item?.unavailable
+      || item?.is_unavailable
+      || /no longer available/i.test(nativeRow?.textContent || "")
+    );
     return data;
+  }
+
+  function checkoutCurrency() {
+    const savedCard = window.Sidecart?.saved_card || {};
+    const savedCurrency = [savedCard.currency, savedCard.billing_currency, savedCard.default_currency]
+      .find((value) => /^[A-Z]{3}$/.test(value || ""));
+    if (savedCurrency) return savedCurrency;
+    const savedCountry = savedCard.country_code || savedCard.country || savedCard.billing_country;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    const country = String(savedCountry || (timezone.startsWith("Australia/") ? "AU" : window.ClientPrefs?.country) || "").toUpperCase();
+    if (country === "AU") return "AUD";
+    if (country === "CA") return "CAD";
+    if (country === "GB") return "GBP";
+    if (country === "JP") return "JPY";
+    if (new Set(["AT", "BE", "CY", "DE", "EE", "ES", "FI", "FR", "GR", "HR", "IE", "IT", "LT", "LU", "LV", "MT", "NL", "PT", "SI", "SK"]).has(country)) return "EUR";
+    return typeof window.ClientPrefs?.currency === "string" ? window.ClientPrefs.currency : null;
   }
 
   function emitCart(force = false) {
     if (!window.Sidecart || !Array.isArray(window.Sidecart.cart_items)) return;
-    const nativeItemList = document.querySelector?.("#sidecart #item_list");
-    const renderedItemCount = nativeItemList?.querySelectorAll?.(":scope > .item").length;
-    const nativeItems = nativeItemList && renderedItemCount === 0 ? [] : window.Sidecart.cart_items;
-    const items = nativeItems.map(cartItemData);
+    const items = window.Sidecart.cart_items.map(cartItemData);
+    const subtotal = items.length === 0 ? 0 : Number(window.Sidecart.subtotal);
+    const additionalContribution = window.Sidecart.has_additional_contribution ? Number(window.Sidecart.additional_contribution_total) : 0;
+    const shipping = window.Sidecart.has_shipping ? Number(window.Sidecart.shipping) : 0;
+    const tax = window.Sidecart.has_tax ? Number(window.Sidecart.tax) : 0;
+    const totalParts = [subtotal, additionalContribution, shipping, tax];
+    const sourceCurrency = typeof window.ClientPrefs?.currency === "string" ? window.ClientPrefs.currency : null;
+    const currency = checkoutCurrency();
+    const sourceRate = Number(window.CurrencyData?.rates?.[sourceCurrency]);
+    const checkoutRate = Number(window.CurrencyData?.rates?.[currency]);
+    const rawTotal = totalParts.every(Number.isFinite) ? totalParts.reduce((sum, value) => sum + value, 0) : null;
+    const convertedTotal = Number.isFinite(rawTotal) && Number.isFinite(sourceRate) && Number.isFinite(checkoutRate) && checkoutRate > 0
+      ? rawTotal * sourceRate / checkoutRate : rawTotal;
+    const places = Math.max(0, Math.min(4, Number(window.CurrencyData?.info?.[currency]?.places) || 2));
+    const total = Number.isFinite(convertedTotal) ? Math.round(convertedTotal * (10 ** places)) / (10 ** places) : null;
     const summary = {
-      subtotal: items.length === 0 ? 0 : Number.isFinite(Number(window.Sidecart.subtotal)) ? Number(window.Sidecart.subtotal) : null,
-      currency: typeof window.ClientPrefs?.currency === "string" ? window.ClientPrefs.currency : null
+      subtotal: Number.isFinite(subtotal) ? subtotal : null,
+      total,
+      currency
     };
     const signature = JSON.stringify({ items, summary });
     if (!force && signature === lastCartSignature) return;
@@ -113,6 +150,13 @@ export function installCartBridge() {
       for (const entry of Array.isArray(request.items) ? request.items.slice(0, 100) : []) {
         const item = entry?.restore;
         const key = item && cartItemKey(item);
+        if (entry?.unavailable || entry?.restoreError) {
+          result.failed.push({
+            title: entry?.title || item?.item_title || "Bandcamp item",
+            reason: entry?.restoreError || "no longer available"
+          });
+          continue;
+        }
         if (!item || !["a", "t", "b", "p"].includes(item.item_type) || !Number.isFinite(Number(item.item_id))) {
           result.failed.push({ title: entry?.title || "Bandcamp item", reason: "missing exact product metadata" });
           continue;

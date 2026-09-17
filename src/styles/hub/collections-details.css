@@ -1,9 +1,3 @@
-.hub-playlist-analysis-chip.is-key {
-  background: color-mix(in srgb, var(--hub-accent) 10%, transparent);
-  border-color: color-mix(in srgb, var(--hub-accent) 30%, transparent);
-  color: var(--hub-accent);
-}
-
 .hub-playlist-track-actions {
   align-items: center;
   display: flex;
@@ -60,9 +54,26 @@
 
 .hub-playlist-icon-button:hover:not(:disabled),
 .hub-playlist-icon-button:focus-visible {
-  border-color: var(--hub-accent);
+  background: transparent;
+  border-color: transparent;
   color: var(--hub-accent);
   outline: 0;
+}
+
+.hub-cart-remove-button {
+  border-color: transparent;
+  opacity: 0;
+  pointer-events: none;
+  transition: border-color 120ms ease, color 120ms ease, opacity 120ms ease;
+}
+
+.hub-panel-card:is(:hover, :focus-within) .hub-cart-remove-button {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.hub-cart-remove-button:is(:hover, :focus-visible):not(:disabled) {
+  border-color: transparent;
 }
 
 .hub-playlist-track-more {
@@ -73,6 +84,11 @@
   min-width: 190px;
   right: 0;
   top: calc(100% + 4px);
+}
+
+.hub-playlist-track.has-open-menu {
+  overflow: visible;
+  z-index: 10;
 }
 
 .hub-playlist-icon-button.is-play-action {
@@ -103,7 +119,7 @@
 }
 
 .hub-saved-playlist-card .hub-saved-cart-actions {
-  background: var(--hub-card);
+  background: transparent;
   border-top: 0;
   flex-wrap: wrap;
   gap: var(--hub-control-gap);
@@ -117,8 +133,9 @@
 
 .hub-saved-playlist-card .hub-saved-playlist-icon-button:hover:not(:disabled),
 .hub-saved-playlist-card .hub-saved-playlist-icon-button:focus-visible {
-  background: var(--hub-accent-soft);
-  border-color: var(--hub-accent);
+  background: transparent;
+  border-color: transparent;
+  color: var(--hub-accent);
 }
 
 .hub-saved-playlist-play-button {
@@ -157,7 +174,7 @@
   align-items: center;
   background: transparent;
   border: 0;
-  color: inherit;
+  color: var(--hub-ink);
   cursor: pointer;
   font: inherit;
   display: grid;
@@ -167,16 +184,44 @@
   width: 100%;
 }
 
+.hub-compact-media-card .hub-saved-playlist-open {
+  gap: 10px;
+  grid-template-columns: 64px minmax(0, 1fr);
+  height: 64px;
+  padding: 0 10px 0 0;
+  position: relative;
+}
+
 .hub-saved-playlist-open:hover,
 .hub-saved-playlist-open:focus-visible {
-  background: var(--hub-accent-soft);
+  background: transparent;
   outline: 0;
 }
 
 .hub-saved-playlist-card-copy {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
+}
+
+.hub-saved-collection-title {
+  transition: color 150ms ease;
+}
+
+:is(.hub-saved-cart-stack, .hub-saved-playlist-stack):is(:hover, :focus-within) > .hub-saved-playlist-card {
+  opacity: 0.42;
+}
+
+:is(.hub-saved-cart-stack, .hub-saved-playlist-stack) > .hub-saved-playlist-card:is(:hover, :focus-within) {
+  opacity: 1;
+}
+
+.hub-saved-playlist-card:is(:hover, :focus-within) .hub-saved-collection-title {
+  color: var(--hub-accent);
+}
+
+:is(.hub-saved-cart-stack, .hub-saved-playlist-stack) > .hub-saved-playlist-card {
+  transition: opacity 150ms ease;
 }
 
 .hub-playlist-mosaic {
@@ -189,6 +234,82 @@
   height: 58px;
   overflow: hidden;
   width: 58px;
+}
+
+.hub-compact-media-card .hub-playlist-mosaic {
+  border: 0;
+  border-radius: var(--hub-control-radius);
+  height: 64px;
+  width: 64px;
+}
+
+.hub-compact-media-card .hub-playlist-mosaic-image {
+  border-radius: 0 !important;
+}
+
+.hub-saved-playlist-art-action {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--hub-control-radius);
+  color: var(--hub-control-fg);
+  display: flex;
+  height: 64px;
+  justify-content: center;
+  left: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  transform: scale(0.92);
+  transform-origin: center;
+  transition: opacity 150ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  width: 64px;
+}
+
+.hub-saved-playlist-art-action .hub-button-icon {
+  color: var(--hub-accent);
+  height: 24px;
+  mix-blend-mode: normal;
+  width: 24px;
+}
+
+.hub-saved-playlist-art-action {
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.hub-saved-playlist-art-action:is(:hover, :focus-visible) {
+  opacity: 1;
+  outline: 0;
+  transform: scale(1);
+}
+
+.hub-saved-playlist-card:has(.hub-saved-playlist-art-action:is(:hover, :focus-visible)) .hub-playlist-mosaic {
+  opacity: 0;
+  transform: scale(0.88);
+}
+
+.hub-saved-playlist-art-action:disabled {
+  cursor: default;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hub-saved-playlist-card .hub-playlist-mosaic {
+  transform: scale(1);
+  transform-origin: center;
+  transition: opacity 150ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-saved-playlist-art-action,
+  .hub-saved-playlist-card .hub-playlist-mosaic,
+  .hub-saved-collection-title,
+  :is(.hub-saved-cart-stack, .hub-saved-playlist-stack) > .hub-saved-playlist-card {
+    transition: none;
+  }
 }
 
 .hub-playlist-mosaic.has-1 {
@@ -234,22 +355,27 @@
 
 .hub-saved-playlist-icon-button {
   align-items: center;
-  background: var(--hub-card);
-  border: 1px solid var(--hub-line);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: var(--hub-control-radius);
-  color: var(--hub-accent);
+  color: var(--hub-muted);
   cursor: pointer;
   display: inline-flex;
   height: var(--hub-control-size);
   justify-content: center;
   padding: 0;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, opacity 140ms ease;
   width: var(--hub-control-size);
 }
 
 .hub-saved-playlist-icon-button:hover,
-.hub-saved-playlist-icon-button:focus-visible {
-  background: var(--hub-accent-soft);
-  border-color: var(--hub-accent);
+.hub-saved-playlist-icon-button:focus-visible,
+.hub-saved-playlist-icon-button[aria-expanded="true"],
+.hub-saved-playlist-icon-button[aria-pressed="true"],
+.hub-saved-playlist-icon-button.is-active {
+  background: transparent;
+  border-color: transparent;
+  color: var(--hub-accent);
   outline: 0;
 }
 
@@ -262,8 +388,9 @@
 .hub-saved-playlist-action-row .hub-saved-playlist-icon-button:focus-visible,
 .hub-saved-playlist-action-row .hub-saved-playlist-icon-button[aria-expanded="true"],
 .hub-saved-playlist-action-row .hub-saved-playlist-icon-button.is-active {
-  background: var(--hub-accent-soft);
-  border-color: var(--hub-accent);
+  background: transparent;
+  border-color: transparent;
+  color: var(--hub-accent);
 }
 
 .hub-saved-playlist-icon-button .hub-button-icon {
@@ -271,31 +398,11 @@
   width: var(--hub-control-icon-size);
 }
 
-.hub-saved-playlist-back {
+.hub-panel-back-context {
   align-items: center;
-  background: var(--hub-card);
-  border: 1px solid var(--hub-line);
-  border-radius: var(--hub-control-radius);
-  color: var(--hub-accent);
-  cursor: pointer;
-  display: inline-flex;
-  height: var(--hub-control-size);
-  justify-content: center;
-  padding: 0;
-  width: var(--hub-control-size);
-}
-
-.hub-saved-playlist-back .hub-button-icon {
-  height: var(--hub-control-icon-size);
-  width: var(--hub-control-icon-size);
-}
-
-.hub-saved-playlist-back:hover,
-.hub-saved-playlist-back:focus-visible {
-  background: var(--hub-accent-soft);
-  border-color: var(--hub-accent);
-  color: var(--hub-accent);
-  outline: 0;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
 }
 
 .hub-saved-playlist-detail-toolbar {
@@ -327,9 +434,10 @@
   gap: 8px;
 }
 
-.hub-saved-playlist-track {
+.hub-saved-playlist-track.hub-compact-media-card {
   gap: 10px;
-  grid-template-columns: 28px 40px minmax(0, 1fr) auto;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  padding: 0 8px 0 0;
 }
 
 .hub-toolbar {
@@ -399,6 +507,13 @@
   white-space: nowrap;
 }
 
+.hub-panel-count-summary {
+  color: var(--hub-muted);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
 .hub-text-button {
   align-items: center;
   background: transparent;
@@ -418,315 +533,4 @@
 
 .hub-text-button.is-danger {
   color: #ef4444;
-}
-
-@media (hover: none) {
-  .hub-playlist-track .hub-playlist-media-art {
-    display: none;
-  }
-
-  .hub-playlist-track .hub-playlist-media-icon {
-    display: flex;
-  }
-
-  .hub-playlist-track .hub-playlist-track-actions,
-  .hub-queue-list .hub-queue-item .hub-queue-actions,
-  .hub-saved-playlist-track .hub-queue-actions {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .hub-playlist-track .hub-playlist-track-actions > :not(.is-play-action) {
-    opacity: 1;
-    pointer-events: auto;
-  }
-}
-
-.hub-text-button img {
-  height: 12px;
-  width: 12px;
-}
-
-.hub-button-icon {
-  background: currentColor;
-  display: inline-block;
-  height: var(--hub-control-icon-size);
-  mask: var(--hub-icon) center / contain no-repeat;
-  -webkit-mask: var(--hub-icon) center / contain no-repeat;
-  width: var(--hub-control-icon-size);
-}
-
-.hub-stack {
-  display: grid;
-  gap: 12px;
-}
-
-.hub-download-card {
-  overflow: hidden;
-}
-
-.hub-download-main,
-.hub-product-main {
-  align-items: start;
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 48px minmax(0, 1fr);
-  padding: 12px;
-  position: relative;
-}
-
-.hub-download-details,
-.hub-product-details {
-  min-width: 0;
-}
-
-.hub-row-title {
-  align-items: baseline;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-}
-
-.hub-row-title strong {
-  font-size: 14px;
-  line-height: 20px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.hub-row-title .hub-price {
-  flex: none;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.hub-tags {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.hub-tag {
-  background: var(--hub-line);
-  border-radius: 4px;
-  color: #4b5563;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 6px;
-}
-
-.hub-card-footer {
-  align-items: center;
-  background: var(--hub-card-footer);
-  border-top: 1px solid color-mix(in srgb, var(--hub-line) 30%, transparent);
-  display: flex;
-  justify-content: space-between;
-  min-height: 29px;
-  padding: 5px 10px;
-}
-
-.hub-card-footer img {
-  height: 12px;
-  width: 12px;
-}
-
-.hub-primary-button {
-  background: var(--hub-accent);
-  border: 0;
-  border-radius: 4px;
-  color: var(--hub-on-accent);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 700;
-  min-height: 36px;
-  padding: 8px 14px;
-  width: 100%;
-}
-
-.hub-primary-button:hover {
-  filter: brightness(0.9);
-}
-
-.hub-primary-button:disabled {
-  cursor: not-allowed;
-  filter: grayscale(0.25);
-  opacity: 0.65;
-}
-
-.hub-saved-cart-card {
-  overflow: hidden;
-}
-
-.hub-saved-cart-body {
-  display: grid;
-  gap: 4px;
-  padding: 12px;
-}
-
-.hub-saved-cart-total {
-  color: var(--hub-ink);
-  flex: 0 0 auto;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.hub-saved-cart-date {
-  color: var(--hub-muted);
-  font-size: 11px;
-  line-height: 16px;
-}
-
-.hub-saved-cart-summary {
-  color: var(--hub-faint);
-  display: -webkit-box;
-  font-size: 10px;
-  line-height: 15px;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.hub-saved-cart-actions {
-  gap: 12px;
-}
-
-.hub-saved-cart-detail-toolbar {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-  margin: -2px 0 14px;
-}
-
-.hub-saved-cart-detail-heading {
-  align-items: center;
-  background: var(--hub-card-footer);
-  border: 1px solid var(--hub-line);
-  border-radius: 4px;
-  display: grid;
-  gap: 14px;
-  grid-template-columns: minmax(0, 1fr) minmax(110px, 0.35fr);
-  margin-bottom: 12px;
-  padding: 12px;
-}
-
-.hub-saved-cart-detail-copy {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.hub-saved-cart-detail-copy h2 {
-  color: var(--hub-ink);
-  font-size: 15px;
-  line-height: 20px;
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.hub-saved-cart-detail-copy span {
-  color: var(--hub-muted);
-  font-size: 10px;
-  line-height: 15px;
-}
-
-@media (max-width: 430px) {
-  .hub-cart-view-header {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .hub-cart-view-header.hub-panel-content-header {
-    grid-template-columns: minmax(0, 1fr) 32px;
-  }
-
-  .hub-cart-view-meta {
-    display: none;
-  }
-
-  .hub-saved-cart-detail-heading {
-    grid-template-columns: 1fr;
-  }
-}
-
-.hub-purchase-card {
-  overflow: hidden;
-}
-
-.hub-purchase-card .hub-product-main {
-  min-height: 79px;
-}
-
-.hub-meta {
-  color: var(--hub-faint);
-  font-size: 10px;
-  line-height: 15px;
-  margin-top: 3px;
-}
-
-.hub-activity-list {
-  display: grid;
-  gap: 10px;
-}
-
-.hub-activity-item {
-  align-items: start;
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 40px minmax(0, 1fr);
-  min-height: 59px;
-  padding: 8px;
-}
-
-.hub-activity-copy {
-  color: var(--hub-ink);
-  font-size: 14px;
-  line-height: 20px;
-}
-
-.hub-activity-copy .hub-inline-link,
-.hub-activity-copy .hub-inline-link:hover {
-  color: var(--hub-ink);
-  text-decoration-color: currentColor;
-}
-
-.hub-activity-copy strong {
-  font-weight: 700;
-}
-
-.hub-activity-meta {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
-  flex-wrap: wrap;
-}
-
-.hub-event-chip {
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 3px 6px;
-}
-
-.hub-event-chip.listened {
-  background: #dbeafe;
-  color: #2563eb;
-}
-
-.hub-event-chip.collected {
-  background: #dcfce7;
-  color: #16a34a;
-}
-
-.hub-event-chip.wishlisted {
-  background: #fce7f3;
-  color: #db2777;
-}
-
-.hub-event-chip.liked {
-  background: #fee2e2;
-  color: #dc2626;
 }

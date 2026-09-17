@@ -1,4 +1,11 @@
 import assert from "node:assert/strict";
+import { TestAnalysisWorker } from "./support/analysis-worker.mjs";
+
+globalThis.Worker = class extends TestAnalysisWorker {
+  constructor() { super(); }
+};
+
+let bufferedEnd = 120;
 
 class FakeAudio extends EventTarget {
   constructor() {
@@ -14,6 +21,7 @@ class FakeAudio extends EventTarget {
     this.volume = 1;
     this.src = "";
     this.error = null;
+    this.buffered = { length: 1, start: () => 0, end: () => bufferedEnd };
   }
 
   async play() {
@@ -100,6 +108,7 @@ globalThis.AudioContext = class {
 Object.defineProperty(globalThis, "navigator", { value: {}, configurable: true });
 globalThis.chrome = {
   runtime: {
+    getURL: (path) => path,
     onMessage: { addListener(listener) { messageListener = listener; } },
     sendMessage(message) {
       if (message.type === "BANDCAMP_HUB_OFFSCREEN_GET_ANALYSIS_STORAGE") {
@@ -152,12 +161,16 @@ assert.equal(response.state.isPlaying, true);
 assert.equal(response.state.track.title, "One");
 assert.equal(response.state.currentTime, 12);
 assert.equal(response.state.rate, 1.055);
+assert.ok(response.state.sessionStartedAt > 0);
+const initialPlaybackRevision = response.state.revision;
 
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_GET_STATE" });
 assert.equal(response.state.enabled, true);
 assert.equal(response.state.isPlaying, true);
 assert.equal(response.state.track.title, "One");
 assert.equal(response.state.currentTime, 12);
+assert.equal(response.state.sessionStartedAt, reportedStates.at(-1).sessionStartedAt);
+assert.ok(response.state.revision > initialPlaybackRevision);
 
 reportedStates.length = 0;
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_NEXT" });
@@ -201,6 +214,15 @@ assert.equal(response.state.track.title, "Two");
 assert.equal(response.state.index, 0);
 assert.equal(response.state.isPlaying, true);
 
+response = await send({
+  type: "BANDCAMP_HUB_OFFSCREEN_UPDATE_QUEUE",
+  queue: [{ ...queue[0], playlistItemId: "stale-return" }],
+  expectedTrack: queue[0]
+});
+assert.equal(response.state.track.title, "Two",
+  "a queue update based on an older track must not pull playback back after a newer handoff wins");
+assert.deepEqual(response.state.queue.map((track) => track.title), ["Two", "One"]);
+
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_PLAY_INDEX", index: 1, autoplay: true });
 assert.equal(response.state.track.title, "One");
 assert.equal(response.state.isPlaying, true);
@@ -239,7 +261,20 @@ response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_SET_RATE", rate: 0.35, pre
 assert.equal(response.state.rate, 0.35);
 assert.equal(response.state.preservePitch, true);
 
-response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_ANALYZE_BPM" });
+// Manual reanalysis may bypass the cache, but it must still defer to active
+// playback when the media element does not have enough buffered headroom.
+fakeAudio.paused = false;
+bufferedEnd = fakeAudio.currentTime + 5;
+let forcedAnalysisSettled = false;
+const forcedAnalysis = send({ type: "BANDCAMP_HUB_OFFSCREEN_ANALYZE_BPM" }).then((result) => {
+  forcedAnalysisSettled = true;
+  return result;
+});
+await new Promise((resolve) => setTimeout(resolve, 50));
+assert.equal(forcedAnalysisSettled, false, "forced analysis must not bypass playback headroom");
+fakeAudio.paused = true;
+bufferedEnd = 120;
+response = await forcedAnalysis;
 assert.equal(response.state.bpmStatus, "ready");
 assert.ok(response.state.detectedBpm >= 115 && response.state.detectedBpm <= 125, `detected ${response.state.detectedBpm} BPM`);
 assert.equal(response.state.bpmSource, "auto");
@@ -257,6 +292,28 @@ assert.equal(Object.keys(persistedAnalysis || {}).length >= 2, true,
   "completed BPM and key analysis must persist in browser-session storage");
 assert.ok(Object.values(persistedAnalysis).every((result) => result.bpm && result.key && result.cachedAt && !result.waveform),
   "the session cache must stay compact by omitting waveform samples");
+assert.ok(Object.values(persistedAnalysis).every((result) => result.version === 9),
+  "cached results must record the analysis algorithm version so stale detections are discarded");
+const deepFetchStart = fetchRequests.length;
+response = await send({
+  type: "BANDCAMP_HUB_OFFSCREEN_ANALYZE_TRACKS",
+  tracks: [{
+    id: "deep-analysis",
+    title: "Deep analysis",
+    artist: "Fixture",
+    url: "https://t4.bcbits.com/stream/deep-analysis",
+    duration: 420
+  }],
+  force: true,
+  deep: true
+});
+const deepRangeRequests = fetchRequests.slice(deepFetchStart)
+  .filter(([url, options]) => String(url).includes("deep-analysis") && options?.headers?.Range);
+assert.equal(response.results[0].error, undefined);
+assert.ok(response.results[0].key?.alternative?.camelot,
+  "deep analysis must retain its runner-up key for uncertain-result guidance");
+assert.equal(deepRangeRequests.length, 7,
+  "deep analysis must sample seven distributed audio windows without changing normal analysis cost");
 const fetchCountBeforeCachedAnalysis = fetchRequests.length;
 fetchShouldFail = true;
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_ANALYZE_TRACKS", tracks: queue });
@@ -281,8 +338,10 @@ const rangeRequests = fetchRequests.filter(([, options]) => options?.headers?.Ra
 assert.ok(rangeRequests.length >= 2, "batch analysis must request bounded audio byte ranges");
 assert.ok(rangeRequests.every(([, options]) => options.signal instanceof AbortSignal),
   "batch analysis stream requests must remain abortable");
-assert.ok(rangeRequests.every(([, options]) => options.headers.Range === "bytes=0-524287"),
-  "batch analysis must retain the full 512 KiB analysis window");
+assert.ok(rangeRequests.every(([, options]) => /^bytes=\d+-\d+$/.test(options.headers.Range)),
+  "batch analysis must use explicit bounded byte windows");
+assert.ok(rangeRequests.some(([, options]) => options.headers.Range !== "bytes=0-524287"),
+  "key analysis must sample beyond the intro when track duration is known");
 
 let activeAnalysisFetches = 0;
 let peakAnalysisFetches = 0;
@@ -304,7 +363,7 @@ const concurrencyTracks = Array.from({ length: 10 }, (_, index) => ({
 response = await send({ type: "BANDCAMP_HUB_OFFSCREEN_ANALYZE_TRACKS", tracks: concurrencyTracks, force: true });
 fetchOverride = null;
 assert.equal(response.results.length, concurrencyTracks.length);
-assert.equal(peakAnalysisFetches, 3, "batch analysis must process three track samples concurrently without starving playback");
+assert.equal(peakAnalysisFetches, 1, "batch analysis must serialize track samples so key work cannot starve playback");
 
 let priorityAnalysisAttempts = 0;
 let resolvePriorityAnalysisStarted;
@@ -333,6 +392,7 @@ response = await send({
   autoplay: true
 });
 assert.equal(response.state.status, "playing", "playback must start while automatic page analysis is in flight");
+fakeAudio.paused = true;
 const resumedPriorityAnalysis = await priorityAnalysis;
 assert.equal(resumedPriorityAnalysis.results[0].error, undefined, "preempted automatic analysis must resume instead of failing");
 assert.equal(priorityAnalysisAttempts, 2, "automatic analysis must retry once playback has priority");

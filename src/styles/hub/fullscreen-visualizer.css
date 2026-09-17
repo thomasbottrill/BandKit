@@ -1,0 +1,173 @@
+.hub-visualizer-menu-action {
+  display: flex;
+  align-items: center;
+  gap: var(--hub-control-gap);
+  height: 34px;
+  width: 100%;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--hub-ink);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
+  text-align: left;
+  cursor: pointer;
+}
+.hub-visualizer-menu-action:hover { background: var(--hub-hover); }
+.hub-visualizer-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--hub-player-surface, var(--hub-panel, #111));
+  color: var(--hub-ink);
+  overflow: hidden;
+}
+.hub-visualizer-dialog::backdrop { background: #111; }
+.hub-visualizer-stage {
+  position: fixed;
+  inset: 0;
+  background: var(--hub-fullscreen-surface, var(--hub-panel, #111));
+  color: var(--hub-ink);
+  overflow: hidden;
+  outline: none;
+}
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .hub-visualizer-dialog.is-frosted-glass,
+  .hub-visualizer-dialog.is-frosted-glass::backdrop { background: transparent; }
+  .hub-visualizer-stage.is-frosted-glass {
+    background: color-mix(in srgb, var(--hub-fullscreen-surface, var(--hub-panel, #111)) var(--hub-glass-surface-opacity, 65%), transparent);
+    -webkit-backdrop-filter: blur(var(--hub-glass-blur, 19px)) saturate(1.16);
+    backdrop-filter: blur(var(--hub-glass-blur, 19px)) saturate(1.16);
+  }
+}
+.hub-visualizer-stage .hub-player {
+  --hub-ink: var(--hub-fullscreen-ink) !important;
+  --hub-muted: var(--hub-fullscreen-muted) !important;
+  --hub-faint: var(--hub-fullscreen-faint) !important;
+  --hub-accent: var(--hub-fullscreen-accent) !important;
+  --hub-accent-soft: var(--hub-fullscreen-accent-soft) !important;
+  --hub-line: var(--hub-fullscreen-line) !important;
+  --hub-scrub-accent: var(--hub-fullscreen-scrub-accent) !important;
+  --hub-scrub-remaining: var(--hub-fullscreen-scrub-remaining) !important;
+  --hub-scrub-surface: var(--hub-fullscreen-scrub-surface) !important;
+  --hub-scrub-halo: var(--hub-fullscreen-scrub-halo) !important;
+  color: var(--hub-fullscreen-ink) !important;
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  overflow: visible !important;
+}
+.hub-visualizer-stage .hub-player-content {
+  position: absolute !important;
+  left: 50% !important;
+  top: 43% !important;
+  width: min(1000px, 86vw) !important;
+  height: auto !important;
+  margin: 0 !important;
+  display: grid !important;
+  grid-template-columns: clamp(88px, 14vw, 180px) minmax(0, 1fr) !important;
+  gap: clamp(20px, 3vw, 48px) !important;
+  align-items: center;
+  transform: translate(-50%, -50%) !important;
+}
+.hub-visualizer-stage .hub-player-art-link {
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 1;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  border-radius: 8px;
+}
+.hub-visualizer-stage .hub-player-main { padding: 0 !important; width: 100%; }
+.hub-visualizer-stage .hub-player-top-row { display: block !important; }
+.hub-visualizer-stage .hub-player-title { font-size: clamp(22px, 2.6vw, 38px) !important; line-height: 1.2; }
+.hub-visualizer-stage .hub-player-secondary {
+  font-size: clamp(16px, 1.6vw, 24px) !important;
+  height: auto !important;
+  min-height: 1.4em;
+  line-height: 1.4 !important;
+}
+.hub-visualizer-stage .hub-player-playback-row { margin-top: 24px; }
+.hub-visualizer-stage .hub-player-tools {
+  position: absolute !important;
+  top: calc(100% + 100px) !important;
+  right: 0 !important;
+  display: flex !important;
+  gap: 16px;
+}
+.hub-visualizer-stage .hub-player-actions {
+  position: absolute !important;
+  top: 64% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  gap: 24px !important;
+  z-index: 2147483646 !important;
+}
+.hub-visualizer-stage :is(.hub-player-actions, .hub-player-tools) {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transition: opacity 240ms ease !important;
+}
+.hub-visualizer-stage :is(.hub-skip-button, .hub-play-button) { width: 64px !important; height: 64px !important; margin: 0 !important; }
+.hub-visualizer-stage .hub-skip-button { opacity: 1 !important; transform: none !important; pointer-events: auto !important; }
+.hub-visualizer-stage .hub-skip-icon { width: 24px !important; height: 24px !important; }
+.hub-visualizer-stage .hub-play-button .hub-button-icon { width: 44px !important; height: 44px !important; }
+.hub-visualizer-stage :is(.hub-player-sections, .hub-player-backdrop-glow, .hub-player-tools) { display: none !important; }
+.hub-visualizer-stage .hub-player-visualizer {
+  position: fixed !important;
+  left: 50% !important;
+  top: auto !important;
+  bottom: -8px !important;
+  width: min(1800px, 110vw) !important;
+  height: min(42vh, 420px) !important;
+  max-height: none !important;
+  transform: translateX(-50%) !important;
+}
+.hub-visualizer-exit {
+  position: absolute;
+  right: 28px;
+  top: 28px;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  background: transparent;
+  color: var(--hub-fullscreen-muted);
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  z-index: 2147483647;
+  transition: opacity 240ms ease;
+}
+.hub-visualizer-exit:is(:hover, :focus-visible) { color: var(--hub-fullscreen-accent); }
+.hub-visualizer-stage.is-idle { cursor: none; }
+.hub-visualizer-stage.is-idle :is(.hub-player-actions, .hub-player-tools, .hub-visualizer-exit) {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+@media (max-height: 520px) {
+  .hub-visualizer-stage .hub-player-content { top: 36% !important; }
+  .hub-visualizer-stage .hub-player-art-link { max-height: 112px; }
+  .hub-visualizer-stage .hub-player-tools { top: calc(100% + 60px) !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hub-visualizer-stage * { transition: none !important; }
+}

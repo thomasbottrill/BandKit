@@ -1,10 +1,15 @@
+import { createCollectionActionRow, setPageCardActionRow } from "../components/page-cards.js";
+import { createPageDjButton, createPageTrackPurchaseButton, createPageSearchPlayButton } from "../components/page-actions.js";
 import { runtimeSaveState, runtimeSeamless, runtimeState } from "./context.js";
 import { asset, portableBandcampUrl, resolvedTrackPageUrl, safeBandcampReleaseUrl, safeBandcampUrl } from "../core.js";
 import { MESSAGES } from "../../shared/contracts.js";
-import { portableCartRestore } from "../cart-model.js";
-
+import { cartActivityIdentity, mergeCartSnapshots, portableCartRestore } from "../cart-model.js";
 function registerPageActions1(r) {
 r.$maybeAnalyzePageTracks = function maybeAnalyzePageTracks() {
+      if (runtimeState.djToolsEnabled === false) {
+        r.$syncPageTrackAnalysisUi();
+        return;
+      }
       const tracks = r.$buildSeamlessQueue();
       if (!tracks.length) return;
       const signature = r.$pageAnalysisSignature(tracks);
@@ -28,10 +33,19 @@ r.$currentInlinePlaylistTrack = function currentInlinePlaylistTrack() {
     };
 r.$injectPageDjToolsLink = function injectPageDjToolsLink() {
       r.$ensurePageStyles();
-      r.$syncPageActionLabelMode();
+      if (runtimeState.djToolsEnabled === false) {
+        r.$pageDjOpen = false;
+        runtimeState.dj.pageOpen = false;
+        document.querySelectorAll(".bandcamp-hub-page-dj").forEach((button) => button.remove());
+        document.querySelectorAll(".bandcamp-hub-page-dj-host").forEach((host) => host.remove());
+        r.$pageDjHost = null;
+        r.$pageDjSurface = null;
+        r.$syncPageTrackAnalysisUi();
+        return;
+      }
       const modernActions = Boolean(runtimeState.appearance.modernReleasePages);
       const player = document.querySelector(".inline_player");
-      if (!player) return;
+      if (!player) { if (r.$discoverReleaseTracks?.length) r.$maybeAnalyzePageTracks(); return; }
       let tools = player.querySelector(":scope > .bandcamp-hub-page-tools");
       if (!tools) {
         tools = document.createElement("div");
@@ -54,11 +68,7 @@ r.$injectPageDjToolsLink = function injectPageDjToolsLink() {
       r.$updatePagePlaylistButton(playlistButton, r.$currentInlinePlaylistTrack());
       let button = tools.querySelector(".bandcamp-hub-page-dj");
       if (!button) {
-        button = document.createElement("button");
-        button.className = "bandcamp-hub-page-dj";
-        button.type = "button";
-        button.style.setProperty("--hub-dj-icon", `url('${asset("icon-bpm.svg")}')`);
-        button.setAttribute("aria-label", "Show BPM and tempo controls on this page");
+        button = createPageDjButton();
         tools.append(button);
       }
       r.$setPageActionLabel(button, "BPM");
@@ -93,6 +103,8 @@ r.$injectPageDjToolsLink = function injectPageDjToolsLink() {
       const pageDjCss = `${r.$style.textContent}\n:host{display:block}.hub-page-dj-surface{background:transparent;border:1px solid transparent;border-radius:6px;container-type:inline-size;padding:10px;width:100%}.hub-page-dj-surface:is(:hover,:focus-within){border-color:var(--hub-line)}.hub-page-dj-surface .hub-dj-card{background:transparent;border:0;box-shadow:none;margin:0;overflow:visible;padding:0}:host(.is-classic-page-dj) .hub-dj-card-page{grid-template-columns:minmax(0,1fr);row-gap:10px}:host(.is-classic-page-dj) .hub-dj-card-page .hub-dj-analysis-row{box-sizing:border-box;grid-column:1;grid-template-columns:minmax(76px,1fr) minmax(44px,max-content) minmax(48px,max-content);padding-right:28px;width:100%}:host(.is-classic-page-dj) .hub-dj-page-tempo{grid-column:1;width:100%}:host(.is-classic-page-dj) .hub-dj-page-modes{grid-column:1;grid-template-columns:repeat(2,minmax(48px,max-content));justify-self:start}:host(.is-classic-page-dj) .hub-dj-page-close{position:absolute;right:0;top:0}@container(max-width:280px){:host(.is-classic-page-dj) .hub-dj-card-page .hub-dj-analysis-row{grid-template-columns:minmax(64px,1fr) 42px 46px;gap:3px}}`;
       if (pageDjNeedsMount) {
         r.$pageDjHost = inlineHost;
+        r.$syncCornerStyle?.();
+        r.$syncScrubberStyles?.();
         r.$pageDjShadow = inlineHost.shadowRoot || inlineHost.attachShadow({ mode: "open" });
         r.$pageDjShadow.replaceChildren();
         r.$pageDjStyle = document.createElement("style");
@@ -144,7 +156,7 @@ r.$feedTrackFromAction = function feedTrackFromAction(action) {
         artist: itemData.band_name
           || r.$elementText(story, [".collection-item-artist", ".artist-name", ".band-name"]).replace(/^by\s+/i, "")
           || "Bandcamp",
-        album: itemData.item_title || r.$elementText(story, [".collection-item-title", ".release-title"]),
+        album: r.$elementText(story, [".collection-item-title", ".release-title"]) || itemData.item_title,
         art: itemData.item_art_url || story.querySelector("img")?.currentSrc || story.querySelector("img")?.src || "",
         pageUrl,
         artistUrl: safeBandcampUrl(itemData.band_url) || r.$artistUrlFromPageUrl(pageUrl),
@@ -309,8 +321,27 @@ r.$playRecommendationCard = async function playRecommendationCard(card, control)
         return false;
       }
     };
+r.$playSearchResult = async function playSearchResult(track, { revealPanel = true } = {}) {
+      if (!track) return false;
+      r.$addTracksToPlaylist([track], { quiet: true, syncQueue: false });
+      const index = runtimeState.playlist.findIndex((item) => r.$playlistTracksMatch(item, track));
+      if (index < 0) return false;
+      return r.$playPlaylistAt(index, { forceRefresh: true, revealPanel });
+    };
+r.$syncSearchPlaybackUi = function syncSearchPlaybackUi() {
+      for (const playButton of document.querySelectorAll(".searchresult .bandkit-search-play")) {
+        const track = playButton._bandkitTrack;
+        if (!track) continue;
+        const current = Boolean(runtimeSeamless.enabled && r.$matchingQueueTrack([runtimeSeamless.track], track));
+        const playing = current && Boolean(runtimeSeamless.isPlaying);
+        playButton.style.setProperty("--bandkit-search-play-icon", `url('${asset(playing ? "icon-pause.svg" : "icon-play.svg")}')`);
+        playButton.setAttribute("aria-label", current ? (playing ? `Pause ${track.title}` : `Resume ${track.title}`) : `Play ${track.title}`);
+        playButton.setAttribute("aria-pressed", String(playing));
+        playButton.title = playButton.getAttribute("aria-label");
+        r.$applyPageActionTheme(playButton);
+      }
+    };
 }
-
 function registerPageActions3(r) {
 r.$collectionTrackFromCard = function collectionTrackFromCard(card) {
       if (!card) return null;
@@ -404,11 +435,10 @@ r.$injectCollectionItemActions = function injectCollectionItemActions() {
 
         let actionRow = titleDetails.querySelector(":scope > .bandkit-collection-action-row");
         if (!actionRow) {
-          actionRow = document.createElement("div");
-          actionRow.className = "bandkit-collection-action-row";
+          actionRow = createCollectionActionRow();
           titleDetails.append(actionRow);
         }
-        actionRow.classList.toggle("bandkit-feed-action-row", modernActions);
+        setPageCardActionRow(actionRow, modernActions);
 
         let playlistButton = card.querySelector(".bandcamp-hub-page-playlist");
         if (!playlistButton) playlistButton = r.$createPagePlaylistButton();
@@ -482,8 +512,7 @@ r.$injectFeedPageActions = function injectFeedPageActions({ incremental, onFeedP
             }
           }
           const actionList = purchaseAction.closest("ul");
-          actionList?.classList.toggle("bandkit-feed-action-row", modernActions);
-          actionList?.classList.toggle("bandkit-feed-sidebar-actions", modernActions && Boolean(sidebarCard));
+          setPageCardActionRow(actionList, modernActions, Boolean(sidebarCard));
           const hearMoreAction = [...(actionList?.querySelectorAll("a, button") || [])].find((control) => /^hear more$/i.test(r.$pageActionControlText(control)));
           if (hearMoreAction) {
             hearMoreAction.classList.toggle("bandkit-feed-hear-more-action", modernActions);
@@ -507,14 +536,30 @@ r.$injectFeedPageActions = function injectFeedPageActions({ incremental, onFeedP
           const wishlistedControl = wishlistItem?.querySelector(".wishlisted-msg > span:first-child")
             || [...(wishlistItem?.querySelectorAll("a, button") || [])].find((control) => /^in wishlist$/i.test(r.$pageActionControlText(control)));
           if (wishlistControl) {
+            wishlistControl._bandkitActivityTrack = track;
+            if (wishlistControl.dataset.bandkitActivityBound !== "true") {
+              wishlistControl.dataset.bandkitActivityBound = "true";
+              wishlistControl.addEventListener("click", () => {
+                const selectedTrack = wishlistControl._bandkitActivityTrack;
+                if (selectedTrack) window.setTimeout(() => r.$markWishlistTrack(selectedTrack, true), 0);
+              });
+            }
             wishlistControl.classList.toggle("bandkit-feed-wishlist-control", modernActions);
             r.$setPageActionLabel(wishlistControl, "Wishlist");
             wishlistControl.title = `Add ${track.album || track.title} to your wishlist`;
             wishlistControl.setAttribute("aria-label", wishlistControl.title);
           }
           if (wishlistedControl) {
+            wishlistedControl._bandkitActivityTrack = track;
+            if (wishlistedControl.dataset.bandkitActivityBound !== "true") {
+              wishlistedControl.dataset.bandkitActivityBound = "true";
+              wishlistedControl.addEventListener("click", () => {
+                const selectedTrack = wishlistedControl._bandkitActivityTrack;
+                if (selectedTrack) window.setTimeout(() => r.$markWishlistTrack(selectedTrack, false), 0);
+              });
+            }
             wishlistedControl.classList.toggle("bandkit-feed-wishlist-control", modernActions);
-            r.$setPageActionLabel(wishlistedControl, "Wishlisted");
+            r.$setPageActionLabel(wishlistedControl, "In Wishlist");
             wishlistedControl.title = `${track.album || track.title} is in your wishlist`;
             wishlistedControl.setAttribute("aria-label", wishlistedControl.title);
           }
@@ -554,9 +599,11 @@ r.$injectDiscoverPageActions = function injectDiscoverPageActions({ incremental,
           if (!cardTrack) continue;
           const parent = resultCard
             ? playControl.parentElement
-            : playControl.closest(".focused-result, .discover-detail") || playControl.parentElement;
+            : playControl.closest(".focused-result, .discover-detail")?.querySelector(".release-buttons")
+              || playControl.closest(".focused-result, .discover-detail") || playControl.parentElement;
           if (!parent) continue;
           if (resultCard) playControl.dataset.bandkitDiscoverActionScanned = "true";
+          r.$applyPageActionTheme(playControl);
           r.$setPageActionLabel(playControl, /^pause/i.test(playControl.getAttribute("aria-label") || "") ? "Pause" : "Play");
           const detail = playControl.closest(".results-grid-item, .focused-result, .discover-detail") || parent;
           let button = detail.querySelector(".bandcamp-hub-page-playlist.is-discover-add-to");
@@ -570,7 +617,12 @@ r.$injectDiscoverPageActions = function injectDiscoverPageActions({ incremental,
           r.$updatePagePlaylistButton(button, cardTrack);
           button.setAttribute("aria-label", `Add ${cardTrack.title} to Now Playing or a playlist`);
           button.title = button.getAttribute("aria-label");
-          discoverButtonLayouts.push({ button, playControl });
+          const inReleaseActions = parent.matches(".release-buttons");
+          button.classList.toggle("is-discover-release-add", inReleaseActions);
+          if (inReleaseActions) {
+            button.style.removeProperty("left");
+            button.style.removeProperty("top");
+          } else discoverButtonLayouts.push({ button, playControl });
         }
         // Measure every native control before writing any positions. Interleaving
         // offset reads with per-card style writes forced a full Discover layout
@@ -597,7 +649,7 @@ function registerPageActions4(r) {
 r.$injectPlaylistButtons = function injectPlaylistButtons({ incremental = false } = {}) {
       r.$pageActionsDirty = false;
       r.$ensurePageStyles();
-      r.$syncPageActionLabelMode();
+      r.$injectHomeSalesActions();
       r.$injectCollectionItemActions();
       r.$injectRecommendationActions();
       const playerPlaylistButton = document.querySelector(".inline_player .bandcamp-hub-page-playlist.is-player-control");
@@ -631,12 +683,18 @@ r.$injectPlaylistButtons = function injectPlaylistButtons({ incremental = false 
         const fallback = r.$itemFromNode(node);
         const fallbackPageUrl = safeBandcampUrl(itemData.item_url) || fallback?.pageUrl || "";
         let fallbackIsTrack = false;
-        try { fallbackIsTrack = new URL(fallbackPageUrl).pathname.includes("/track/"); } catch {}
+        let fallbackIsSearchRelease = false;
+        try {
+          const fallbackPath = new URL(fallbackPageUrl).pathname;
+          fallbackIsTrack = fallbackPath.includes("/track/");
+          fallbackIsSearchRelease = node.matches(".searchresult")
+            && /^(?:album|track)$/i.test(r.$elementText(node, [".itemtype"]));
+        } catch {}
         const feedTrack = itemData.featured_track_title ? {
           id: String(node.dataset.trackid || itemData.featured_track_id || title),
           title,
           artist: itemData.band_name || fallback?.artist || "Bandcamp",
-          album: itemData.item_title || "",
+          album: r.$elementText(node, [".collection-item-title", ".release-title"]) || itemData.item_title || "",
           art: itemData.item_art_url || fallback?.art || "",
           pageUrl: fallbackPageUrl,
           artistUrl: safeBandcampUrl(itemData.band_url) || r.$artistUrlFromPageUrl(fallbackPageUrl),
@@ -646,11 +704,14 @@ r.$injectPlaylistButtons = function injectPlaylistButtons({ incremental = false 
         const track = available.find((item) => nodeStream && item.url === nodeStream)
           || available.find((item) => String(item.title || "").replace(/\s+/g, " ").trim().toLowerCase() === normalizedTitle)
           || feedTrack
-          || (fallbackIsTrack ? { ...fallback, id: String(node.dataset.trackid || node.dataset.trackId || title), duration: 0, url: "" } : null);
+          || (fallbackIsTrack || fallbackIsSearchRelease
+            ? { ...fallback, album: fallbackIsTrack ? "" : fallback?.title || "", id: String(node.dataset.trackid || node.dataset.trackId || title), duration: 0, url: "" }
+            : null);
         if (!track || !resolvedTrackPageUrl(track)) continue;
         if (node.matches(".discover-player") && node.closest(".focused-result, .discover-detail")?.querySelector(".bandcamp-hub-page-playlist.is-discover-add-to")) continue;
         const isClassicTrackRow = node.matches(".track_row_view");
         if (isClassicTrackRow) {
+          if (node.closest(".bandkit-discover-tracks")) continue;
           const modernActions = Boolean(runtimeState.appearance.modernReleasePages);
           const actionCell = node.querySelector(".download-col, .track-row-actions");
           if (!actionCell) continue;
@@ -673,10 +734,7 @@ r.$injectPlaylistButtons = function injectPlaylistButtons({ incremental = false 
             else actionCell.append(button);
           }
           if (!buyTrack && modernActions) {
-            buyTrack = document.createElement("button");
-            buyTrack.type = "button";
-            buyTrack.className = "bandcamp-hub-page-buy bandkit-generated-track-buy";
-            buyTrack.textContent = "Buy";
+            buyTrack = createPageTrackPurchaseButton();
             buyTrack.addEventListener("click", (event) => {
               event.preventDefault();
               event.stopPropagation();
@@ -709,6 +767,33 @@ r.$injectPlaylistButtons = function injectPlaylistButtons({ incremental = false 
         }
         if (node.matches(".collection-item-container") && document.documentElement.dataset.bandkitFeedPage === "true") continue;
         if (node.closest('#collection-items .collection-grid[data-ismain="true"][data-iswish="false"], #wishlist-items .collection-grid[data-iswish="true"]')) continue;
+        if (node.matches(".searchresult")) {
+          const art = node.querySelector(".art");
+          let playButton = art?.querySelector(":scope > .bandkit-search-play");
+          if (art && !playButton) {
+            playButton = createPageSearchPlayButton();
+            playButton.addEventListener("click", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              const requestedTrack = playButton._bandkitTrack;
+              if (!requestedTrack) return;
+              const current = Boolean(runtimeSeamless.enabled && r.$matchingQueueTrack([runtimeSeamless.track], requestedTrack));
+              if (current) void r.$seamlessCommand(MESSAGES.SEAMLESS_PLAY_PAUSE);
+              else void r.$playSearchResult(requestedTrack);
+            });
+            art.append(playButton);
+          }
+          if (playButton) {
+            const current = Boolean(runtimeSeamless.enabled && r.$matchingQueueTrack([runtimeSeamless.track], track));
+            const playing = current && Boolean(runtimeSeamless.isPlaying);
+            playButton._bandkitTrack = track;
+            playButton.style.setProperty("--bandkit-search-play-icon", `url('${asset(playing ? "icon-pause.svg" : "icon-play.svg")}')`);
+            playButton.setAttribute("aria-label", current ? (playing ? `Pause ${track.title}` : `Resume ${track.title}`) : `Play ${track.title}`);
+            playButton.setAttribute("aria-pressed", String(playing));
+            playButton.title = playButton.getAttribute("aria-label");
+            r.$applyPageActionTheme(playButton);
+          }
+        }
         const titleNode = node.querySelector(".track-title, .title-text, .player-info .title, .fav-track-title, .collection-item-title, .title, .heading");
         const target = titleNode?.closest("a")?.parentElement || titleNode?.parentElement || node;
         let button = target.querySelector(":scope > .bandcamp-hub-page-playlist");
@@ -716,6 +801,7 @@ r.$injectPlaylistButtons = function injectPlaylistButtons({ incremental = false 
           button = r.$createPagePlaylistButton();
           target.append(button);
         }
+        button.classList.toggle("is-search-add-to", node.matches(".searchresult"));
         button.classList.toggle("is-modern-player-track-action", node.matches("section.floating-player .track-meta[streamurl]"));
         r.$updatePagePlaylistButton(button, track);
       }
@@ -806,6 +892,7 @@ r.$scanLiveCart = function scanLiveCart() {
           currency: /^[A-Z]{3}$/.test(item.currency || "") ? item.currency : "USD",
           art: bridgeArt(item),
           url,
+          unavailable: item.unavailable === true,
           restore: portableCartRestore({
             ...item,
             associated_license_id: item.associated_license_id ?? item.license_id ?? null
@@ -815,7 +902,6 @@ r.$scanLiveCart = function scanLiveCart() {
       const candidates = [...document.querySelectorAll("#sidecart #item_list > *, [data-test='cart-item'], .cart-item")]
         .filter((node) => node.children.length > 0 && getComputedStyle(node).display !== "none");
       if (!hasBridgedCart && !candidates.length) return;
-
       const parsedFromDom = candidates.map((row, index) => {
         const title = r.$elementText(row, [".item-title", ".product-title", ".title", "h3", "h4", "a[href]"]);
         if (!title) return null;
@@ -839,38 +925,63 @@ r.$scanLiveCart = function scanLiveCart() {
           url: link
         };
       }).filter(Boolean);
-
       const parsed = hasBridgedCart ? parsedFromBridge : parsedFromDom;
+      const observedItems = [...new Map(parsed.map((item) => [`${item.url}|${item.title}|${item.artist}`, item])).values()];
+      const protectedSnapshot = mergeCartSnapshots(runtimeState.cart, observedItems);
+      const protectedItems = protectedSnapshot.items;
+      const observedKeys = new Set(observedItems.map(cartActivityIdentity).filter(Boolean));
+      const missingItems = runtimeState.cart.filter((item) => item.unavailable !== true && !observedKeys.has(cartActivityIdentity(item)) && !r.$cartRemovalKeys?.has(cartActivityIdentity(item)));
+      const uniqueItems = observedItems;
+      r.$queueCartArtistResolution(protectedItems);
 
-      const uniqueItems = [...new Map(parsed.map((item) => [
-        `${item.url}|${item.title}|${item.artist}`,
-        item
-      ])).values()];
-      r.$queueCartArtistResolution(uniqueItems);
-
-      const signature = (items) => JSON.stringify(items.map(({ title, artist, price, currency, url, art, restore }) => ({
-        title, artist, price, currency, url, art, restoreKey: restore ? `${restore.item_type}:${restore.item_id}:${restore.option_id ?? ""}` : ""
-      })));
-      const summarySignature = JSON.stringify(r.$bridgedCartSummary || null);
-      if (signature(uniqueItems) === signature(runtimeState.cart) && summarySignature === JSON.stringify(runtimeState.cartSummary || null)) return;
-      runtimeState.cart = uniqueItems;
-      runtimeState.cartSummary = r.$bridgedCartSummary ? {
+      const activityKeys = new Set(uniqueItems.map(cartActivityIdentity).filter(Boolean));
+      const previousActivityKeys = r.$cartActivityKeys;
+      const cartActivityGrew = previousActivityKeys instanceof Set && activityKeys.size > previousActivityKeys.size;
+      const suppressStartupHydration = Date.now() < r.$cartActivityReadyAt;
+      r.$cartActivityKeys = activityKeys;
+      const observedSummary = r.$bridgedCartSummary ? {
         subtotal: Number.isFinite(Number(r.$bridgedCartSummary.subtotal)) ? Number(r.$bridgedCartSummary.subtotal) : null,
-        currency: /^[A-Z]{3}$/.test(r.$bridgedCartSummary.currency || "") ? r.$bridgedCartSummary.currency : null
-      } : null;
+        total: Number.isFinite(Number(r.$bridgedCartSummary.total)) ? Number(r.$bridgedCartSummary.total) : null,
+        currency: /^[A-Z]{3}$/.test(r.$bridgedCartSummary.currency || "") ? r.$bridgedCartSummary.currency : null } : null;
+      const nextSummary = observedSummary && Object.values(observedSummary).some((value) => value !== null) ? observedSummary : null;
+      const liveCartSignature = JSON.stringify({ items: uniqueItems, summary: nextSummary });
+      if (liveCartSignature === r.$lastLiveCartSignature) return;
+      r.$lastLiveCartSignature = liveCartSignature;
+      const summarySignature = JSON.stringify(nextSummary);
+      if (r.$cartAutosave.cartSignature(uniqueItems) === r.$cartAutosave.cartSignature(runtimeState.cart)
+        && summarySignature === JSON.stringify(runtimeState.cartSummary || null)) return;
+      const addedItems = cartActivityGrew && !suppressStartupHydration ? uniqueItems.filter((item) => {
+        const key = cartActivityIdentity(item);
+        return !previousActivityKeys.has(key) && !r.$cartRecoveryKeys?.has(key);
+      }) : [];
+      const cartGrew = uniqueItems.length > runtimeState.cart.length;
+      if (cartGrew) runtimeState.musicBarRecentPanel = "cart";
+      runtimeState.cart = uniqueItems;
+      runtimeState.cartSummary = nextSummary;
       runtimeState.cartSavedAt = Date.now();
-      runtimeState.savedCarts = r.$cartAutosave.upsertAutoSavedCart(runtimeState.savedCarts, runtimeState.cart, {
+      runtimeState.savedCarts = r.$cartAutosave.upsertAutoSavedCart(runtimeState.savedCarts, protectedSnapshot.partial ? protectedItems : runtimeState.cart, {
         savedAt: new Date(runtimeState.cartSavedAt).toISOString(),
         sourcePage: portableBandcampUrl(location.href),
-        summary: runtimeState.cartSummary
+        summary: protectedSnapshot.partial ? null : runtimeState.cartSummary
       }).savedCarts;
+      for (const item of addedItems) {
+        r.$recordActivity({
+          action: "added-to-cart",
+          title: item.title,
+          artist: item.artist,
+          art: item.art,
+          url: item.url,
+          artistUrl: r.$artistUrlFromPageUrl(item.url)
+        }, { persist: false, render: false });
+      }
       runtimeSaveState();
-      if (runtimeState.activeTab === "cart") r.$render();
+      r.$render();
+      if (cartGrew) r.$showCompactPanelNotice("icon-cart.svg", "Added to Cart");
+      r.$recoverMissingCartItems(missingItems);
     };
 }
 
 export const registerPageActions = [registerPageActionInjectionHelpers, registerPageActions1, registerPageActions2, registerPageActions3, registerPageActions4, registerPageActions5];
-
 function setupPageActions1(r) {
 r.$pageActionSourceSelector = [
       ".track_row_view",
@@ -881,8 +992,8 @@ r.$pageActionSourceSelector = [
       ".discover-detail",
       ".discover-player",
       ".collection-item-container",
-      "#recommendations_container"
+      "#recommendations_container",
+      "#sales-feed .item"
     ].join(",");
 }
-
 export const setupPageActions = [setupPageActions1];

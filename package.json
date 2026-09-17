@@ -1,15 +1,19 @@
 {
   "name": "bandkit-extension",
-  "version": "0.7.9",
+  "version": "0.8.5",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:release": "node scripts/build.mjs --release",
+    "benchmark:analysis": "node scripts/benchmark-key-detection.mjs",
+    "benchmark:bpm": "node scripts/benchmark-bpm-detection.mjs",
+    "benchmark:key": "node scripts/benchmark-key-accuracy.mjs",
     "icons:sync": "node scripts/sync-icons.mjs",
+    "stage": "node scripts/screenshot-stage.mjs",
     "verify:source": "node scripts/verify-source.mjs",
     "lint": "eslint . --cache --cache-location .cache/eslint",
-    "test:smoke": "for test_file in tests/*-smoke.mjs; do node \"$test_file\" || exit 1; done",
+    "test:smoke": "failed=''; total=0; for test_file in tests/*-smoke.mjs; do total=$((total+1)); node \"$test_file\" || failed=\"$failed $test_file\"; done; passed=$total; for test_file in $failed; do passed=$((passed-1)); done; echo; echo \"Smoke tests: $passed/$total passed\"; if [ -n \"$failed\" ]; then echo 'Failing:'; for test_file in $failed; do echo \"  $test_file\"; done; exit 1; fi",
     "test:clean-install": "scripts/launch-clean-test.sh",
     "test": "npm run verify:source && npm run lint && npm run build && npm run test:smoke",
     "package": "scripts/package-release.sh"
@@ -21,5 +25,8 @@
     "lucide-static": "^1.31.0",
     "svgo": "^4.0.2",
     "terser": "^5.50.0"
+  },
+  "dependencies": {
+    "music-tempo": "^1.0.3"
   }
 }

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bandkit screenshot stage</title>
+  <link rel="stylesheet" href="/tests/screenshot-stage/stage.css">
+</head>
+<body>
+  <div class="stage-controls" id="stage-controls">
+    <button class="stage-controls-toggle" id="stage-controls-toggle" type="button" aria-expanded="false" aria-controls="stage-controls-panel" aria-label="Stage controls" title="Stage controls (H hides)">
+      <span aria-hidden="true"></span>
+    </button>
+    <form class="stage-controls-panel" id="stage-controls-panel" hidden>
+      <label class="stage-field">
+        <span>Bandcamp track or album URL</span>
+        <input id="stage-url" type="url" name="url" spellcheck="false" autocomplete="off" placeholder="https://artist.bandcamp.com/track/…">
+      </label>
+      <label class="stage-field">
+        <span>Player position <output id="stage-position-value">50%</output></span>
+        <input id="stage-position" type="range" min="8" max="92" step="1" value="50">
+      </label>
+      <div class="stage-controls-row">
+        <button type="submit" class="stage-button is-primary">Load</button>
+        <button type="button" class="stage-button" id="stage-centre">Centre</button>
+        <button type="button" class="stage-button" id="stage-hide">Hide</button>
+      </div>
+      <p class="stage-hint">Press <kbd>H</kbd> to hide or show these controls before you capture.</p>
+      <p class="stage-status" id="stage-status" role="status"></p>
+    </form>
+  </div>
+
+  <script type="module" src="/tests/screenshot-stage/stage-boot.js"></script>
+</body>
+</html>

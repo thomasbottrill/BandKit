@@ -1,0 +1,4 @@
+<!-- @license lucide-static v1.31.0 - ISC; adapted from the Lucide triangle glyph -->
+<svg class="lucide lucide-triangle" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path d="M6.5 8.5c-1.05 0-1.62 1.22-.95 2.02l5.15 6.18a1.7 1.7 0 0 0 2.6 0l5.15-6.18c.67-.8.1-2.02-.95-2.02h-11Z" />
+</svg>

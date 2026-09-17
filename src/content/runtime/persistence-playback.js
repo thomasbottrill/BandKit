@@ -6,41 +6,89 @@ import { BACKUP_FILENAME, restoreBackupFile, saveBackupFile } from "../../shared
 import { createPlaylistModel } from "../playlist-model.js";
 import { parseCartBackup, portableCartItem, portableCartRestore } from "../cart-model.js";
 
+function recordPlaylistActivity(r, items, destination) {
+  for (const item of items) r.$recordActivity({
+    action: "added-to-playlist",
+    title: item.title,
+    artist: item.artist,
+    art: item.art,
+    url: item.pageUrl,
+    artistUrl: item.artistUrl,
+    destination
+  }, { persist: false, render: false });
+}
+
 const BACKUP_REMINDER_DAY_MS = 24 * 60 * 60 * 1000;
 const BACKUP_REMINDER_DAYS = new Set([0, 7, 14, 30]);
 
+function portableSettings(value = runtimeState) {
+  return {
+    openHomeToFeed: Boolean(value.openHomeToFeed),
+    djToolsEnabled: value.djToolsEnabled !== false,
+    autoAnalyzeTracks: value.autoAnalyzeTracks !== false,
+    showTrackKeys: value.showTrackKeys !== false,
+    showCamelotNotation: value.showCamelotNotation === true,
+    recordPlaylistMetadata: value.recordPlaylistMetadata !== false, showMusicBarAnalysis: value.showMusicBarAnalysis !== false,
+    keepMusicBarAnalysisVisible: value.keepMusicBarAnalysisVisible === true,
+    scrubberStyle: value.scrubberStyle,
+    scrubberHandleShape: value.scrubberHandleShape,
+    customScrubberHandle: value.customScrubberHandle,
+    customTimeline: value.customTimeline,
+    customPlayerButtons: value.customPlayerButtons,
+    musicBarTimelineColor: value.musicBarTimelineColor,
+    musicBarHandleColor: value.musicBarHandleColor,
+    musicBarControlsColor: value.musicBarControlsColor,
+    musicBarPlayerColor: value.musicBarPlayerColor,
+    retainTimelineColors: value.retainTimelineColors,
+    scrubberHandleSize: value.scrubberHandleSize,
+    retainSvgHandleColors: value.retainSvgHandleColors,
+    retainPngHandleColors: value.retainPngHandleColors,
+    musicBarScrubberWidth: value.musicBarScrubberWidth,
+    musicBarStyle: value.musicBarStyle,
+    musicBarDynamicColor: value.musicBarDynamicColor !== false,
+    musicBarPlayerDynamicColor: value.musicBarPlayerDynamicColor !== false,
+    musicBarPanelDynamicColor: value.musicBarPanelDynamicColor !== false,
+    musicBarBlendMode: value.musicBarBlendMode,
+    musicBarPanelButtons: value.musicBarPanelButtons,
+    musicBarRecentPanel: value.musicBarRecentPanel,
+    musicBarSize: value.musicBarSize,
+    musicBarVisualizer: value.musicBarVisualizer,
+    musicBarVisualizerType: value.musicBarVisualizerType,
+    musicBarVisualizerOpacity: value.musicBarVisualizerOpacity,
+    musicBarVisualizerWidth: value.musicBarVisualizerWidth,
+    musicBarVisualizerHeight: value.musicBarVisualizerHeight,
+    musicBarVisualizerBlendMode: value.musicBarVisualizerBlendMode,
+    musicBarWidth: value.musicBarWidth,
+    musicBarCustomWidth: value.musicBarCustomWidth,
+    musicBarBottomOffset: value.musicBarBottomOffset,
+    dockChevronOffset: value.dockChevronOffset,
+    layoutMode: value.layoutMode,
+    dockSide: value.dockSide,
+    dockedWidth: value.dockedWidth,
+    settingsDrawers: structuredClone(value.settingsDrawers || {}),
+    appearance: structuredClone(value.appearance),
+    dj: {
+      range: value.dj.range,
+      preservePitch: value.dj.preservePitch,
+      autoTempo: value.dj.autoTempo,
+      loopSize: value.dj.loopSize,
+      knobMode: value.dj.knobMode
+    }
+  };
+}
+
 function registerPersistencePlayback1(r) {
-r.$portableSettings = function portableSettings(value = runtimeState) {
-      return {
-        openHomeToFeed: Boolean(value.openHomeToFeed),
-        autoAnalyzeTracks: value.autoAnalyzeTracks !== false,
-        showTrackKeys: value.showTrackKeys !== false,
-        pageActionLabels: Boolean(value.pageActionLabels),
-        recordPlaylistMetadata: value.recordPlaylistMetadata !== false,
-        scrubberStyle: value.scrubberStyle,
-        musicBarSize: value.musicBarSize,
-        musicBarWidth: value.musicBarWidth,
-        musicBarCustomWidth: value.musicBarCustomWidth,
-        layoutMode: value.layoutMode,
-        dockSide: value.dockSide,
-        dockedWidth: value.dockedWidth,
-        appearance: structuredClone(value.appearance),
-        dj: {
-          range: value.dj.range,
-          preservePitch: value.dj.preservePitch,
-          autoTempo: value.dj.autoTempo,
-          loopSize: value.dj.loopSize,
-          knobMode: value.dj.knobMode
-        }
-      };
-    };
+r.$portableSettings = portableSettings;
 r.$portableActivity = function portableActivity(value = runtimeState) {
       return value.activity.map((item) => ({
+        id: String(item.id || "").slice(0, 160),
         action: String(item.action || "activity").slice(0, 80),
         title: String(item.title || "Untitled track").slice(0, 500),
-        artist: String(item.artist || "Unknown artist").slice(0, 500),
+        artist: String(item.artist || "").slice(0, 500),
+        art: resolveImage(item.art),
         url: portableBandcampUrl(item.url),
         artistUrl: portableBandcampUrl(item.artistUrl),
+        destination: String(item.destination || "").slice(0, 120),
         createdAt: item.createdAt || null
       }));
     };
@@ -112,7 +160,7 @@ r.$savePortableBackup = async function savePortableBackup() {
       runtimeState.backupReminderSnoozedAt = null;
       runtimeState.lastBackupAt = savedAt;
       r.$backupSavedConfirmationUntil = Date.now() + 5000;
-      r.$persistLocal({
+      await r.$persistLocal({
         [STORAGE_KEYS.STATE]: {
           ...latestState,
           backupIntroSeen: true,
@@ -125,6 +173,11 @@ r.$savePortableBackup = async function savePortableBackup() {
         if (r.$hubReady && Date.now() >= r.$backupSavedConfirmationUntil) r.$render();
       }, 5100);
       r.$showToast("Backup saved");
+      r.$recordActivity({
+        action: "backed-up",
+        title: "your Bandkit data",
+        createdAt: savedAt
+      });
       return result;
     };
 r.$restorePortableBackup = async function restorePortableBackup() {
@@ -181,6 +234,10 @@ r.$savedLayoutState = function savedLayoutState(value = runtimeState) {
       return {
         revision: r.$layoutRevision,
         open: Boolean(value.open),
+        activeTab: ["playlist", "cart", "activity", "settings"].includes(value.activeTab) ? value.activeTab : "playlist", musicBarRecentPanel: ["playlist", "cart", "activity", "settings"].includes(value.musicBarRecentPanel) ? value.musicBarRecentPanel : "playlist",
+        playlistView: value.playlistView === "saved" ? "saved" : "current", selectedSavedPlaylistId: value.selectedSavedPlaylistId || null,
+        cartView: value.cartView === "saved" ? "saved" : "current", selectedSavedCartId: value.selectedSavedCartId || null, settingsView: typeof value.settingsView === "string" ? value.settingsView : "index", settingsSubView: typeof value.settingsSubView === "string" ? value.settingsSubView : "index",
+        djOpen: value.dj?.open === true, pageDjOpen: value.dj?.pageOpen === true,
         layoutMode: value.layoutMode === "docked" ? "docked" : "floating",
         dockSide: value.dockSide === "left" ? "left" : "right",
         dockedWidth: Math.max(320, Number(value.dockedWidth) || 420),
@@ -192,36 +249,99 @@ r.$savedLayoutState = function savedLayoutState(value = runtimeState) {
 
 function registerBackupReminder(r) {
 r.$renderBackupReminder = function renderBackupReminder() {
+      if (runtimeState.open && Number(runtimeState.onboardingCompletedVersion) <= 0) return null;
       const reminderState = r.$backupReminderState();
       if (!reminderState) return null;
-      const gate = createElement("section", `hub-backup-reminder is-${reminderState}`);
-      const copy = createElement("div", "hub-backup-reminder-copy");
-      const heading = reminderState === "saved"
-        ? "Backup saved"
-        : reminderState === "intro" ? "Saved in Chrome" : "Ready for another backup?";
-      const message = reminderState === "saved"
-        ? `A portable copy was saved as ${BACKUP_FILENAME}.`
-        : reminderState === "intro"
-          ? "Your playlists and carts stay in Chrome. Save a portable copy whenever you like."
-          : "Your Chrome copy is up to date. Save a fresh portable copy when it suits you.";
-      copy.append(
-        createElement("strong", "hub-backup-reminder-heading", heading),
-        createElement("span", "", message)
-      );
-      gate.append(copy);
+      const gate = createElement("section", `hub-settings-row hub-settings-text-actions hub-backup-reminder is-${reminderState}`);
+      const lastBackupDate = runtimeState.lastBackupAt ? new Date(runtimeState.lastBackupAt) : null;
+      const hasLastBackup = lastBackupDate && !Number.isNaN(lastBackupDate.getTime());
+      const lastBackup = hasLastBackup ? lastBackupDate.toLocaleString() : "Never";
+      const tooltip = [
+        "Your playlists and carts are saved in Chrome. Save a local backup so you can restore them elsewhere.",
+        "Chrome: Saved",
+        `Last local backup: ${lastBackup}`
+      ].join("\n");
+      gate.dataset.settingsTooltip = tooltip;
+      gate.tabIndex = 0;
+      gate.setAttribute("aria-label", `Backup Reminder. ${tooltip.replaceAll("\n", " ")}`);
+      gate.append(createElement("strong", "hub-backup-reminder-heading", "Backup Reminder"));
       if (reminderState !== "saved") {
-        const actions = createElement("div", "hub-backup-reminder-actions");
-        const action = createElement("button", "hub-backup-reminder-save", "Save backup");
-        action.type = "button";
-        action.addEventListener("click", () => r.$runBackupAction(action, r.$savePortableBackup));
-        const later = createElement("button", "hub-backup-reminder-later", "Later");
-        later.setAttribute("aria-label", `Remind me in ${r.$backupReminderDays()} days`);
+        const actions = createElement("div", "hub-settings-feedback-actions hub-backup-reminder-actions");
+        const later = createElement("button", "hub-settings-action hub-backup-reminder-later", "Close");
+        later.dataset.settingsTooltip = tooltip;
+        later.setAttribute("aria-label", `Close backup reminder for ${r.$backupReminderDays()} days`);
         later.type = "button";
         later.addEventListener("click", r.$snoozeBackupReminder);
-        actions.append(action, later);
+        const action = createElement("button", "hub-settings-action hub-backup-reminder-save", "Backup Now");
+        action.dataset.settingsTooltip = tooltip;
+        action.type = "button";
+        action.setAttribute("aria-label", "Backup now");
+        action.addEventListener("click", () => r.$runBackupAction(action, r.$savePortableBackup));
+        actions.append(later, action);
         gate.append(actions);
       }
       return gate;
+    };
+}
+
+function registerPlaylistShuffle(r) {
+r.$resetPlaylistShuffle = function resetPlaylistShuffle() {
+      runtimeState.playlistShuffleEnabled = false;
+      runtimeState.playlistShuffleOrder = [];
+    };
+r.$enablePlaylistShuffle = function enablePlaylistShuffle({ keepFirst = true, random = Math.random } = {}) {
+      if (runtimeState.playlist.length < 2 || runtimeState.playlistShuffleEnabled) return false;
+      const original = runtimeState.playlist.map((item) => item.playlistItemId);
+      const shuffled = runtimeState.playlist.slice();
+      const startIndex = keepFirst ? 1 : 0;
+      for (let index = shuffled.length - 1; index > startIndex; index -= 1) {
+        const range = index - startIndex + 1;
+        const swapIndex = startIndex + Math.floor(Math.max(0, Math.min(0.999999, Number(random()) || 0)) * range);
+        [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+      }
+      if (shuffled.length - startIndex > 1 && shuffled.slice(startIndex).every((item, index) => item.playlistItemId === original[index + startIndex])) {
+        [shuffled[startIndex], shuffled[startIndex + 1]] = [shuffled[startIndex + 1], shuffled[startIndex]];
+      }
+      runtimeState.playlistShuffleOrder = original;
+      runtimeState.playlistShuffleEnabled = true;
+      runtimeState.playlist = shuffled;
+      return true;
+    };
+r.$togglePlaylistShuffle = function togglePlaylistShuffle(random = Math.random) {
+      if (runtimeState.playlist.length < 2) return false;
+      if (!runtimeState.playlistShuffleEnabled) {
+        r.$enablePlaylistShuffle({ keepFirst: true, random });
+      } else {
+        const originalIndex = new Map(runtimeState.playlistShuffleOrder.map((itemId, index) => [itemId, index]));
+        runtimeState.playlist = runtimeState.playlist
+          .map((item, index) => ({ item, index, originalIndex: originalIndex.get(item.playlistItemId) }))
+          .sort((left, right) => {
+            const leftOrder = left.originalIndex ?? Number.MAX_SAFE_INTEGER;
+            const rightOrder = right.originalIndex ?? Number.MAX_SAFE_INTEGER;
+            return leftOrder - rightOrder || left.index - right.index;
+          })
+          .map(({ item }) => item);
+        r.$resetPlaylistShuffle();
+      }
+      runtimeSaveState();
+      r.$schedulePlaylistShuffleQueueSync();
+      r.$render();
+      r.$showToast(runtimeState.playlistShuffleEnabled ? "Shuffle on" : "Shuffle off");
+      return true;
+    };
+r.$schedulePlaylistShuffleQueueSync = function schedulePlaylistShuffleQueueSync() {
+      const revision = (Number(r.$playlistShuffleSyncRevision) || 0) + 1;
+      r.$playlistShuffleSyncRevision = revision;
+      r.$playlistShuffleConsumptionGuardUntil = Date.now() + 1000;
+      window.clearTimeout(r.$playlistShuffleSyncTimer);
+      r.$playlistShuffleSyncTimer = window.setTimeout(async () => {
+        if (revision !== r.$playlistShuffleSyncRevision) return;
+        r.$playlistShuffleSyncTimer = 0;
+        await r.$syncActivePlaylistQueue();
+        if (revision === r.$playlistShuffleSyncRevision) {
+          r.$playlistShuffleConsumptionGuardUntil = Date.now() + 350;
+        }
+      }, 90);
     };
 }
 
@@ -229,6 +349,18 @@ function registerPersistencePlayback2(r) {
 r.$applyPersistedLayout = function applyPersistedLayout(value) {
       if (!value || typeof value !== "object") return false;
       runtimeState.open = Boolean(value.open);
+      runtimeState.activeTab = ["playlist", "cart", "activity", "settings"].includes(value.activeTab) ? value.activeTab : runtimeState.activeTab;
+      runtimeState.musicBarRecentPanel = ["playlist", "cart", "activity", "settings"].includes(value.musicBarRecentPanel)
+        ? value.musicBarRecentPanel : runtimeState.musicBarRecentPanel;
+      if (Object.prototype.hasOwnProperty.call(value, "playlistView")) runtimeState.playlistView = value.playlistView === "saved" ? "saved" : "current";
+      if (Object.prototype.hasOwnProperty.call(value, "selectedSavedPlaylistId")) runtimeState.selectedSavedPlaylistId = value.selectedSavedPlaylistId || null;
+      if (Object.prototype.hasOwnProperty.call(value, "cartView")) runtimeState.cartView = value.cartView === "saved" ? "saved" : "current";
+      if (Object.prototype.hasOwnProperty.call(value, "selectedSavedCartId")) runtimeState.selectedSavedCartId = value.selectedSavedCartId || null;
+      if (Object.prototype.hasOwnProperty.call(value, "settingsView")) runtimeState.settingsView = typeof value.settingsView === "string" ? value.settingsView : "index";
+      if (Object.prototype.hasOwnProperty.call(value, "settingsSubView")) runtimeState.settingsSubView = typeof value.settingsSubView === "string" ? value.settingsSubView : "index";
+      if (Object.prototype.hasOwnProperty.call(value, "djOpen")) runtimeState.dj.open = value.djOpen === true;
+      if (Object.prototype.hasOwnProperty.call(value, "pageDjOpen")) runtimeState.dj.pageOpen = value.pageDjOpen === true;
+      r.$pageDjOpen = runtimeState.dj.pageOpen;
       runtimeState.layoutMode = value.layoutMode === "docked" ? "docked" : "floating";
       runtimeState.dockSide = value.dockSide === "left" ? "left" : "right";
       runtimeState.dockedWidth = Math.max(320, Number(value.dockedWidth) || 420);
@@ -256,7 +388,7 @@ r.$activePlaylistAnalysis = function activePlaylistAnalysis(track) {
       if (runtimeState.recordPlaylistMetadata === false || !runtimeSeamless.track || !r.$matchingQueueTrack([runtimeSeamless.track], track)) return null;
       const bpm = r.$normalizePlaylistBpm(runtimeSeamless.detectedBpm);
       const key = r.$normalizePlaylistKey(runtimeSeamless.detectedKey);
-      return bpm || key ? { bpm, key } : null;
+      return bpm || key ? { bpm, bpmUncertain: Boolean(bpm && runtimeSeamless.bpmUncertain), key } : null;
     };
 r.$capturePlaylistAnalysis = function capturePlaylistAnalysis(track) {
       const analysis = r.$activePlaylistAnalysis(track);
@@ -267,8 +399,13 @@ r.$playlistIsActive = function playlistIsActive() {
     };
 r.$syncActivePlaylistQueue = async function syncActivePlaylistQueue() {
       if (!r.$playlistIsActive()) return;
+      if (r.$nowPlayingTransitionTrackKey && Date.now() < Number(r.$nowPlayingTransitionExpiresAt || 0)) return;
       const playable = runtimeState.playlist.filter((track) => r.$isReusableStreamUrl(track.url));
-      await r.$seamlessCommand(MESSAGES.SEAMLESS_UPDATE_QUEUE, { queue: playable });
+      await r.$seamlessCommand(MESSAGES.SEAMLESS_UPDATE_QUEUE, {
+        queue: playable,
+        // Reject delayed queue edits from a tab whose playback view is stale.
+        expectedTrack: runtimeSeamless.track
+      });
     };
 r.$resetLoadedPlayback = function resetLoadedPlayback() {
       r.$live = updateRuntimeLive({
@@ -308,6 +445,7 @@ r.$clearLocalPlaybackState = function clearLocalPlaybackState({ persist = true }
       r.$pendingPlaylistItemId = "";
       runtimeState.playlist = [];
       runtimeState.playlistMode = "browse";
+      r.$resetPlaylistShuffle();
       if (persist) runtimeSaveState();
 
       r.$pageMediaCommand("pause");
@@ -331,6 +469,9 @@ r.$releaseExplicitPlaybackClear = function releaseExplicitPlaybackClear() {
       r.$clearedPageQueueSignature = "";
     };
 r.$clearNowPlayingPlayback = async function clearNowPlayingPlayback({ notify = true } = {}) {
+      r.$savedPlaylistPlayRequest += 1;
+      r.$savedPlaylistReplacementRequest = 0;
+      r.$savedPlaylistReplacementGuardUntil = 0;
       r.$clearedPageQueueSignature = `${runtimeLive.pageUrl}|${runtimeLive.title}`;
       r.$clearLocalPlaybackState();
       await r.$runtimeMessage({ type: MESSAGES.CLEAR_PLAYBACK });
@@ -340,7 +481,7 @@ r.$clearNowPlayingPlayback = async function clearNowPlayingPlayback({ notify = t
       r.$clearLocalPlaybackState();
       if (notify) r.$showToast("Now Playing cleared");
     };
-r.$addTracksToPlaylist = function addTracksToPlaylist(tracks, { quiet = false } = {}) {
+r.$addTracksToPlaylist = function addTracksToPlaylist(tracks, { quiet = false, syncQueue = true } = {}) {
       r.$releaseExplicitPlaybackClear();
       const incoming = r.$normalizePlaylist((Array.isArray(tracks) ? tracks : []).map(r.$capturePlaylistAnalysis));
       if (incoming.length) runtimeState.playlistMode = "manual";
@@ -374,10 +515,17 @@ r.$addTracksToPlaylist = function addTracksToPlaylist(tracks, { quiet = false } 
         added += 1;
       }
       if (added || refreshed) {
+        if (added) runtimeState.musicBarRecentPanel = "playlist";
         runtimeState.playlist = r.$normalizePlaylist(runtimeState.playlist);
+        if (runtimeState.playlistShuffleEnabled) {
+          const known = new Set(runtimeState.playlistShuffleOrder);
+          for (const item of runtimeState.playlist) {
+            if (!known.has(item.playlistItemId)) runtimeState.playlistShuffleOrder.push(item.playlistItemId);
+          }
+        }
         runtimeSaveState();
-        void r.$syncActivePlaylistQueue();
-        if (r.$isNowPlayingView()) r.$render();
+        if (syncQueue) void r.$syncActivePlaylistQueue();
+        r.$render();
         r.$injectPlaylistButtons();
       }
       const capacitySuffix = atCapacity ? ` · ${MAX_PLAYLIST_ITEMS}-track limit reached` : "";
@@ -414,6 +562,7 @@ r.$createSavedPlaylistWithTracks = function createSavedPlaylistWithTracks(tracks
       };
       runtimeState.savedPlaylists.unshift(snapshot);
       runtimeState.savedPlaylists = r.$normalizeSavedPlaylists(runtimeState.savedPlaylists);
+      recordPlaylistActivity(r, items, snapshot.name);
       runtimeSaveState();
       if (runtimeState.activeTab === "playlist" && runtimeState.playlistView === "saved") r.$render();
       r.$showToast(`Saved to “${snapshot.name}”`);
@@ -446,6 +595,7 @@ r.$addTracksToSavedPlaylist = function addTracksToSavedPlaylist(tracks, snapshot
       const incoming = r.$normalizePlaylist((Array.isArray(tracks) ? tracks : []).map(r.$capturePlaylistAnalysis));
       if (!snapshot || !incoming.length) return 0;
       let added = 0;
+      const addedItems = [];
       let atCapacity = false;
       for (const item of incoming) {
         if (snapshot.items.some((entry) => r.$playlistTracksMatch(entry, item))) continue;
@@ -456,11 +606,13 @@ r.$addTracksToSavedPlaylist = function addTracksToSavedPlaylist(tracks, snapshot
         item.playlistItemId = `playlist-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
         item.addedAt = new Date().toISOString();
         snapshot.items.push(item);
+        addedItems.push(item);
         added += 1;
       }
       if (added) {
         snapshot.items = r.$normalizePlaylist(snapshot.items);
         snapshot.modifiedAt = new Date().toISOString();
+        recordPlaylistActivity(r, addedItems, snapshot.name);
         runtimeSaveState();
         if (runtimeState.activeTab === "playlist" && runtimeState.playlistView === "saved") r.$render();
       }
@@ -485,6 +637,20 @@ r.$hydratePlaylist = async function hydratePlaylist(items) {
     };
 r.$playlistItemNeedsMetadata = function playlistItemNeedsMetadata(item) {
       return !resolveImage(item?.art) || !String(item?.artist || "").trim() || String(item.artist).trim().toLowerCase() === "bandcamp";
+    };
+r.$schedulePlaylistMetadataRefresh = function schedulePlaylistMetadataRefresh(delay = 0) {
+      window.clearTimeout(r.$playlistMetadataRefreshTimer);
+      r.$playlistMetadataRefreshTimer = window.setTimeout(() => {
+        r.$playlistMetadataRefreshTimer = 0;
+        if (r.$playlistMetadataRefreshInFlight) { r.$playlistMetadataRefreshPending = true; return; }
+        r.$playlistMetadataRefreshInFlight = true;
+        void r.$refreshIncompletePlaylistMetadata().finally(() => {
+          r.$playlistMetadataRefreshInFlight = false;
+          if (!r.$playlistMetadataRefreshPending) return;
+          r.$playlistMetadataRefreshPending = false;
+          r.$schedulePlaylistMetadataRefresh(0);
+        });
+      }, Math.max(0, Number(delay) || 0));
     };
 r.$refreshIncompletePlaylistMetadata = async function refreshIncompletePlaylistMetadata() {
       const metadataCandidates = [
@@ -544,21 +710,19 @@ r.$prepareExternalNowPlaying = async function prepareExternalNowPlaying(track, s
         .filter(Boolean);
       const sourceIndex = sourceItems.findIndex((item) => r.$playlistTracksMatch(item, incoming));
       const replacement = sourceIndex >= 0 ? sourceItems.slice(sourceIndex) : [incoming];
-      runtimeState.playlistMode = "browse";
-      runtimeState.playlist = r.$normalizePlaylist(replacement);
-      runtimeSaveState();
-      if (r.$isNowPlayingView()) r.$render();
-      r.$injectPlaylistButtons();
-
+      r.$nowPlayingTransitionTrackKey = r.$playlistTrackKey(incoming); r.$nowPlayingTransitionExpiresAt = Date.now() + 30_000;
+      runtimeState.playlistMode = "browse"; runtimeState.playlist = r.$normalizePlaylist(replacement); r.$resetPlaylistShuffle(); r.$beginNowPlayingSessionRevision();
+      runtimeSaveState(); const transitionPersist = r.$persistNowPlayingSession(); // Broadcast target before playback commits.
+      if (r.$isNowPlayingView()) r.$render(); r.$injectPlaylistButtons();
       if (trustProvidedStreams && r.$isReusableStreamUrl(incoming.url)) {
         const queue = runtimeState.playlist.filter((item) => r.$isReusableStreamUrl(item.url));
         const index = queue.findIndex((item) => Boolean(r.$matchingQueueTrack([item], incoming)));
         if (index >= 0) {
+          await transitionPersist;
           return { queue, index, error: "", request: prepareRequest, usedFreshStreams: true };
         }
       }
-
-      const hydrated = await r.$hydratePlaylist(runtimeState.playlist);
+      const [hydrated] = await Promise.all([r.$hydratePlaylist(runtimeState.playlist), transitionPersist]);
       if (prepareRequest !== r.$playlistPlayRequest) return { queue: [], index: -1, error: "Playback request was replaced.", cancelled: true, request: prepareRequest };
       runtimeState.playlist = r.$mergeHydratedPlaylist(runtimeState.playlist, hydrated.items);
       runtimeSaveState();
@@ -574,10 +738,16 @@ r.$prepareExternalNowPlaying = async function prepareExternalNowPlaying(track, s
     };
 }
 
-export const registerPersistencePlayback = [registerPersistencePlayback1, registerBackupReminder, registerPersistencePlayback2, registerPersistencePlayback3];
+export const registerPersistencePlayback = [registerPersistencePlayback1, registerBackupReminder, registerPlaylistShuffle, registerPersistencePlayback2, registerPersistencePlayback3];
 
 function setupPersistencePlayback1(r) {
-({ canonicalPlaylistPageUrl: r.$canonicalPlaylistPageUrl, mergeHydratedPlaylist: r.$mergeHydratedPlaylist, normalizePlaylist: r.$normalizePlaylist, normalizePlaylistBpm: r.$normalizePlaylistBpm, normalizePlaylistItem: r.$normalizePlaylistItem, normalizePlaylistKey: r.$normalizePlaylistKey, normalizeSavedPlaylists: r.$normalizeSavedPlaylists, playlistTrackKey: r.$playlistTrackKey, playlistTracksMatch: r.$playlistTracksMatch, portablePlaylistItem: r.$portablePlaylistItem } = createPlaylistModel({
+({
+  canonicalPlaylistPageUrl: r.$canonicalPlaylistPageUrl, mergeHydratedPlaylist: r.$mergeHydratedPlaylist,
+  normalizePlaylist: r.$normalizePlaylist, normalizePlaylistBpm: r.$normalizePlaylistBpm,
+  normalizePlaylistItem: r.$normalizePlaylistItem, normalizePlaylistKey: r.$normalizePlaylistKey,
+  normalizeSavedPlaylists: r.$normalizeSavedPlaylists, playlistTrackKey: r.$playlistTrackKey,
+  playlistTracksMatch: r.$playlistTracksMatch, portablePlaylistItem: r.$portablePlaylistItem
+} = createPlaylistModel({
       isReusableStreamUrl: r.$isReusableStreamUrl,
       maxItems: MAX_PLAYLIST_ITEMS,
       normalizedTrackTitle: r.$normalizedTrackTitle,

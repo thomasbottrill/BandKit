@@ -658,10 +658,3 @@
   right: 0;
   visibility: hidden;
 }
-
-.hub-section-heading-meta {
-  color: var(--hub-muted);
-  font-size: 12px;
-  font-weight: 700;
-  margin-left: auto;
-}

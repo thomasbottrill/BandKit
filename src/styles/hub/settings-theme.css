@@ -1,0 +1,148 @@
+.hub-theme-option-group {
+  display: grid;
+  gap: 2px;
+}
+
+.hub-theme-option-group + .hub-theme-option-group {
+  border-top: 1px solid color-mix(in srgb, var(--hub-line) 55%, transparent);
+  margin-top: 3px;
+  padding-top: 3px;
+}
+
+.hub-theme-option-group-label {
+  color: var(--hub-muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 5px 6px 3px;
+  text-transform: uppercase;
+}
+
+.hub-theme-option[data-theme-id="custom"] {
+  background: transparent;
+  border: 0;
+}
+
+.hub-theme-option[data-theme-id="custom"]:hover,
+.hub-theme-option[data-theme-id="custom"]:focus-visible,
+.hub-theme-option[data-theme-id="custom"].is-selected {
+  background: transparent;
+}
+
+.hub-theme-trigger-marker,
+.hub-theme-option-marker {
+  align-items: center;
+  display: inline-flex;
+  height: 16px;
+  justify-content: center;
+  width: 16px;
+}
+
+.hub-theme-custom-icon {
+  color: var(--hub-accent);
+  height: 14px;
+  width: 14px;
+}
+
+.hub-visual-theme-preview {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+.hub-visual-theme-picker .hub-settings-combobox-preview,
+.hub-visual-theme-picker-options .hub-settings-picker-option-preview {
+  width: auto;
+}
+:host > .hub-visual-theme-picker-options {
+  width: min(380px, calc(100vw - 16px));
+}
+:host > .hub-visual-theme-picker-options.has-preview .hub-settings-picker-option {
+  grid-template-columns: 112px minmax(0, 1fr) auto;
+}
+
+.hub-visual-theme-saved-marker {
+  height: 13px;
+  width: 13px;
+}
+.hub-visual-theme-preview {
+  width: 112px;
+}
+.hub-settings-detail .hub-settings-row.hub-visual-theme-basic-row {
+  padding-inline-start: 16px;
+}
+.hub-settings-detail .hub-visual-theme-advanced {
+  margin-inline-start: 16px;
+}
+.hub-settings-detail .hub-visual-theme-advanced .hub-settings-row.hub-visual-theme-basic-row {
+  padding-inline-start: 0;
+}
+.hub-visual-theme-row-heading {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+}
+.hub-visual-theme-editor-link {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--hub-muted);
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  padding: 3px;
+  transition: color 140ms ease;
+}
+.hub-visual-theme-editor-link .hub-button-icon {
+  background: currentColor;
+  height: 14px;
+  width: 14px;
+}
+.hub-visual-theme-editor-link:is(:hover, :focus-visible) {
+  color: var(--hub-accent);
+  outline: 0;
+}
+.hub-visual-theme-row-heading:has(.hub-visual-theme-editor-link:is(:hover, :focus-visible)) .hub-settings-control-label {
+  color: var(--hub-muted);
+}
+.hub-visual-theme-basic-picker .hub-settings-combobox-label {
+  display: none;
+}
+.hub-settings-detail .hub-settings-picker.hub-visual-theme-basic-picker.has-preview .hub-settings-combobox {
+  grid-template-columns: max-content var(--hub-settings-control-tail-width);
+}
+.hub-visual-theme-basic-picker .hub-settings-combobox-preview {
+  color: var(--hub-accent);
+  width: auto;
+}
+.hub-visual-theme-colour-picker .hub-theme-option-palette {
+  width: 58px;
+}
+/* The colour menu is portalled to the shadow root, so size its palette preview
+   column there instead of inheriting the 26px icon column used by other
+   pickers, which made swatches overlap their labels. */
+:host > .hub-visual-theme-colour-picker-options {
+  width: min(260px, calc(100vw - 16px));
+}
+:host > .hub-visual-theme-colour-picker-options.has-preview .hub-settings-picker-option {
+  grid-template-columns: 58px minmax(0, 1fr);
+}
+:host > .hub-visual-theme-colour-picker-options .hub-settings-picker-option-preview {
+  align-items: center;
+  display: flex;
+  justify-content: flex-start;
+  width: 58px;
+}
+:host > .hub-visual-theme-colour-picker-options .hub-theme-option-palette {
+  width: 58px;
+}
+:host > .hub-visual-theme-colour-picker-options .hub-icon {
+  height: 16px;
+  width: 16px;
+}
+.hub-visual-theme-advanced-row > .hub-icon {
+  color: var(--hub-accent);
+  height: 20px;
+  margin-right: var(--hub-settings-compact-control-inset);
+  width: 20px;
+}

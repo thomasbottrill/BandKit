@@ -1,18 +1,33 @@
 import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState, updateRuntimeLive } from "./context.js";
 import { portableBandcampUrl, resolvedTrackPageUrl } from "../core.js";
+import { radioShowTracklistKey } from "../radio-player-model.js";
 import { MESSAGES } from "../../shared/contracts.js";
+import { bindDockChevron } from "./dock-chevron.js";
 
 function registerLiveScanning1(r) {
+r.$visibleNativePurchaseDialog = function visibleNativePurchaseDialog() {
+      return [...document.querySelectorAll(".ui-dialog.nu-dialog")].some((dialog) => (
+        dialog.getClientRects().length > 0
+        && dialog.getAttribute("aria-hidden") !== "true"
+        && getComputedStyle(dialog).visibility !== "hidden"
+      ));
+    };
+r.$closePanelForNativePurchaseDialog = function closePanelForNativePurchaseDialog() {
+      if (!runtimeState.open || !r.$visibleNativePurchaseDialog()) return false;
+      r.$setOpen(false);
+      return true;
+    };
 r.$mutationAddsPageActionSource = function mutationAddsPageActionSource(record) {
       if (!record.addedNodes.length) return false;
       const target = record.target instanceof Element ? record.target : record.target.parentElement;
-      if (target?.closest(".bandcamp-hub-page-playlist, .bandcamp-hub-page-playlist-menu, .bandcamp-hub-page-tools")) return false;
+      const ownedControls = ".bandcamp-hub-page-playlist, .bandcamp-hub-page-playlist-menu, .bandcamp-hub-page-tools, .bandkit-sales-feed-actions, .bandkit-track-analysis, .bandkit-page-scrub-control";
+      if (target?.closest(ownedControls)) return false;
       for (const node of record.addedNodes) {
         if (!(node instanceof Element)) {
           if (target?.closest(r.$pageActionSourceSelector)) return true;
           continue;
         }
-        if (node.matches(".bandcamp-hub-page-playlist, .bandcamp-hub-page-playlist-menu, .bandcamp-hub-page-tools")) continue;
+        if (node.matches(ownedControls)) continue;
         if (node.matches(r.$pageActionSourceSelector) || node.querySelector(r.$pageActionSourceSelector)) return true;
         if (target?.closest(r.$pageActionSourceSelector)) return true;
       }
@@ -21,6 +36,7 @@ r.$mutationAddsPageActionSource = function mutationAddsPageActionSource(record) 
 r.$observePageActionSources = function observePageActionSources() {
       if (r.$pageActionsObserver || typeof MutationObserver !== "function") return;
       r.$pageActionsObserver = new MutationObserver((records) => {
+        if (r.$closePanelForNativePurchaseDialog()) return;
         if (!records.some(r.$mutationAddsPageActionSource)) return;
         r.$pageActionsDirty = true;
         r.$scheduleLivePlayerMaintenance(120);
@@ -65,6 +81,7 @@ r.$scheduleLivePlayerMaintenance = function scheduleLivePlayerMaintenance(delay 
 
 function registerLiveScanning2(r) {
 r.$scanLivePlayer = function scanLivePlayer() {
+      r.$syncPageAwareTheme?.();
       r.$scanLiveCart();
       r.$ensurePagePlayerWaveforms();
       r.$injectPageDjToolsLink();
@@ -130,15 +147,19 @@ r.$scanLivePlayer = function scanLivePlayer() {
       const discover = r.$getDiscoverPlayerState();
       const feed = r.$getFeedPlayerState(r.$pendingFeedTrackId);
       const sameModernTrack = Boolean(modern?.track && runtimeSeamless.enabled && r.$matchingQueueTrack([runtimeSeamless.track], modern.track));
-      if (modern?.isPlaying && !sameModernTrack) {
+      const radioHandoffReady = !r.$radioHandoffKey || modern?.key === r.$radioHandoffKey;
+      if (modern?.isPlaying && !sameModernTrack && radioHandoffReady) {
+        r.$radioHandoffKey = "";
         r.$scheduleModernHandoff(modern.key, modern.index);
       } else if (modern?.isPlaying && sameModernTrack) {
         r.$stopModernPagePlayer();
       }
 
       if (discover?.isPlaying) {
+        r.$renderPlayer();
+        r.$syncPagePlayerUi();
         const sameDiscoverTrack = Boolean(runtimeSeamless.enabled && r.$matchingQueueTrack([runtimeSeamless.track], discover.track));
-        if ((r.$playlistPlaybackStarting || r.$playlistIsActive()) && !r.$discoverSwitchPendingDisable) {
+        if ((r.$discoverTrackPlaybackActive || r.$playlistPlaybackStarting || r.$playlistIsActive()) && !r.$discoverSwitchPendingDisable) {
           r.$pageMediaCommand("pause");
         } else if (sameDiscoverTrack) {
           r.$pageMediaCommand("pause");
@@ -215,7 +236,11 @@ r.$scanLivePlayer = function scanLivePlayer() {
         artistUrl: modern?.track?.artistUrl || discover?.track?.artistUrl || feed?.track?.artistUrl || genericItem?.artistUrl || r.$artistUrlFromPageUrl(location.href),
         currentTime,
         duration: modern?.duration ?? discover?.duration ?? feed?.duration ?? (Number(audio?.duration) || 0),
-        progress: modern?.duration ? modern.currentTime / modern.duration : discover ? discover.progress : feed ? feed.progress : audio?.duration ? audio.currentTime / audio.duration : runtimeLive.progress,
+        progress: modern?.duration ? modern.currentTime / modern.duration
+          : discover ? discover.progress
+          : feed ? feed.progress
+          : audio?.duration ? audio.currentTime / audio.duration
+          : runtimeLive.progress,
         tracks: tracks.slice(currentIndex + 1)
       });
 
@@ -225,13 +250,30 @@ r.$scanLivePlayer = function scanLivePlayer() {
         r.$renderPanelContent();
       }
     };
+r.$recordActivity = function recordActivity(item, { persist = true, render = true } = {}) {
+      const createdAt = item?.createdAt || new Date().toISOString();
+      runtimeState.activity.unshift({
+        id: item?.id || `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        action: String(item?.action || "activity"),
+        title: String(item?.title || "Bandkit activity"),
+        artist: String(item?.artist || ""),
+        time: item?.time || "Just now · recorded locally",
+        createdAt,
+        art: item?.art || "",
+        url: portableBandcampUrl(item?.url, true),
+        artistUrl: portableBandcampUrl(item?.artistUrl),
+        destination: String(item?.destination || "").slice(0, 120)
+      });
+      runtimeState.activity = runtimeState.activity.slice(0, 500);
+      if (persist) runtimeSaveState();
+      if (render && runtimeState.activeTab === "activity") r.$render();
+    };
 r.$recordListeningActivity = function recordListeningActivity() {
       const activityUrl = runtimeSeamless.track?.pageUrl || runtimeLive.pageUrl || location.href;
       const key = `${activityUrl}|${runtimeLive.title}`;
       if (key === r.$lastRecordedTrack) return;
       r.$lastRecordedTrack = key;
-      runtimeState.activity.unshift({
-        id: `local-${Date.now()}`,
+      r.$recordActivity({
         action: "listened",
         title: runtimeLive.title,
         artist: runtimeLive.artist,
@@ -241,9 +283,6 @@ r.$recordListeningActivity = function recordListeningActivity() {
         url: portableBandcampUrl(activityUrl, true),
         artistUrl: portableBandcampUrl(runtimeSeamless.track?.artistUrl || runtimeLive.artistUrl || r.$artistUrlFromPageUrl(activityUrl))
       });
-      runtimeState.activity = runtimeState.activity.slice(0, 30);
-      runtimeSaveState();
-      if (runtimeState.activeTab === "activity") r.$render();
     };
 }
 
@@ -251,8 +290,13 @@ function registerLiveScanning3(r) {
 r.$setResizeCursor = function setResizeCursor(cursor, activeHandle = null) {
       r.$resizeCursorStyle?.remove();
       r.$resizeCursorStyle = null;
-      r.$panel.classList.toggle("is-resizing", Boolean(cursor));
+      const panelResizing = Boolean(cursor) && activeHandle?.classList.contains("hub-resize-handle");
+      const playerResizing = Boolean(cursor) && activeHandle?.classList.contains("hub-player-resize-handle");
+      r.$panel.classList.toggle("is-resizing", panelResizing);
+      r.$panel.classList.toggle("is-player-resizing", playerResizing);
+      r.$player.classList.toggle("is-resizing", playerResizing);
       for (const handle of r.$panel.querySelectorAll(".hub-resize-handle")) handle.classList.toggle("is-active", handle === activeHandle);
+      for (const handle of r.$player.querySelectorAll(".hub-player-resize-handle")) handle.classList.toggle("is-active", handle === activeHandle);
       if (!cursor) return;
       r.$resizeCursorStyle = document.createElement("style");
       r.$resizeCursorStyle.textContent = `html, html * { cursor: ${cursor} !important; user-select: none !important; }`;
@@ -330,7 +374,14 @@ r.$launcher.addEventListener("click", (event) => {
       }
       r.$setOpen(!runtimeState.open);
     });
-r.$headerCloseButton.addEventListener("click", () => r.$setOpen(false));
+r.$headerCloseButton.addEventListener("click", (event) => {
+      // A pointer close should leave the music bar at rest. If the close button
+      // remains focused, render() restores that focus to the panel launcher and
+      // :focus-within keeps the transport replacing the artwork. Preserve the
+      // normal focus return for keyboard activation only.
+      if (event.detail !== 0) r.$headerCloseButton.blur();
+      r.$setOpen(false);
+    });
 r.$headerResetButton.addEventListener("click", () => {
       if (runtimeState.layoutMode === "docked") r.$setOpen(false);
       else r.$resetPanelLayout();
@@ -378,7 +429,107 @@ r.$panelHeader.addEventListener("pointerup", r.$finishDrag);
 r.$panelHeader.addEventListener("pointercancel", r.$finishDrag);
 }
 
+function bindFloatingPlayerResize(r) {
+  const handles = ["left", "right"].map((edge) => {
+    const handle = document.createElement("div");
+    handle.className = `hub-player-resize-handle is-${edge}`;
+    handle.dataset.edge = edge;
+    handle.setAttribute("aria-hidden", "true");
+    r.$player.append(handle);
+    return handle;
+  });
+  let resizing = null;
+  let resizeFrame = 0;
+  const applyResizeWidth = (activeResize = resizing) => {
+    if (!activeResize || !Number.isFinite(activeResize.pendingCustomWidth)) return;
+    runtimeState.musicBarWidth = "custom";
+    runtimeState.musicBarCustomWidth = activeResize.pendingCustomWidth;
+    r.$syncMusicBarWidth();
+    r.$schedulePlayerSectionGeometry();
+  };
+  const scheduleResizeWidth = () => {
+    if (resizeFrame) return;
+    resizeFrame = window.requestAnimationFrame(() => {
+      resizeFrame = 0;
+      applyResizeWidth();
+    });
+  };
+  const syncWidthSetting = () => {
+    const select = r.$content.querySelector('select[aria-label="Music bar width"]');
+    const input = r.$content.querySelector('input[aria-label="Custom music bar width in pixels"]');
+    if (select) select.value = "custom";
+    if (!input) return;
+    input.value = String(runtimeState.musicBarCustomWidth);
+    input.hidden = false;
+    const control = input.closest(".hub-settings-width-control");
+    control?.classList.add("is-custom");
+    const unit = control?.querySelector(".hub-settings-unit");
+    if (unit) unit.hidden = false;
+  };
+  const finishResize = (event) => {
+    if (!resizing || (event?.pointerId !== undefined && event.pointerId !== resizing.pointerId)) return;
+    const activeResize = resizing;
+    const { handle, moved, pointerId } = activeResize;
+    if (resizeFrame) {
+      window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = 0;
+    }
+    applyResizeWidth(activeResize);
+    resizing = null;
+    r.$setResizeCursor("");
+    try { handle.releasePointerCapture(pointerId); } catch {}
+    if (!moved) return;
+    syncWidthSetting();
+    runtimeSaveState();
+    window.requestAnimationFrame(() => r.$refreshScrubWaveform(true));
+    r.$showToast(`Custom music bar width set to ${runtimeState.musicBarCustomWidth}px`);
+  };
+
+  for (const handle of handles) {
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      const rect = r.$player.querySelector(".hub-player-content")?.getBoundingClientRect();
+      if (!rect) return;
+      if (![event.clientX, rect.width].every(Number.isFinite)) return;
+      resizing = {
+        handle,
+        edge: handle.dataset.edge,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        width: rect.width,
+        reservedWidth: 0,
+        pendingCustomWidth: runtimeState.musicBarCustomWidth,
+        moved: false
+      };
+      r.$setResizeCursor("ew-resize", handle);
+      try { handle.setPointerCapture(event.pointerId); } catch {}
+      event.preventDefault();
+    });
+
+    handle.addEventListener("pointermove", (event) => {
+      if (!resizing || resizing.handle !== handle || event.pointerId !== resizing.pointerId || !Number.isFinite(event.clientX)) return;
+      const deltaX = event.clientX - resizing.startX;
+      if (!resizing.moved && Math.abs(deltaX) < 1) return;
+      resizing.moved = true;
+      const minShellWidth = 480 + resizing.reservedWidth;
+      const maxShellWidth = Math.max(minShellWidth, Math.min(2000 + resizing.reservedWidth, window.innerWidth - 24));
+      const direction = resizing.edge === "left" ? -1 : 1;
+      const requestedWidth = resizing.width + deltaX * direction * 2;
+      const shellWidth = Math.max(minShellWidth, Math.min(maxShellWidth, requestedWidth));
+      resizing.pendingCustomWidth = Math.round(shellWidth - resizing.reservedWidth);
+      scheduleResizeWidth();
+      event.preventDefault();
+    });
+
+    handle.addEventListener("pointerup", finishResize);
+    handle.addEventListener("pointercancel", finishResize);
+    handle.addEventListener("lostpointercapture", finishResize);
+  }
+}
+
 function setupLiveScanning2(r) {
+bindDockChevron(r);
+bindFloatingPlayerResize(r);
 for (const handle of r.$panel.querySelectorAll(".hub-resize-handle")) {
       let resizing = null;
       handle.addEventListener("pointerdown", (event) => {
@@ -533,8 +684,14 @@ document.addEventListener("click", (event) => {
 
 function setupLiveScanning3(r) {
 document.addEventListener("click", (event) => {
+      if (!runtimeState.open || !(event.target instanceof Element)) return;
+      const purchaseControl = event.target.closest(".buy-link, .bandcamp-hub-page-buy");
+      if (!purchaseControl || purchaseControl.closest("#bandcamp-hub-extension-root")) return;
+      r.$setOpen(false);
+    }, true);
+document.addEventListener("click", (event) => {
       if (r.$suppressModernControl || r.$suppressRecommendationControl || r.$suppressCollectionControl || !(event.target instanceof Element)) return;
-      if (event.target.closest(".track_play_auxiliary,.play-pause-button,.inline_player .playbutton,.inline_player [aria-label*='Play'],.track_row_view .play_status,.track_row_view .play_cell a,#recommendations_container .recommended-album .play-button")) {
+      if (event.target.closest(".track_play_auxiliary,.play-pause-button,.inline_player .playbutton,.inline_player [aria-label*='Play'],.track_row_view .play_status,.track_row_view .play_cell a,.track_row_view .play-col > a,#recommendations_container .recommended-album .play-button")) {
         r.$suppressedFeedTrackId = "";
         r.$releaseExplicitPlaybackClear();
         if (r.$playlistPlaybackStarting) {
@@ -604,8 +761,10 @@ document.addEventListener("click", (event) => {
       const discoverControl = event.target.closest(".results-grid-item .play-pause-button, .discover-player .play-pause-button");
       if (discoverControl) {
         const discover = r.$getDiscoverPlayerState();
-        const requestedDiscoverKey = discover?.track ? r.$playlistTrackKey(discover.track) : "";
-        if (r.$discoverHandoffBusy && requestedDiscoverKey && requestedDiscoverKey !== r.$discoverHandoffTrackKey) {
+        // During capture the native panel still describes the previous album.
+        // Any new play intent supersedes an in-flight handoff, even before Vue
+        // has updated the focused release and its track metadata.
+        if (r.$discoverHandoffBusy) {
           r.$playlistPlayRequest += 1;
           r.$discoverHandoffPending = true;
         }
@@ -628,6 +787,21 @@ document.addEventListener("click", (event) => {
           });
         } else {
           window.setTimeout(r.$scanLivePlayer, 160);
+        }
+        return;
+      }
+      const radioControl = event.target.closest(".radio-card .play-pause-button");
+      if (radioControl) {
+        const radioCard = radioControl.closest(".radio-card");
+        const requestedKey = radioShowTracklistKey({ cardId: radioCard?.id, showHref: radioCard?.querySelector("a[href*='show=']")?.href, baseHref: location.href });
+        r.$radioHandoffKey = requestedKey;
+        window.setTimeout(() => { if (r.$radioHandoffKey === requestedKey) r.$radioHandoffKey = ""; }, 8000);
+        if (runtimeSeamless.enabled) {
+          void r.$seamlessCommand(MESSAGES.SEAMLESS_DISABLE).finally(() => {
+            r.$scheduleModernHandoff(requestedKey, null, 14);
+          });
+        } else {
+          r.$scheduleModernHandoff(requestedKey, null, 14);
         }
         return;
       }
@@ -668,12 +842,12 @@ document.addEventListener("input", (event) => {
       control?.style.setProperty("--bandkit-page-scrub-progress", `${(progress * 100).toFixed(2)}%`);
     }, true);
 document.addEventListener("click", (event) => {
-      if (!runtimeSeamless.enabled || !(event.target instanceof Element)) return;
+      if (!(event.target instanceof Element)) return;
       if (event.target.closest(".bandcamp-hub-page-tools, .bandcamp-hub-page-playlist-menu")) return;
-      const previous = event.target.closest(".inline_player .prevbutton, .inline_player [aria-label='Previous track']");
-      const next = event.target.closest(".inline_player .nextbutton, .inline_player [aria-label='Next track']");
+      const previous = event.target.closest(".inline_player .prevbutton, .inline_player [aria-label='Previous track'], .mplayer .prev");
+      const next = event.target.closest(".inline_player .nextbutton, .inline_player [aria-label='Next track'], .mplayer .next");
       const progress = event.target.closest(".inline_player .progbar, .inline_player .progbar_empty");
-      if (previous || next || progress) {
+      if (runtimeSeamless.enabled && (previous || next || progress)) {
         event.preventDefault();
         event.stopImmediatePropagation();
         if (previous) void r.$seamlessCommand(MESSAGES.SEAMLESS_PREVIOUS);
@@ -685,18 +859,14 @@ document.addEventListener("click", (event) => {
         }
         return;
       }
-      const control = event.target.closest(".inline_player .playbutton, .inline_player [aria-label*='Play'], .inline_player [aria-label*='Pause'], .track_row_view .play_status, .track_row_view .play_cell a");
+      const control = event.target.closest(".inline_player .playbutton, .inline_player [aria-label*='Play'], .inline_player [aria-label*='Pause'], .track_row_view .play_status, .track_row_view .play_cell a, .track_row_view .play-col > a, .mplayer .mpbutton, .mplayer .trtrack, article-playbutton icon");
       if (!control) return;
-      const requestedTrack = r.$classicPageTrackForControl(control);
-      if (!requestedTrack) {
-        void r.$seamlessCommand(MESSAGES.SEAMLESS_DISABLE);
+      if (!r.$requestClassicPagePlayback(control)) {
+        if (runtimeSeamless.enabled) void r.$seamlessCommand(MESSAGES.SEAMLESS_DISABLE);
         return;
       }
       event.preventDefault();
       event.stopImmediatePropagation();
-      const controlsCurrentTrack = Boolean(r.$matchingQueueTrack([requestedTrack], runtimeSeamless.track || {}));
-      if (!controlsCurrentTrack) void r.$handoffPageAudio(null, requestedTrack.title);
-      else void r.$seamlessCommand(MESSAGES.SEAMLESS_PLAY_PAUSE);
     }, true);
 document.addEventListener("click", (event) => {
       if (!(event.target instanceof Element)) return;
@@ -710,6 +880,7 @@ document.addEventListener("click", (event) => {
 function setupLiveScanning4(r) {
 r.$playButton.addEventListener("click", async () => {
       r.$releaseExplicitPlaybackClear();
+      if (r.$pauseNativeDiscover?.()) return;
       if (runtimeSeamless.enabled) {
         await r.$seamlessCommand(MESSAGES.SEAMLESS_PLAY_PAUSE);
         return;
@@ -750,24 +921,53 @@ r.$djPlayerButton.addEventListener("click", () => r.$toggleDjTools());
 r.$nowPlayingButton.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
+      r.$clearCompactPanelNotice?.();
       const currentPanelVisible = runtimeState.open && runtimeState.activeTab === "playlist";
+      runtimeState.musicBarRecentPanel = "playlist";
       runtimeState.activeTab = "playlist";
       runtimeState.open = !currentPanelVisible;
       runtimeSaveState();
       r.$saveLayoutState();
       r.$render();
     });
+const playerMoreWrap = r.$player.querySelector(".hub-player-more-wrap");
+const closePlayerMoreMenu = () => {
+      r.$playerMoreMenu.hidden = true;
+      r.$playerMoreButton.setAttribute("aria-expanded", "false");
+      for (const property of ["bottom", "left", "position", "right", "top", "z-index"]) {
+        r.$playerMoreMenu.style.removeProperty(property);
+      }
+      if (playerMoreWrap.isConnected && r.$playerMoreMenu.parentNode !== playerMoreWrap) {
+        playerMoreWrap.append(r.$playerMoreMenu);
+      }
+    };
+const openPlayerMoreMenu = () => {
+      (r.$fullscreenVisualizerStage || r.$shadow).append(r.$playerMoreMenu);
+      r.$playerMoreMenu.hidden = false;
+      const anchor = r.$playerMoreButton.getBoundingClientRect();
+      const menu = r.$playerMoreMenu.getBoundingClientRect();
+      r.$playerMoreMenu.style.position = "fixed";
+      r.$playerMoreMenu.style.bottom = "auto";
+      r.$playerMoreMenu.style.right = "auto";
+      r.$playerMoreMenu.style.left = `${Math.max(8, Math.min(window.innerWidth - menu.width - 8, anchor.right - menu.width))}px`;
+      r.$playerMoreMenu.style.top = `${Math.max(8, anchor.top - menu.height - 6)}px`;
+      r.$playerMoreMenu.style.zIndex = "2147483647";
+      r.$playerMoreButton.setAttribute("aria-expanded", "true");
+    };
+const handlePlayerMoreFocusOut = () => window.setTimeout(() => {
+      const activeElement = r.$shadow.activeElement;
+      if (!playerMoreWrap.contains(activeElement) && !r.$playerMoreMenu.contains(activeElement)) {
+        closePlayerMoreMenu();
+      }
+    }, 50);
+r.$closePlayerMoreMenu = closePlayerMoreMenu;
 r.$playerMoreButton.addEventListener("click", () => {
       if (r.$playerMoreButton.disabled) return;
-      r.$playerMoreMenu.hidden = !r.$playerMoreMenu.hidden;
-      r.$playerMoreButton.setAttribute("aria-expanded", String(!r.$playerMoreMenu.hidden));
+      if (r.$playerMoreMenu.hidden) openPlayerMoreMenu();
+      else closePlayerMoreMenu();
     });
-r.$player.querySelector(".hub-player-more-wrap").addEventListener("focusout", () => window.setTimeout(() => {
-      if (!r.$player.querySelector(".hub-player-more-wrap").contains(r.$shadow.activeElement)) {
-        r.$playerMoreMenu.hidden = true;
-        r.$playerMoreButton.setAttribute("aria-expanded", "false");
-      }
-    }, 50));
+playerMoreWrap.addEventListener("focusout", handlePlayerMoreFocusOut);
+r.$playerMoreMenu.addEventListener("focusout", handlePlayerMoreFocusOut);
 document.addEventListener("click", (event) => {
       const target = event.target instanceof Element ? event.target.closest(".bandcamp-hub-page-dj") : null;
       if (!target) return;

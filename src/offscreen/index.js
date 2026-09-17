@@ -1,8 +1,11 @@
 import { MESSAGES } from "../shared/contracts.js";
-import { buildWaveform, createTrackAudioDecoder, estimateBpm, estimateKey } from "./analysis.js";
+import { createAnalysisCache } from "./analysis-cache.js";
+import { createTrackAudioDecoder } from "./analysis.js";
+import { createAnalysisWorkerClient } from "./analysis-worker-client.js";
 import { installOffscreenEvents } from "./events.js";
 import { interruptedPlay, waitForMediaMetadata } from "./progressive.js";
 import { compensatedHandoffTime, finiteNumber, gainFromDb, trackKey as stableTrackKey } from "./utils.js";
+import { startVisualizerSignal } from "./visualizer.js";
 import { createStateSender, updateMediaSessionState } from "./state.js";
 
 const audio = document.querySelector("#bandcamp-hub-audio");
@@ -31,29 +34,31 @@ let eqMidDb = 0;
 let eqHighDb = 0;
 let loadToken = 0;
 let mediaRequestToken = 0;
+const playbackSessionStartedAt = Date.now();
+let playbackStateRevision = 0;
 let pendingSeekTime = null;
 let pendingSeekRevision = 0;
 let bpmAnalysisToken = 0;
 let detectedBpm = null;
 let automaticBpm = null;
+let automaticBpmUncertain = false;
 let bpmSource = "auto";
 let bpmStatus = "idle";
 let bpmError = "";
+let bpmUncertain = false;
 let detectedKey = null;
 let waveform = [];
-const analysisCache = new Map();
 const analysisFetchControllers = new Set();
 const playbackPriorityControllers = new WeakSet();
 const bpmOverrides = new Map();
-const ANALYSIS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
-const ANALYSIS_CACHE_MAX_ENTRIES = 250;
+const ANALYSIS_ALGORITHM_VERSION = 9;
+const analysisCache = createAnalysisCache({ version: ANALYSIS_ALGORITHM_VERSION });
+const analysisWorker = createAnalysisWorkerClient();
 const PLAYBACK_PRIORITY_GRACE_MS = 750;
 const PLAYBACK_ANALYSIS_HEADROOM_SECONDS = 15;
 const PLAYBACK_ANALYSIS_RETRY_MS = 500;
 const PLAYBACK_ANALYSIS_DELAY_MS = 8_000;
 let bpmOverridesLoaded = false;
-let analysisCacheLoaded = false;
-let analysisCachePersistTimer = null;
 let playbackPriorityUntil = 0;
 let analysisNotBefore = 0;
 let audioContext = null;
@@ -63,6 +68,7 @@ let lowEqNode = null;
 let midEqNode = null;
 let highEqNode = null;
 let gainNode = null;
+let analyserNode = null;
 
 function currentTrack() { return queue[currentIndex] || null; }
 
@@ -77,6 +83,8 @@ function stateSnapshot() {
     ? finiteNumber(pendingSeekTime)
     : sourceUnavailable ? 0 : finiteNumber(audio.currentTime);
   return {
+    sessionStartedAt: playbackSessionStartedAt,
+    revision: ++playbackStateRevision,
     enabled,
     status,
     error: playbackError,
@@ -97,63 +105,17 @@ function stateSnapshot() {
     eqHighDb,
     detectedBpm,
     automaticBpm,
+    automaticBpmUncertain,
     bpmSource,
     bpmStatus,
     bpmError,
+    bpmUncertain,
     detectedKey,
     waveform,
     index: currentIndex,
     track,
     queue
   };
-}
-
-function trimAnalysisCache() {
-  const cutoff = Date.now() - ANALYSIS_CACHE_TTL_MS;
-  for (const [key, result] of analysisCache) {
-    if (Number(result?.cachedAt) < cutoff) analysisCache.delete(key);
-  }
-  while (analysisCache.size > ANALYSIS_CACHE_MAX_ENTRIES) {
-    analysisCache.delete(analysisCache.keys().next().value);
-  }
-}
-
-async function loadAnalysisCache() {
-  if (analysisCacheLoaded) return;
-  analysisCacheLoaded = true;
-  try {
-    // Offscreen documents only expose chrome.runtime; the service worker brokers analysis storage.
-    const stored = await chrome.runtime.sendMessage({ type: MESSAGES.OFFSCREEN_GET_ANALYSIS_STORAGE });
-    for (const [key, result] of Object.entries(stored?.trackAnalysisCache || {})) {
-      const bpm = finiteNumber(result?.bpm);
-      if (bpm > 0 && result?.key && Number(result.cachedAt) > 0) {
-        analysisCache.set(key, { bpm, key: result.key, waveform: [], cachedAt: Number(result.cachedAt) });
-      }
-    }
-    trimAnalysisCache();
-  } catch {
-    // Analysis remains available when session storage is unavailable.
-  }
-}
-
-function persistAnalysisCache() {
-  window.clearTimeout(analysisCachePersistTimer);
-  analysisCachePersistTimer = window.setTimeout(() => {
-    trimAnalysisCache();
-    const compact = Object.fromEntries([...analysisCache.entries()].map(([key, result]) => [key, {
-      bpm: result.bpm,
-      key: result.key,
-      cachedAt: result.cachedAt
-    }]));
-    chrome.runtime.sendMessage({ type: MESSAGES.OFFSCREEN_SET_ANALYSIS_STORAGE, trackAnalysisCache: compact }).catch(() => {});
-  }, 100);
-}
-
-function cacheAnalysisResult(key, result) {
-  analysisCache.delete(key);
-  analysisCache.set(key, { ...result, cachedAt: Date.now() });
-  trimAnalysisCache();
-  persistAnalysisCache();
 }
 
 function prioritizePlayback() {
@@ -165,8 +127,13 @@ function prioritizePlayback() {
   }
 }
 
-async function waitForPlaybackPriority() {
-  while (status === "loading" || Date.now() < playbackPriorityUntil) {
+async function waitForPlaybackPriority(respectHeadroom = true) {
+  while (status === "loading"
+    || Date.now() < playbackPriorityUntil
+    || (respectHeadroom && enabled && !audio.paused && !audio.ended && (
+      Date.now() < analysisNotBefore
+      || bufferedPlaybackHeadroom() < PLAYBACK_ANALYSIS_HEADROOM_SECONDS
+    ))) {
     await new Promise((resolve) => {
       window.setTimeout(resolve, 25);
     });
@@ -239,7 +206,13 @@ async function ensureAudioGraph() {
     filterNode.connect(lowEqNode);
     lowEqNode.connect(midEqNode);
     midEqNode.connect(highEqNode);
-    highEqNode.connect(gainNode);
+    if (typeof audioContext.createAnalyser === "function") {
+      analyserNode = audioContext.createAnalyser();
+      Object.assign(analyserNode, { fftSize: 4096, minDecibels: -105, maxDecibels: -6, smoothingTimeConstant: 0.08 });
+      highEqNode.connect(analyserNode);
+      analyserNode.connect(gainNode);
+      startVisualizerSignal({ analyser: analyserNode, audio, isPlaying: () => enabled && !audio.paused && !audio.ended && status !== "loading" });
+    } else highEqNode.connect(gainNode);
     gainNode.connect(audioContext.destination);
     if (audioContext.state === "suspended") await audioContext.resume().catch(() => {});
     return true;
@@ -250,6 +223,7 @@ async function ensureAudioGraph() {
     midEqNode = null;
     highEqNode = null;
     gainNode = null;
+    analyserNode = null;
     return false;
   }
 }
@@ -302,59 +276,75 @@ function applyAudioEffects(
 }
 
 
-async function analyzeCurrentTrack(force = false) {
+async function analyzeCurrentTrack(force = false, deep = false) {
   const track = currentTrack();
   if (!track?.url) return stateSnapshot();
-  await Promise.all([loadBpmOverrides(), loadAnalysisCache()]);
+  await Promise.all([loadBpmOverrides(), analysisCache.load()]);
   const key = stableTrackKey(track);
   if (!force && analysisCache.has(key)) {
     const cached = analysisCache.get(key);
     automaticBpm = cached.bpm;
+    automaticBpmUncertain = Boolean(cached.bpmUncertain);
     detectedBpm = bpmOverrides.get(key) || automaticBpm;
     bpmSource = bpmOverrides.has(key) ? "manual" : "auto";
+    bpmUncertain = bpmSource === "auto" && Boolean(cached.bpmUncertain);
     detectedKey = cached.key;
     waveform = cached.waveform || [];
-    bpmStatus = "ready";
-    bpmError = "";
+    bpmStatus = detectedBpm ? "ready" : "error";
+    bpmError = bpmUncertain ? "This is a best-effort tempo estimate." : "";
     sendState(true);
     return stateSnapshot();
   }
   const token = ++bpmAnalysisToken;
-  detectedBpm = null;
-  automaticBpm = null;
-  bpmSource = "auto";
-  detectedKey = null;
-  waveform = [];
+  if (!deep) {
+    detectedBpm = null;
+    automaticBpm = null;
+    automaticBpmUncertain = false;
+    bpmSource = "auto";
+    detectedKey = null;
+    waveform = [];
+  }
   bpmStatus = "analyzing";
   bpmError = "";
-  sendState(true);
+  if (!deep) {
+    bpmUncertain = false;
+    sendState(true);
+  }
   try {
     const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
     if (!AudioContextClass) throw new Error("Web Audio analysis is unavailable.");
     let buffer;
     while (!buffer) {
+      // `force` bypasses the result cache only. It must never bypass playback
+      // headroom: a manual reanalysis is still lower priority than starting,
+      // switching, seeking, or continuously buffering the current track.
       await waitForPlaybackPriority();
-      if (!force && !await waitForAnalysisHeadroom(token, track.url)) return stateSnapshot();
+      if (!await waitForAnalysisHeadroom(token, track.url)) return stateSnapshot();
       try {
-        buffer = await decodeTrackAnalysisAudio(AudioContextClass, track.url);
+        buffer = await decodeTrackAnalysisAudio(AudioContextClass, track.url, {
+          duration: track.duration,
+          segmentCount: deep ? 7 : 3,
+          yieldControl: () => waitForPlaybackPriority()
+        });
       } catch (error) {
         if (error?.code !== "PLAYBACK_PRIORITY") throw error;
       }
     }
     if (token !== bpmAnalysisToken || currentTrack()?.url !== track.url) return stateSnapshot();
-    const result = {
-      bpm: estimateBpm(buffer),
-      key: estimateKey(buffer),
-      waveform: buildWaveform(buffer)
-    };
+    const { bpmError: analysisError, ...result } = await analysisWorker.analyze(buffer, { deep, priority: true });
+    if (token !== bpmAnalysisToken || currentTrack()?.url !== track.url) return stateSnapshot();
     automaticBpm = result.bpm;
+    automaticBpmUncertain = result.bpmUncertain;
     detectedBpm = bpmOverrides.get(key) || result.bpm;
     bpmSource = bpmOverrides.has(key) ? "manual" : "auto";
+    bpmUncertain = bpmSource === "auto" && result.bpmUncertain;
     detectedKey = result.key;
     waveform = result.waveform;
-    cacheAnalysisResult(key, result);
-    bpmStatus = "ready";
+    analysisCache.set(key, result);
+    bpmStatus = result.bpm ? "ready" : "error";
+    bpmError = analysisError;
   } catch (error) {
+    if (token !== bpmAnalysisToken || currentTrack()?.url !== track.url) return stateSnapshot();
     if (token !== bpmAnalysisToken) return stateSnapshot();
     bpmStatus = "error";
     bpmError = error.message;
@@ -363,15 +353,15 @@ async function analyzeCurrentTrack(force = false) {
   return stateSnapshot();
 }
 
-const TRACK_ANALYSIS_CONCURRENCY = 3;
+const TRACK_ANALYSIS_CONCURRENCY = 1;
 
 const decodeTrackAnalysisAudio = createTrackAudioDecoder({
   analysisFetchControllers,
   playbackPriorityControllers
 });
 
-async function analyzeTrack(track, force = false) {
-  await Promise.all([loadBpmOverrides(), loadAnalysisCache()]);
+async function analyzeTrack(track, force = false, deep = false) {
+  await Promise.all([loadBpmOverrides(), analysisCache.load()]);
   const key = stableTrackKey(track);
   if (!force && analysisCache.has(key)) {
     const cached = analysisCache.get(key);
@@ -379,6 +369,7 @@ async function analyzeTrack(track, force = false) {
       id: track.id,
       url: track.url,
       bpm: bpmOverrides.get(key) || cached.bpm,
+      bpmUncertain: !bpmOverrides.has(key) && Boolean(cached.bpmUncertain),
       key: cached.key
     };
   }
@@ -388,26 +379,28 @@ async function analyzeTrack(track, force = false) {
   while (!buffer) {
     await waitForPlaybackPriority();
     try {
-      buffer = await decodeTrackAnalysisAudio(AudioContextClass, track.url);
+      buffer = await decodeTrackAnalysisAudio(AudioContextClass, track.url, {
+        duration: track.duration,
+        segmentCount: deep ? 7 : 3,
+        yieldControl: () => waitForPlaybackPriority()
+      });
     } catch (error) {
       if (error?.code !== "PLAYBACK_PRIORITY") throw error;
     }
   }
-  const result = {
-    bpm: estimateBpm(buffer),
-    key: estimateKey(buffer),
-    waveform: buildWaveform(buffer)
-  };
-  cacheAnalysisResult(key, result);
+  await waitForPlaybackPriority();
+  const { bpmError: _analysisError, ...result } = await analysisWorker.analyze(buffer, { deep });
+  analysisCache.set(key, result);
   return {
     id: track.id,
     url: track.url,
     bpm: bpmOverrides.get(key) || result.bpm,
+    bpmUncertain: !bpmOverrides.has(key) && result.bpmUncertain,
     key: result.key
   };
 }
 
-async function analyzeTracks(tracks, force = false) {
+async function analyzeTracks(tracks, force = false, deep = false) {
   const source = Array.isArray(tracks) ? tracks.slice(0, 100) : [];
   const results = new Array(source.length);
   let cursor = 0;
@@ -417,7 +410,7 @@ async function analyzeTracks(tracks, force = false) {
       cursor += 1;
       const track = source[index];
       try {
-        results[index] = await analyzeTrack(track, force);
+        results[index] = await analyzeTrack(track, force, deep);
       } catch (error) {
         results[index] = {
           id: track?.id,
@@ -638,9 +631,11 @@ async function loadTrack(index, currentTime = 0, autoplay = false, handoffStarte
   ++bpmAnalysisToken;
   detectedBpm = null;
   automaticBpm = null;
+  automaticBpmUncertain = false;
   bpmSource = "auto";
   bpmStatus = "idle";
   bpmError = "";
+  bpmUncertain = false;
   detectedKey = null;
   waveform = [];
   playbackError = "";
@@ -718,6 +713,10 @@ async function previousTrack() {
 
 async function updateQueue(message) {
 const previousTrack = currentTrack();
+    if (message.expectedTrack
+      && stableTrackKey(message.expectedTrack) !== stableTrackKey(previousTrack)) {
+      return stateSnapshot();
+    }
     const previousIndex = currentIndex;
     const wasPlaying = enabled && !audio.paused && !audio.ended;
     queue = Array.isArray(message.queue) ? message.queue : [];
@@ -734,9 +733,11 @@ const previousTrack = currentTrack();
       ++bpmAnalysisToken;
       detectedBpm = null;
       automaticBpm = null;
+      automaticBpmUncertain = false;
       bpmSource = "auto";
       bpmStatus = "idle";
       bpmError = "";
+      bpmUncertain = false;
       detectedKey = null;
       waveform = [];
       audio.pause();
@@ -772,7 +773,7 @@ async function handleCommand(message) {
     return stateSnapshot();
   }
   if (message.type === MESSAGES.OFFSCREEN_ANALYZE_TRACKS) {
-    return analyzeTracks(message.tracks, message.force === true);
+    return analyzeTracks(message.tracks, message.force === true, message.deep === true);
   }
   if (message.type === MESSAGES.OFFSCREEN_ENABLE) {
     queue = Array.isArray(message.queue) ? message.queue : [];
@@ -825,9 +826,11 @@ async function handleCommand(message) {
     ++bpmAnalysisToken;
     detectedBpm = null;
     automaticBpm = null;
+    automaticBpmUncertain = false;
     bpmSource = "auto";
     bpmStatus = "idle";
     bpmError = "";
+    bpmUncertain = false;
     detectedKey = null;
     waveform = [];
     audio.pause();
@@ -918,6 +921,7 @@ async function handleCommand(message) {
     }
     detectedBpm = bpm;
     bpmSource = "manual";
+    bpmUncertain = false;
     bpmStatus = "ready";
     bpmError = "";
     sendState(true);
@@ -934,8 +938,9 @@ async function handleCommand(message) {
     if (!automaticBpm) return analyzeCurrentTrack(true);
     detectedBpm = automaticBpm;
     bpmSource = "auto";
+    bpmUncertain = automaticBpmUncertain;
     bpmStatus = "ready";
-    bpmError = "";
+    bpmError = bpmUncertain ? "This is a best-effort tempo estimate." : "";
     sendState(true);
     return stateSnapshot();
   }
@@ -946,7 +951,7 @@ async function handleCommand(message) {
       bpmOverrides.delete(key);
       persistBpmOverrides();
     }
-    return analyzeCurrentTrack(true);
+    return analyzeCurrentTrack(true, message.deep === true);
   }
 
   return stateSnapshot();

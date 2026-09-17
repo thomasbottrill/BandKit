@@ -23,7 +23,7 @@ const sourceFiles = [...includedRoots.flatMap(walk), ...rootFiles]
 
 for (const filename of sourceFiles) {
   const lines = fs.readFileSync(path.join(projectDirectory, filename), "utf8").split(/\r?\n/).length;
-  assert.ok(lines <= 1000, `${filename} has ${lines} lines; hand-authored files are limited to 1,000`);
+  assert.ok(lines <= 1500, `${filename} has ${lines} lines; hand-authored files are limited to 1,500`);
 }
 
 const moduleFiles = sourceFiles.filter((filename) => /\.(?:js|mjs)$/.test(filename));

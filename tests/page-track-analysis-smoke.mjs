@@ -2,36 +2,48 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { readContentSource, readModernStyles } from "./support/source.mjs";
 
-const [source, state, contracts, background, offscreen, releaseCss, hubCss, playerCss] = await Promise.all([
+const [source, state, contracts, background, offscreen, releaseCss, hubCss, playerCss, deepAnalysis] = await Promise.all([
   Promise.resolve(readContentSource()),
   readFile(new URL("../src/content/state.js", import.meta.url), "utf8"),
   readFile(new URL("../src/shared/contracts.js", import.meta.url), "utf8"),
   readFile(new URL("../src/background/index.js", import.meta.url), "utf8"),
-  Promise.all(["progressive.js", "analysis.js", "utils.js", "state.js", "events.js", "index.js"]
+  Promise.all(["progressive.js", "analysis-cache.js", "analysis.js", "analysis-worker.js", "analysis-worker-client.js", "utils.js", "state.js", "events.js", "index.js"]
     .map((filename) => readFile(new URL(`../src/offscreen/${filename}`, import.meta.url), "utf8"))).then((parts) => parts.join("\n")),
   Promise.resolve(readModernStyles()),
-  readFile(new URL("../src/styles/hub/settings.css", import.meta.url), "utf8"),
-  readFile(new URL("../src/styles/hub/player.css", import.meta.url), "utf8")
+  Promise.all(["settings.css", "settings-controls.css", "settings-actions.css"].map((file) => (
+    readFile(new URL(`../src/styles/hub/${file}`, import.meta.url), "utf8")
+  ))).then((parts) => parts.join("\n")),
+  Promise.all(["player.css", "player-track.css", "player-interactions.css"].map((file) => (
+    readFile(new URL(`../src/styles/hub/${file}`, import.meta.url), "utf8")
+  ))).then((parts) => parts.join("\n")),
+  readFile(new URL("../src/content/runtime/deep-analysis.js", import.meta.url), "utf8")
 ]);
 
 assert.match(state, /autoAnalyzeTracks:\s*true/, "page track analysis must default to automatic");
 assert.match(state, /showTrackKeys:\s*true/, "musical keys must remain visible by default");
-assert.match(state, /pageActionLabels:\s*false/, "page icon labels must default to compact/off");
+assert.match(state, /showCamelotNotation:\s*false/, "Camelot notation must default to hidden");
+assert.doesNotMatch(state, /pageActionLabels/, "the removed page icon-label preference must not remain in default state");
 assert.match(contracts, /ANALYZE_TRACKS:\s*"BANDCAMP_HUB_ANALYZE_TRACKS"/);
 assert.match(background, /message\.type === MESSAGES\.ANALYZE_TRACKS[\s\S]*?OFFSCREEN_ANALYZE_TRACKS/,
   "the background must sanitize and forward page analysis requests");
-assert.match(offscreen, /async function analyzeTrack\(track, force = false\)[\s\S]*?estimateBpm[\s\S]*?estimateKey/,
-  "batch analysis must calculate both BPM and musical key");
-assert.match(offscreen, /sampleBytes\s*=\s*524_288[\s\S]*?fallbackBytes\s*=\s*1_048_576[\s\S]*?Range:\s*`bytes=0-\$\{requestedBytes - 1\}`/,
-  "page analysis must retain its full analysis window and larger decode fallback");
+assert.match(offscreen, /async function analyzeTrack\(track, force = false, deep = false\)[\s\S]*?analysisWorker\.analyze/,
+  "batch analysis must delegate decoding and analysis to the worker");
+assert.match(offscreen, /estimateKeyCooperatively\(decoded[\s\S]*?estimateBpmDetailsCooperatively\(decoded/,
+  "the analysis worker must calculate both BPM and musical key");
+assert.match(offscreen, /sampleBytes\s*=\s*524_288[\s\S]*?fallbackBytes\s*=\s*1_048_576[\s\S]*?Range:\s*`bytes=\$\{startByte\}-\$\{startByte \+ requestedBytes - 1\}`/,
+  "page analysis must use bounded, independently decodable windows across each track");
 assert.match(offscreen, /downloaded\.byteLength > requestedBytes \? downloaded\.slice\(0, requestedBytes\)[\s\S]*?downloaded\.byteLength > requestedBytes/,
   "page analysis must bound cached full HTTP responses to the same deterministic sample as range responses");
-assert.match(offscreen, /TRACK_ANALYSIS_CONCURRENCY\s*=\s*3[\s\S]*?Math\.min\(TRACK_ANALYSIS_CONCURRENCY, source\.length\)/,
-  "page analysis must keep a fast but playback-friendly three-track worker pool");
+assert.match(offscreen, /TRACK_ANALYSIS_CONCURRENCY\s*=\s*1[\s\S]*?Math\.min\(TRACK_ANALYSIS_CONCURRENCY, source\.length\)/,
+  "page analysis must serialize CPU-heavy key work so playback stays responsive");
 assert.match(source, /PAGE_TRACK_ANALYSIS_CONCURRENCY\s*=\s*3[\s\S]*?Math\.min\(PAGE_TRACK_ANALYSIS_CONCURRENCY, tracks\.length\)[\s\S]*?Array\.from\(\{ length: concurrency \}, worker\)/,
   "page analysis must progressively coordinate three track workers");
 assert.match(offscreen, /function prioritizePlayback\(\)[\s\S]*?controller\.abort\(\)[\s\S]*?status === "loading"[\s\S]*?PLAYBACK_PRIORITY/,
   "playback must preempt in-flight page analysis and let it resume after the stream starts");
+assert.match(offscreen, /estimateKeyCooperatively[\s\S]*?processedFrames % 2 === 0[\s\S]*?await yieldControl\(\)/,
+  "key FFT work must yield frequently enough for playback commands to preempt it");
+assert.match(offscreen, /estimateBpmDetailsCooperatively[\s\S]*?for \(const buffer of buffers\)[\s\S]*?await yieldControl\(\)/,
+  "tempo tracking must yield between sampled windows so playback commands can preempt it");
 assert.match(offscreen, /function interruptedPlay[\s\S]*?async function playForMediaRequest[\s\S]*?attempt < 3[\s\S]*?async function seekToTime[\s\S]*?playForMediaRequest/,
   "rapid startup seeks must retry interrupted play promises without exposing Chrome's raw play() error");
 assert.match(offscreen, /async function loadTrack[\s\S]*?audio\.src = track\.url[\s\S]*?audio\.load\(\)[\s\S]*?playForMediaRequest/,
@@ -60,6 +72,24 @@ assert.match(source, /function itemFromNode\(node\)[\s\S]*?"\.heading"[\s\S]*?"\
   "Bandcamp track search results must expose their title and artist to Add-control injection");
 assert.match(source, /const titleNode = node\.querySelector\("[^"]*\.heading"\)/,
   "track search Add controls must attach beside the native search-result heading");
+assert.match(source, /fallbackIsSearchRelease[\s\S]*?node\.matches\("\.searchresult"\)[\s\S]*?\^\(\?:album\|track\)\$/,
+  "search Add controls must cover album and track results without appearing on artist results");
+assert.match(source, /classList\.toggle\("is-search-add-to", node\.matches\("\.searchresult"\)\)/,
+  "search Add controls must receive their dedicated component style");
+assert.match(source, /\.searchresult \.bandcamp-hub-page-playlist\.is-search-add-to\{[^}]*border:1px solid transparent!important;[^}]*border-radius:7px!important;[^}]*height:30px!important;[^}]*width:30px!important/,
+  "search Add controls must use a smaller borderless-at-rest rounded-square style");
+assert.match(source, /\.searchresult \.art\{position:relative\}[\s\S]*?\.bandkit-search-play[\s\S]*?opacity:0[\s\S]*?\.art:is\(:hover,:focus-within\)>\.bandkit-search-play/,
+  "search artwork must reveal a consistent play control on hover and keyboard focus");
+assert.match(source, /function playSearchResult[\s\S]*?addTracksToPlaylist\(\[track\], \{ quiet: true, syncQueue: false \}\)[\s\S]*?playPlaylistAt\(index, \{ forceRefresh: true, revealPanel \}\)/,
+  "search artwork playback must add the result and use the established hydrated queue path");
+assert.match(source, /function syncSearchPlaybackUi[\s\S]*?icon-pause\.svg[\s\S]*?aria-pressed/,
+  "search artwork playback controls must follow seamless play and pause state");
+assert.match(source, /syncSearchPlaybackUi\?\.\(\)/,
+  "seamless playback updates must refresh search artwork controls");
+assert.match(source, /requestedPlaylistItemId[\s\S]*?\^\(\?:track-\)\?\\d\+\$/,
+  "queue matching must prefer playlist identity and ignore display-title fallback IDs");
+assert.match(source, /canonical release URL is a stronger identity[\s\S]*?return pageMatch \|\| null/,
+  "same-titled search results on different release URLs must not toggle one another");
 assert.match(source, /playlistButton\.classList\.add\("is-collection-action"\);[\s\S]*?playlistButton\.classList\.toggle\("is-feed-compact-action", modernActions\)/,
   "wishlist and owned collection add buttons must share the compact collection component only in modern mode");
 assert.match(source, /function finishFeedAudioHandoff[\s\S]*?addEventListener\("playing"[\s\S]*?window\.setTimeout\(finish, 500\)[\s\S]*?async function handoffFeedPlayer[\s\S]*?finishFeedAudioHandoff/,
@@ -78,8 +108,28 @@ assert.match(source, /function scrubTarget\(\)[\s\S]*?const fraction = Math\.max
   "a Feed seek fraction must survive while the incoming track duration is still unknown");
 assert.match(source, /function commitPageScrub\(control, fraction\)[\s\S]*?pendingFeedTrackId[\s\S]*?pendingFeedSeekRevision \+= 1[\s\S]*?SEAMLESS_SEEK/,
   "feed page scrubbers must retain a seek while a track handoff is still pending");
-assert.match(source, /const pendingFeedLoading = Boolean\(pendingFeedTrackId\)[\s\S]*?const pendingFeedSeek = Boolean\([\s\S]*?pendingFeedSeekTrackId[\s\S]*?currentTime = pendingFeedLoading[\s\S]*?pendingFeedSeekTime[\s\S]*?classList\.toggle\("is-pending-seek", pendingFeedSeek\)[\s\S]*?aria-busy/,
+assert.match(source, /function queueClassicPageSeek\(fraction\)[\s\S]*?classicPageHandoffTrackKey[\s\S]*?classicPagePendingSeekFraction[\s\S]*?classicPagePendingSeekRevision \+= 1/,
+  "classic page seeks must bind to the row handoff that is still loading");
+assert.match(source, /function handoffPageAudio[\s\S]*?pendingSeekAtSend[\s\S]*?handoffCurrentTime[\s\S]*?SEAMLESS_ENABLE[\s\S]*?pendingSeekAfterResponse[\s\S]*?SEAMLESS_SEEK/,
+  "classic page handoff must apply an immediate seek before load or reconcile a later seek after load");
+assert.match(source, /function seekToScrubTarget[\s\S]*?queueClassicPageSeek\?\.\(target\.fraction\)/,
+  "the bottom music bar must retain a midpoint seek made during a classic page handoff");
+assert.match(source, /function commitPageScrub[\s\S]*?queueClassicPageSeek\?\.\(fraction\)/,
+  "the inline page scrubber must retain a midpoint seek made during a classic page handoff");
+assert.match(source, /const pendingClassicLoading = Boolean\([\s\S]*?pendingClassicSeek[\s\S]*?classicPagePendingSeekFraction[\s\S]*?scrubSlider\.value[\s\S]*?is-pending-seek/,
+  "a classic handoff must keep its selected track and pending playhead visible while metadata loads");
+// Pending-handoff state is computed in pendingPlayerState() and consumed by the render pass,
+// so each behaviour is asserted separately rather than as one contiguous block.
+assert.match(source, /const pendingFeedLoading = Boolean\(pendingFeedTrackId\)/,
+  "a Feed handoff is pending whenever a Feed track id is queued");
+assert.match(source, /const pendingFeedSeek = Boolean\([\s\S]*?pendingFeedSeekTime !== null \|\| pendingFeedSeekFraction !== null[\s\S]*?pendingFeedSeekTrackId === pendingFeedTrackId/,
+  "a pending Feed seek must belong to the track actually being handed off");
+assert.match(source, /const currentTime = [\s\S]*?pendingFeedLoading[\s\S]*?pendingFeedSeek \? pendingFeedSeekTime !== null/,
   "loading state updates must keep the Feed playhead pinned to the listener's pending seek");
+assert.match(source, /classList\.toggle\("is-pending-seek", pendingFeedSeek \|\| pendingClassicSeek\)/,
+  "the scrubber must show a pending seek from either a Feed or a classic handoff");
+assert.match(source, /setAttribute\("aria-busy", String\(playbackLoading\)\)/,
+  "the scrubber must expose its loading state assistively");
 assert.match(source, /function refreshScrubWaveform[\s\S]*?const pendingTrackId = String\(pendingFeedTrackId[\s\S]*?pendingTrackId[\s\S]*?live\.title/,
   "a clicked Feed track must replace the previous track's waveform identity immediately");
 assert.match(source, /const pendingFeedSeekQueued = pendingFeedSeekTrackId === String\(pendingFeedTrackId[\s\S]*?const pendingFeedSeekHasTime = pendingFeedSeekTime !== null[\s\S]*?const seekConfirmed = pendingFeedSeekHasTime[\s\S]*?const seekFailed = !pendingFeedSeekQueued/,
@@ -88,8 +138,10 @@ assert.match(source, /const feedControl = onFeedPage \? event\.target\.closest\(
   "Feed play clicks must start Bandkit directly instead of launching a duplicate native stream");
 assert.match(source, /pendingFeedTrackId = clickedTrackId;[\s\S]*?getFeedPlayerState\(clickedTrackId\)[\s\S]*?updateRuntimeLive\([\s\S]*?hasPlaybackStarted: true[\s\S]*?syncFeedPagePlaybackUi\(\);[\s\S]*?renderPlayer\(\);[\s\S]*?scheduleFeedHandoff\(clickedTrackId\)/,
   "Feed clicks must populate the bottom player and card feedback before stream resolution begins");
-assert.match(source, /const pendingFeedState = pendingFeedLoading \? getFeedPlayerState\(pendingFeedTrackId\)[\s\S]*?const displayTrack = pendingFeedState\?\.track \|\| live[\s\S]*?Loading \$\{displayTrack\.title[\s\S]*?playerTitle\.textContent = displayTrack\.title/,
+assert.match(source, /const pendingFeedState = pendingFeedLoading \? getFeedPlayerState\(pendingFeedTrackId\)[\s\S]*?const candidateTrack = pendingDiscoverTrack \|\| pendingFeedState\?\.track \|\| pendingClassicTrack \|\| live[\s\S]*?const displayTrack = presentation\.track \|\| candidateTrack[\s\S]*?Loading \$\{displayTrack\.title[\s\S]*?renderPlayerTrack\(r, displayTrack, hasCurrentTrack\)/,
   "incoming Feed metadata must stay pinned in the bottom player over stale playback messages");
+assert.match(source, /function renderPlayerTrack[\s\S]*?playerTitle\.textContent = hasCurrentTrack \? displayTrack\.title/,
+  "the pinned Feed track must supply the rendered player title");
 assert.match(source, /Feed stories only expose Bandcamp's stream_redirect endpoint[\s\S]*?prepareExternalNowPlaying\(feed\.track\)/,
   "Feed startup must resolve the final media URL instead of trusting the cross-origin redirect as audio");
 assert.match(source, /const preparedDuration = Number\(prepared\.queue\[prepared\.index\]\?\.duration\)[\s\S]*?pendingFeedSeekFraction \* preparedDuration[\s\S]*?const handoffCurrentTime/,
@@ -100,9 +152,9 @@ assert.match(playerCss, /@keyframes hub-playback-loading-spin[\s\S]*?\.hub-play-
   "the bottom playback control must visibly acknowledge a pending Feed click");
 assert.match(source, /data-bandkit-feed-playback=\\?"playing\\?"[\s\S]*?linear-gradient\(90deg,currentColor 0 35%,transparent 35% 65%,currentColor 65% 100%\)[\s\S]*?height:24px[\s\S]*?width:18px/,
   "the active feed card must use the same centered pause-bar geometry as the main album player");
-assert.match(releaseCss, /\.inline_player \.playbutton\.playing::before\s*\{[\s\S]*?linear-gradient\(90deg, var\(--bandkit-release-ink\) 0 35%, transparent 35% 65%, var\(--bandkit-release-ink\) 65% 100%\)[\s\S]*?height:\s*24px[\s\S]*?width:\s*18px/,
+assert.match(releaseCss, /\.inline_player \.playbutton\.playing::before\s*\{[\s\S]*?linear-gradient\(90deg, currentColor 0 35%, transparent 35% 65%, currentColor 65% 100%\)[\s\S]*?height:\s*24px[\s\S]*?width:\s*18px/,
   "the feed pause geometry must remain paired with the main album-player pause treatment");
-assert.match(offscreen, /ANALYSIS_CACHE_TTL_MS\s*=\s*12 \* 60 \* 60 \* 1000[\s\S]*?OFFSCREEN_SET_ANALYSIS_STORAGE/,
+assert.match(offscreen, /ttlMs\s*=\s*12 \* 60 \* 60 \* 1000[\s\S]*?OFFSCREEN_SET_ANALYSIS_STORAGE/,
   "BPM and key results must use a bounded twelve-hour cache through the offscreen storage bridge");
 assert.match(background, /OFFSCREEN_SET_ANALYSIS_STORAGE[\s\S]*?STORAGE_KEYS\.TRACK_ANALYSIS_CACHE[\s\S]*?chrome\.storage\.session\.set/,
   "the service worker must persist offscreen analysis results in browser-session storage");
@@ -116,7 +168,7 @@ assert.match(source, /function syncActivePageTrackAnalysis[\s\S]*?seamless\.dete
   "active DJ re-analysis and manual BPM corrections must update the matching page label");
 assert.match(source, /applySeamlessState[\s\S]*?syncActivePageTrackAnalysis\?\.\(\)/,
   "every incoming playback analysis state must be offered to the matching page label");
-assert.match(source, /option\(analyzing \? "Analyzing tracks…" : "Analyze tracks"/,
+assert.match(source, /option\(analyzing \? "Re-analysing BPM & key…" : "Re-analyse BPM & key for all tracks"/,
   "manual analysis must remain available without adding a fifth release-row button");
 assert.match(source, /let priceLabel = button\.querySelector\(":scope > \.bandcamp-hub-page-cart-price"\)/,
   "cart refreshes must preserve a stable price hit target instead of replacing button children");
@@ -128,7 +180,7 @@ assert.match(source, /\.bandkit-page-action-label\{[^}]*pointer-events:none!impo
   "page-action labels must route clicks through their stable parent control");
 assert.doesNotMatch(source, /function updatePagePlaylistButton[\s\S]{0,850}?button\.textContent\s*=/,
   "live Add-button refreshes must not replace their child hit targets");
-assert.match(source, /autoAnalyzeTracks === false[\s\S]*?Analyzing tracks…[\s\S]*?analyzePageTracks\(\{ manual: true, force: true \}\)/,
+assert.match(source, /autoAnalyzeTracks === false[\s\S]*?Re-analysing BPM & key…[\s\S]*?analyzePageTracks\(\{ manual: true, force: true \}\)/,
   "manual analysis must remain available from the release overflow menu");
 assert.doesNotMatch(source, /bandkit-page-analyze-symbol|symbol\.textContent = "↻"/,
   "manual analysis must not use an underlined text glyph as its icon");
@@ -138,7 +190,7 @@ assert.match(source, /bandkit-page-transport-row\{[^}]*margin-left:auto[^}]*marg
   "page navigation must finish at the waveform's right edge");
 assert.match(source, /@media\(max-width:380px\)\{\.bandcamp-hub-page-tools\{[^}]*column-gap:6px!important;[^}]*flex-wrap:wrap!important\}/,
   "very narrow release players must wrap page actions instead of widening the document");
-assert.match(source, /function ensureClassicTransportRow[\s\S]*?setPageActionLabel\(control, ""\)/,
+assert.match(source, /function ensureClassicTransportRow[\s\S]*?setPageActionLabel\(proxy, ""\)/,
   "Previous and Next controls must remain icon-only when page action labels are enabled");
 assert.match(source, /cartButton\.nextElementSibling !== playlistButton[\s\S]*?playlistButton\.nextElementSibling !== button[\s\S]*?button\.nextElementSibling !== overflowButton/,
   "release controls must retain the Buy, Add, DJ, More order during live scans");
@@ -188,10 +240,10 @@ assert.match(releaseCss, /\.bandcamp-hub-page-buy\.is-download-action\s*\{[^}]*f
   "Modern free-track downloads must suppress Bandcamp's duplicate text and use the compact action size");
 assert.match(source, /bandcamp-hub-page-cart-price\{[^}]*font-size:15px[^}]*font-weight:800/,
   "the price must be more prominent without changing the fixed purchase-button height");
-assert.match(source, /Auto-analyze tracks[\s\S]*?hub-auto-analyze-toggle/,
-  "settings must include an auto-analysis switch");
-assert.match(source, /Show track keys[\s\S]*?hub-show-track-keys-toggle/,
-  "settings must let users hide Camelot and musical key columns independently of BPM");
+assert.match(source, /Track analysis[\s\S]*?hub-auto-analyze-toggle[\s\S]*?controls: "hub-analysis-options"/,
+  "settings must expose track analysis as the primary analysis switch");
+assert.match(source, /hub-analysis-options[\s\S]*?options\.hidden = !enabled[\s\S]*?Save to playlists[\s\S]*?Musical key[\s\S]*?Camelot notation[\s\S]*?createMusicBarAnalysisSetting/,
+  "analysis-specific settings must remain hidden until track analysis is enabled");
 assert.match(source, /bandkit-has-track-analysis[\s\S]*?grid-template-columns:minmax\(0,1fr\) 52px 160px/,
   "modern track rows must use stable title, duration, and analysis columns");
 assert.match(source, /bandkit-has-track-analysis>a\{[^}]*min-width:0[^}]*overflow:hidden[^}]*width:100%/,
@@ -200,22 +252,78 @@ assert.match(source, /bandkit-has-track-analysis \.track-title\{[^}]*text-overfl
   "track names must stay on one line and use ellipsis only when space is exhausted");
 assert.match(source, /bandkit-track-analysis-bpm[\s\S]*?bandkit-track-analysis-camelot[\s\S]*?bandkit-track-analysis-key/,
   "BPM and both key formats must render as independently aligned values");
-assert.match(source, /bpm:\s*hasBpm\s*\?[\s\S]*?:\s*"— BPM"/,
+assert.match(source, /createDeepAnalysisButton\(track\)/,
+  "each track must expose its BPM and key readout as a per-track rescan action");
+assert.match(deepAnalysis, /Re-analyse BPM & key \(deep scan\)/,
+  "the per-track deep scan must clearly describe both values it recalculates");
+assert.match(deepAnalysis, /if \(!track\?\.url \|\| r\.\$deepAnalysisRequest\) return r\.\$deepAnalysisRequest/,
+  "a second deep scan must be ignored while the first request is still running");
+assert.match(deepAnalysis, /const running = locked && button === r\.\$deepAnalysisButton[\s\S]*?button\.disabled = locked/,
+  "only the clicked metadata action must animate while every rescan control is disabled");
+assert.match(deepAnalysis, /DEEP_ANALYSIS_FEEDBACK_MS = 900[\s\S]*?remainingFeedback[\s\S]*?setTimeout\(resolve, remainingFeedback\)/,
+  "even a fast deep scan must display its progress dots long enough to be understood");
+assert.match(source, /ownsDeepAnalysis && deepAnalysisRequest[\s\S]*?updateDeepAnalysisButton\(deepAnalysisButton, track\)[\s\S]*?return/,
+  "track analysis refreshes must preserve the active spinner node instead of restarting its animation");
+assert.match(deepAnalysis, /bandkit-deep-analysis-label[\s\S]*?Rescan[\s\S]*?bandkit-deep-analysis-progress[\s\S]*?dot\.textContent = "·"/,
+  "the metadata affordance must use a concise Rescan label and three progress dots");
+assert.match(deepAnalysis, /analysisOwner\?\.matches\(":hover"\)[\s\S]*?deepAnalysisResultLocks\.add\(key\)/,
+  "a completed scan must lock its result while the pointer remains over metadata");
+assert.match(deepAnalysis, /owner\.addEventListener\("pointerleave"[\s\S]*?releaseResultLock\(trackKey, owner, button\)/,
+  "a completed scan must hold its result until the pointer leaves before allowing Rescan to reappear");
+assert.match(deepAnalysis, /window\.addEventListener\("pointermove"[\s\S]*?owner\.getBoundingClientRect\(\)[\s\S]*?if \(outside\) releaseResultLock/,
+  "result holds must reliably release when the pointer moves outside metadata after the action becomes non-interactive");
+assert.match(deepAnalysis, /r\.\$root\?\.querySelectorAll\("\.bandkit-deep-analysis"\)[\s\S]*?r\.\$playerDeepAnalysis/,
+  "deep-analysis state changes must update page, player, and drawer controls across the shadow boundary");
+assert.match(source, /@keyframes bandkit-deep-analysis-dot[\s\S]*?bandkit-deep-analysis-progress i:nth-child\(3\)[^}]*animation-delay:240ms[\s\S]*?is-analyzing \.bandkit-deep-analysis-progress\{display:inline-flex\}/,
+  "deep analysis must animate a staggered ellipsis instead of spinning an icon");
+assert.doesNotMatch(deepAnalysis, /Deep scan queued/,
+  "deep analysis must not emit a redundant queued toast before its completion result");
+assert.match(offscreen, /if \(!deep\) \{[\s\S]*?detectedBpm = null[\s\S]*?detectedKey = null[\s\S]*?waveform = \[\][\s\S]*?if \(!deep\) \{[\s\S]*?sendState\(true\)/,
+  "a deep rescan must retain the current BPM, key, and waveform until replacement results are ready");
+assert.match(source, /bandkit-track-analysis:is\(:hover,:focus-within,.is-deep-analyzing\) \.bandkit-deep-analysis[\s\S]*?opacity:1!important;pointer-events:auto!important/,
+  "only hovering or focusing the BPM and key readout must reveal its rescan action");
+assert.match(source, /bandkit-track-analysis \.bandkit-deep-analysis:is\(:hover,:focus-visible,.is-analyzing\)\{background:transparent!important;background-color:transparent!important;box-shadow:none!important\}/,
+  "page rescan controls must not paint a theme-dependent block over the track row");
+assert.match(source, /bandkit-track-analysis\.is-deep-analysis-result>:not\(\.bandkit-deep-analysis\)\{opacity:1!important\}[\s\S]*?is-deep-analysis-result \.bandkit-deep-analysis\{opacity:0!important;pointer-events:none!important\}/,
+  "track lists must display the new BPM and key while waiting for pointer re-entry");
+assert.match(deepAnalysis, /hub-player-deep-analysis[\s\S]*?playerAnalysis\.append\(r\.\$playerDeepAnalysis\)/,
+  "the music bar must expose the same deep analysis control next to track analysis");
+assert.match(deepAnalysis, /Possible alternative:[\s\S]*?key\.alternative\.name/,
+  "uncertain key tooltips must expose the runner-up key candidate");
+assert.match(offscreen, /segmentCount: deep \? 7 : 3/,
+  "deep analysis must sample more track sections than normal analysis");
+assert.match(offscreen, /deep \? \{ targetFrameCount: 72 \} : \{\}/,
+  "deep analysis must sample more tonal frames than normal analysis");
+assert.match(offscreen, /if \(yieldControl\) await yieldControl\(\);[\s\S]*?buffers\.push/,
+  "deep sample fetching must yield to playback between sections");
+assert.match(source, /bandkit-track-analysis-bpm,\.bandkit-track-analysis-camelot,\.bandkit-track-analysis-key\{text-align:left\}/,
+  "BPM and key values must share consistent left-aligned column starts");
+assert.doesNotMatch(source, /bandkit-track-analysis-bpm\{text-align:right\}/,
+  "BPM values must not be right-aligned within their reserved column");
+assert.match(source, /bpm:\s*hasBpm\s*\?[\s\S]*?:\s*"BPM\?"/,
   "tracks without a confident BPM must retain an explicit BPM-column marker");
-assert.match(source, /BPM could not be detected for this track/,
+assert.match(source, /key:\s*String\(result\.key\?\.shortName \? `\$\{result\.key\.shortName\}\$\{keyUncertain \? "\?" : ""\}` : \(hasKey \? "" : "Key\?"\)\)/,
+  "tracks without a confident key must retain an explicit key-column marker");
+assert.match(source, /keyUncertain = hasKey && result\.key\?\.uncertain === true/,
+  "low-confidence key guesses must retain an independent uncertainty state");
+assert.match(source, /Musical key could not be detected confidently/,
+  "an uncertain key marker must explain why no key was shown");
+assert.match(source, /BPM could not be detected confidently/,
   "an unavailable BPM marker must explain the failed reading");
 assert.match(source, /result\?\.error/,
   "an unavailable BPM marker must preserve the decoder failure reason");
-assert.match(source, /bandkit-track-analysis:is\(\.is-analyzing,\.is-unavailable\)/,
-  "unavailable BPM markers must use the subdued analysis state");
-assert.match(source, /Page icon labels[\s\S]*?hub-page-action-labels-toggle/,
-  "settings must include an opt-in page icon label switch");
-assert.match(source, /data-bandkit-page-action-labels="true"[\s\S]*?bandkit-page-action-label/,
-  "page labels must expand only when the opt-in document mode is active");
+assert.match(source, /bandkit-track-analysis>:is\(\.is-uncertain,\.is-unavailable\)/,
+  "uncertain analysis markers must be subdued independently of confident values");
+assert.match(source, /createPageAnalysisBadge\("bpm", parts\.bpm, parts\.bpmUncertain, parts\.bpmUnavailable\)/,
+  "BPM must pass its independent confidence state into the shared badge");
+assert.match(source, /createPageAnalysisBadge\("camelot", parts\.camelot, parts\.keyUncertain, parts\.keyUnavailable\)[\s\S]*?createPageAnalysisBadge\("key", parts\.key, parts\.keyUncertain, parts\.keyUnavailable\)/,
+  "Camelot and musical-key badges must share their independent key confidence state");
+assert.doesNotMatch(source, /bandkit-track-analysis:is\([^)]*\.is-unavailable[^)]*\)\{[^}]*opacity/,
+  "an unavailable field must not mute the entire analysis row");
+assert.doesNotMatch(source, /Page icon labels|hub-page-action-labels-toggle|data-bandkit-page-action-labels/,
+  "the page icon-label setting and its document mode must be removed");
 assert.match(source, /data-bandkit-modern-styling="false"[^}]*\[data-bandkit-label\]>\.bandkit-page-action-label\{display:none!important\}/,
   "classic pages must suppress modern action labels instead of resizing Bandcamp's native action columns");
-assert.doesNotMatch(source, /data-bandkit-modern-release="false"[^}]*data-bandkit-page-action-labels="true"[^}]*\.download-col/,
-  "classic release pages must not retain legacy Bandkit sizing overrides for native action columns");
 assert.match(source, /bandcamp-hub-page-cart\.has-price[\s\S]*?width:auto/,
   "priced cart controls must retain their compact icon-and-price width when labels are off");
 assert.match(releaseCss, /\.inline_player\s*\{[\s\S]*?background:\s*transparent\s*!important;[\s\S]*?padding:\s*0\s*!important;/,
@@ -232,23 +340,27 @@ assert.match(releaseCss, /\.download-col \.dl_link\s*\{[^}]*justify-content:\s*f
   "track action buttons must align with the right edge of row dividers");
 assert.match(source, /function createPageReleaseOverflowButton\(\)[\s\S]*?setPageActionLabel\(button, "More"\)/,
   "the horizontal-ellipsis action must retain an accessible label in labeled mode");
-assert.match(releaseCss, /data-bandkit-page-action-labels="true"[^}]*\.download-col \.bandcamp-hub-page-playlist\.is-track-action\s*\{[^}]*max-width:\s*none\s*!important;[^}]*min-width:\s*max-content\s*!important;[^}]*width:\s*auto\s*!important/s,
-  "labeled per-track Add actions must not remain constrained to icon-only width");
-assert.match(releaseCss, /data-bandkit-page-action-labels="true"[^}]*\.download-col \.bandcamp-hub-page-buy\s*\{[^}]*font-size:\s*0\s*!important;[^}]*width:\s*auto\s*!important/s,
-  "labeled per-track Buy actions must suppress Bandcamp's native text and fit the generated label");
-assert.match(releaseCss, /data-bandkit-page-action-labels="true"[^}]*\.download-col \.bandcamp-hub-page-buy::before\s*\{[^}]*content:\s*""\s*!important;[^}]*display:\s*block\s*!important/s,
-  "labeled per-track Buy actions must restore their cart icon");
+assert.doesNotMatch(releaseCss, /data-bandkit-page-action-labels/,
+  "release styles must not retain the removed page icon-label mode");
 assert.match(releaseCss, /body\.tralbum-page :is\(\*:not\(\.ui-dialog\):not\(\.ui-dialog \*\)\)[\s\S]*?box-sizing:\s*border-box/,
   "modern release box sizing must exclude Bandcamp's native purchase dialog");
 assert.doesNotMatch(releaseCss, /\.ui-dialog\.nu-dialog :is\(input, select, textarea\)/,
   "modern release styles must not manually restyle native purchase-dialog fields");
 assert.doesNotMatch(source, /#buyItemModal, \.buyItemModal, \.buy-item-modal, \.purchase-modal, \.purchase-dialog/,
   "page-theme styles must not inject legacy purchase-dialog field overrides");
-assert.match(source, /:is\(a,[^}]+\):not\(\.ui-dialog\):not\(\.ui-dialog \*\) \{ color: var\(--bandkit-page-accent\)/,
+assert.match(source, /function createPageCartButton[\s\S]*?setOpen\(false\)[\s\S]*?_bandkitPurchaseControl\.click\(\)/,
+  "the page Buy control must close Bandkit before opening Bandcamp's purchase dialog");
+assert.doesNotMatch(source, /function createPageCartButton[\s\S]{0,900}?openBandKitCart\(\)/,
+  "the page Buy control must not open Bandkit's cart panel over the purchase dialog");
+assert.match(source, /function visibleNativePurchaseDialog[\s\S]*?\.ui-dialog\.nu-dialog[\s\S]*?function closePanelForNativePurchaseDialog[\s\S]*?setOpen\(false\)/,
+  "a newly inserted native purchase dialog must close any panel that was still open");
+assert.match(source, /purchaseControl = event\.target\.closest\("\.buy-link, \.bandcamp-hub-page-buy"\)[\s\S]*?setOpen\(false\)/,
+  "native Bandcamp Buy controls must close an open Bandkit panel before the dialog appears");
+assert.match(source, /:is\(a,[^}]+\):not\(\.ui-dialog\):not\(\.ui-dialog \*\)[^{]*\{ color: var\(--bandkit-page-accent\)/,
   "page-theme link and button colours must exclude the native purchase dialog");
 assert.match(source, /:is\(input, select, textarea,[^}]+\):not\(\.ui-dialog\):not\(\.ui-dialog \*\) \{ border-color:/,
   "page-theme form-control styling must exclude the native purchase dialog");
-assert.match(source, /button:not\([^}]+:not\(\.ui-dialog \*\) \{ background-color:/,
+assert.match(source, /button:not\([^}]+:not\(\.ui-dialog \*\)[^{]*\{ background-color:/,
   "page-theme button styling must exclude native purchase-dialog buttons");
 assert.match(source, /\.ui-dialog\.nu-dialog \{ color-scheme: light; \}/,
   "the native purchase dialog must retain its normal light form-control scheme under dark page themes");

@@ -49,6 +49,9 @@ assert.equal(result.context.BandKitModernPagesBootstrap.pageType, "feed");
 result = bootstrap({ hostname: "artist.bandcamp.com", pathname: "/video", enabled: true });
 assert.equal(result.context.BandKitModernPagesBootstrap.pageType, "video");
 
+result = bootstrap({ hostname: "artist.bandcamp.com", pathname: "/subscribe", enabled: true });
+assert.equal(result.context.BandKitModernPagesBootstrap.pageType, "subscribe");
+
 result = bootstrap({ hostname: "label.bandcamp.com", pathname: "/artists", enabled: true });
 assert.equal(result.context.BandKitModernPagesBootstrap.pageType, "music");
 

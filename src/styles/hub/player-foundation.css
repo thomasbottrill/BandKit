@@ -1,0 +1,183 @@
+/* Player surface and effects; ordered here to preserve the existing cascade. */
+
+.hub-player {
+  background: var(--hub-panel);
+  border-top: 1px solid color-mix(in srgb, var(--hub-ink) 28%, var(--hub-panel));
+  bottom: 0;
+  height: var(--hub-player-height);
+  left: 0;
+  position: fixed;
+  right: 0;
+  width: 100vw;
+  z-index: 2147483647;
+}
+
+.hub-player-visualizer {
+  --hub-visualizer-cool: var(--hub-visualizer-color-3, var(--hub-panel-accent, #1da0c3));
+  --hub-visualizer-hot: var(--hub-visualizer-color-2, var(--hub-scrub-accent, var(--hub-panel-accent, #1da0c3)));
+  --hub-visualizer-warm: var(--hub-visualizer-color-1, color-mix(in srgb, var(--hub-panel-accent, #1da0c3) 38%, var(--hub-scrub-accent, #e94783)));
+  --hub-visualizer-field-a: color-mix(in srgb, var(--hub-visualizer-warm) 52%, color-mix(in srgb, var(--hub-visualizer-hot) 44%, var(--hub-visualizer-cool)));
+  --hub-visualizer-field-b: color-mix(in srgb, var(--hub-visualizer-hot) 46%, color-mix(in srgb, var(--hub-visualizer-cool) 58%, var(--hub-visualizer-warm)));
+  --hub-visualizer-field-c: color-mix(in srgb, var(--hub-visualizer-cool) 48%, color-mix(in srgb, var(--hub-visualizer-warm) 56%, var(--hub-visualizer-hot)));
+  --hub-visualizer-field-d: color-mix(in srgb, var(--hub-visualizer-warm) 42%, color-mix(in srgb, var(--hub-visualizer-cool) 46%, var(--hub-visualizer-hot)));
+  --hub-visualizer-field-e: color-mix(in srgb, var(--hub-visualizer-hot) 50%, color-mix(in srgb, var(--hub-visualizer-warm) 40%, var(--hub-visualizer-cool)));
+  --hub-visualizer-bass: 0.16;
+  --hub-visualizer-high: 0.12;
+  --hub-visualizer-level: 0.16;
+  --hub-visualizer-mid: 0.14;
+  --hub-visualizer-bass-height: 86%;
+  --hub-visualizer-bass-width: 22%;
+  --hub-visualizer-bloom-opacity: 0.48;
+  --hub-visualizer-blur: 3.3px;
+  --hub-visualizer-high-height: 82%;
+  --hub-visualizer-high-width: 22%;
+  --hub-visualizer-mid-height: 118%;
+  --hub-visualizer-mid-width: 34%;
+  --hub-visualizer-mix-a: 17%;
+  --hub-visualizer-mix-b: 34%;
+  --hub-visualizer-mix-c: 50%;
+  --hub-visualizer-mix-d: 66%;
+  --hub-visualizer-mix-e: 83%;
+  --hub-visualizer-saturation: 1.12;
+  --hub-visualizer-scale: 0.58;
+  bottom: 0;
+  height: 56px;
+  left: 50%;
+  mix-blend-mode: var(--hub-visualizer-blend-mode, multiply);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, transparent 1%, #000 14%, #000 86%, transparent 99%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, transparent 1%, #000 14%, #000 86%, transparent 99%, transparent 100%);
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  right: auto;
+  width: 100%;
+  transform: translateX(-50%);
+  transition: opacity 500ms ease;
+  z-index: 0;
+}
+
+.hub-player-visualizer::before {
+  animation: hub-player-glow-drift 32s ease-in-out infinite alternate;
+  animation-play-state: paused;
+  background:
+    radial-gradient(ellipse var(--hub-visualizer-bass-width) var(--hub-visualizer-bass-height) at var(--hub-visualizer-mix-a) 108%, color-mix(in srgb, var(--hub-visualizer-field-c) 78%, transparent), transparent 73%),
+    radial-gradient(ellipse var(--hub-visualizer-mid-width) var(--hub-visualizer-mid-height) at var(--hub-visualizer-mix-b) 110%, color-mix(in srgb, var(--hub-visualizer-field-e) 72%, transparent), transparent 74%),
+    radial-gradient(ellipse var(--hub-visualizer-mid-width) var(--hub-visualizer-mid-height) at var(--hub-visualizer-mix-c) 107%, color-mix(in srgb, var(--hub-visualizer-field-a) 84%, transparent), transparent 70%),
+    radial-gradient(ellipse var(--hub-visualizer-mid-width) var(--hub-visualizer-mid-height) at var(--hub-visualizer-mix-d) 109%, color-mix(in srgb, var(--hub-visualizer-field-b) 72%, transparent), transparent 74%),
+    radial-gradient(ellipse var(--hub-visualizer-high-width) var(--hub-visualizer-high-height) at var(--hub-visualizer-mix-e) 108%, color-mix(in srgb, var(--hub-visualizer-field-d) 78%, transparent), transparent 73%);
+  background-blend-mode: screen;
+  content: "";
+  filter: blur(var(--hub-visualizer-blur)) saturate(var(--hub-visualizer-saturation));
+  inset: 0 -4% 0;
+  mix-blend-mode: normal;
+  opacity: var(--hub-visualizer-bloom-opacity);
+  position: absolute;
+  transform: translate3d(-3%, 7px, 0) scaleX(1.08) scaleY(var(--hub-visualizer-scale));
+  transform-origin: 50% 100%;
+  transition: filter 70ms linear, opacity 70ms linear;
+}
+
+.hub-player-spectrum {
+  bottom: 0;
+  display: none;
+  height: 100%;
+  left: 0;
+  mix-blend-mode: normal;
+  position: absolute;
+  width: 100%;
+}
+
+.hub-player[data-visualizer="glow"] .hub-player-spectrum {
+  display: block;
+  filter: blur(2.2px) saturate(1.18);
+  mix-blend-mode: normal;
+  opacity: 0.94;
+}
+
+.hub-player[data-visualizer="glow"]:not(.is-empty) .hub-player-visualizer {
+  opacity: var(--hub-visualizer-idle-opacity, 0.19);
+}
+
+.hub-player[data-visualizer="glow"].is-playing .hub-player-visualizer {
+  opacity: var(--hub-visualizer-opacity, 1);
+}
+
+.hub-player[data-visualizer="glow"].is-playing .hub-player-visualizer::before {
+  animation-play-state: running;
+}
+
+.hub-player[data-visualizer]:not([data-visualizer="glow"]):not([data-visualizer="off"]) .hub-player-visualizer,
+.hub-player[data-visualizer="spectrum"] .hub-player-visualizer {
+  mix-blend-mode: var(--hub-spectrum-blend-mode, plus-lighter);
+  opacity: var(--hub-visualizer-idle-opacity, 0.19);
+}
+
+.hub-player[data-visualizer]:not([data-visualizer="glow"]):not([data-visualizer="off"]) .hub-player-spectrum,
+.hub-player[data-visualizer="spectrum"] .hub-player-spectrum {
+  display: block;
+}
+
+.hub-player[data-visualizer]:not([data-visualizer="glow"]):not([data-visualizer="off"]).is-playing .hub-player-visualizer,
+.hub-player[data-visualizer="spectrum"].is-playing .hub-player-visualizer {
+  opacity: var(--hub-visualizer-opacity, 1);
+}
+
+.hub-player[data-visualizer]:not([data-visualizer="glow"]):not([data-visualizer="off"]).is-playing .hub-player-visualizer::before,
+.hub-player[data-visualizer="spectrum"].is-playing .hub-player-visualizer::before {
+  animation-play-state: running;
+}
+
+.hub-player[data-visualizer="off"] .hub-player-visualizer,
+.hub-player.is-empty .hub-player-visualizer {
+  display: none;
+}
+
+.hub-player-playback-row > :not(.hub-player-visualizer) {
+  mix-blend-mode: normal;
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes hub-player-glow-drift {
+  0% {
+    transform: translate3d(-4%, 7px, 0) scaleX(1.08) scaleY(var(--hub-visualizer-scale));
+  }
+  45% {
+    transform: translate3d(4%, 5px, 0) scaleX(1.11) scaleY(var(--hub-visualizer-scale));
+  }
+  100% {
+    transform: translate3d(-1%, 6px, 0) scaleX(1.09) scaleY(var(--hub-visualizer-scale));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-settings-toggle {
+    transition: none;
+  }
+
+  .hub-player-visualizer::before {
+    animation: none;
+    transform: translate3d(0, 7px, 0) scaleX(1.08) scaleY(0.58);
+  }
+
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .hub-player.is-frosted-glass {
+    background: transparent;
+  }
+}
+
+.hub-player-content {
+  container-name: hub-player-content;
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: 1fr;
+  height: 100%;
+  margin: 0 auto;
+  max-width: 800px;
+  width: min(calc(100% - 48px), calc(100% - 704px));
+  transition: opacity 220ms ease, visibility 0s linear 0s;
+}

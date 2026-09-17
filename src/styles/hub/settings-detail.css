@@ -1,0 +1,538 @@
+/* Every settings destination shares the same quiet, text-first language. */
+.hub-settings-detail {
+  gap: 0;
+  padding: 18px 24px 28px;
+}
+
+.hub-settings-back-row {
+  justify-content: space-between;
+}
+
+.hub-settings-back-actions {
+  margin-left: auto;
+}
+
+.hub-settings-back-actions .hub-theme-sharing-action {
+  color: var(--hub-muted);
+}
+
+.hub-settings-detail .hub-settings-group,
+.hub-settings-detail .hub-settings-group:is(:hover, :focus-within),
+.hub-settings-detail .hub-settings-subsection,
+.hub-settings-detail .hub-settings-subsection:is(:hover, :focus-within) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.hub-panel.is-frosted-glass .hub-settings-detail :is(.hub-settings-group, .hub-settings-subsection),
+.hub-panel.is-frosted-glass .hub-settings-detail :is(.hub-settings-group, .hub-settings-subsection):is(:hover, :focus-within) {
+  background: transparent;
+}
+
+.hub-settings-detail .hub-settings-disclosure--quiet {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  transition: opacity 140ms ease;
+}
+
+/* Match the root Settings list: once a drawer heading receives intent, the
+   other closed headings recede without moving the layout. An already-open
+   drawer remains the stable visual anchor. */
+.hub-settings-detail:has(> .hub-settings-disclosure--quiet > .hub-settings-disclosure-trigger:is(:hover, :focus-visible))
+  > .hub-settings-disclosure--quiet:not(.is-open):not(:has(> .hub-settings-disclosure-trigger:is(:hover, :focus-visible))) {
+  opacity: 0.38;
+}
+
+.hub-settings-detail .hub-settings-disclosure--quiet:is(:hover, :focus-within) {
+  background: transparent;
+  border-color: transparent;
+}
+
+.hub-panel.is-frosted-glass .hub-settings-detail .hub-settings-disclosure--quiet,
+.hub-panel.is-frosted-glass .hub-settings-detail .hub-settings-disclosure--quiet:is(:hover, :focus-within) {
+  background: transparent;
+}
+
+.hub-settings-detail .hub-settings-disclosure--quiet .hub-settings-disclosure-trigger {
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 14px;
+  min-height: 54px;
+  padding: 12px 0;
+}
+
+.hub-settings-detail .hub-settings-disclosure--quiet .hub-settings-disclosure-title {
+  color: var(--hub-muted);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+  transition: color var(--hub-settings-color-duration) ease, font-weight 140ms ease;
+}
+
+.hub-settings-detail .hub-settings-disclosure--quiet.is-open .hub-settings-disclosure-title {
+  color: var(--hub-ink);
+  font-weight: 750;
+}
+
+.hub-settings-detail .hub-settings-disclosure--quiet .hub-settings-disclosure-trigger:is(:hover, :focus-visible) .hub-settings-disclosure-title {
+  color: var(--hub-accent);
+}
+
+.hub-settings-detail .hub-settings-disclosure--quiet .hub-settings-disclosure-chevron {
+  opacity: 0;
+  transition: color var(--hub-settings-color-duration) ease, margin 140ms ease, opacity 140ms ease, transform 140ms ease;
+}
+
+.hub-settings-detail .hub-settings-disclosure--quiet .hub-settings-disclosure-trigger:is(:hover, :focus-visible) .hub-settings-disclosure-chevron {
+  opacity: 1;
+}
+
+.hub-settings-detail .hub-settings-disclosure--quiet .hub-settings-disclosure-content {
+  padding: 0 0 14px;
+}
+
+.hub-settings-detail {
+  --hub-settings-control-font-size: 13px;
+  --hub-settings-control-tail-width: 28px;
+  --hub-settings-compact-control-inset: 8px;
+}
+
+.hub-player-settings-fields,
+.hub-settings-detail .hub-visualizer-options {
+  display: grid;
+  gap: 2px;
+}
+
+.hub-player-setting-row,
+.hub-settings-detail .hub-settings-row:not(.hub-appearance-mode-row),
+.hub-settings-detail .hub-appearance-mode-row {
+  align-items: center;
+  display: grid;
+  gap: var(--hub-settings-row-gap);
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: var(--hub-settings-row-height);
+  padding: var(--hub-settings-row-padding) 0;
+}
+
+.hub-player-blend-mode-control[hidden] {
+  display: none;
+}
+
+.hub-custom-handle-row[hidden] { display: none; }
+.hub-custom-handle-controls {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-right: var(--hub-settings-compact-control-inset);
+  min-width: 0;
+  width: var(--hub-settings-input-width);
+}
+.hub-custom-handle-name {
+  color: var(--hub-muted);
+  flex: 1 1 auto;
+  font-size: var(--hub-settings-control-font-size);
+  max-width: none;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hub-custom-handle-controls .hub-scrub-handle-preview,
+.hub-custom-handle-upload {
+  flex: 0 0 auto;
+}
+.hub-custom-handle-upload {
+  background: transparent;
+  border: 0;
+  color: var(--hub-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--hub-settings-control-font-size);
+  font-weight: 700;
+  min-height: var(--hub-settings-input-height);
+  padding: 0;
+}
+.hub-custom-handle-upload:is(:hover, :focus-visible) { color: var(--hub-accent); }
+.hub-custom-handle-upload:disabled { cursor: wait; opacity: .6; }
+
+.hub-dynamic-color-setting {
+  display: grid;
+}
+
+.hub-dynamic-color-options {
+  display: grid;
+  margin: 0;
+  padding: 0;
+}
+
+.hub-dynamic-color-options[hidden] {
+  display: none;
+}
+
+.hub-dynamic-color-options .hub-player-setting-row {
+  min-height: 40px;
+}
+
+.hub-settings-dependent-options > .hub-player-setting-row,
+.hub-settings-dependent-options > .hub-settings-row,
+.hub-settings-dependent-row,
+.hub-glass-settings > .hub-player-blend-mode-control {
+  padding-inline-start: 16px;
+}
+
+/* Pickers and scrubbers already reserve a 28px right-hand tail for their
+   caret. Inset compact controls to the same visible edge instead of letting
+   their full control body run to the edge of the settings column. */
+.hub-settings-detail .hub-player-setting-row > .hub-settings-toggle,
+.hub-settings-detail .hub-settings-row > .hub-settings-toggle {
+  margin-right: var(--hub-settings-compact-control-inset);
+}
+
+
+/* Detail pages already receive their vertical rhythm from the shared row grid.
+   Do not retain the spacing used when Page lived inside an accordion. */
+.hub-settings-detail .hub-page-appearance-settings {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.hub-settings-detail .hub-page-appearance-settings > .hub-settings-subrow {
+  margin-top: 0;
+}
+
+
+/* These shared controls can appear either directly in Player > Design or
+   inside Appearance > Finish. Remove their legacy card/subsection inset in
+   both contexts so they keep the standard row spacing and column edges. */
+.hub-settings-detail :is(.hub-glass-settings, .hub-corner-settings) {
+  gap: 2px;
+  padding: 0;
+}
+
+.hub-settings-detail .hub-glass-settings + .hub-corner-settings {
+  border-top: 0;
+}
+
+.hub-settings-detail .hub-settings-row:is(:hover, :focus-within) :is(.hub-settings-control-label, .hub-settings-copy strong) {
+  color: var(--hub-accent);
+}
+
+.hub-settings-control-copy {
+  display: block;
+}
+
+.hub-settings-control-description {
+  display: none;
+}
+
+.hub-player-setting-row:is(:hover, :focus-within) .hub-player-setting-label {
+  color: var(--hub-accent);
+}
+
+.hub-player-setting-label,
+.hub-settings-control-label {
+  color: var(--hub-muted);
+  cursor: help;
+  font-size: var(--hub-settings-control-font-size);
+  font-weight: 700;
+  line-height: var(--hub-settings-label-line-height);
+  outline: 0;
+  position: relative;
+  transition: color var(--hub-settings-color-duration) ease;
+  width: max-content;
+}
+
+.hub-player-setting-label::after,
+.hub-settings-control-label::after {
+  background: color-mix(in srgb, var(--hub-ink) 92%, transparent);
+  border-radius: var(--hub-settings-tooltip-radius);
+  bottom: calc(100% + 7px);
+  color: var(--hub-panel);
+  content: attr(data-settings-tooltip);
+  font-size: 10px;
+  font-weight: 600;
+  left: 0;
+  line-height: 14px;
+  max-width: var(--hub-settings-tooltip-width);
+  opacity: 0;
+  padding: 6px 8px;
+  pointer-events: none;
+  position: absolute;
+  transform: translateY(3px);
+  transition: opacity var(--hub-settings-tooltip-duration) ease, transform var(--hub-settings-tooltip-duration) ease;
+  white-space: normal;
+  width: max-content;
+  z-index: 20;
+}
+
+.hub-player-setting-label:is(:hover, :focus-visible)::after,
+.hub-settings-control-label:is(:hover, :focus-visible)::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+[data-tooltip-portaled="true"]::after {
+  display: none;
+}
+.hub-settings-help-tooltip {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  border: 0;
+  border-radius: var(--hub-settings-tooltip-radius);
+  padding: 6px 8px;
+  max-width: min(230px, calc(100vw - 32px));
+  width: max-content;
+  background: var(--hub-panel-ink);
+  color: var(--hub-panel);
+  font: 600 10px/14px Arial, sans-serif;
+  pointer-events: none;
+  white-space: pre-line;
+}
+
+.hub-player-setting-label:focus-visible,
+.hub-settings-control-label:focus-visible {
+  color: var(--hub-accent);
+  text-decoration: underline;
+  text-decoration-color: var(--hub-accent);
+  text-underline-offset: 3px;
+}
+
+.hub-settings-detail .hub-settings-number,
+.hub-settings-detail .hub-settings-combobox,
+.hub-settings-detail .hub-settings-select,
+.hub-settings-detail .hub-scrubbable-percentage-input {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--hub-ink);
+  font-size: var(--hub-settings-control-font-size);
+  font-weight: 700;
+  min-height: var(--hub-settings-input-height);
+  transition: color var(--hub-settings-color-duration) ease;
+}
+
+.hub-settings-detail :is(
+  .hub-settings-combobox-label,
+  .hub-theme-combobox-label,
+  .hub-settings-unit
+),
+:host > .hub-settings-picker-options .hub-settings-picker-option-label,
+:host > .hub-theme-options .hub-theme-option-label {
+  font-size: var(--hub-settings-control-font-size, 13px);
+}
+
+/* Keep every compact configuration row on one typographic scale. This covers
+   legacy rows that still use copy blocks or native selects, plus readouts
+   rendered as outputs beside sliders. */
+.hub-settings-detail .hub-settings-row .hub-settings-copy strong,
+.hub-settings-detail :is(
+  .hub-glass-transparency-value,
+  .hub-glass-blur-value,
+  .hub-visualizer-opacity-value,
+  .hub-corner-radius-value,
+  .hub-settings-unit,
+  .hub-settings-segment
+) {
+  font-size: var(--hub-settings-control-font-size);
+}
+
+.hub-settings-detail .hub-settings-number:is(:hover, :focus-visible),
+.hub-settings-detail .hub-settings-combobox:is(:hover, :focus-visible),
+.hub-settings-detail .hub-settings-picker.is-open .hub-settings-combobox,
+.hub-settings-detail .hub-scrubbable-percentage:is(:hover, :focus-within) .hub-scrubbable-percentage-input,
+.hub-settings-detail .hub-scrubbable-percentage:is(:hover, :focus-within) .hub-scrubbable-percentage-handle {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--hub-accent);
+  outline: 0;
+}
+
+.hub-settings-detail .hub-settings-combobox:is(:hover, :focus-visible) .hub-scrub-handle-preview::before,
+.hub-settings-detail .hub-settings-combobox:is(:hover, :focus-visible) .hub-scrub-handle-preview::after,
+.hub-settings-detail .hub-settings-picker.is-open .hub-settings-combobox .hub-scrub-handle-preview::before,
+.hub-settings-detail .hub-settings-picker.is-open .hub-settings-combobox .hub-scrub-handle-preview::after {
+  background: var(--hub-accent);
+}
+
+:is(.hub-settings-detail, .hub-settings-picker-options) .hub-scrub-handle-preview::after {
+  background: var(--hub-accent);
+}
+
+.hub-settings-detail .hub-settings-width-control {
+  display: grid;
+  gap: 2px;
+  grid-template-columns: auto auto;
+}
+
+.hub-settings-detail .hub-settings-width-control.is-custom {
+  grid-template-columns: 62px auto 142px;
+}
+
+.hub-settings-detail .hub-settings-width-control .hub-settings-number {
+  text-align: right;
+  width: 62px;
+}
+
+.hub-settings-detail .hub-settings-picker {
+  flex: 0 0 auto;
+  width: var(--hub-settings-input-width);
+}
+
+.hub-settings-detail .hub-settings-combobox {
+  gap: 0;
+  grid-template-columns: minmax(0, 1fr) var(--hub-settings-control-tail-width);
+  padding: 3px 0 3px 5px;
+  text-align: right;
+}
+
+.hub-settings-detail .hub-settings-picker.has-preview .hub-settings-combobox {
+  column-gap: 7px;
+  grid-template-columns: 22px auto var(--hub-settings-control-tail-width);
+  justify-content: end;
+  text-align: left;
+}
+
+.hub-settings-detail .hub-settings-picker.has-preview .hub-settings-combobox-label {
+  text-align: right;
+}
+
+.hub-settings-detail .hub-settings-combobox-chevron {
+  justify-self: center;
+}
+
+.hub-settings-detail .hub-scrub-handle-preview {
+  height: 20px;
+  width: 20px;
+}
+
+.hub-scrubbable-percentage {
+  align-items: center;
+  color: var(--hub-ink);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--hub-settings-control-tail-width, 28px);
+  min-height: var(--hub-settings-input-height);
+  width: var(--hub-settings-input-width);
+}
+
+.hub-scrubbable-percentage-input {
+  appearance: textfield;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  min-width: 0;
+  padding: 4px 0 4px 3px;
+  text-align: right;
+  width: 100%;
+}
+
+.hub-scrubbable-percentage-input:focus-visible {
+  outline: 0;
+}
+
+.hub-scrubbable-percentage-handle {
+  align-items: center;
+  color: var(--hub-muted);
+  cursor: ew-resize;
+  display: flex;
+  gap: 0;
+  justify-content: center;
+  padding: 7px 0;
+  touch-action: none;
+  transition: color var(--hub-settings-color-duration) ease;
+}
+
+.hub-scrubbable-percentage-chevron {
+  height: 10px;
+  width: 10px;
+}
+
+.hub-scrubbable-percentage-chevron.is-left {
+  transform: rotate(90deg);
+}
+
+.hub-scrubbable-percentage-chevron.is-right {
+  transform: rotate(-90deg);
+}
+
+.hub-scrubbable-percentage.is-dragging {
+  color: var(--hub-accent);
+  user-select: none;
+}
+
+.hub-scrubbable-percentage.is-dragging .hub-scrubbable-percentage-handle {
+  color: var(--hub-accent);
+}
+
+.hub-settings-detail .hub-visualizer-options {
+  margin: 0;
+  padding: 0 0 14px;
+}
+
+.hub-settings-detail .hub-theme-picker-field .hub-theme-picker {
+  width: min(240px, 60vw);
+  min-width: 0;
+}
+
+.hub-settings-detail .hub-theme-picker-field .hub-theme-combobox-label {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.hub-settings-detail .hub-theme-picker-field .hub-theme-combobox {
+  grid-template-columns: auto auto var(--hub-settings-control-tail-width);
+  column-gap: 9px; justify-content: end;
+  text-align: right;
+  background: transparent;
+  border-color: transparent;
+  font-size: var(--hub-settings-control-font-size);
+  min-height: var(--hub-settings-input-height);
+  padding: 3px 0 3px 5px;
+}
+
+.hub-settings-detail .hub-theme-trigger-marker:empty { display: none; }
+.hub-settings-detail .hub-theme-trigger-marker:not(:empty) { position: absolute; left: 0; }
+.hub-settings-detail .hub-theme-combobox-chevron { justify-self: center; margin: 0; }
+.hub-settings-detail .hub-theme-combobox-label { margin-left: 0; text-align: right; }
+.hub-settings-detail .hub-settings-text-actions {
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+  align-items: center;
+  gap: var(--hub-settings-row-gap);
+  min-height: var(--hub-settings-row-height);
+  min-width: 0;
+}
+.hub-settings-detail .hub-settings-text-actions .hub-settings-action {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  color: var(--hub-muted);
+  padding: 0;
+  margin: 0;
+  min-height: var(--hub-settings-input-height);
+  width: auto;
+  font-size: var(--hub-settings-control-font-size);
+}
+.hub-settings-detail .hub-settings-text-actions .hub-settings-action:is(:hover, :focus-visible) {
+  background: none;
+  color: var(--hub-accent);
+}
+
+.hub-settings-detail .hub-settings-row.hub-settings-text-actions {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.hub-settings-detail .hub-settings-text-actions .hub-settings-feedback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--hub-settings-row-gap);
+  margin-right: var(--hub-settings-compact-control-inset);
+  max-width: 100%;
+  min-width: 0;
+  width: auto;
+}

@@ -1,3 +1,14 @@
+/* Keep the Zune glow tied to the combined playback-and-destination footprint
+   instead of letting its desktop sizing collapse with the centre column.
+   Below the point where 64vw reaches 1320px it holds that visual breadth, then
+   eases into a small, intentional overscan so the feathered ends finish just
+   outside narrow viewports. */
+@media (max-width: 2063px) {
+  .hub-player[data-player-style="zune"] .hub-player-visualizer {
+    width: min(1320px, calc(100vw + 160px));
+  }
+}
+
 @media (max-width: 1120px) {
   .hub-player-content,
   .hub-player:is([data-content-width="wide"], [data-content-width="full"], [data-content-width="custom"]) .hub-player-content {
@@ -5,9 +16,35 @@
     margin-left: 0;
     margin-right: 0;
     max-width: none;
-    padding-left: 12px;
     width: calc(100% - var(--hub-sections-panel-width, min(420px, calc(100vw - 32px))) - 24px);
   }
+
+  .hub-player[data-player-style="zune"] .hub-player-content {
+    margin-left: auto;
+    margin-right: auto;
+    width: min(800px, calc(100vw - 32px));
+  }
+
+  .hub-player[data-player-style="zune"][data-content-width="tight"] .hub-player-content {
+    width: min(640px, calc(100vw - 32px));
+  }
+
+  .hub-player[data-player-style="zune"]:is([data-content-width="wide"], [data-content-width="custom"], [data-content-width="full"]) .hub-player-content {
+    width: calc(100vw - 32px);
+  }
+
+  .hub-player[data-player-style="zune"] .hub-player-main {
+    padding-right: calc(var(--hub-player-height) + 4px);
+  }
+
+  .hub-player[data-player-style="zune"] {
+    --hub-fade-backdrop-width: calc(100vw + 640px);
+  }
+
+  .hub-player[data-player-style="zune"][data-player-variant="rounded"] {
+    --hub-rounded-card-width: calc(100vw - 20px);
+  }
+
 }
 
 @media (max-width: 900px) {
@@ -31,8 +68,8 @@
   }
 
   .hub-panel.is-contextual {
-    bottom: calc(var(--hub-player-height) + var(--hub-panel-player-gap));
-    height: var(--hub-section-panel-height, calc(100vh - 156px));
+    bottom: calc(var(--hub-player-height) + var(--hub-player-bottom-gap) + var(--hub-panel-player-gap));
+    height: var(--hub-section-panel-height, min(72vh, calc(100vh - 156px)));
     left: auto;
     max-height: none;
     right: 12px;
@@ -44,21 +81,11 @@
 
 @media (max-width: 520px) {
   .hub-backup-reminder {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .hub-backup-reminder-save {
-    width: 100%;
+    gap: 8px;
   }
 
   .hub-backup-reminder-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .hub-backup-reminder-later {
-    width: 100%;
+    gap: 12px;
   }
 
   .hub-backup-frequency-row {
@@ -84,7 +111,7 @@
 
   .hub-panel.is-contextual {
     border-radius: 8px;
-    bottom: calc(var(--hub-player-height) + var(--hub-panel-player-gap));
+    bottom: calc(var(--hub-player-height) + var(--hub-player-bottom-gap) + var(--hub-panel-player-gap));
     height: min(var(--hub-section-panel-height, 72dvh), calc(100dvh - 100px));
     left: 0;
     max-height: calc(100dvh - 100px);
@@ -93,6 +120,11 @@
     top: auto;
     transform: none;
     width: 100vw;
+  }
+
+  .hub-panel.is-contextual[data-player-style="zune"] {
+    left: 0;
+    right: 0;
   }
 
   .hub-panel.is-contextual.is-hidden {
@@ -104,16 +136,30 @@
   }
 
   .hub-player-main {
-    gap: 7px;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    padding-left: 8px;
-    padding-right: 8px;
+    padding-left: 10px;
+    padding-right: 10px;
   }
 
   .hub-player.is-compact .hub-player-content {
-    padding-left: 8px;
-    padding-right: 8px;
     width: 100%;
+  }
+
+  .hub-player.is-compact .hub-player-main {
+    column-gap: 0;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .hub-player-top-row {
+    gap: 6px;
+  }
+
+  .hub-player-playback-row {
+    gap: 8px;
+  }
+
+  .hub-player-actions {
+    gap: 6px;
   }
 
   .hub-player:is([data-content-width="wide"], [data-content-width="full"], [data-content-width="custom"]) .hub-player-content {
@@ -139,6 +185,11 @@
 @media (prefers-reduced-motion: reduce) {
   .hub-panel,
   .hub-toast,
+  .hub-player-actions,
+  .hub-player-backdrop-glow,
+  .hub-player-content,
+  .hub-player-sections,
+  .hub-player-tools,
   .hub-progress-fill,
   .hub-scrub-playhead {
     transition: none;

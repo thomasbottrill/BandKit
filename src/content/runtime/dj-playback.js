@@ -1,19 +1,48 @@
 import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState, updateRuntimeLive, updateRuntimeSeamless } from "./context.js";
-import { asset, createElement } from "../core.js";
+import { asset, createElement, createShapedRange } from "../core.js";
 import { MESSAGES } from "../../shared/contracts.js";
 import { registerDjHandoff } from "./dj-handoff.js";
-import { waveformAmplitudes } from "../waveform.js";
+import { waveformPathData } from "../waveform.js";
+import { tapTempoBpm } from "../tap-tempo.js";
+export function stalePlaybackState(r, nextState) {
+  const sessionStartedAt = Math.max(0, Number(nextState.sessionStartedAt) || 0);
+  const revision = Math.max(0, Number(nextState.revision) || 0);
+  if (sessionStartedAt && (
+    sessionStartedAt < r.$playbackSessionStartedAt
+    || (sessionStartedAt === r.$playbackSessionStartedAt && revision <= r.$playbackStateRevision)
+  )) return true;
+  if (!sessionStartedAt) return false;
+  r.$playbackSessionStartedAt = sessionStartedAt;
+  r.$playbackStateRevision = revision;
+  return false;
+}
+function runSeamlessStateSync(r) {
+  if (r.$seamlessSyncPromise) return r.$seamlessSyncPromise;
+  const sync = r.$runtimeMessage({ type: MESSAGES.GET_SEAMLESS_STATE })
+    .then((response) => {
+      if (response?.ok && response.state) r.$applySeamlessState(response.state);
+    })
+    .finally(() => {
+      if (r.$seamlessSyncPromise === sync) r.$seamlessSyncPromise = null;
+    });
+  r.$seamlessSyncPromise = sync;
+  return sync;
+}
 
 function registerDjPlayback1(r) {
 r.$renderDjTools = function renderDjTools() {
+      const enabled = runtimeState.djToolsEnabled !== false;
+      if (!enabled) runtimeState.dj.open = false;
       r.$djDrawer.replaceChildren();
-      r.$djDrawer.classList.toggle("is-open", runtimeState.dj.open);
-      r.$djDrawer.setAttribute("aria-hidden", String(!runtimeState.dj.open));
-      r.$djPlayerButton.classList.toggle("is-active", runtimeState.dj.open);
-      r.$djPlayerButton.setAttribute("aria-expanded", String(runtimeState.dj.open));
+      r.$djPlayerButton.hidden = !enabled;
+      r.$djDrawer.classList.toggle("is-open", enabled && runtimeState.dj.open);
+      r.$djDrawer.setAttribute("aria-hidden", String(!enabled || !runtimeState.dj.open));
+      r.$djDrawer.toggleAttribute("inert", !enabled || !runtimeState.dj.open);
+      r.$djPlayerButton.classList.toggle("is-active", enabled && runtimeState.dj.open);
+      r.$djPlayerButton.setAttribute("aria-expanded", String(enabled && runtimeState.dj.open));
       r.$djPlayerButton.setAttribute("aria-label", runtimeState.dj.open ? "Close DJ tools" : "Open DJ tools");
       r.$syncPageDjToolsUi();
-      if (runtimeState.dj.open) r.$djDrawer.append(r.$createDjToolsCard());
+      if (enabled && runtimeState.dj.open) r.$djDrawer.append(r.$createDjToolsCard());
       r.$renderPageDjTools();
     };
 }
@@ -24,10 +53,21 @@ const waveformButton = createElement("button", "hub-dj-waveform");
         waveformButton.type = "button";
         waveformButton.disabled = !runtimeSeamless.enabled || !(Number(runtimeSeamless.duration) > 0);
         waveformButton.setAttribute("aria-label", "Track waveform. Click to seek.");
-        const waveformCanvas = createElement("canvas", "hub-dj-waveform-canvas");
+        const waveformVisual = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        waveformVisual.setAttribute("class", "hub-dj-waveform-canvas hub-scrub-waveform");
+        waveformVisual.setAttribute("preserveAspectRatio", "none");
+        waveformVisual.setAttribute("aria-hidden", "true");
+        waveformVisual.setAttribute("focusable", "false");
+        for (const className of ["hub-scrub-waveform-remaining", "hub-scrub-waveform-played"]) {
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute("class", className);
+          waveformVisual.append(path);
+        }
         const waveformPlayhead = createElement("span", "hub-dj-waveform-playhead");
-        waveformButton.style.setProperty("--hub-dj-waveform-progress", `${Math.max(0, Math.min(1, Number(runtimeSeamless.progress) || 0)) * 100}%`);
-        waveformButton.append(waveformCanvas, waveformPlayhead);
+        const progress = `${Math.max(0, Math.min(1, Number(runtimeSeamless.progress) || 0)) * 100}%`;
+        waveformButton.style.setProperty("--hub-dj-waveform-progress", progress);
+        waveformButton.style.setProperty("--hub-scrub-progress", progress);
+        waveformButton.append(waveformVisual, waveformPlayhead);
         waveformButton.addEventListener("click", (event) => {
           const duration = Number(runtimeSeamless.duration) || 0;
           if (!duration) return;
@@ -35,52 +75,75 @@ const waveformButton = createElement("button", "hub-dj-waveform");
           const progress = Math.max(0, Math.min(1, (event.clientX - bounds.left) / Math.max(1, bounds.width)));
           void r.$seamlessCommand(MESSAGES.SEAMLESS_SEEK, { currentTime: duration * progress });
         });
-        r.$drawDjWaveform(waveformCanvas);
+        r.$drawDjWaveform(waveformVisual);
       return waveformButton;
     };
 }
 
 function registerDjAnalysisControls(r) {
 r.$createDjAnalysis = function createDjAnalysis(bpm) {
+      const activeTrackKey = runtimeSeamless.track ? r.$playlistTrackKey(runtimeSeamless.track) : "";
+      const tappedBpm = activeTrackKey && runtimeState.dj.tapTrackKey === activeTrackKey
+        ? Number(runtimeState.dj.tapBpm) || null : null;
+      const restoreAutomaticBpm = () => {
+        r.$bpmTapTimes = [];
+        r.$bpmEditing = false;
+        r.$bpmDraft = "";
+        runtimeState.dj.autoTempo = true;
+        runtimeState.dj.tapBpm = null;
+        runtimeState.dj.tapTrackKey = "";
+        runtimeState.dj.rate = 1;
+        runtimeSaveState();
+        r.$renderDjTools();
+        void r.$seamlessCommand(MESSAGES.SEAMLESS_SET_RATE, {
+          rate: 1,
+          preservePitch: runtimeState.dj.preservePitch
+        }).then(() => r.$seamlessCommand(MESSAGES.SEAMLESS_RESET_BPM));
+      };
       const analysisRow = createElement("div", "hub-dj-analysis-row");
       const bpmEditor = createElement("div", "hub-dj-bpm-editor");
       const bpmLabel = createElement("span");
       bpmLabel.className = `hub-dj-bpm-label${runtimeState.dj.autoTempo ? " is-active" : ""}`;
+      bpmLabel.setAttribute("aria-live", "polite");
       bpmEditor.append(bpmLabel);
       const bpmValueRow = createElement("div", "hub-dj-bpm-value-row");
       const bpmInput = createElement("input", "hub-dj-bpm-input");
+      let autoBpm = null;
       bpmInput.type = "text";
       bpmInput.inputMode = "decimal";
       bpmInput.pattern = "[0-9]*[.]?[0-9]*";
       bpmInput.min = "40";
       bpmInput.max = "300";
       bpmInput.step = "0.1";
-      bpmInput.placeholder = runtimeSeamless.bpmStatus === "analyzing" ? "…" : "—";
-      bpmInput.title = "Click to edit BPM";
-      bpmInput.setAttribute("aria-label", "Track BPM. Click to edit.");
+      const bpmUncertain = runtimeSeamless.bpmUncertain === true || runtimeSeamless.bpmStatus === "error"; bpmInput.placeholder = runtimeSeamless.bpmStatus === "analyzing" ? "…" : bpmUncertain ? "?" : "—";
+      bpmInput.title = bpmUncertain ? `${bpm ? "This is a best-effort BPM estimate" : "BPM could not be detected confidently"}${runtimeSeamless.bpmError ? `: ${runtimeSeamless.bpmError}` : ""}. Click to edit it.` : "Click to edit BPM";
+      bpmInput.setAttribute("aria-label", bpmUncertain ? "Track BPM uncertain. Click to enter it manually." : "Track BPM. Click to edit.");
       const refreshDisplayedBpm = () => {
-        const tempoAdjusted = Boolean(bpm && Math.abs(runtimeState.dj.rate - 1) > 0.001);
-        bpmLabel.textContent = `BPM · ${runtimeState.dj.autoTempo ? "AUTO" : "MANUAL"}${tempoAdjusted ? " · ↕" : ""}`;
-        bpmLabel.title = tempoAdjusted ? "BPM adjusted by the tempo control" : "";
-        bpmInput.value = r.$bpmEditing ? r.$bpmDraft : (bpm ? String(Math.round(bpm * runtimeState.dj.rate * 10) / 10) : "");
+        const tempoAdjusted = Boolean(bpm && Math.abs(runtimeState.dj.rate - 1) > 0.001); const tapPending = !tappedBpm && r.$bpmTapTimes.length > 0 && r.$bpmTapTimes.length < 4;
+        const mode = tapPending ? `${r.$bpmTapTimes.length}/4` : tappedBpm ? "TAP" : runtimeState.dj.autoTempo ? "AUTO" : "MANUAL";
+        const displayedBpm = tappedBpm || (bpm ? Math.round(bpm * runtimeState.dj.rate * 10) / 10 : null);
+        bpmLabel.textContent = `BPM${!tappedBpm && bpmUncertain ? "?" : ""} · ${mode}${!tappedBpm && tempoAdjusted ? " · ↕" : ""}`;
+        bpmLabel.title = tapPending ? `${r.$bpmTapTimes.length} of 4 taps registered. Keep tapping to calculate BPM.` : tappedBpm ? "Your tapped BPM estimate. Playback is unchanged." : tempoAdjusted ? "BPM adjusted by the tempo control" : "";
+        bpmInput.value = r.$bpmEditing ? r.$bpmDraft : (displayedBpm ? String(displayedBpm) : "");
+        if (autoBpm) {
+          autoBpm.classList.toggle("is-active", runtimeState.dj.autoTempo);
+          autoBpm.setAttribute("aria-pressed", String(runtimeState.dj.autoTempo));
+          autoBpm.title = runtimeState.dj.autoTempo ? "Restore automatic BPM and reset tempo" : "Use the automatically detected BPM and reset tempo";
+          autoBpm.querySelector(".hub-dj-active-dot")?.remove();
+          if (runtimeState.dj.autoTempo && runtimeSeamless.bpmStatus !== "analyzing") autoBpm.append(createElement("span", "hub-dj-active-dot"));
+        }
       };
       refreshDisplayedBpm();
       bpmInput.disabled = !runtimeSeamless.enabled;
       const setManualBpm = () => {
         const displayedValue = Math.max(40, Math.min(300, Number(bpmInput.value)));
-        if (!Number.isFinite(displayedValue) || !bpm) return;
+        if (!Number.isFinite(displayedValue)) return;
         bpmInput.value = String(Math.round(displayedValue * 10) / 10);
-        if (runtimeState.dj.autoTempo) {
-          const detectedBase = Number(runtimeSeamless.automaticBpm) || bpm;
-          const targetRate = Math.max(0.35, Math.min(2, displayedValue / detectedBase));
-          runtimeState.dj.rate = targetRate;
-          void r.$seamlessCommand(MESSAGES.SEAMLESS_SET_RATE, {
-            rate: targetRate,
-            preservePitch: runtimeState.dj.preservePitch
-          });
-        } else {
-          void r.$seamlessCommand(MESSAGES.SEAMLESS_SET_BPM, { bpm: displayedValue });
-        }
+        runtimeState.dj.autoTempo = false;
+        runtimeState.dj.tapBpm = null;
+        runtimeState.dj.tapTrackKey = "";
+        runtimeSaveState();
+        void r.$seamlessCommand(MESSAGES.SEAMLESS_SET_BPM, { bpm: displayedValue });
       };
       bpmInput.addEventListener("change", setManualBpm);
       bpmInput.addEventListener("pointerdown", (event) => {
@@ -116,80 +179,53 @@ r.$createDjAnalysis = function createDjAnalysis(bpm) {
       const resetBpm = createElement("button", "hub-dj-reset-symbol hub-dj-bpm-reset");
       resetBpm.style.setProperty("--hub-reset-icon", `url('${asset("icon-reset.svg")}')`);
       resetBpm.type = "button";
-      resetBpm.disabled = !runtimeSeamless.enabled || !bpm;
+      resetBpm.disabled = !runtimeSeamless.enabled || (!bpm && !tappedBpm);
       resetBpm.title = "Reset BPM and tempo";
       resetBpm.setAttribute("aria-label", "Reset BPM and tempo");
-      resetBpm.addEventListener("click", () => {
-        r.$bpmTapTimes = [];
-        r.$bpmEditing = false;
-        r.$bpmDraft = "";
-        runtimeState.dj.rate = 1;
-        runtimeSaveState();
-        void r.$seamlessCommand(MESSAGES.SEAMLESS_RESET_BPM).then(() => r.$seamlessCommand(MESSAGES.SEAMLESS_SET_RATE, {
-          rate: 1,
-          preservePitch: runtimeState.dj.preservePitch
-        }));
-      });
+      resetBpm.addEventListener("click", restoreAutomaticBpm);
       bpmValueRow.append(bpmInput, resetBpm);
       bpmEditor.append(bpmValueRow);
-
       const keyReadout = createElement("div", "hub-dj-key");
-      keyReadout.title = runtimeSeamless.detectedKey?.name ? `Detected key: ${runtimeSeamless.detectedKey.name}` : "Musical key is detected automatically";
+      const showMusicalKey = runtimeState.showTrackKeys !== false;
+      const showCamelot = runtimeState.showCamelotNotation === true;
+      const keyUncertain = runtimeSeamless.detectedKey?.uncertain === true || (["ready", "error"].includes(runtimeSeamless.bpmStatus) && !runtimeSeamless.detectedKey);
+      keyReadout.hidden = !showMusicalKey && !showCamelot;
+      keyReadout.title = showMusicalKey && runtimeSeamless.detectedKey?.name
+        ? `${keyUncertain ? "Best-effort key" : "Detected key"}: ${runtimeSeamless.detectedKey.name}${showCamelot && runtimeSeamless.detectedKey?.camelot ? ` · Camelot ${runtimeSeamless.detectedKey.camelot}` : ""}`
+        : keyUncertain ? "Musical key could not be detected confidently for this track"
+          : showCamelot ? "Camelot notation is detected automatically" : "";
       keyReadout.append(
         createElement("span", "", "KEY"),
-        createElement("strong", "hub-dj-key-name", runtimeSeamless.detectedKey?.shortName || (runtimeSeamless.bpmStatus === "analyzing" ? "…" : "—")),
-        createElement("small", "hub-dj-key-camelot", runtimeSeamless.detectedKey?.camelot || "")
+        createElement("strong", "hub-dj-key-name", showMusicalKey ? runtimeSeamless.detectedKey?.shortName ? `${runtimeSeamless.detectedKey.shortName}${keyUncertain ? "?" : ""}` : runtimeSeamless.bpmStatus === "analyzing" ? "…" : keyUncertain ? "Key?" : "—" : ""),
+        createElement("small", "hub-dj-key-camelot", showCamelot ? runtimeSeamless.detectedKey?.camelot ? `${runtimeSeamless.detectedKey.camelot}${keyUncertain ? "?" : ""}` : !showMusicalKey && runtimeSeamless.bpmStatus === "analyzing" ? "…" : keyUncertain ? "?" : "" : "")
       );
-
+      if (runtimeSeamless.track) keyReadout.append(r.$createDeepAnalysisButton(runtimeSeamless.track, "hub-dj-deep-analysis"));
       const tap = createElement("button", "hub-dj-action hub-dj-compact-action", "Tap");
       tap.type = "button";
-      tap.disabled = !runtimeSeamless.enabled || !bpm;
-      tap.title = bpm ? "Tap repeatedly to match this track's playback tempo" : "Analyze BPM before using Tap tempo";
+      tap.disabled = !runtimeSeamless.enabled;
+      tap.title = "Tap repeatedly to estimate BPM without changing playback";
       tap.addEventListener("click", () => {
         const now = performance.now();
         if (!r.$bpmTapTimes.length || now - r.$bpmTapTimes.at(-1) > 2200) r.$bpmTapTimes = [];
         r.$bpmTapTimes.push(now);
-        r.$bpmTapTimes = r.$bpmTapTimes.slice(-7);
-        if (r.$bpmTapTimes.length < 2) return;
-        const intervals = r.$bpmTapTimes.slice(1).map((time, index) => time - r.$bpmTapTimes[index]);
-        let tappedBpm = 60000 / (intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length);
-        while (tappedBpm < 70) tappedBpm *= 2;
-        while (tappedBpm > 180) tappedBpm /= 2;
-        tappedBpm = Math.round(tappedBpm * 10) / 10;
-        const baseBpm = Number(runtimeSeamless.detectedBpm) || bpm;
-        const targetRate = Math.max(0.35, Math.min(2, tappedBpm / baseBpm));
+        r.$bpmTapTimes = r.$bpmTapTimes.slice(-17);
+        if (r.$bpmTapTimes.length < 4) { const tapCount = r.$bpmTapTimes.length; bpmLabel.textContent = `BPM · ${tapCount}/4`; bpmLabel.title = `${tapCount} of 4 taps registered. Keep tapping to calculate BPM.`; tap.setAttribute("aria-label", `Tap ${tapCount} of 4 registered`); return; }
+        const nextTappedBpm = tapTempoBpm(r.$bpmTapTimes);
+        if (!nextTappedBpm) return;
         runtimeState.dj.autoTempo = false;
-        runtimeState.dj.rate = targetRate;
+        runtimeState.dj.tapBpm = nextTappedBpm;
+        runtimeState.dj.tapTrackKey = activeTrackKey;
         runtimeSaveState();
-        bpmLabel.classList.remove("is-active");
-        refreshDisplayedBpm();
-        void r.$seamlessCommand(MESSAGES.SEAMLESS_SET_RATE, {
-          rate: targetRate,
-          preservePitch: runtimeState.dj.preservePitch
-        });
+        r.$renderDjTools();
       });
 
-      const autoBpm = createElement("button", `hub-dj-action hub-dj-compact-action hub-dj-status-button${runtimeState.dj.autoTempo ? " is-active" : ""}`, runtimeSeamless.bpmStatus === "analyzing" ? "…" : "Auto");
+      autoBpm = createElement("button", `hub-dj-action hub-dj-compact-action hub-dj-status-button${runtimeState.dj.autoTempo ? " is-active" : ""}`, runtimeSeamless.bpmStatus === "analyzing" ? "…" : "Auto");
       if (runtimeState.dj.autoTempo && runtimeSeamless.bpmStatus !== "analyzing") autoBpm.append(createElement("span", "hub-dj-active-dot"));
       autoBpm.type = "button";
       autoBpm.disabled = runtimeSeamless.bpmStatus === "analyzing" || !runtimeSeamless.enabled;
       autoBpm.setAttribute("aria-pressed", String(runtimeState.dj.autoTempo));
-      autoBpm.title = runtimeState.dj.autoTempo ? "Turn off automatic tempo control" : "Use the automatically detected BPM to control playback tempo";
-      autoBpm.addEventListener("click", () => {
-        r.$bpmTapTimes = [];
-        const restoreAutomaticBpm = !runtimeState.dj.autoTempo;
-        runtimeState.dj.autoTempo = restoreAutomaticBpm;
-        runtimeState.dj.rate = 1;
-        runtimeSaveState();
-        r.$renderDjTools();
-        void r.$seamlessCommand(MESSAGES.SEAMLESS_SET_RATE, {
-          rate: 1,
-          preservePitch: runtimeState.dj.preservePitch
-        }).then(() => {
-          if (restoreAutomaticBpm) return r.$seamlessCommand(MESSAGES.SEAMLESS_RESET_BPM);
-          return null;
-        });
-      });
+      autoBpm.title = runtimeState.dj.autoTempo ? "Restore automatic BPM and reset tempo" : "Use the automatically detected BPM and reset tempo";
+      autoBpm.addEventListener("click", restoreAutomaticBpm);
       analysisRow.append(bpmEditor, keyReadout, tap, autoBpm);
       return { analysisRow, refreshDisplayedBpm };
     };
@@ -661,7 +697,7 @@ r.$createDjFaderPanel = function createDjFaderPanel(tempoPercent, refreshDisplay
         control.max = String(max);
         control.step = String(step);
         control.value = String(value);
-        control.setAttribute("aria-label", label);
+        control.setAttribute("aria-label", label); const shapedControl = createShapedRange(control, { vertical: true });
         control.addEventListener("input", () => {
           onInput(Number(control.value));
           output.textContent = format(Number(control.value));
@@ -676,7 +712,7 @@ r.$createDjFaderPanel = function createDjFaderPanel(tempoPercent, refreshDisplay
           runtimeSaveState();
           r.$render();
         });
-        rail.append(control);
+        rail.append(shapedControl.element);
         fader.append(
           createElement("span", "hub-dj-fader-label", label),
           output,
@@ -684,7 +720,7 @@ r.$createDjFaderPanel = function createDjFaderPanel(tempoPercent, refreshDisplay
           createPanelReset(resetTitle, onReset)
         );
         faders.append(fader);
-        return control;
+        return { control, sync: shapedControl.sync };
       };
       const tempoOutputFormat = (value) => r.$signedPercent(value);
       const tempoSlider = addFader({
@@ -705,9 +741,9 @@ r.$createDjFaderPanel = function createDjFaderPanel(tempoPercent, refreshDisplay
         const current = rangeValues.indexOf(runtimeState.dj.range);
         runtimeState.dj.range = rangeValues[(current + 1) % rangeValues.length];
         r.$setDjTempo(Math.max(-runtimeState.dj.range, Math.min(runtimeState.dj.range, r.$tempoPercentFromState())));
-        tempoSlider.min = String(-runtimeState.dj.range);
-        tempoSlider.max = String(runtimeState.dj.range);
-        tempoSlider.value = String(r.$tempoPercentFromState());
+        tempoSlider.control.min = String(-runtimeState.dj.range);
+        tempoSlider.control.max = String(runtimeState.dj.range);
+        tempoSlider.control.value = String(r.$tempoPercentFromState()); tempoSlider.sync();
         tempoRange.textContent = rangeLabel(runtimeState.dj.range);
         tempoRange.setAttribute("aria-label", `Tempo range ${rangeLabel(runtimeState.dj.range)}. Click for next range.`);
         refreshDisplayedBpm();
@@ -750,38 +786,13 @@ r.$createDjToolsCard = function createDjToolsCard({ includeWaveform = true } = {
 }
 
 function registerDjPlayback3(r) {
-r.$drawDjWaveform = function drawDjWaveform(canvas) {
+r.$drawDjWaveform = function drawDjWaveform(svg) {
       window.requestAnimationFrame(() => {
-        const analyzedPoints = runtimeSeamless.waveform || [];
-        const bounds = canvas.getBoundingClientRect();
-        const ratio = Math.min(2, window.devicePixelRatio || 1);
-        const width = Math.max(1, Math.round(bounds.width * ratio));
-        const height = Math.max(1, Math.round(bounds.height * ratio));
-        canvas.width = width;
-        canvas.height = height;
-        const context = canvas.getContext("2d");
-        if (!context) return;
-        context.clearRect(0, 0, width, height);
-        const root = canvas.getRootNode();
-        const themeHost = root instanceof ShadowRoot ? root.host : r.$host;
-        const styles = getComputedStyle(themeHost);
-        const played = styles.getPropertyValue("--hub-scrub-accent").trim() || "#1da0c3";
-        const remaining = styles.getPropertyValue("--hub-scrub-remaining").trim() || "#cbd0d5";
-        const progress = Math.max(0, Math.min(1, Number(runtimeSeamless.progress) || 0));
-        const barCount = Math.max(28, Math.min(180, Math.round(bounds.width / 4)));
+        const bounds = svg.getBoundingClientRect();
         const signature = `${runtimeSeamless.track?.title || runtimeLive.title || ""}\u0000${runtimeSeamless.track?.artist || runtimeLive.artist || ""}\u0000${runtimeSeamless.track?.pageUrl || runtimeLive.pageUrl || ""}`;
-        const points = analyzedPoints.length
-          ? Array.from({ length: barCount }, (_, index) => analyzedPoints[Math.min(analyzedPoints.length - 1, Math.floor((index / barCount) * analyzedPoints.length))])
-          : waveformAmplitudes(signature, barCount).map((value) => (value / 20) * 100);
-        const barWidth = width / Math.max(1, points.length);
-        for (let index = 0; index < points.length; index += 1) {
-          const amplitude = Math.max(2 * ratio, (Number(points[index]) / 100) * (height - 4 * ratio));
-          context.fillStyle = index / points.length <= progress ? played : remaining;
-          const visualWidth = Math.max(1.5 * ratio, Math.min(2.4 * ratio, barWidth * 0.62));
-          context.beginPath();
-          context.roundRect(index * barWidth + (barWidth - visualWidth) / 2, (height - amplitude) / 2, visualWidth, amplitude, visualWidth / 2);
-          context.fill();
-        }
+        const waveform = waveformPathData(signature, Math.max(80, Math.round(bounds.width)));
+        svg.setAttribute("viewBox", `0 0 ${waveform.pixelWidth} 24`);
+        for (const path of svg.querySelectorAll("path")) path.setAttribute("d", waveform.pathData);
       });
     };
 r.$tempoPercentFromState = function tempoPercentFromState() {
@@ -798,6 +809,7 @@ r.$recordActivePlaylistAnalysis = function recordActivePlaylistAnalysis() {
         const next = {
           ...item,
           bpm: bpm ?? item.bpm,
+          bpmUncertain: bpm ? runtimeSeamless.bpmUncertain === true : item.bpmUncertain,
           key: key ?? item.key
         };
         if (JSON.stringify(next) === JSON.stringify(item)) return item;
@@ -813,16 +825,28 @@ r.$recordActivePlaylistAnalysis = function recordActivePlaylistAnalysis() {
       return changed;
     };
 r.$consumeCompletedNowPlayingItems = function consumeCompletedNowPlayingItems() {
+      // Reordering the complete queue can briefly produce playback snapshots
+      // from the preceding order. Do not interpret those as track advancement:
+      // doing so would consume the prefix and permanently truncate the playlist.
+      if (r.$playlistShuffleSyncTimer || Date.now() < Number(r.$playlistShuffleConsumptionGuardUntil || 0)) return false;
+      if (r.$nowPlayingTransitionTrackKey && Date.now() < Number(r.$nowPlayingTransitionExpiresAt || 0)) return false;
+      const activeIndex = runtimeSeamless.track ? runtimeState.playlist.findIndex((item) => r.$playlistTracksMatch(item, runtimeSeamless.track)) : -1;
+      const playablePlaylist = runtimeState.playlist.filter((item) => r.$isReusableStreamUrl(item.url));
+      const activePlayableIndex = runtimeSeamless.track ? playablePlaylist.findIndex((item) => r.$playlistTracksMatch(item, runtimeSeamless.track)) : -1;
+      const seamlessIndex = Math.max(-1, Number(runtimeSeamless.index) || 0);
+      const seamlessQueue = Array.isArray(runtimeSeamless.queue) ? runtimeSeamless.queue : [];
+      const queueAligned = activePlayableIndex >= 0 && activePlayableIndex === seamlessIndex
+        && playablePlaylist.slice(0, activePlayableIndex + 1).every((item, index) => r.$playlistTracksMatch(item, seamlessQueue[index]));
       if (runtimeSeamless.status === "ended") {
-        if (!runtimeState.playlist.length) return false;
+        if (!runtimeState.playlist.length || !queueAligned) return false;
         runtimeState.playlist = [];
         runtimeState.playlistMode = "browse";
+        r.$resetPlaylistShuffle();
         runtimeSaveState();
         return true;
       }
       if (!runtimeSeamless.enabled || !runtimeSeamless.track || runtimeState.playlist.length < 2) return false;
-      const activeIndex = runtimeState.playlist.findIndex((item) => r.$playlistTracksMatch(item, runtimeSeamless.track));
-      if (activeIndex <= 0) return false;
+      if (activeIndex <= 0 || !queueAligned) return false;
       runtimeState.playlist = r.$normalizePlaylist(runtimeState.playlist.slice(activeIndex));
       runtimeSaveState();
       // Now Playing represents only the current track and Up Next. Keep the
@@ -834,8 +858,27 @@ r.$consumeCompletedNowPlayingItems = function consumeCompletedNowPlayingItems() 
 r.$applySeamlessState = function applySeamlessState(nextState) {
       if (!nextState || typeof nextState !== "object") return;
       if (r.$nowPlayingExplicitlyCleared && nextState.enabled) return;
+      const transitionTrackKey = String(r.$nowPlayingTransitionTrackKey || "");
+      const transitionActive = Boolean(transitionTrackKey && Date.now() < Number(r.$nowPlayingTransitionExpiresAt || 0));
+      const nextTrackKey = nextState.track ? r.$playlistTrackKey(nextState.track) : "";
+      if (transitionActive && nextState.enabled && nextTrackKey && nextTrackKey !== transitionTrackKey) return;
+      if (stalePlaybackState(r, nextState)) return;
       const wasEnabled = runtimeSeamless.enabled;
       const incomingState = { ...nextState };
+      const incomingTrackKey = incomingState.track ? r.$playlistTrackKey(incomingState.track) : "";
+      if (transitionTrackKey && incomingTrackKey === transitionTrackKey) {
+        r.$nowPlayingTransitionTrackKey = ""; r.$nowPlayingTransitionExpiresAt = 0;
+        void r.$persistNowPlayingSession();
+      } else if (transitionTrackKey && !transitionActive) {
+        r.$nowPlayingTransitionTrackKey = ""; r.$nowPlayingTransitionExpiresAt = 0;
+      }
+      if (incomingTrackKey && runtimeState.dj.tapTrackKey && incomingTrackKey !== runtimeState.dj.tapTrackKey) {
+        r.$bpmTapTimes = [];
+        runtimeState.dj.autoTempo = true;
+        runtimeState.dj.tapBpm = null;
+        runtimeState.dj.tapTrackKey = "";
+        runtimeSaveState();
+      }
       if (r.$pendingLoopBeats !== null) {
         if (Number(incomingState.loopBeats) === r.$pendingLoopBeats) {
           r.$pendingLoopBeats = null;
@@ -917,6 +960,7 @@ r.$applySeamlessState = function applySeamlessState(nextState) {
 
       r.$syncPagePlayerUi();
       r.$syncRecommendationPlaybackUi();
+      r.$syncSearchPlaybackUi?.();
       const activeDjControl = r.$shadow.activeElement;
       const activePageDjControl = r.$pageDjShadow?.activeElement;
       const editingDjControl = r.$bpmEditing
@@ -925,7 +969,7 @@ r.$applySeamlessState = function applySeamlessState(nextState) {
       const gestureSelector = ".hub-dj-knob-dial.is-dragging, .hub-dj-platter.is-scratching, .hub-dj-platter.is-coasting, .hub-dj-platter.is-vinyl-releasing";
       const activeDjGesture = r.$djDrawer.querySelector(gestureSelector) || r.$pageDjSurface?.querySelector(gestureSelector);
       if ((runtimeState.dj.open || r.$pageDjOpen) && !editingDjControl && !activeDjGesture) r.$renderDjTools();
-      r.$renderPlayer();
+      r.$renderPlayer(); r.$syncSavedPlaylistCardPlaybackUi?.();
       if (playlistQueueChanged && runtimeState.activeTab === "playlist") {
         r.$render();
         return;
@@ -946,12 +990,14 @@ r.$applySeamlessState = function applySeamlessState(nextState) {
         }
       }
     };
-r.$syncSeamlessState = async function syncSeamlessState() {
-      const response = await r.$runtimeMessage({ type: MESSAGES.GET_SEAMLESS_STATE });
-      if (response?.ok && response.state) r.$applySeamlessState(response.state);
+r.$syncSeamlessState = function syncSeamlessState() {
+      return runSeamlessStateSync(r);
     };
 }
 
-export const registerDjPlayback = [registerDjPlatterKeyboard, registerDjWaveformControl, registerDjAnalysisControls, registerDjEqControls, registerDjPlatter, registerDjPerformanceControls, registerDjFaderControls, registerDjPlayback1, registerDjPlayback2, registerDjPlayback3, registerDjHandoff];
-
-export const setupDjPlayback = [];
+export const registerDjPlayback = [
+  registerDjPlatterKeyboard, registerDjWaveformControl, registerDjAnalysisControls,
+  registerDjEqControls, registerDjPlatter, registerDjPerformanceControls,
+  registerDjFaderControls, registerDjPlayback1, registerDjPlayback2, registerDjPlayback3,
+  registerDjHandoff
+];

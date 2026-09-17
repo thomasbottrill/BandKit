@@ -353,6 +353,168 @@ window.fixtureScenarios = {
       : `FAIL: Bandcamp appearance reskin ${bodyStyles.backgroundColor}/${pageStyles.backgroundColor}/${colourFields?.length}`;
     return;
   },
+  async "foreign-library-roundtrip"(root) {
+    const wait = (milliseconds = 80) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+    const selectView = (label) => {
+      [...(root?.querySelectorAll(".hub-cart-view-tab") || [])]
+        .find((button) => button.textContent.trim() === label)?.click();
+    };
+    const pushCleanState = (localTag = "") => {
+      const previous = structuredClone(window.fixtureStored.bandcampHubState || {});
+      const localArt = new URL("/tests/fixtures/assets/art-velocity.png", location.href).href;
+      const localSavedCarts = localTag ? [{
+        id: `local-cart-${localTag}`,
+        name: `Local cart ${localTag}`,
+        savedAt: "2026-08-20T00:00:00.000Z",
+        modifiedAt: "2026-08-20T00:00:00.000Z",
+        items: [{ id: `local-cart-item-${localTag}`, title: `Local release ${localTag}`, artist: "Local artist", kind: "Digital album", price: 5, currency: "USD", art: localArt, url: "https://fixture.bandcamp.com/album/local-release" }]
+      }] : [];
+      const localSavedPlaylists = localTag ? [{
+        id: `local-playlist-${localTag}`,
+        name: `Local playlist ${localTag}`,
+        savedAt: "2026-08-20T00:00:00.000Z",
+        modifiedAt: "2026-08-20T00:00:00.000Z",
+        items: [{ id: `local-playlist-item-${localTag}`, playlistItemId: `local-playlist-item-${localTag}`, title: `Local track ${localTag}`, artist: "Local artist", album: "Local album", duration: 180, art: localArt, pageUrl: "https://fixture.bandcamp.com/track/local-track" }]
+      }] : [];
+      const next = {
+        ...previous,
+        open: true,
+        activeTab: "cart",
+        cartView: "current",
+        playlistView: "saved",
+        cart: [],
+        cartSummary: null,
+        cartSavedAt: Date.now() + 10000,
+        playlist: [],
+        savedCarts: localSavedCarts,
+        savedPlaylists: localSavedPlaylists,
+        selectedSavedCartId: null,
+        selectedSavedPlaylistId: null
+      };
+      window.fixtureStored.bandcampHubState = structuredClone(next);
+      window.fixtureStorageListener?.({ bandcampHubState: { oldValue: previous, newValue: next } }, "local");
+    };
+
+    root?.querySelector('.hub-header-shortcut[data-tab="cart"], .hub-tab[data-tab="cart"]')?.click();
+    selectView("Cart");
+    root?.querySelector('.hub-cart-backup [aria-label="Download cart"]')?.click();
+    const cartDownload = window.fixtureDownloads.at(-1);
+    const cartHtml = cartDownload ? await cartDownload.blob.text() : "";
+
+    root?.querySelector(".hub-now-playing-button")?.click();
+    selectView("Now Playing");
+    root?.querySelector('.hub-now-playing-toolbar [aria-label="Download queue"]')?.click();
+    const playlistDownload = window.fixtureDownloads.at(-1);
+    const playlistHtml = playlistDownload ? await playlistDownload.blob.text() : "";
+    const exportsAreDifferent = cartDownload && playlistDownload && cartDownload !== playlistDownload;
+
+    pushCleanState("sender");
+    await wait();
+    root?.querySelector('.hub-header-shortcut[data-tab="cart"], .hub-tab[data-tab="cart"]')?.click();
+    selectView("Cart");
+    const cartInput = root?.querySelector('.hub-cart-backup input[type="file"]');
+    if (cartInput && cartDownload) {
+      Object.defineProperty(cartInput, "files", {
+        configurable: true,
+        value: [new File([cartDownload.blob], cartDownload.filename, { type: "text/html" })]
+      });
+      cartInput.dispatchEvent(new Event("change", { bubbles: true }));
+      await wait(500);
+    }
+
+    root?.querySelector(".hub-now-playing-button")?.click();
+    selectView("Playlists");
+    const playlistInput = root?.querySelector('.hub-playlist-import-row input[type="file"]');
+    if (playlistInput && playlistDownload) {
+      Object.defineProperty(playlistInput, "files", {
+        configurable: true,
+        value: [new File([playlistDownload.blob], playlistDownload.filename, { type: "text/html" })]
+      });
+      playlistInput.dispatchEvent(new Event("change", { bubbles: true }));
+      await wait(180);
+    }
+
+    const importedState = structuredClone(window.fixtureStored.bandcampHubState || {});
+    const importedCart = importedState.savedCarts?.find((entry) => String(entry.id).startsWith("cart-import-"));
+    const importedPlaylist = importedState.savedPlaylists?.find((entry) => String(entry.id).startsWith("playlist-import-"));
+
+    root?.querySelector('.hub-header-shortcut[data-tab="settings"], .hub-tab[data-tab="settings"]')?.click();
+    root?.querySelector('button[aria-label="Save backup"]')?.click();
+    await wait(180);
+    let backup = null;
+    try { backup = JSON.parse(window.fixtureBackupHandle.content); } catch {}
+    const backupCart = backup?.carts?.saved?.find((entry) => entry.id === importedCart?.id);
+    const backupPlaylist = backup?.playlists?.saved?.find((entry) => entry.id === importedPlaylist?.id);
+
+    pushCleanState("receiver");
+    await wait();
+    root?.querySelector('.hub-header-shortcut[data-tab="settings"], .hub-tab[data-tab="settings"]')?.click();
+    root?.querySelector('button[aria-label="Restore backup"]')?.click();
+    await wait(220);
+    const restoredState = window.fixtureStored.bandcampHubState || {};
+    const restoredCart = restoredState.savedCarts?.find((entry) => entry.id === importedCart?.id);
+    const restoredPlaylist = restoredState.savedPlaylists?.find((entry) => entry.id === importedPlaylist?.id);
+    const receiverCart = restoredState.savedCarts?.find((entry) => entry.id === "local-cart-receiver");
+    const receiverPlaylist = restoredState.savedPlaylists?.find((entry) => entry.id === "local-playlist-receiver");
+
+    const passed = exportsAreDifferent
+      && cartDownload.filename.endsWith(".html")
+      && playlistDownload.filename.endsWith(".html")
+      && cartHtml.includes('id="bandkit-cart-data"')
+      && playlistHtml.includes('id="bandkit-playlist-data"')
+      && importedCart?.name === "Bandcamp cart"
+      && importedCart?.items?.length === 3
+      && importedCart.items.every((item) => /^https?:/.test(item.art || ""))
+      && importedPlaylist?.name === "Bandkit playlist"
+      && importedPlaylist?.items?.length === 2
+      && importedPlaylist.items.every((item) => /^https?:/.test(item.art || ""))
+      && backup?.format === "bandkit-backup"
+      && backup?.version === 3
+      && backup?.carts?.saved?.length === 2
+      && backup?.playlists?.saved?.length === 2
+      && backupCart?.items?.length === 3
+      && backupCart.items.every((item) => /^https?:/.test(item.art || ""))
+      && backupPlaylist?.items?.length === 2
+      && backupPlaylist.items.every((item) => /^https?:/.test(item.art || ""))
+      && restoredCart?.items?.length === 3
+      && restoredPlaylist?.items?.length === 2
+      && receiverCart?.items?.length === 1
+      && receiverPlaylist?.items?.length === 1
+      && restoredState.savedCarts?.length === 3
+      && restoredState.savedPlaylists?.length === 3;
+    window.fixtureForeignRoundtrip = {
+      passed,
+      cartExport: cartDownload?.filename,
+      playlistExport: playlistDownload?.filename,
+      importedCart,
+      importedPlaylist,
+      backup,
+      restoredCart,
+      restoredPlaylist,
+      receiverCart,
+      receiverPlaylist
+    };
+    document.documentElement.dataset.fixtureRoundtripSummary = JSON.stringify({
+      passed,
+      cartExport: cartDownload?.filename,
+      playlistExport: playlistDownload?.filename,
+      importedCart: { id: importedCart?.id, name: importedCart?.name, items: importedCart?.items?.length },
+      importedPlaylist: { id: importedPlaylist?.id, name: importedPlaylist?.name, items: importedPlaylist?.items?.length },
+      backup: { format: backup?.format, version: backup?.version, carts: backup?.carts?.saved?.length, playlists: backup?.playlists?.saved?.length },
+      restored: {
+        cartItems: restoredCart?.items?.length,
+        playlistItems: restoredPlaylist?.items?.length,
+        totalCarts: restoredState.savedCarts?.length,
+        totalPlaylists: restoredState.savedPlaylists?.length,
+        receiverCartPreserved: Boolean(receiverCart),
+        receiverPlaylistPreserved: Boolean(receiverPlaylist)
+      }
+    });
+    document.title = passed
+      ? "PASS: foreign cart playlist backup round trip"
+      : `FAIL: foreign round trip ${importedCart?.items?.length || 0}/${importedPlaylist?.items?.length || 0}/${backupCart?.items?.length || 0}/${backupPlaylist?.items?.length || 0}`;
+    return;
+  },
   async "single-track-cart"(root) {
     document.dispatchEvent(new CustomEvent("bandkit:cart-state", { detail: {
       items: [{

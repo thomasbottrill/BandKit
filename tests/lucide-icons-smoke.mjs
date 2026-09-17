@@ -6,13 +6,15 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const assets = path.join(root, "assets");
 const iconNames = fs.readdirSync(assets).filter((name) => /^icon-.*\.svg$/.test(name));
+const bespokeNames = new Set(iconNames.filter((name) => name === "icon-bandkit.svg" || name.startsWith("icon-scrub-")));
 
 assert.ok(iconNames.includes("icon-bandkit.svg"), "The Bandkit logo must remain available");
 
 for (const name of iconNames) {
   const svg = fs.readFileSync(path.join(assets, name), "utf8");
-  if (name === "icon-bandkit.svg") {
-    assert.doesNotMatch(svg, /class="lucide /, "The Bandkit logo must remain bespoke");
+  if (bespokeNames.has(name)) {
+    assert.match(svg, /<svg[^>]*viewBox=/, `${name} must expose stable scalable geometry`);
+    assert.doesNotMatch(svg, /(?:filter|drop-shadow|box-shadow)/i, `${name} must not embed a glow or shadow`);
     continue;
   }
 
@@ -26,4 +28,4 @@ for (const name of iconNames) {
   }
 }
 
-console.log(`Lucide icon smoke test passed (${iconNames.length - 1} UI icons, 1 bespoke logo).`);
+console.log(`Icon smoke test passed (${iconNames.length - bespokeNames.size} Lucide icons, ${bespokeNames.size} bespoke marks).`);

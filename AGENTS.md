@@ -1,5 +1,14 @@
 # Repository instructions
 
+## Design direction
+
+- Always reuse the existing components, interaction patterns, and design-system tokens before creating a custom solution. Check for an established component or pattern first, extend it when necessary, and introduce one-off UI only when the design system genuinely cannot support the requirement.
+- Keep the interface as visually simple and quiet as possible. Show only the information and controls needed to understand the current state or perform the most likely next action.
+- Treat progressive disclosure as a core design principle. Reveal secondary controls, labels, metadata, and finer detail when the user shows intent by hovering or focusing an item, opening a menu, expanding a card, or drilling into a dedicated view.
+- Apply this principle consistently across the product: keep the music bar minimal until it is hovered or focused; group and collapse advanced settings; use concise summary cards for carts and playlists that open into complete views; prefer recognizable icon-only actions at rest and reveal their labels or related actions on interaction; and expose item-specific interactions only when that item is active, hovered, or focused.
+- Progressive disclosure should reduce visual noise without hiding essential state or blocking use. Primary actions and critical information must remain apparent, and anything revealed on hover must also be reachable by keyboard focus and on touch devices. Icon-only controls must retain accessible names and should reveal a tooltip or visible label without causing disruptive layout shifts.
+- When deciding whether something belongs in the default view, start with the least information and fewest controls that still make the interface understandable. Add persistent detail only when hiding it would harm clarity, discoverability, accessibility, or confidence.
+
 ## Real-site extension verification
 
 - For every UI or behavior change that affects pages modified by this extension, the final verification must be performed on the real target website with the actual unpacked extension enabled. A fixture, mock page, screenshot comparison, or static regression test is supplementary and is never sufficient as the final verification.

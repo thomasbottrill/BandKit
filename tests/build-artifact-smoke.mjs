@@ -46,7 +46,7 @@ const builtText = nestedFiles(outputDirectory)
 const referencedAssets = new Set([
   ...Object.values(builtManifest.icons).map((value) => path.basename(value)),
   ...Object.values(builtManifest.action.default_icon).map((value) => path.basename(value)),
-  ...[...builtText.matchAll(/icon-[a-z0-9-]+\.svg/g)].map((match) => match[0])
+  ...[...builtText.matchAll(/(?:icon-[a-z0-9-]+|logo-type-[a-z0-9-]+)\.svg/g)].map((match) => match[0])
 ]);
 assert.deepEqual(packagedAssets, [...referencedAssets].sort(), "The unpacked build must contain exactly the referenced assets");
 assert.ok(!fs.existsSync(path.join(outputDirectory, "src")));

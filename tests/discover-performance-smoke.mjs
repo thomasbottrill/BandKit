@@ -30,6 +30,8 @@ assert.match(source, /const discoverBatchSize = incremental \? 12/,
   "New Discover cards must be processed in bounded batches instead of one blocking pass");
 assert.match(source, /pageActionThemeCache = null/,
   "Page action theming must share one computed theme snapshot across a Discover batch");
+assert.match(source, /if \(resultCard\) playControl\.dataset\.bandkitDiscoverActionScanned = "true";\s*applyPageActionTheme\(playControl\);/,
+  "Each newly virtualized Discover play control must receive the same theme snapshot as its add button");
 assert.match(source, /\.results-grid-item \.image-container>:is\(\.play-pause-button,\.play-button\)\{bottom:8px!important;left:8px!important/,
   "Discover play controls must retain their inset from the artwork edges");
 assert.match(source, /\.image-container>\.bandcamp-hub-page-playlist\.is-discover-add-to\{bottom:8px!important;left:50px!important/,
@@ -38,5 +40,9 @@ assert.match(source, /\[aria-label\] > :is\(svg,\.play-icon\)\{display:none!impo
   "Native Discover icons must leave layout so the standardized icon cannot collapse");
 assert.match(source, /display:block!important;flex:0 0 18px!important;height:18px!important;mask:var\(--bandkit-play-icon\)/,
   "Standardized play and pause icons must keep a fixed visible width");
+assert.match(source, /function syncDiscoverPagePlaybackUi\(r\)[\s\S]*?data-bandkit-playback-state[\s\S]*?seamless\.isPlaying[\s\S]*?aria-label[\s\S]*?aria-pressed/,
+  "The active Discover card must follow seamless play and pause state from the shared player");
+assert.match(source, /syncFeedPagePlaybackUi\(\);\s*syncDiscoverPagePlaybackUi\(\);/,
+  "Discover card playback state must be refreshed whenever the shared page player is synchronized");
 
 console.log("Discover performance regression checks passed.");

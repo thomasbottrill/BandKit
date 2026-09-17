@@ -1,10 +1,57 @@
+.vue-collection-playlists-tab .card-grid > .playlist-card .title {
+  color: var(--bandkit-page-text, var(--page-text-color, #222)) !important;
+}
+
+.vue-collection-playlists-tab .card-grid > .playlist-card :is(.date, .subtitle) {
+  color: var(--bandkit-page-muted, var(--page-text-color-secondary, #666)) !important;
+}
+
+.vue-collection-playlists-tab .card-grid > .playlist-card .text-badge {
+  background: var(--bandkit-page-accent-soft, var(--gray200, #eee)) !important;
+  color: var(--bandkit-page-accent, var(--page-text-color, #222)) !important;
+}
+
 .bandkit-collection-playlist-card {
   display: block;
   min-width: 0;
 }
 
+.bandkit-collection-playlist-card.is-native-layout {
+  display: list-item;
+}
+
+.bandkit-collection-playlist-card.is-native-layout .image-container {
+  aspect-ratio: 4 / 3 !important;
+  flex: 0 0 auto !important;
+  height: auto !important;
+  overflow: hidden;
+}
+
+.bandkit-collection-playlist-card.is-native-layout .footer-container {
+  align-items: flex-start !important;
+  display: flex !important;
+  flex: 0 0 28px !important;
+  height: 28px !important;
+  justify-content: flex-start !important;
+  min-height: 28px !important;
+  width: 100% !important;
+}
+
+.bandkit-collection-playlist-card.is-native-layout .footer {
+  align-items: center !important;
+  display: flex !important;
+  flex-flow: row nowrap !important;
+  gap: 8px !important;
+  justify-content: flex-start !important;
+  margin-right: auto !important;
+}
+
+.bandkit-collection-playlist-card.is-native-layout :is(.text-badge, .bandkit-collection-origin) {
+  flex: 0 0 auto;
+}
+
 .bandkit-collection-playlist-surface {
-  color: var(--gray900, #222);
+  color: var(--bandkit-page-text, var(--gray700, #222));
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -30,10 +77,10 @@
 .bandkit-collection-playlist-art {
   aspect-ratio: 4 / 3;
   background: var(--gray200, #e9e9e9);
-  border-radius: 4px;
+  border-radius: var(--bandkit-page-corner-radius, 4px);
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--bandkit-playlist-art-count, 1), minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
   position: relative;
   width: 100%;
@@ -43,19 +90,11 @@
   display: block;
 }
 
-.bandkit-collection-playlist-art[data-count="2"] {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: 1fr;
-}
-
-.bandkit-collection-playlist-art[data-count="3"] .bandkit-collection-playlist-artwork:first-child {
-  grid-row: 1 / -1;
-}
-
 .bandkit-collection-playlist-artwork {
   display: block;
   height: 100%;
   object-fit: cover;
+  object-position: center;
   width: 100%;
 }
 
@@ -78,7 +117,7 @@
 
 .bandkit-collection-playlist-date,
 .bandkit-collection-playlist-subtitle {
-  color: var(--gray700, #666);
+  color: var(--bandkit-page-muted, var(--gray500, #666));
   font-size: 13px;
   line-height: 18px;
 }
@@ -93,7 +132,7 @@
 }
 
 .bandkit-collection-playlist-open:is(:hover, :focus-visible) .bandkit-collection-playlist-title {
-  color: var(--blue500, #1da0c3);
+  color: var(--bandkit-page-accent, var(--blue500, #1da0c3));
   text-decoration: underline;
 }
 
@@ -107,15 +146,23 @@
 
 .bandkit-collection-private-badge {
   align-items: center;
-  background: var(--gray200, #eee);
-  border-radius: 4px;
-  color: var(--gray700, #666);
+  background: var(--bandkit-page-accent-soft, var(--gray200, #eee));
+  border-radius: var(--bandkit-page-corner-radius, 4px);
+  color: var(--bandkit-page-accent, var(--gray700, #666));
   display: inline-flex;
   font-size: 12px;
   font-weight: 600;
   gap: 4px;
   line-height: 20px;
   padding: 0 7px;
+}
+
+:host-context(html[data-bandkit-modern-styling="true"][data-bandkit-corner-style="square"]) :where(*) {
+  border-radius: 0 !important;
+}
+
+:host-context(html[data-bandkit-modern-styling="true"][data-bandkit-corner-style="custom"]) :where(*) {
+  border-radius: var(--bandkit-page-corner-radius, 12px) !important;
 }
 
 .bandkit-collection-private-badge svg {

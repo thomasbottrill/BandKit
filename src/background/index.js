@@ -1,4 +1,7 @@
+import { resolveDiscoverRelease } from "./discover-release.js";
 import { MESSAGES, STORAGE_KEYS } from "../shared/contracts.js";
+import { nowPlayingQueueSignature } from "../shared/now-playing-session.js";
+import { createVisualizerDelivery } from "./visualizer-delivery.js";
 
 import { artistNameFromHtml, findDigitalOffer, jsonLdProperty, metadataImageFromHtml, stableTrackId, tralbumDataFromHtml } from "./metadata.js";
 import { isBandcampUrl, isPublicReleaseUrl, isSupportedBandKitPage } from "./urls.js";
@@ -11,10 +14,21 @@ const RUNTIME_CONTEXT_READY_KEY = "bandkitRuntimeContextReady";
 const BANDCAMP_MATCHES = ["https://bandcamp.com/*", "https://*.bandcamp.com/*"];
 let creatingOffscreen = null;
 let playbackStateUpdates = Promise.resolve();
+let playbackOperationVersion = 0;
 let analysisStorageUpdates = Promise.resolve();
 let bandcampTabLifecycleChecks = Promise.resolve();
 let refreshingBandKitTabsForNewContext = null;
 const canonicalReleaseCache = new Map();
+const fanCollectionCache = new Map();
+const FAN_COLLECTION_CACHE_MS = 60_000;
+const VISUALIZER_BROADCAST_INTERVAL_MS = 32;
+const VISUALIZER_TARGET_CACHE_MS = 1000;
+let pendingVisualizerSignal = null;
+let visualizerBroadcastTimer = 0;
+let visualizerBroadcastRunning = false;
+let visualizerBroadcastedAt = 0;
+let visualizerTargetCache = { expiresAt: 0, ids: [] };
+const deliverVisualizerFrame = createVisualizerDelivery((tabId, message) => chrome.tabs.sendMessage(tabId, message));
 
 
 
@@ -26,6 +40,58 @@ async function getBandKitEnabled() {
 function isExtensionSender(sender) {
   return sender?.id === chrome.runtime.id
     || String(sender?.url || "").startsWith(chrome.runtime.getURL(""));
+}
+
+async function fanCollectionMatches(fanId, searchKey) {
+  const cacheKey = `${fanId}:${searchKey.toLocaleLowerCase()}`;
+  const cached = fanCollectionCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.index || cached.promise;
+
+  const promise = (async () => {
+    const response = await fetch("https://bandcamp.com/api/fancollection/1/search_items", {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ fan_id: fanId, search_key: searchKey, search_type: "collection" })
+    });
+    if (!response.ok) throw new Error(`Bandcamp collection lookup returned ${response.status}`);
+    const data = await response.json();
+    if (data?.error) throw new Error("Bandcamp collection lookup failed");
+    return Array.isArray(data?.tralbums) ? data.tralbums : [];
+  })();
+
+  fanCollectionCache.set(cacheKey, { expiresAt: Date.now() + FAN_COLLECTION_CACHE_MS, promise });
+  try {
+    const index = await promise;
+    fanCollectionCache.set(cacheKey, { expiresAt: Date.now() + FAN_COLLECTION_CACHE_MS, index });
+    return index;
+  } catch (error) {
+    fanCollectionCache.delete(cacheKey);
+    throw error;
+  }
+}
+
+async function resolveCollectionMembership(message) {
+  const fanId = Number(message?.fanId);
+  const itemId = Number(message?.itemId);
+  const albumId = Number(message?.albumId);
+  const bandId = Number(message?.bandId);
+  const searchKey = String(message?.searchKey || "").trim().slice(0, 300);
+  const itemType = message?.itemType === "track" || message?.itemType === "t" ? "t"
+    : message?.itemType === "album" || message?.itemType === "a" ? "a" : "";
+  if (!Number.isInteger(fanId) || fanId <= 0 || !Number.isInteger(itemId) || itemId <= 0 || !itemType || !searchKey) {
+    return { owned: false };
+  }
+  const matches = await fanCollectionMatches(fanId, searchKey);
+  const owned = matches.some((item) => {
+    if (Number.isInteger(bandId) && bandId > 0 && Number(item?.band_id) !== bandId) return false;
+    const type = String(item?.tralbum_type || item?.item_type || "").charAt(0);
+    const id = Number(item?.tralbum_id ?? item?.item_id);
+    if (type === itemType && id === itemId) return true;
+    if (itemType === "a") return Number(item?.album_id) === itemId;
+    return Number.isInteger(albumId) && albumId > 0 && type === "a" && id === albumId;
+  });
+  return { owned };
 }
 
 async function canonicalBandcampReleaseUrl(value) {
@@ -72,6 +138,7 @@ function sanitizeTrack(track) {
       album: String(track.album || "").slice(0, 500),
       art: typeof track.art === "string" ? track.art.slice(0, 4000) : "",
       pageUrl: isPublicReleaseUrl(track.pageUrl) ? track.pageUrl : "",
+      releaseUrl: isPublicReleaseUrl(track.releaseUrl) ? track.releaseUrl : "",
       artistUrl: isBandcampUrl(track.artistUrl) || isPublicReleaseUrl(track.artistUrl) ? track.artistUrl : "",
       duration: Number.isFinite(Number(track.duration)) ? Math.max(0, Number(track.duration)) : 0,
       url: stream.href
@@ -146,15 +213,25 @@ async function resolvePlaylistItems(items) {
   const pageRequests = new Map();
   const readPage = (pageUrl) => {
     if (!pageRequests.has(pageUrl)) {
-      pageRequests.set(pageUrl, fetch(pageUrl, { credentials: "omit", redirect: "follow" }).then(async (response) => {
-        if (!response.ok) throw new Error(`Bandcamp returned ${response.status}`);
-        const html = await response.text();
-        return {
-          tralbum: tralbumDataFromHtml(html),
-          artist: artistNameFromHtml(html),
-          art: metadataImageFromHtml(html)
-        };
-      }));
+      pageRequests.set(pageUrl, (async () => {
+        let lastError;
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          try {
+            const response = await fetch(pageUrl, { credentials: "omit", redirect: "follow" });
+            if (!response.ok) throw new Error(`Bandcamp returned ${response.status}`);
+            const html = await response.text();
+            return {
+              tralbum: tralbumDataFromHtml(html),
+              artist: artistNameFromHtml(html),
+              art: metadataImageFromHtml(html)
+            };
+          } catch (error) {
+            lastError = error;
+            if (attempt === 0) await new Promise((resolve) => { setTimeout(resolve, 250); });
+          }
+        }
+        throw lastError;
+      })());
     }
     return pageRequests.get(pageUrl);
   };
@@ -220,6 +297,7 @@ async function resolvePlaylistItems(items) {
 
 async function resolveSavedCartItem(item) {
   if (!isBandcampUrl(item?.url)) return { ...item, restoreError: "invalid Bandcamp link" };
+  if (item.unavailable === true) return { ...item, restoreError: "no longer available" };
   if (item.restore?.item_id && item.restore?.item_type) return item;
   const response = await fetch(item.url, { credentials: "omit", redirect: "follow" });
   if (!response.ok) throw new Error(`Bandcamp returned ${response.status}`);
@@ -283,6 +361,54 @@ async function broadcastPlaybackState(state) {
   await Promise.allSettled(tabs
     .filter((tab) => tab.id)
     .map((tab) => chrome.tabs.sendMessage(tab.id, { type: MESSAGES.SEAMLESS_STATE, state })));
+}
+
+function invalidateVisualizerTargets() {
+  visualizerTargetCache.expiresAt = 0;
+}
+
+async function activeVisualizerTargetIds() {
+  if (visualizerTargetCache.expiresAt > Date.now()) return visualizerTargetCache.ids;
+  const tabs = await chrome.tabs.query({ url: BANDCAMP_MATCHES, active: true });
+  const ids = tabs.map((tab) => tab.id).filter(Boolean);
+  visualizerTargetCache = { expiresAt: Date.now() + VISUALIZER_TARGET_CACHE_MS, ids };
+  return ids;
+}
+
+function scheduleVisualizerBroadcast() {
+  if (visualizerBroadcastTimer || visualizerBroadcastRunning || !pendingVisualizerSignal) return;
+  const elapsed = Date.now() - visualizerBroadcastedAt;
+  const delay = Math.max(0, VISUALIZER_BROADCAST_INTERVAL_MS - elapsed);
+  visualizerBroadcastTimer = setTimeout(() => {
+    visualizerBroadcastTimer = 0;
+    void flushVisualizerBroadcast();
+  }, delay);
+}
+
+async function flushVisualizerBroadcast() {
+  if (visualizerBroadcastRunning || !pendingVisualizerSignal) return;
+  visualizerBroadcastRunning = true;
+  try {
+    const ids = await activeVisualizerTargetIds();
+    // Tab lookup can yield while more FFT samples arrive. Dispatch the newest.
+    const signal = pendingVisualizerSignal;
+    pendingVisualizerSignal = null;
+    // Do not await receiver acknowledgements: one delayed response must not
+    // hold the global frame clock. Delivery bounds outstanding work per tab.
+    visualizerBroadcastedAt = Date.now();
+    for (const tabId of ids) deliverVisualizerFrame(tabId, { type: MESSAGES.VISUALIZER_STATE, signal });
+  } finally {
+    visualizerBroadcastRunning = false;
+    scheduleVisualizerBroadcast();
+  }
+}
+
+function queueVisualizerBroadcast(signal) {
+  // Keep only the newest FFT frame. Old frames have no value once a newer
+  // analyzer sample exists, and allowing them to queue is what caused bursts
+  // after transient main-thread or extension-worker stalls.
+  pendingVisualizerSignal = signal;
+  scheduleVisualizerBroadcast();
 }
 
 async function broadcastPlaybackCleared() {
@@ -362,8 +488,8 @@ async function ensureOffscreenDocument() {
     creatingOffscreen = (async () => {
       await chrome.offscreen.createDocument({
         url: OFFSCREEN_PATH,
-        reasons: ["BLOBS"],
-        justification: "Create Blob-backed Bandcamp playback streams without a visible tab."
+        reasons: ["BLOBS", "WORKERS"],
+        justification: "Play Blob-backed Bandcamp streams and analyse audio in a worker without blocking playback or visualizer sampling."
       });
       const stored = await chrome.storage.session.get(PLAYBACK_KEY);
       if (stored[PLAYBACK_KEY]?.enabled) {
@@ -380,9 +506,37 @@ async function ensureOffscreenDocument() {
   await creatingOffscreen;
 }
 
-async function sendOffscreen(message) {
+async function sendOffscreen(message, expectedPlaybackOperation = 0) {
   await ensureOffscreenDocument();
+  if (expectedPlaybackOperation && expectedPlaybackOperation !== playbackOperationVersion) {
+    return { ok: true, stale: true };
+  }
   return chrome.runtime.sendMessage({ ...message, target: "offscreen" });
+}
+
+async function clearOffscreenPlayback(operation) {
+  const idleState = { enabled: false, status: "idle", isPlaying: false, queue: [], index: -1, track: null };
+  let timer = 0;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(null), 1500);
+  });
+  const response = await Promise.race([
+    sendOffscreen({ type: MESSAGES.OFFSCREEN_DISABLE }).catch(() => null),
+    timeout
+  ]);
+  clearTimeout(timer);
+  if (response?.ok) return response;
+  if (operation !== playbackOperationVersion) return { ok: true, stale: true };
+
+  // Chrome can retain an offscreen document across an unpacked-extension
+  // reload while its message listener is no longer responsive. Dispose that
+  // stale context so the next playback request creates a clean audio runtime.
+  await Promise.race([
+    chrome.offscreen.closeDocument().catch(() => {}),
+    new Promise((resolve) => { setTimeout(resolve, 1000); })
+  ]);
+  await chrome.storage.session.set({ [PLAYBACK_KEY]: idleState });
+  return { ok: true, state: idleState, recovered: true };
 }
 
 async function pausePlaybackWithoutBandcampTabs() {
@@ -445,6 +599,14 @@ async function handlePlaybackRequest(message, sender) {
     return { ok: true, items: await resolveCartMetadata(message.items) };
   }
 
+  if (message.type === MESSAGES.RESOLVE_COLLECTION_MEMBERSHIP) {
+    return { ok: true, ...await resolveCollectionMembership(message) };
+  }
+
+  if (message.type === MESSAGES.RESOLVE_DISCOVER_RELEASE) {
+    return { ok: true, release: await resolveDiscoverRelease(message.pageUrl) };
+  }
+
   if (message.type === MESSAGES.RESOLVE_PLAYLIST_ITEMS) {
     return { ok: true, items: await resolvePlaylistItems(message.items) };
   }
@@ -454,7 +616,13 @@ async function handlePlaybackRequest(message, sender) {
       ? message.tracks.slice(0, 100).map(sanitizeTrack).filter(Boolean)
       : [];
     if (!tracks.length) return { ok: true, results: [] };
-    return sendOffscreen({ type: MESSAGES.OFFSCREEN_ANALYZE_TRACKS, tracks, force: message.force === true });
+    return sendOffscreen({ type: MESSAGES.OFFSCREEN_ANALYZE_TRACKS, tracks, force: message.force === true, deep: message.deep === true });
+  }
+
+  if (message.type === MESSAGES.OPEN_COMPONENT_REFERENCE) {
+    if (!isExtensionSender(sender)) throw new Error("Only Bandkit can open the component reference.");
+    const tab = await chrome.tabs.create({ url: chrome.runtime.getURL("component-reference.html"), active: true });
+    return { ok: true, tabId: tab.id };
   }
 
   if (message.type === MESSAGES.OPEN_BACKGROUND_TAB) {
@@ -470,7 +638,7 @@ async function handlePlaybackRequest(message, sender) {
     const tabs = await chrome.tabs.query({ url: BANDCAMP_MATCHES });
     await Promise.allSettled(tabs
       .filter((tab) => tab.id && tab.id !== sender.tab?.id)
-      .map((tab) => chrome.tabs.sendMessage(tab.id, { type: MESSAGES.WISHLIST_UPDATED, key, success: message.success !== false })));
+      .map((tab) => chrome.tabs.sendMessage(tab.id, { type: MESSAGES.WISHLIST_UPDATED, key, active: message.active !== false, success: message.success !== false })));
     if (sender.tab?.id) await chrome.tabs.remove(sender.tab.id).catch(() => {});
     return { ok: true };
   }
@@ -481,17 +649,34 @@ async function handlePlaybackRequest(message, sender) {
     return {
       ok: true,
       playlist: Array.isArray(session.playlist) ? session.playlist.slice(0, 500) : [],
-      playlistMode: session.playlistMode === "manual" ? "manual" : "browse"
+      playlistMode: session.playlistMode === "manual" ? "manual" : "browse",
+      playlistShuffleEnabled: session.playlistShuffleEnabled === true,
+      playlistShuffleOrder: Array.isArray(session.playlistShuffleOrder) ? session.playlistShuffleOrder.slice(0, 500) : [],
+      revision: Math.max(0, Number(session.revision) || 0),
+      transitionTrackKey: String(session.transitionTrackKey || "").slice(0, 2000),
+      transitionExpiresAt: Math.max(0, Number(session.transitionExpiresAt) || 0)
     };
   }
 
   if (message.type === MESSAGES.SET_NOW_PLAYING) {
     const session = {
       playlist: Array.isArray(message.playlist) ? message.playlist.slice(0, 500) : [],
-      playlistMode: message.playlistMode === "manual" ? "manual" : "browse"
+      playlistMode: message.playlistMode === "manual" ? "manual" : "browse",
+      playlistShuffleEnabled: message.playlistShuffleEnabled === true,
+      playlistShuffleOrder: Array.isArray(message.playlistShuffleOrder) ? message.playlistShuffleOrder.slice(0, 500) : [],
+      revision: Math.max(0, Number(message.revision) || 0),
+      transitionTrackKey: String(message.transitionTrackKey || "").slice(0, 2000),
+      transitionExpiresAt: Math.max(0, Number(message.transitionExpiresAt) || 0)
     };
     const stored = await chrome.storage.session.get(NOW_PLAYING_KEY);
-    if (JSON.stringify(stored[NOW_PLAYING_KEY] || {}) === JSON.stringify(session)) return { ok: true };
+    const current = stored[NOW_PLAYING_KEY] || {};
+    const currentRevision = Math.max(0, Number(current.revision) || 0);
+    if (session.revision < currentRevision) return { ok: true, stale: true };
+    if (session.revision === currentRevision && currentRevision > 0) {
+      if (nowPlayingQueueSignature(session) !== nowPlayingQueueSignature(current)) return { ok: true, stale: true };
+      if (!current.transitionTrackKey && session.transitionTrackKey) return { ok: true, stale: true };
+    }
+    if (JSON.stringify(current) === JSON.stringify(session)) return { ok: true };
     await chrome.storage.session.set({ [NOW_PLAYING_KEY]: session });
     await broadcastNowPlayingState(session, sender.tab?.id || null);
     return { ok: true };
@@ -519,12 +704,15 @@ async function handlePlaybackRequest(message, sender) {
   }
 
   if (message.type === MESSAGES.CLEAR_PLAYBACK) {
-    const response = await sendOffscreen({ type: MESSAGES.OFFSCREEN_DISABLE });
+    const operation = ++playbackOperationVersion;
+    const response = await clearOffscreenPlayback(operation);
+    if (operation !== playbackOperationVersion) return { ok: true, stale: true };
     await broadcastPlaybackCleared();
     return response;
   }
 
   if (message.type === MESSAGES.SEAMLESS_ENABLE) {
+    const operation = ++playbackOperationVersion;
     const queue = Array.isArray(message.queue) ? message.queue.slice(0, 500).map(sanitizeTrack).filter(Boolean) : [];
     if (!queue.length) throw new Error("This page does not expose a playable Bandcamp stream queue.");
     const index = Math.max(0, Math.min(queue.length - 1, Number(message.index) || 0));
@@ -542,7 +730,7 @@ async function handlePlaybackRequest(message, sender) {
       eqLowDb: Math.max(-12, Math.min(12, Number(message.eqLowDb) || 0)),
       eqMidDb: Math.max(-12, Math.min(12, Number(message.eqMidDb) || 0)),
       eqHighDb: Math.max(-12, Math.min(12, Number(message.eqHighDb) || 0))
-    });
+    }, operation);
   }
 
   if (message.type === MESSAGES.SEAMLESS_UPDATE_QUEUE) {
@@ -550,6 +738,7 @@ async function handlePlaybackRequest(message, sender) {
     return sendOffscreen({
       type: MESSAGES.OFFSCREEN_UPDATE_QUEUE,
       queue,
+      expectedTrack: sanitizeTrack(message.expectedTrack),
       selectedPlaylistItemId: String(message.selectedPlaylistItemId || "").slice(0, 500),
       autoplay: message.autoplay !== false
     });
@@ -592,7 +781,8 @@ async function handlePlaybackRequest(message, sender) {
     active: message.active !== false,
     multiplier: Math.max(0.5, Math.min(1.5, Number(message.multiplier) || 1)),
     beats: [1 / 16, 1 / 8, 1 / 4, 1 / 2, 1, 2, 4, 8].includes(Number(message.beats)) ? Number(message.beats) : 0,
-    bpm: Math.max(40, Math.min(300, Number(message.bpm) || 120))
+    bpm: Math.max(40, Math.min(300, Number(message.bpm) || 120)),
+    deep: message.deep === true
   };
   return sendOffscreen(command);
 }
@@ -659,6 +849,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === MESSAGES.OFFSCREEN_VISUALIZER) {
+    if (sender.url !== chrome.runtime.getURL(OFFSCREEN_PATH)) return false;
+    queueVisualizerBroadcast(message.signal || {});
+    sendResponse({ ok: true });
+    return false;
+  }
+
   if (!String(message.type || "").startsWith("BANDCAMP_HUB_")) return false;
   getBandKitEnabled()
     .then((enabled) => {
@@ -695,10 +892,18 @@ chrome.runtime.onInstalled.addListener(() => {
   void refreshBandKitTabsForNewContext();
 });
 
-chrome.tabs.onRemoved.addListener(() => scheduleBandcampTabLifecycleCheck());
+chrome.tabs.onRemoved.addListener(() => {
+  invalidateVisualizerTargets();
+  return scheduleBandcampTabLifecycleCheck();
+});
 chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
-  if (typeof changeInfo.url === "string") return scheduleBandcampTabLifecycleCheck();
+  if (typeof changeInfo.url === "string") {
+    invalidateVisualizerTargets();
+    return scheduleBandcampTabLifecycleCheck();
+  }
   return undefined;
 });
+chrome.tabs.onActivated?.addListener(invalidateVisualizerTargets);
+chrome.windows.onFocusChanged?.addListener(invalidateVisualizerTargets);
 void scheduleBandcampTabLifecycleCheck();
 void refreshBandKitTabsForNewContext();
