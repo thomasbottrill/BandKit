@@ -139,27 +139,40 @@
 }
 
 .hub-dj-waveform-playhead {
-  background: var(--hub-scrub-accent);
-  border: 2px solid var(--hub-scrub-surface);
-  border-radius: 999px;
-  box-shadow: 0 0 0 1px var(--hub-scrub-halo), 0 1px 4px color-mix(in srgb, var(--hub-ink) 22%, transparent);
-  height: 18px;
+  background: transparent;
+  border: 0;
+  height: 22px;
   left: var(--hub-dj-waveform-progress);
   opacity: 0;
   pointer-events: none;
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%) scale(0.75);
-  transition: box-shadow 140ms ease, height 140ms ease, opacity 120ms ease, transform 140ms ease, width 140ms ease;
-  width: 7px;
+  transition: opacity 120ms ease, transform 140ms ease;
+  width: 22px;
+}
+
+.hub-dj-waveform-playhead::before,
+.hub-dj-waveform-playhead::after {
+  content: "";
+  inset: 0;
+  mask: var(--hub-scrub-handle-mask) center / contain no-repeat;
+  position: absolute;
+  -webkit-mask: var(--hub-scrub-handle-mask) center / contain no-repeat;
+}
+
+.hub-dj-waveform-playhead::before {
+  background: var(--hub-scrub-surface);
+}
+
+.hub-dj-waveform-playhead::after {
+  background: var(--hub-scrub-accent);
+  inset: 3px;
 }
 
 .hub-dj-waveform:is(:hover, :focus-visible) .hub-dj-waveform-playhead {
-  box-shadow: 0 0 0 1px var(--hub-scrub-halo), 0 2px 7px color-mix(in srgb, var(--hub-scrub-accent) 38%, transparent);
-  height: 22px;
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
-  width: 9px;
 }
 
 .hub-dj-waveform:focus-visible {
@@ -193,8 +206,33 @@
 .hub-dj-key {
   align-items: baseline;
   column-gap: 7px;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) 18px;
+  position: relative;
 }
+
+@keyframes bandkit-deep-analysis-dot {
+  0%, 20% { opacity: 0.2; transform: translateY(0); }
+  45% { opacity: 1; transform: translateY(-1px); }
+  70%, 100% { opacity: 0.2; transform: translateY(0); }
+}
+.bandkit-deep-analysis { align-items:center; appearance:none; background:transparent; border:0; color:var(--hub-muted); cursor:pointer; display:inline-flex; font-size:11px; font-weight:700; height:100%; inset:0; justify-content:center; letter-spacing:.01em; opacity:0; padding:0; pointer-events:none; position:absolute; transition:color 120ms ease,opacity 140ms ease; width:100%; z-index:2; }
+.bandkit-deep-analysis-label { display:inline; }
+.bandkit-deep-analysis-progress { align-items:center; display:none; font-size:16px; gap:1px; height:18px; justify-content:center; line-height:1; }
+.bandkit-deep-analysis-progress i { animation:bandkit-deep-analysis-dot 900ms ease-in-out infinite; font-style:normal; }
+.bandkit-deep-analysis-progress i:nth-child(2) { animation-delay:120ms; }
+.bandkit-deep-analysis-progress i:nth-child(3) { animation-delay:240ms; }
+.bandkit-deep-analysis[hidden] { display:none; }
+:is(.hub-player-analysis,.hub-dj-key) { position:relative; }
+:is(.hub-player-analysis,.hub-dj-key):is(:hover,:focus-within,.is-deep-analyzing):not(.is-deep-analysis-result) > :not(.bandkit-deep-analysis) { opacity:0; }
+:is(.hub-player-analysis,.hub-dj-key):is(:hover,:focus-within,.is-deep-analyzing):not(.is-deep-analysis-result) .bandkit-deep-analysis,.bandkit-deep-analysis:is(:focus-visible,.is-analyzing) { opacity:1; pointer-events:auto; }
+:is(.hub-player-analysis,.hub-dj-key).is-deep-analysis-result > :not(.bandkit-deep-analysis) { opacity:1; }
+:is(.hub-player-analysis,.hub-dj-key).is-deep-analysis-result .bandkit-deep-analysis { opacity:0; pointer-events:none; }
+.bandkit-deep-analysis:is(:hover,:focus-visible,.is-analyzing) { background:transparent; color:var(--hub-accent); outline:0; }
+.bandkit-deep-analysis.is-analyzing .bandkit-deep-analysis-label { display:none; }
+.bandkit-deep-analysis.is-analyzing .bandkit-deep-analysis-progress { display:inline-flex; }
+.bandkit-deep-analysis:disabled:not(.is-analyzing) { cursor:not-allowed; pointer-events:none; }
+:is(.hub-player-analysis,.hub-dj-key):is(:hover,:focus-within) .bandkit-deep-analysis:disabled:not(.is-analyzing) { opacity:.3; }
+:is(.hub-player-analysis,.hub-dj-key) > :not(.bandkit-deep-analysis) { transition:opacity 140ms ease; }
 
 .hub-dj-key > span {
   grid-column: 1 / -1;
@@ -343,7 +381,7 @@
   background: var(--hub-scrub-accent);
   border: 2px solid var(--hub-scrub-surface);
   border-radius: 999px;
-  box-shadow: 0 0 0 1px var(--hub-scrub-halo), 0 1px 4px color-mix(in srgb, var(--hub-ink) 22%, transparent);
+  box-shadow: none;
   height: 18px;
   margin-top: -7px;
   width: 7px;
@@ -358,20 +396,20 @@
   background: var(--hub-scrub-accent);
   border: 2px solid var(--hub-scrub-surface);
   border-radius: 999px;
-  box-shadow: 0 0 0 1px var(--hub-scrub-halo), 0 1px 4px color-mix(in srgb, var(--hub-ink) 22%, transparent);
+  box-shadow: none;
   height: 18px;
   width: 7px;
 }
 
 .hub-dj-page-tempo-input:is(:hover, :focus-visible)::-webkit-slider-thumb {
-  box-shadow: 0 0 0 1px var(--hub-scrub-halo), 0 2px 7px color-mix(in srgb, var(--hub-scrub-accent) 38%, transparent);
+  box-shadow: none;
   height: 22px;
   margin-top: -9px;
   width: 9px;
 }
 
 .hub-dj-page-tempo-input:is(:hover, :focus-visible)::-moz-range-thumb {
-  box-shadow: 0 0 0 1px var(--hub-scrub-halo), 0 2px 7px color-mix(in srgb, var(--hub-scrub-accent) 38%, transparent);
+  box-shadow: none;
   height: 22px;
   width: 9px;
 }
@@ -390,9 +428,9 @@
   color: var(--hub-accent);
 }
 
-.hub-dj-card-page :is(.hub-dj-compact-action, .hub-dj-mode-button, .hub-dj-page-close):is(:hover, :focus-visible) {
+.hub-dj-card-page :is(.hub-dj-compact-action, .hub-dj-mode-button, .hub-dj-page-close):is(:hover, :focus-visible, :active) {
   background: var(--hub-accent-soft);
-  border-color: var(--hub-accent);
+  border-color: transparent;
   box-shadow: none;
   color: var(--hub-accent);
   outline: 0;
@@ -406,13 +444,13 @@
 }
 
 .hub-dj-card-page :is(.hub-dj-compact-action, .hub-dj-mode-button).is-active {
-  background: var(--hub-accent);
-  border-color: var(--hub-accent);
-  color: var(--hub-on-accent);
+  background: var(--hub-accent-soft);
+  border-color: transparent;
+  color: var(--hub-accent);
 }
 
 .hub-dj-card-page .hub-dj-status-button.is-active .hub-dj-active-dot {
-  background: var(--hub-on-accent);
+  background: var(--hub-accent);
 }
 
 .hub-dj-card-page .hub-dj-bpm-label.is-active::after {

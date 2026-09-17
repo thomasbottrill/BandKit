@@ -1,0 +1,36 @@
+/* Rounded intentionally adds no page override: every existing Bandcamp and
+   Bandkit component keeps its designed radius. Square and Custom are global
+   interface modes, so they also cover native, injected, and future page UI. */
+html[data-bandkit-modern-styling="true"][data-bandkit-corner-style="square"] body :where(*):not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c),
+html[data-bandkit-modern-styling="true"][data-bandkit-corner-style="square"] body :where(*):not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c)::before,
+html[data-bandkit-modern-styling="true"][data-bandkit-corner-style="square"] body :where(*):not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c)::after {
+  border-radius: 0 !important;
+}
+
+html[data-bandkit-modern-styling="true"][data-bandkit-corner-style="custom"] body :where(*):not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c),
+html[data-bandkit-modern-styling="true"][data-bandkit-corner-style="custom"] body :where(*):not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c)::before,
+html[data-bandkit-modern-styling="true"][data-bandkit-corner-style="custom"] body :where(*):not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c)::after {
+  border-radius: var(--bandkit-page-corner-radius, 12px) !important;
+}
+
+/* Play and pause artwork is a masked glyph, not a rounded surface. */
+html[data-bandkit-modern-styling="true"] body.tralbum-page .inline_player .playbutton:not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c)::before,
+html[data-bandkit-modern-styling="true"] body.tralbum-page #track_table .play_status:not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c)::before,
+html[data-bandkit-modern-styling="true"] body :is(.play-pause-button, .play-button, .artwork-play-button):not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c)::after,
+html[data-bandkit-modern-styling="true"] body .bandkit-search-play:not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c)::before {
+  border-radius: 0 !important;
+}
+
+/* Album dividers describe layout boundaries rather than card surfaces. */
+html[data-bandkit-modern-styling="true"] body.tralbum-page :is(
+  .bandkit-modern-release-body,
+  .bandkit-modern-release-body > *,
+  #track_table,
+  #track_table .track_row_view,
+  .bandkit-modern-tags-panel,
+  .bandkit-modern-profile-section,
+  .bandkit-modern-info-section,
+  .collected-by
+):not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c) {
+  border-radius: 0 !important;
+}

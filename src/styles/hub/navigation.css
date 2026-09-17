@@ -1,0 +1,59 @@
+.hub-panel-secondary-nav {
+  align-items: center;
+  display: flex;
+  min-height: var(--hub-control-size);
+}
+
+.hub-panel-back-button {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--hub-muted);
+  cursor: pointer;
+  display: inline-flex;
+  gap: 6px;
+  height: var(--hub-control-size);
+  padding: 0;
+  transition: color 140ms ease;
+  width: 76px;
+}
+
+.hub-panel-back-button .hub-button-icon {
+  flex: 0 0 var(--hub-control-icon-size);
+  height: var(--hub-control-icon-size);
+  width: var(--hub-control-icon-size);
+}
+
+.hub-panel-back-label {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 140ms ease, transform 180ms ease;
+  white-space: nowrap;
+}
+
+.hub-panel-back-button:is(:hover, :focus-visible) {
+  color: var(--hub-accent);
+  outline: 0;
+}
+
+.hub-panel-back-button:is(:hover, :focus-visible) .hub-panel-back-label {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@media (hover: none) {
+  .hub-panel-back-label {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-panel-back-button,
+  .hub-panel-back-label {
+    transition-duration: 0.01ms;
+  }
+}

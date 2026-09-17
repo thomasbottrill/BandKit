@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 import { readContentSource, readHubStyles, readModernStyles } from "./support/source.mjs";
+import { themeVisualizerColors } from "../src/content/visualizer-theme.js";
 
 const source = readContentSource().replaceAll("r.$", "");
 const pageCss = readModernStyles();
@@ -33,9 +34,10 @@ function extractFunction(name) {
   throw new Error(`Could not parse ${name}`);
 }
 
-const context = vm.createContext({});
+const context = vm.createContext({ themeVisualizerColors });
 vm.runInContext([
   extractFunction("hexColor"),
+  extractFunction("hexString"),
   extractFunction("mixColor"),
   extractFunction("luminance"),
   extractFunction("contrast"),
@@ -133,7 +135,7 @@ const applyAppearance = extractFunction("applyAppearance");
 assert.match(applyAppearance, /captureModernReleasePalette\(\)[\s\S]*?applyBandcampPageTheme\(\);[\s\S]*?applyModernReleaseLayout\(\);[\s\S]*?pageAware\) updateThemeFromPage\(\)/, "Appearance must snapshot native colours, apply the final page state, then run Match Bandcamp");
 assert.doesNotMatch(extractFunction("clearModernReleasePalette"), /modernReleasePalette\s*=\s*null/, "Disabling Modern Pages must retain the clean native palette snapshot");
 assert.match(source, /state\.appearance\.modernReleasePages = !modernReleasePages;\s*applyAppearance\(\);/, "The Modern Pages switch must re-run the complete appearance pipeline");
-assert.match(source, /const modernReleasePages = Boolean\(state\.appearance\.modernReleasePages\);[\s\S]*?aria-checked", String\(modernReleasePages\)/,
+assert.match(source, /const modernReleasePages = Boolean\(state\.appearance\.modernReleasePages\);[\s\S]*?createSettingsToggle\(\{ checked: modernReleasePages/,
   "Stored legacy Modern Pages values must render with a valid boolean ARIA state");
 assert.match(source, /state\.appearance\.modernReleasePages = Boolean\(storedModernReleasePages\)/,
   "Upgraded Modern Pages preferences must be normalized to booleans");
@@ -160,8 +162,11 @@ for (const token of [
 }
 assert.match(hubCss, /\.hub-card:not\(\.hub-settings-card\),[\s\S]*?--hub-ink:\s*var\(--hub-card-ink\)/, "Bandkit cards must enter their own contrast context");
 assert.match(hubCss, /\.hub-card-footer,[\s\S]*?--hub-ink:\s*var\(--hub-card-footer-ink\)/, "Bandkit card footers must enter their own contrast context");
-assert.match(source, /\.inline_player,[\s\S]*?background-color:\s*var\(--bandkit-page-card\)\s*!important;[\s\S]*?--bandkit-page-text:\s*var\(--bandkit-page-card-text\)/, "Themed Bandcamp cards must paint the same surface their foreground tokens were corrected against");
+assert.doesNotMatch(source, /:is\([^)]*\.inline_player[^)]*\)\s*\{\s*background-color:\s*var\(--bandkit-page-card\)/,
+  "The themed page player must remain on the page surface without an unnecessary card backing");
 assert.match(source, /#HomepageApp \.g-section\.inverted\s*\{[\s\S]*?background-color:\s*var\(--bandkit-page-surface\)\s*!important/, "Inverted Home sections must paint the surface used for their foreground tokens");
+assert.match(source, /#page-footer\s*\{[\s\S]*?--bandkit-page-text:\s*var\(--bandkit-page-navbar-text\)[\s\S]*?--bandkit-page-accent:\s*var\(--bandkit-page-navbar-accent\)/,
+  "the Home footer must use contrast-corrected navbar text and link roles");
 assert.match(source, /#HomepageApp :is\(\.play-pause-button, \.play-button, \.artwork-play-button\)\.over-image\s*\{[\s\S]*?background-color:\s*transparent\s*!important/, "Home artwork overlays must remain transparent");
 assert.match(source, /\.bandcamp-logo-link,[\s\S]*?a\[aria-label="Bandcamp home"\][\s\S]*?color:\s*var\(--bandkit-page-navbar-text\)\s*!important/,
   "legacy Bandcamp logos must use the readable navbar foreground instead of the page accent");
@@ -169,18 +174,24 @@ assert.match(pageCss, /--bandkit-release-raised-ink/, "Modern pages must retain 
 assert.match(hubCss, /\.hub-dj-bpm-reset\s*\{[^}]*transition:\s*none/s, "The periodically rebuilt BPM reset must not restart a hover transition and flash");
 assert.match(hubCss, /\.hub-panel\s*\{[^}]*box-shadow:\s*0 8px 22px -14px rgba\(0, 0, 0, 0\.18\)/s,
   "Docked panels must use restrained elevation against the page");
-assert.match(hubCss, /\.hub-panel\s*\{[^}]*border:\s*1px solid color-mix\(in srgb, var\(--hub-line\) 55%, transparent\)/s,
-  "Docked panel outlines must remain subordinate to their surface offset");
+assert.match(hubCss, /\.hub-panel\s*\{[^}]*border:\s*1px solid color-mix\(in srgb, var\(--hub-line\) 20%, var\(--hub-panel\)\)[\s\S]*?\.hub-panel:is\(:hover, :focus-within\)\s*\{[^}]*border-color:\s*color-mix\(in srgb, var\(--hub-line\) 34%, var\(--hub-panel\)\)/s,
+  "Panels must retain a near-surface outline and strengthen it when the user interacts with them");
 assert.match(hubCss, /\.hub-card\s*\{[^}]*border:\s*1px solid color-mix\(in srgb, var\(--hub-line\) 30%, transparent\)/s,
   "Cart, Now Playing, and saved-playlist card outlines must remain visually subtle");
-assert.match(hubCss, /\.hub-playlist-track\.is-playing\s*\{[^}]*border-color:\s*color-mix\(in srgb, var\(--hub-accent\) 38%, transparent\)/s,
-  "active Now Playing cards must retain a softened accent outline");
+assert.match(hubCss, /\.hub-playlist-track\.is-playing\s*\{[^}]*background:\s*transparent;[^}]*border-color:\s*transparent;[^}]*box-shadow:\s*none;/s,
+  "active Now Playing cards must preserve the quiet borderless treatment");
 assert.match(hubCss, /\.hub-dj-drawer\s*\{[^}]*border:\s*1px solid color-mix\(in srgb, var\(--hub-line\) 55%, transparent\)/s,
   "The DJ panel must share the softened outline treatment");
+assert.match(hubCss, /\.hub-dj-drawer\s*\{[^}]*--hub-card-line:\s*var\(--hub-panel-line\);[^}]*background:\s*var\(--hub-panel\);/s,
+  "The DJ panel and its nested controls must use the same accessible surface roles as the panel and music bar");
 assert.match(hubCss, /\.hub-playlist-toolbar-icon\s*\{[^}]*background:\s*transparent;[^}]*border:\s*1px solid transparent;/s,
   "Panel toolbar actions must show only their icons at rest");
-assert.match(hubCss, /\.hub-playlist-toolbar-icon:hover:not\(:disabled\),[\s\S]*?\.hub-playlist-toolbar-icon\[aria-expanded="true"\],[\s\S]*?background:\s*var\(--hub-accent-soft\);[\s\S]*?border-color:\s*var\(--hub-accent\);/,
-  "Panel toolbar actions must reveal their backing on hover, focus, or active state");
+assert.match(hubCss, /\.hub-playlist-toolbar-icon\s*\{[^}]*color:\s*var\(--hub-muted\);/s,
+  "Panel toolbar actions must use the subdued theme colour at rest");
+assert.match(hubCss, /\.hub-playlist-toolbar-icon:hover:not\(:disabled\),[\s\S]*?\.hub-playlist-toolbar-icon\[aria-expanded="true"\]\s*\{[\s\S]*?background:\s*transparent;[\s\S]*?border-color:\s*transparent;[\s\S]*?color:\s*var\(--hub-accent\);/,
+  "Panel toolbar actions must use an accent-colour glyph without a hover backing");
+assert.match(hubCss, /\.hub-toolbar:has\(:is\(\.hub-playlist-toolbar-icon, \.hub-saved-playlist-icon-button\):is\(:hover, :focus-visible\)\)[\s\S]*?:not\(\[aria-pressed="true"\]\)\s*\{[^}]*opacity:\s*0\.38;/s,
+  "Panel toolbar actions must defocus inactive siblings while one action receives pointer or keyboard intent");
 assert.match(hubCss, /\.hub-saved-playlist-action-row \.hub-saved-playlist-icon-button\s*\{[^}]*background:\s*transparent;[^}]*border-color:\s*transparent;/s,
   "Saved cart and playlist detail toolbars must use the same icon-only resting state");
 assert.doesNotMatch(hubCss, /0 25px 50px -12px rgba\(0, 0, 0, 0\.28\)/,

@@ -1,6 +1,6 @@
-/* Artist shell shared by Music, Merch, and Community. */
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #centerWrapper,
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #propOpenWrapper {
+/* Artist shell shared by Music, Merch, Community, Video, and Subscribe. */
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"], [data-bandkit-modern-page-type="subscribe"]) #centerWrapper,
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"], [data-bandkit-modern-page-type="subscribe"]) #propOpenWrapper {
   background: transparent !important;
   margin: 0 !important;
   max-width: none !important;
@@ -9,7 +9,7 @@ html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"]
   width: 100% !important;
 }
 
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #pgBd {
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"], [data-bandkit-modern-page-type="subscribe"]) #pgBd {
   background: var(--bandkit-release-surface) !important;
   color: var(--bandkit-release-ink) !important;
   float: none !important;
@@ -23,13 +23,13 @@ html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"]
   width: calc(100% - 48px) !important;
 }
 
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #customHeaderWrapper {
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"], [data-bandkit-modern-page-type="subscribe"]) #customHeaderWrapper {
   margin: 0 -24px !important;
   overflow: hidden;
   width: calc(100% + 48px) !important;
 }
 
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #customHeader {
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"], [data-bandkit-modern-page-type="subscribe"]) #customHeader {
   aspect-ratio: 975 / 180;
   display: block;
   height: auto !important;
@@ -37,8 +37,8 @@ html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"]
   width: 100% !important;
 }
 
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #customHeader :is(.desktop-header, .desktop-header > a, picture),
-html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"]) #customHeader img {
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"], [data-bandkit-modern-page-type="subscribe"]) #customHeader :is(.desktop-header, .desktop-header > a, picture),
+html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="community"], [data-bandkit-modern-page-type="video"], [data-bandkit-modern-page-type="subscribe"]) #customHeader img {
   display: block;
   height: 100% !important;
   max-width: none !important;
@@ -125,11 +125,6 @@ html[data-bandkit-modern-page="true"] :is(
   body.feed .story-innards,
   body.feed #sidebar,
   body.feed #sidebar .collection-grid > .collection-item-container,
-  body.tralbum-page #track_table .track_row_view,
-  body.tralbum-page .bandkit-modern-purchase-list > .buyItem,
-  body.tralbum-page #bio-container,
-  body.tralbum-page #rightColumn > .sidebar,
-  body.tralbum-page #rightColumn > #recommended,
   body.tralbum-page #recommendations_container .recommended-album
 ) {
   --bandkit-release-ink: var(--bandkit-release-raised-ink);

@@ -1,10 +1,18 @@
 /* Fan Feed. Collection grids are intentionally excluded. */
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] {
+  --bandkit-feed-accent: #1da0c3;
+  --bandkit-feed-accent-soft: rgba(29, 160, 195, 0.12);
   --bandkit-feed-card: #ffffff;
+  --bandkit-feed-tag-hover: var(--bandkit-release-ink);
+  --bandkit-feed-tag-text: var(--bandkit-release-muted);
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"][data-bandkit-page-theme="true"] {
+  --bandkit-feed-accent: var(--bandkit-page-card-accent);
+  --bandkit-feed-accent-soft: var(--bandkit-page-card-accent-soft);
   --bandkit-feed-card: var(--bandkit-release-surface-raised);
+  --bandkit-feed-tag-hover: var(--bandkit-page-card-text);
+  --bandkit-feed-tag-text: var(--bandkit-page-card-accent);
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed :is(#centerWrapper, #propOpenWrapper) {
@@ -102,10 +110,10 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   object-fit: cover;
 }
 
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar .follow-band {
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar :is(.follow-band, .follow-fan) {
   align-items: center;
-  background: var(--bandkit-release-accent) !important;
-  border: 1px solid var(--bandkit-release-accent) !important;
+  background: var(--bandkit-feed-accent) !important;
+  border: 1px solid var(--bandkit-feed-accent) !important;
   border-radius: 999px !important;
   color: var(--bandkit-release-on-accent) !important;
   -webkit-text-fill-color: var(--bandkit-release-on-accent) !important;
@@ -123,7 +131,7 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   width: max-content !important;
 }
 
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar .follow-band :is(.following-msg, .unfollow-msg) {
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar :is(.follow-band, .follow-fan) :is(.following-msg, .unfollow-msg) {
   background: transparent !important;
   color: inherit !important;
   -webkit-text-fill-color: inherit !important;
@@ -134,17 +142,24 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   visibility: visible !important;
 }
 
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"][data-bandkit-page-theme="true"] body.feed .story-sidebar .follow-band {
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"][data-bandkit-page-theme="true"] body.feed .story-sidebar :is(.follow-band, .follow-fan) {
   background: var(--bandkit-page-accent) !important;
   border-color: var(--bandkit-page-accent) !important;
   color: var(--bandkit-page-on-accent) !important;
   -webkit-text-fill-color: var(--bandkit-page-on-accent) !important;
 }
 
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"][data-bandkit-page-theme="true"] body.feed .story-sidebar .follow-band * {
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"][data-bandkit-page-theme="true"] body.feed .story-sidebar :is(.follow-band, .follow-fan) * {
   background: transparent !important;
-  color: inherit !important;
-  -webkit-text-fill-color: inherit !important;
+  color: var(--bandkit-page-on-accent) !important;
+  -webkit-text-fill-color: var(--bandkit-page-on-accent) !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"][data-bandkit-page-theme="true"] body.feed #story-list .story .story-sidebar a:is(.follow-band, .follow-fan):is(:hover, :focus-visible) {
+  background: var(--bandkit-page-accent) !important;
+  border-color: var(--bandkit-page-accent) !important;
+  color: var(--bandkit-page-on-accent) !important;
+  -webkit-text-fill-color: var(--bandkit-page-on-accent) !important;
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards {
@@ -252,6 +267,10 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   transform: translate(-50%, -50%);
 }
 
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .collection-item-container[data-bandkit-feed-playback="playing"] .play-icon {
+  margin: 13px 15px !important;
+}
+
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-art-large {
   border-radius: 8px;
   display: block !important;
@@ -329,9 +348,9 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   color: var(--bandkit-release-muted) !important;
 }
 
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story a:not(.follow-band),
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story a:not(.follow-band):not(.follow-fan),
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story button {
-  color: var(--bandkit-release-accent) !important;
+  color: var(--bandkit-feed-accent) !important;
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .story-title .artist-name {
@@ -377,11 +396,11 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   row-gap: 6px;
 }
 
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .collection-item-tags a {
-  background: var(--bandkit-release-accent-soft) !important;
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #story-list .story .collection-item-tags a {
+  background: var(--bandkit-release-surface-raised) !important;
   border: 1px solid transparent !important;
   border-radius: 999px;
-  color: var(--bandkit-release-accent) !important;
+  color: var(--bandkit-feed-tag-text) !important;
   cursor: pointer;
   display: inline-flex;
   font-size: 11px !important;
@@ -392,11 +411,11 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .collection-item-tags a:hover,
-html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .collection-item-tags a:focus-visible {
-  background: var(--bandkit-release-accent-soft) !important;
-  border-color: var(--bandkit-release-accent) !important;
-  color: var(--bandkit-release-accent) !important;
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #story-list .story .collection-item-tags a:hover,
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #story-list .story .collection-item-tags a:focus-visible {
+  background: color-mix(in srgb, var(--bandkit-release-line) 18%, var(--bandkit-release-surface-raised)) !important;
+  border-color: var(--bandkit-release-line) !important;
+  color: var(--bandkit-feed-tag-hover) !important;
   outline: 0;
   transform: none;
 }
@@ -408,6 +427,11 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   box-shadow: none;
   overflow: hidden;
   padding: 20px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar #new-releases-vm > h2::before {
+  content: none !important;
+  display: none !important;
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar #new-releases-vm,
@@ -422,7 +446,7 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar .collection-grid > .collection-item-container {
-  background: var(--bandkit-release-surface-raised) !important;
+  background: transparent !important;
   border: 0 !important;
   border-radius: 8px !important;
   box-shadow: none !important;
@@ -579,8 +603,8 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar .collection-grid > .collection-item-container .remove-button:is(:hover, :focus-visible) {
-  background: var(--bandkit-release-accent-soft) !important;
-  color: var(--bandkit-release-accent) !important;
+  background: var(--bandkit-feed-accent-soft) !important;
+  color: var(--bandkit-feed-accent) !important;
   outline: 0;
 }
 
@@ -617,8 +641,8 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"][data
   .wishlisted-msg > span:first-child
 ) {
   background: transparent !important;
-  border-color: var(--bandkit-page-card-border) !important;
-  color: var(--bandkit-page-card-accent) !important;
+  border-color: transparent !important;
+  color: var(--bandkit-feed-accent) !important;
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"][data-bandkit-page-theme="true"] body.feed #sidebar .bandkit-feed-sidebar-actions :is(
@@ -628,12 +652,51 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"][data
   .wishlist-msg,
   .wishlisted-msg > span:first-child
 ):is(:hover, :focus-visible) {
-  background: var(--bandkit-page-card-accent-soft) !important;
-  border-color: var(--bandkit-page-card-accent) !important;
-  color: var(--bandkit-page-card-accent) !important;
+  background: color-mix(in srgb, var(--bandkit-feed-accent) 9%, var(--bandkit-feed-card, #fff)) !important;
+  border-color: transparent !important;
+  color: var(--bandkit-feed-accent) !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed :is(
+  .bandkit-feed-action-row,
+  .bandkit-feed-sidebar-actions
+) :is(
+  .bandcamp-hub-page-playlist.is-feed-compact-action,
+  .bandcamp-hub-page-playlist.is-feed-sidebar-action,
+  .bandkit-feed-purchase-action,
+  .bandkit-feed-hear-more-action,
+  .wishlist-msg.bandkit-feed-wishlist-control
+) {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--bandkit-feed-accent) !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed :is(
+  .bandkit-feed-action-row,
+  .bandkit-feed-sidebar-actions
+) :is(
+  .bandcamp-hub-page-playlist.is-feed-compact-action,
+  .bandcamp-hub-page-playlist.is-feed-sidebar-action,
+  .bandkit-feed-purchase-action,
+  .bandkit-feed-hear-more-action,
+  .wishlist-msg.bandkit-feed-wishlist-control
+):is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--bandkit-feed-accent) 9%, var(--bandkit-feed-card, #fff)) !important;
+  border-color: transparent !important;
+  color: var(--bandkit-feed-accent) !important;
 }
 
 @media (max-width: 1180px) {
+  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper {
+    gap: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-wrapper > .tralbum-wrapper-col2 {
+    display: none !important;
+  }
+
   html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) #pgBd {
     gap: 32px;
     grid-template-columns: minmax(0, 1fr) 280px;
@@ -821,7 +884,7 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"][data
     width: 40px !important;
   }
 
-  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar .follow-band {
+  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-sidebar :is(.follow-band, .follow-fan) {
     margin: 0 !important;
     width: auto !important;
   }

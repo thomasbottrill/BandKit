@@ -4,6 +4,7 @@ import vm from "node:vm";
 
 const listeners = new Map();
 let renderedCartItemCount = 1;
+let renderedCartItemUnavailable = true;
 const document = {
   addEventListener(type, listener) {
     if (!listeners.has(type)) listeners.set(type, []);
@@ -16,6 +17,10 @@ const document = {
   querySelector(selector) {
     if (selector !== "#sidecart #item_list") return null;
     return { querySelectorAll: () => Array.from({ length: renderedCartItemCount }) };
+  },
+  getElementById(id) {
+    if (id !== "sidecart_item_987") return null;
+    return { textContent: renderedCartItemUnavailable ? "Remove Me, digital album (no longer available)" : "Remove Me, digital album" };
   }
 };
 
@@ -63,6 +68,8 @@ const window = {
   Sidecart: {
     cart_items: [nativeItem],
     subtotal: 9,
+    has_tax: true,
+    tax: 0.9,
     add_to_cart(item) {
       item.local_id = "added-local-id";
       item.id = 654;
@@ -73,7 +80,8 @@ const window = {
       this.cart_items = this.cart_items.filter((candidate) => candidate !== item);
     }
   },
-  ClientPrefs: { currency: "USD" },
+  ClientPrefs: { currency: "USD", country: "AU" },
+  CurrencyData: { rates: { USD: 1, AUD: 0.72 } },
   Audio: function Audio() { return new HTMLMediaElement(); },
   setTimeout,
   setInterval() { return 1; }
@@ -87,12 +95,16 @@ let cartState = null;
 document.addEventListener("bandkit:cart-state", (event) => { cartState = event.detail; });
 document.dispatchEvent(new CustomEvent("bandkit:cart-command", { detail: { action: "getState" } }));
 assert.equal(cartState.items[0].local_id, nativeItem.local_id, "bridge should retain Bandcamp's native cart identity");
+assert.equal(cartState.items[0].unavailable, true, "bridge should preserve Bandcamp's unavailable-item warning");
 
 renderedCartItemCount = 0;
 document.dispatchEvent(new CustomEvent("bandkit:cart-command", { detail: { action: "getState" } }));
-assert.equal(cartState.items.length, 0, "an empty rendered Bandcamp cart should override a stale final Sidecart item");
-assert.equal(cartState.summary.subtotal, 0, "an empty rendered cart should report a zero subtotal");
+assert.equal(cartState.items.length, 1, "a transiently empty sidecart render must not erase Bandcamp's cart data");
+assert.equal(cartState.summary.subtotal, 9, "a transiently empty sidecart render must retain the native subtotal");
+assert.equal(cartState.summary.total, 13.75, "the bridge must expose Bandcamp's tax-inclusive total in the official checkout currency");
+assert.equal(cartState.summary.currency, "AUD", "the bridge must use Bandcamp's checkout-country currency");
 renderedCartItemCount = 1;
+renderedCartItemUnavailable = false;
 
 const result = await new Promise((resolve) => {
   document.addEventListener("bandkit:cart-remove-result", (event) => resolve(event.detail));

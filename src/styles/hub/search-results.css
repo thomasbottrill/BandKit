@@ -1,0 +1,53 @@
+/* Search remains Bandcamp's list; Bandkit only clarifies the strongest matches. */
+.search .result-items > .searchresult[data-bandkit-search-best] {
+  background: color-mix(in srgb, var(--hub-accent, var(--link-color, #1da0c3)) 5%, transparent);
+  box-shadow: inset 3px 0 var(--hub-accent, var(--link-color, #1da0c3));
+}
+
+.searchresult .bandkit-search-match-context {
+  color: var(--hub-muted, #6f7780);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  margin-left: 7px;
+  text-transform: none;
+}
+
+.searchresult .bandkit-search-open {
+  color: var(--hub-accent, var(--link-color, #1da0c3));
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 8px;
+  opacity: 0;
+  pointer-events: none;
+  text-decoration: none;
+  transition: opacity 120ms ease;
+}
+
+.searchresult:is(:hover, :focus-within) .bandkit-search-open,
+.searchresult .bandkit-search-open:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.searchresult .bandkit-search-open:is(:hover, :focus-visible) { text-decoration: underline; }
+
+.bandkit-search-suggestion {
+  color: var(--hub-muted, #6f7780);
+  font-size: 13px;
+  margin: 0 0 14px;
+}
+
+.bandkit-search-suggestion a {
+  color: var(--hub-accent, var(--link-color, #1da0c3));
+  font-weight: 600;
+}
+
+@media (hover: none) {
+  .searchresult .bandkit-search-open { opacity: 1; pointer-events: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .searchresult .bandkit-search-open { transition: none; }
+}

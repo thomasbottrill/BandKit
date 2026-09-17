@@ -1,5 +1,6 @@
 import { runtimeSaveState, runtimeState } from "./context.js";
-import { asset, createElement, resolveImage } from "../core.js";
+import { createPlaylistArtwork } from "../components/playlist-artwork.js";
+import { createBandkitPlaylistOrigin, createPagePlaylistCard } from "../components/page-cards.js";
 
 const COLLECTION_PLAYLIST_SECTION = "section.vue-collection-playlists-tab";
 const BANDKIT_CARD_CLASS = "bandkit-collection-playlist-card";
@@ -19,7 +20,11 @@ function collectionPlaylistSavedDate(value) {
   const date = new Date(value || "");
   return Number.isNaN(date.getTime())
     ? "Saved locally"
-    : date.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+    : date.toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function collectionPlaylistSubtitle(items) {
+  return `${items.length} track${items.length === 1 ? "" : "s"}, ${collectionPlaylistDuration(items)}`;
 }
 
 function registerCollectionPlaylistIntegration1(r) {
@@ -34,77 +39,68 @@ r.$openCollectionSavedPlaylist = function openCollectionSavedPlaylist(playlistId
       r.$saveLayoutState();
       r.$render();
     };
-r.$createCollectionPlaylistArtwork = function createCollectionPlaylistArtwork(items) {
-      const mosaic = createElement("span", "bandkit-collection-playlist-art");
-      const artwork = [];
-      const seen = new Set();
-      for (const item of items || []) {
-        const imageUrl = resolveImage(item?.art);
-        if (!imageUrl || seen.has(imageUrl)) continue;
-        seen.add(imageUrl);
-        artwork.push(imageUrl);
-        if (artwork.length === 4) break;
-      }
-      mosaic.dataset.count = String(artwork.length);
-      if (!artwork.length) {
-        const placeholder = document.createElement("img");
-        placeholder.className = "bandkit-collection-playlist-placeholder";
-        placeholder.src = asset("icon-playlist.svg");
-        placeholder.alt = "";
-        mosaic.append(placeholder);
-        return mosaic;
-      }
-      for (const imageUrl of artwork) {
-        const image = document.createElement("img");
-        image.className = "bandkit-collection-playlist-artwork";
-        image.src = imageUrl;
-        image.alt = "";
-        image.loading = "lazy";
-        mosaic.append(image);
-      }
-      return mosaic;
-    };
-r.$createCollectionPlaylistCard = function createCollectionPlaylistCard(snapshot) {
+r.$createCollectionPlaylistArtwork = items => createPlaylistArtwork(items, "page");
+r.$createCollectionPlaylistCard = function createCollectionPlaylistCard(snapshot, nativeTemplate = null) {
       const items = Array.isArray(snapshot.items) ? snapshot.items : [];
-      const card = createElement("li", `${BANDKIT_CARD_CLASS} card-item playlist-card`);
-      card.dataset.bandkitPlaylistId = snapshot.id;
+      if (nativeTemplate) {
+        const card = nativeTemplate.cloneNode(true);
+        card.classList.add(BANDKIT_CARD_CLASS, "is-native-layout");
+        card.dataset.bandkitPlaylistId = snapshot.id;
+        card.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
 
-      const surface = createElement("article", "bandkit-collection-playlist-surface");
-      const open = createElement("button", "bandkit-collection-playlist-open");
-      open.type = "button";
-      open.setAttribute("aria-label", `Open BandKit playlist ${snapshot.name}`);
-      open.append(r.$createCollectionPlaylistArtwork(items));
+        const imageContainer = card.querySelector(".image-container");
+        if (imageContainer) {
+          const artwork = r.$createCollectionPlaylistArtwork(items);
+          artwork.classList.add("image");
+          imageContainer.replaceChildren(artwork);
+        }
 
-      const copy = createElement("span", "bandkit-collection-playlist-copy");
-      copy.append(
-        createElement("span", "bandkit-collection-playlist-date", collectionPlaylistSavedDate(snapshot.savedAt)),
-        createElement("strong", "bandkit-collection-playlist-title", snapshot.name || "Saved playlist"),
-        createElement(
-          "span",
-          "bandkit-collection-playlist-subtitle",
-          `${items.length} track${items.length === 1 ? "" : "s"}, ${collectionPlaylistDuration(items)}`
-        )
-      );
-      open.append(copy);
-      open.addEventListener("click", () => r.$openCollectionSavedPlaylist(snapshot.id));
+        const open = card.querySelector(".stretch-link");
+        if (open) {
+          open.href = "#";
+          open.setAttribute("aria-label", `Open BandKit playlist ${snapshot.name}`);
+          const date = open.querySelector(".date");
+          const title = open.querySelector(".title");
+          const subtitle = open.querySelector(".subtitle");
+          if (date) date.textContent = collectionPlaylistSavedDate(snapshot.savedAt);
+          if (title) title.textContent = snapshot.name || "Saved playlist";
+          if (subtitle) subtitle.textContent = collectionPlaylistSubtitle(items);
+          open.addEventListener("click", (event) => {
+            event.preventDefault();
+            r.$openCollectionSavedPlaylist(snapshot.id);
+          });
+        }
 
-      const footer = createElement("footer", "bandkit-collection-playlist-footer");
-      const privateBadge = createElement("span", "bandkit-collection-private-badge");
-      privateBadge.innerHTML = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8V5.8C6 3.7 7.8 2 10 2s4 1.7 4 3.8V8h1.5c.6 0 1 .4 1 1v8c0 .6-.4 1-1 1h-11c-.6 0-1-.4-1-1V9c0-.6.4-1 1-1H6Zm1-2.2V8h6V5.8C13 4.3 11.7 3 10 3S7 4.3 7 5.8Z"/></svg><span>Private</span>';
-      const origin = createElement("span", "bandkit-collection-origin");
-      origin.title = "BandKit playlist";
-      origin.setAttribute("aria-label", "BandKit playlist");
-      const originIcon = document.createElement("img");
-      originIcon.src = asset("icon-bandkit.svg");
-      originIcon.alt = "";
-      origin.append(originIcon);
-      footer.append(privateBadge, origin);
-      surface.append(open, footer);
-      card.append(surface);
-      return card;
+        const contextButton = card.querySelector(".context-menu-trigger");
+        if (contextButton) {
+          for (const attribute of ["aria-controls", "aria-expanded", "aria-haspopup"]) {
+            contextButton.removeAttribute(attribute);
+          }
+          contextButton.setAttribute("aria-label", "Open BandKit playlist actions");
+          contextButton.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            r.$openCollectionSavedPlaylist(snapshot.id);
+          });
+        }
+
+        card.querySelector(".footer")?.append(createBandkitPlaylistOrigin());
+        return card;
+      }
+
+      return createPagePlaylistCard({
+        id: snapshot.id,
+        ariaLabel: `Open BandKit playlist ${snapshot.name}`,
+        artwork: r.$createCollectionPlaylistArtwork(items),
+        date: collectionPlaylistSavedDate(snapshot.savedAt),
+        title: snapshot.name || "Saved playlist",
+        subtitle: collectionPlaylistSubtitle(items),
+        onOpen: () => r.$openCollectionSavedPlaylist(snapshot.id)
+      });
     };
 r.$syncCollectionPlaylistCards = function syncCollectionPlaylistCards() {
       const host = document.querySelector("collection-playlists-tab");
+      r.$applyCollectionPlaylistsTheme?.();
       const root = host?.shadowRoot || document;
       if (root !== document && r.$collectionPlaylistObservedRoot !== root) {
         r.$collectionPlaylistShadowObserver?.disconnect();
@@ -132,9 +128,17 @@ r.$syncCollectionPlaylistCards = function syncCollectionPlaylistCards() {
         (snapshot.items || []).map((item) => [item.art, item.duration])
       ]));
       const currentCards = [...grid.querySelectorAll(`:scope > .${BANDKIT_CARD_CLASS}`)];
-      if (grid.dataset.bandkitPlaylistFingerprint === fingerprint && currentCards.length === playlists.length) return true;
+      const nativeTemplate = grid.querySelector(`:scope > .playlist-card:not(.${BANDKIT_CARD_CLASS})`);
+      const cardsUseCurrentLayout = currentCards.every((card) =>
+        card.classList.contains("is-native-layout") === Boolean(nativeTemplate)
+      );
+      if (
+        grid.dataset.bandkitPlaylistFingerprint === fingerprint
+        && currentCards.length === playlists.length
+        && cardsUseCurrentLayout
+      ) return true;
       currentCards.forEach((card) => card.remove());
-      playlists.forEach((snapshot) => grid.append(r.$createCollectionPlaylistCard(snapshot)));
+      playlists.forEach((snapshot) => grid.append(r.$createCollectionPlaylistCard(snapshot, nativeTemplate)));
       grid.dataset.bandkitPlaylistFingerprint = fingerprint;
       section.classList.toggle("has-bandkit-playlists", playlists.length > 0);
       return true;

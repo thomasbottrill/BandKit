@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { readContentSource } from "./support/source.mjs";
+import { readContentSource, readHubStyles } from "./support/source.mjs";
 
 const source = readContentSource();
+const hubCss = readHubStyles();
 const manifest = JSON.parse(fs.readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));
 const backgroundSource = fs.readFileSync(new URL("../src/background/index.js", import.meta.url), "utf8");
 const backupFileSource = fs.readFileSync(new URL("../src/shared/backup-file.js", import.meta.url), "utf8");
@@ -27,18 +28,20 @@ assert.match(source, /showSaveFilePicker\([\s\S]*?suggestedName:\s*BACKUP_FILENA
   "Save backup must open Finder directly with one suggested JSON filename");
 assert.match(source, /showOpenFilePicker\([\s\S]*?restoreBackupFile/,
   "Settings must provide a direct one-file restore flow");
-assert.match(source, /Your playlists and carts stay in Chrome/,
-  "first use must clearly explain where the live copy is stored");
-assert.match(source, /Ready for another backup\?/,
-  "a due reminder must use calm, optional backup language");
-assert.match(source, /Save backup[\s\S]*?"Later"[\s\S]*?Remind me in/,
-  "the reminder card must have one primary action and one deferral action");
+assert.match(source, /hub-backup-reminder-heading", "Backup Reminder"/,
+  "the reminder must use the concise settings-row label");
+assert.match(source, /Your playlists and carts are saved in Chrome\.[\s\S]*?Chrome: Saved[\s\S]*?Last local backup:/,
+  "the reminder tooltip must explain Chrome storage and the latest local backup");
+assert.match(source, /hub-settings-action hub-backup-reminder-later", "Close"[\s\S]*?hub-settings-action hub-backup-reminder-save", "Backup Now"/,
+  "the reminder must expose settings-style Close and Backup Now text actions");
+assert.match(hubCss, /\.hub-backup-reminder\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--hub-ink\) 4%, var\(--hub-card\)\);[^}]*border:\s*0;[^}]*padding:\s*10px 12px;/s,
+  "the reminder must use a simple theme-aware card fill with compact internal padding");
 assert.match(source, /const backupPrompt = renderBackupReminder\(\);[\s\S]*?if \(heading\) heading\.after\(backupPrompt\)/,
   "the reminder card must appear directly beneath the active panel header");
-assert.match(source, /\[\["7", "Every week"\], \["14", "Every 2 weeks"\], \["30", "Every month"\], \["0", "Off"\]\]/,
+assert.match(source, /\[\s*\{ value: "7", label: "Every week" \},\s*\{ value: "14", label: "Every 2 weeks" \},\s*\{ value: "30", label: "Every month" \},\s*\{ value: "0", label: "Off" \}\s*\]/,
   "Settings must retain its reminder frequencies");
-assert.match(source, /Saved in Chrome · last file backup/,
-  "Settings must show the last successful portable backup time");
+assert.match(source, /"Last backup"[\s\S]*?hub-settings-row-value hub-backup-location/,
+  "Settings must show the last successful portable backup time in its aligned value column");
 assert.doesNotMatch(source, /showDirectoryPicker|Backup paused|Resume backup|Restore access|Change backup location|requireDataHome|dataFolderSetup|dataFolderName/,
   "content code must not retain the obsolete connected-folder model or its no-op gates");
 assert.match(source, /chrome\.storage\.onChanged[\s\S]*?backupIntroSeen[\s\S]*?backupReminderDays[\s\S]*?backupReminderSnoozedAt[\s\S]*?lastBackupAt/,

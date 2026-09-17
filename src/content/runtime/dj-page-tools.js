@@ -1,5 +1,5 @@
 import { runtimeSaveState, runtimeSeamless, runtimeState } from "./context.js";
-import { createButtonIcon, createElement } from "../core.js";
+import { createButtonIcon, createElement, createShapedRange, enableRangeReset } from "../core.js";
 
 function registerDjPageTools1(r) {
 r.$createPageDjToolsCard = function createPageDjToolsCard() {
@@ -30,7 +30,9 @@ r.$createPageDjToolsCard = function createPageDjToolsCard() {
       tempoSlider.step = "0.1";
       tempoSlider.value = String(r.$tempoPercentFromState());
       tempoSlider.setAttribute("aria-label", "Tempo");
+      enableRangeReset(tempoSlider, 0);
       updateTempoProgress();
+      const shapedTempoSlider = createShapedRange(tempoSlider);
       tempoSlider.addEventListener("input", () => {
         const value = Number(tempoSlider.value);
         r.$setDjTempo(value);
@@ -38,7 +40,7 @@ r.$createPageDjToolsCard = function createPageDjToolsCard() {
         refreshDisplayedBpm();
       });
       tempoSlider.addEventListener("change", runtimeSaveState);
-      tempo.append(tempoSlider);
+      tempo.append(shapedTempoSlider.element);
 
       const rangeValues = [6, 10, 16, 50];
       const rangeLabel = (range) => range === 50 ? "Wide" : `±${range}`;
@@ -56,6 +58,7 @@ r.$createPageDjToolsCard = function createPageDjToolsCard() {
         tempoRange.textContent = rangeLabel(runtimeState.dj.range);
         tempoRange.setAttribute("aria-label", `Tempo range ${rangeLabel(runtimeState.dj.range)}. Click for next range.`);
         updateTempoProgress();
+        shapedTempoSlider.sync();
         refreshDisplayedBpm();
         runtimeSaveState();
       });
@@ -81,5 +84,3 @@ r.$createPageDjToolsCard = function createPageDjToolsCard() {
 }
 
 export const registerDjPageTools = [registerDjPageTools1];
-
-export const setupDjPageTools = [];

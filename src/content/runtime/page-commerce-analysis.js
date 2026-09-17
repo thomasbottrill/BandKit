@@ -1,5 +1,7 @@
+import { createPageAnalysisBadge } from "../components/page-analysis.js";
+import { createPageAddButton, createPageOverflowButton, createPagePurchaseButton, createPageDestinationMenu } from "../components/page-actions.js";
 import { runtimeSeamless, runtimeState } from "./context.js";
-import { asset, createElement, safeBandcampUrl } from "../core.js";
+import { createElement, safeBandcampUrl } from "../core.js";
 import { MESSAGES } from "../../shared/contracts.js";
 
 function registerPageCommerceAnalysis1(r) {
@@ -10,9 +12,8 @@ r.$openPagePlaylistMenu = function openPagePlaylistMenu(anchor, selection, view 
       }
       r.$closePagePlaylistMenu();
       r.$pagePlaylistMenuAnchor = anchor;
-      r.$pagePlaylistMenu = document.createElement("div");
-      r.$pagePlaylistMenu.className = "bandcamp-hub-page-playlist-menu";
-      r.$pagePlaylistMenu.setAttribute("role", "menu");
+      r.$pagePlaylistMenu = createPageDestinationMenu();
+      r.$panel.classList.add("has-page-action-menu");
       r.$applyPageActionTheme(r.$pagePlaylistMenu);
       document.body.append(r.$pagePlaylistMenu);
       r.$syncPageTypography();
@@ -23,16 +24,8 @@ r.$openPagePlaylistMenu = function openPagePlaylistMenu(anchor, selection, view 
       window.setTimeout(() => document.addEventListener("click", r.$closePagePlaylistMenu, { once: true }), 0);
     };
 r.$createPagePlaylistButton = function createPagePlaylistButton(tagName = "button") {
-      const button = document.createElement(tagName);
-      button.className = "bandcamp-hub-page-playlist";
-      button.style.setProperty("--hub-plus-icon", `url('${asset("icon-plus.svg")}')`);
-      button.style.fontFamily = 'var(--hub-font-family, "Helvetica Neue", Helvetica, Arial, sans-serif)';
+      const button = createPageAddButton(tagName);
       r.$applyPageActionTheme(button);
-      if (tagName === "button") button.type = "button";
-      else {
-        button.href = "#";
-        button.setAttribute("role", "button");
-      }
       button.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -47,14 +40,7 @@ r.$createPagePlaylistButton = function createPagePlaylistButton(tagName = "butto
       return button;
     };
 r.$createPageReleaseOverflowButton = function createPageReleaseOverflowButton() {
-      const button = document.createElement("button");
-      button.className = "bandcamp-hub-page-overflow";
-      button.type = "button";
-      button.style.setProperty("--hub-more-icon", `url('${asset("icon-more.svg")}')`);
-      button.setAttribute("aria-haspopup", "menu");
-      button.setAttribute("aria-expanded", "false");
-      button.setAttribute("aria-label", "More release actions");
-      button.title = "More release actions";
+      const button = createPageOverflowButton();
       r.$setPageActionLabel(button, "More");
       r.$applyPageActionTheme(button);
       button.addEventListener("click", (event) => {
@@ -67,15 +53,12 @@ r.$createPageReleaseOverflowButton = function createPageReleaseOverflowButton() 
       return button;
     };
 r.$createPageCartButton = function createPageCartButton() {
-      const button = document.createElement("button");
-      button.className = "bandcamp-hub-page-cart";
-      button.type = "button";
-      button.style.setProperty("--hub-cart-icon", `url('${asset("icon-cart.svg")}')`);
+      const button = createPagePurchaseButton();
       button.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
         if (button.disabled) return;
-        r.$openBandKitCart();
+        r.$setOpen(false);
         if (button._bandkitPurchaseControl?.isConnected) {
           button._bandkitPurchaseControl.click();
         } else if (!r.$activateNativeTrackAction("cart")) {
@@ -298,6 +281,9 @@ r.$updatePageCartButton = function updatePageCartButton(button, track) {
       button.title = label;
       button.setAttribute("aria-label", label);
     };
+}
+
+function registerPageCommerceAnalysis2b(r) {
 r.$pageAnalysisTrackKey = function pageAnalysisTrackKey(track) {
       return `${String(track?.id || "")}\u0000${String(track?.url || "")}`;
     };
@@ -308,11 +294,16 @@ r.$pageAnalysisParts = function pageAnalysisParts(result) {
       if (!result) return null;
       const bpm = Number(result.bpm);
       const hasBpm = Number.isFinite(bpm) && bpm > 0;
+      const bpmUncertain = hasBpm && result.bpmUncertain === true;
+      const hasKey = Boolean(result.key); const keyUncertain = hasKey && result.key?.uncertain === true;
       return {
-        bpm: hasBpm ? `${Number.isInteger(bpm) ? bpm : bpm.toFixed(1)} BPM` : "— BPM",
-        camelot: String(result.key?.camelot || ""),
-        key: String(result.key?.shortName || ""),
-        unavailable: Boolean(result.error || !hasBpm)
+        bpm: hasBpm ? `${Number.isInteger(bpm) ? bpm : bpm.toFixed(1)}${bpmUncertain ? "?" : ""} BPM` : "BPM?",
+        camelot: String(result.key?.camelot ? `${result.key.camelot}${keyUncertain ? "?" : ""}` : (hasKey ? "" : "?")),
+        key: String(result.key?.shortName ? `${result.key.shortName}${keyUncertain ? "?" : ""}` : (hasKey ? "" : "Key?")),
+        bpmUncertain, keyUncertain,
+        bpmUnavailable: !hasBpm,
+        keyUnavailable: !hasKey,
+        unavailable: Boolean(result.error || !hasBpm || !hasKey)
       };
     };
 r.$pageAnalysisLabel = function pageAnalysisLabel(result) {
@@ -320,15 +311,19 @@ r.$pageAnalysisLabel = function pageAnalysisLabel(result) {
       if (!parts) return "";
       return [
         parts.bpm,
-        ...(runtimeState.showTrackKeys !== false ? [parts.camelot, parts.key] : [])
+        ...(runtimeState.showCamelotNotation === true ? [parts.camelot] : []),
+        ...(runtimeState.showTrackKeys !== false ? [parts.key] : [])
       ].filter(Boolean).join(" · ");
     };
-r.$renderPageAnalysisLabel = function renderPageAnalysisLabel(label, result, analyzing = false) {
-      label.replaceChildren();
-      const parts = analyzing ? null : r.$pageAnalysisParts(result);
-      label.classList.toggle("is-analyzing", analyzing);
+r.$renderPageAnalysisLabel = function renderPageAnalysisLabel(label, result, analyzing = false, track = null) {
+  const ownsDeepAnalysis = Boolean(r.$deepAnalysisButton && label.contains(r.$deepAnalysisButton));
+  if (ownsDeepAnalysis && r.$deepAnalysisRequest) { r.$updateDeepAnalysisButton(r.$deepAnalysisButton, track); return; }
+  label.replaceChildren();
+      const parts = analyzing ? null : r.$pageAnalysisParts(result); const deepAnalyzing = false;
+      label.classList.toggle("is-analyzing", analyzing); label.classList.toggle("is-deep-analyzing", deepAnalyzing);
       label.classList.toggle("is-unavailable", Boolean(parts?.unavailable));
-      label.classList.toggle("has-key", runtimeState.showTrackKeys !== false && Boolean(result?.key));
+      label.classList.toggle("is-uncertain", Boolean(parts?.bpmUncertain));
+      label.classList.toggle("has-key", (runtimeState.showTrackKeys !== false || runtimeState.showCamelotNotation === true) && Boolean(parts));
       if (analyzing) {
         label.append(createElement("span", "bandkit-track-analysis-pending", "Analyzing…"));
         label.setAttribute("aria-label", "Analyzing track");
@@ -336,20 +331,36 @@ r.$renderPageAnalysisLabel = function renderPageAnalysisLabel(label, result, ana
         return;
       }
       if (!parts) return;
-      if (parts.bpm) label.append(createElement("span", "bandkit-track-analysis-bpm", parts.bpm));
-      if (runtimeState.showTrackKeys !== false && parts.camelot) {
-        label.append(createElement("span", "bandkit-track-analysis-camelot", parts.camelot));
+      if (parts.bpm) {
+        label.append(createPageAnalysisBadge("bpm", parts.bpm, parts.bpmUncertain, parts.bpmUnavailable));
+      }
+      if (runtimeState.showCamelotNotation === true && parts.camelot) {
+        label.append(createPageAnalysisBadge("camelot", parts.camelot, parts.keyUncertain, parts.keyUnavailable));
       }
       if (runtimeState.showTrackKeys !== false && parts.key) {
-        label.append(createElement("span", "bandkit-track-analysis-key", parts.key));
+        label.append(createPageAnalysisBadge("key", parts.key, parts.keyUncertain, parts.keyUnavailable));
+      }
+      if (track) {
+        const deepButton = r.$createDeepAnalysisButton(track);
+        if (ownsDeepAnalysis) { r.$deepAnalysisButton = deepButton; r.$updateDeepAnalysisButton(deepButton, track); }
+        label.append(deepButton);
       }
       const text = r.$pageAnalysisLabel(result);
-      label.setAttribute("aria-label", parts.unavailable
-        ? `Track analysis: BPM unavailable${text.replace(/^— BPM(?: · )?/, "").trim() ? ` · ${text.replace(/^— BPM(?: · )?/, "")}` : ""}`
+      const uncertainties = [
+        parts.bpmUnavailable ? "BPM unavailable" : parts.bpmUncertain ? "BPM estimate uncertain" : "",
+        (parts.keyUnavailable || parts.keyUncertain) && (runtimeState.showTrackKeys !== false || runtimeState.showCamelotNotation === true) ? "key uncertain" : ""
+      ].filter(Boolean);
+      label.setAttribute("aria-label", uncertainties.length
+        ? `Track analysis: ${text} · ${uncertainties.join(", ")}`
         : `Track analysis: ${text}`);
-      if (parts.unavailable) {
+      if (parts.unavailable || parts.bpmUncertain || parts.keyUncertain) {
         const reason = String(result?.error || "").trim();
-        label.title = `BPM could not be detected for this track${reason ? `: ${reason}` : ""}`;
+        const uncertainLabel = parts.bpmUnavailable && parts.keyUnavailable ? "BPM and musical key could not be detected confidently" : parts.bpmUnavailable ? "BPM could not be detected confidently"
+            : parts.bpmUncertain && parts.keyUncertain ? "BPM and musical key are best-effort estimates"
+              : parts.bpmUncertain ? `${parts.bpm} is a best-effort tempo estimate`
+                : parts.keyUncertain ? "Musical key is a best-effort estimate"
+                  : "Musical key could not be detected confidently";
+        const alternative = r.$keyAlternativeDescription?.(result?.key) || ""; label.title = `${uncertainLabel} for this track${reason ? `: ${reason}` : ""}${alternative ? `. ${alternative}` : ""}`;
       }
       else if (result.key?.name && runtimeState.showTrackKeys !== false) label.title = `${text} · ${result.key.name}`;
       else label.removeAttribute("title");
@@ -358,12 +369,20 @@ r.$renderPageAnalysisLabel = function renderPageAnalysisLabel(label, result, ana
 
 function registerPageCommerceAnalysis3(r) {
 r.$syncPageTrackAnalysisUi = function syncPageTrackAnalysisUi() {
+      if (runtimeState.djToolsEnabled === false) {
+        document.querySelectorAll(".bandkit-track-analysis").forEach((label) => label.remove());
+        document.querySelectorAll(".bandkit-has-track-analysis").forEach((layout) => layout.classList.remove("bandkit-has-track-analysis"));
+        r.$syncCurrentPlaylistAnalysisUi?.();
+        return;
+      }
       const queue = r.$buildSeamlessQueue();
       const trackInfo = r.$getBandcampPageData()?.tralbum?.trackinfo || [];
       for (const [index, row] of [...document.querySelectorAll(".track_row_view")].entries()) {
         const title = r.$elementText(row, [".track-title", ".title"]);
         const trackNumber = Number((row.getAttribute("rel") || "").match(/(?:^|[&;\s])tracknum=(\d+)/i)?.[1] || 0);
-        const sourceTrack = trackInfo[trackNumber > 0 ? trackNumber - 1 : index];
+        const sourceTrack = row.dataset.bandkitDiscoverTrackId
+          ? { track_id: row.dataset.bandkitDiscoverTrackId }
+          : trackInfo[trackNumber > 0 ? trackNumber - 1 : index];
         const track = r.$matchingQueueTrack(queue, { id: sourceTrack?.track_id || sourceTrack?.id, title });
         const result = track ? r.$pageTrackAnalysis.get(r.$pageAnalysisTrackKey(track)) : null;
         const text = r.$pageAnalysisLabel(result) || (track && r.$pageTrackAnalysisStatus === "analyzing" ? "Analyzing…" : "");
@@ -382,7 +401,7 @@ r.$syncPageTrackAnalysisUi = function syncPageTrackAnalysisUi() {
           else (row.querySelector(".title-col .title, .title-col, .title") || row).append(label);
         }
         analysisLayout?.classList.add("bandkit-has-track-analysis");
-        r.$renderPageAnalysisLabel(label, result, !result);
+        r.$renderPageAnalysisLabel(label, result, !result, track);
       }
 
       const inlinePlayer = document.querySelector(".inline_player");
@@ -400,11 +419,15 @@ r.$syncPageTrackAnalysisUi = function syncPageTrackAnalysisUi() {
           if (duration) duration.after(inlineLabel);
         }
         if (inlineLabel) {
-          r.$renderPageAnalysisLabel(inlineLabel, inlineResult, !inlineResult);
+          r.$renderPageAnalysisLabel(inlineLabel, inlineResult, !inlineResult, inlineTrack);
         }
+      }
+      if (r.$isNowPlayingView?.() && r.$content?.querySelector(".hub-playlist-stack")) {
+        r.$syncCurrentPlaylistAnalysisUi?.();
       }
     };
 r.$syncActivePageTrackAnalysis = function syncActivePageTrackAnalysis() {
+      if (runtimeState.djToolsEnabled === false) return false;
       const bpm = Number(runtimeSeamless.detectedBpm);
       if (!runtimeSeamless.enabled || runtimeSeamless.bpmStatus !== "ready"
         || !runtimeSeamless.track || !Number.isFinite(bpm) || bpm <= 0) return false;
@@ -415,16 +438,19 @@ r.$syncActivePageTrackAnalysis = function syncActivePageTrackAnalysis() {
         id: pageTrack.id,
         url: pageTrack.url,
         bpm,
+        bpmUncertain: runtimeSeamless.bpmUncertain === true,
         key: runtimeSeamless.detectedKey || null
       };
       const previous = r.$pageTrackAnalysis.get(mapKey);
       if (Number(previous?.bpm) === bpm
+        && Boolean(previous?.bpmUncertain) === result.bpmUncertain
         && JSON.stringify(previous?.key || null) === JSON.stringify(result.key)) return false;
       r.$pageTrackAnalysis.set(mapKey, result);
       r.$syncPageTrackAnalysisUi();
       return true;
     };
 r.$analyzePageTracks = async function analyzePageTracks({ manual = false, force = false } = {}) {
+      if (runtimeState.djToolsEnabled === false) return;
       const tracks = r.$buildSeamlessQueue();
       if (!tracks.length || r.$pageTrackAnalysisStatus === "analyzing") return;
       const signature = r.$pageAnalysisSignature(tracks);
@@ -468,6 +494,7 @@ r.$analyzePageTracks = async function analyzePageTracks({ manual = false, force 
     };
 }
 
-export const registerPageCommerceAnalysis = [registerPageCommerceAnalysis1, registerPageCommerceAnalysis2, registerPageCommerceAnalysis3];
-
-export const setupPageCommerceAnalysis = [];
+export const registerPageCommerceAnalysis = [
+  registerPageCommerceAnalysis1, registerPageCommerceAnalysis2,
+  registerPageCommerceAnalysis2b, registerPageCommerceAnalysis3
+];

@@ -1,40 +1,650 @@
-.hub-player.is-compact .hub-player-content {
-  align-items: center;
-  column-gap: 12px;
-  grid-template-areas: "actions track scrub tools";
-  grid-template-columns: auto minmax(0, 240px) minmax(120px, 1fr) auto;
-  grid-template-rows: 1fr;
-}
-
 .hub-player[data-content-width="tight"] .hub-player-content {
   max-width: 640px;
 }
-
+.hub-player[data-content-width="default"] .hub-player-content {
+  max-width: 800px;
+}
 .hub-player[data-content-width="wide"] .hub-player-content {
   margin-left: auto;
   margin-right: auto;
   max-width: none;
   width: min(1120px, calc(100% - 48px));
 }
-
 .hub-player[data-content-width="custom"] .hub-player-content {
   margin-left: auto;
   margin-right: auto;
   max-width: none;
   width: min(var(--hub-player-custom-width, 900px), calc(100% - 48px));
 }
-
 .hub-player[data-content-width="full"] .hub-player-content {
   margin: 0;
   max-width: none;
   width: calc(100% - var(--hub-sections-panel-width, min(420px, calc(100vw - 32px))) - 32px);
 }
-
-.hub-player.is-compact:is([data-content-width="wide"], [data-content-width="full"], [data-content-width="custom"]) .hub-player-content {
-  box-sizing: border-box;
-  padding: 0 16px 0 24px;
+/* Width is continuously sampled while dragging. Any easing on dependent
+   geometry makes the shell, backdrop and controls appear to separate, so the
+   complete floating composition tracks the pointer in the same frame. */
+.hub-player.is-resizing,
+.hub-player.is-resizing *,
+.hub-player.is-resizing::before,
+.hub-player.is-resizing::after,
+.hub-player.is-resizing *::before,
+.hub-player.is-resizing *::after,
+.hub-panel.is-player-resizing,
+.hub-panel.is-player-resizing * {
+  transition-delay: 0s !important;
+  transition-duration: 0s !important;
 }
 
+/* Zune places the player directly over the page, echoing its quiet
+   bottom-edge treatment rather than drawing another card-shaped surface. */
+@property --hub-zune-main-ink-live { syntax: "<color>"; inherits: true; initial-value: #111827; }
+@property --hub-zune-main-muted-live { syntax: "<color>"; inherits: true; initial-value: #596170; }
+@property --hub-zune-main-accent-live { syntax: "<color>"; inherits: true; initial-value: #087f9e; }
+@property --hub-zune-main-accent-soft-live { syntax: "<color>"; inherits: true; initial-value: rgb(8 127 158 / 12%); }
+@property --hub-zune-main-line-live { syntax: "<color>"; inherits: true; initial-value: #777d87; }
+@property --hub-zune-menu-ink-live { syntax: "<color>"; inherits: true; initial-value: #111827; }
+@property --hub-zune-menu-muted-live { syntax: "<color>"; inherits: true; initial-value: #596170; }
+@property --hub-zune-menu-accent-live { syntax: "<color>"; inherits: true; initial-value: #087f9e; }
+@property --hub-zune-menu-accent-soft-live { syntax: "<color>"; inherits: true; initial-value: rgb(8 127 158 / 12%); }
+@property --hub-zune-menu-line-live { syntax: "<color>"; inherits: true; initial-value: #777d87; }
+.hub-player-backdrop-glow {
+  display: none;
+}
+
+/* Retain the measured geometry and colour transitions here; the page-facing
+   surface paints them outside the player's isolated stacking context. */
+.hub-player[data-detached-surface="true"]::before,
+.hub-player[data-detached-surface="true"] .hub-player-backdrop-glow {
+  visibility: hidden;
+}
+
+.hub-player[data-player-style="zune"] {
+  --hub-fade-backdrop-width: min(1440px, 74vw);
+  --hub-zune-surface: var(--hub-zune-surface-live, var(--bandkit-page-surface, var(--hub-panel)));
+  --hub-zune-content-lift: 18px;
+  --hub-ink: var(--hub-zune-main-ink-live, var(--hub-panel-ink));
+  --hub-muted: var(--hub-zune-main-muted-live, var(--hub-panel-muted));
+  --hub-faint: var(--hub-zune-main-muted-live, var(--hub-panel-faint));
+  --hub-line: var(--hub-zune-main-line-live, var(--hub-panel-line));
+  --hub-accent: var(--hub-zune-main-accent-live, var(--hub-panel-accent));
+  --hub-accent-soft: var(--hub-zune-main-accent-soft-live, var(--hub-panel-accent-soft));
+  --hub-scrub-accent: var(--hub-zune-main-accent-live, var(--hub-panel-accent));
+  --hub-scrub-remaining: var(--hub-zune-main-line-live, var(--hub-panel-line));
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  overflow: visible;
+  pointer-events: none;
+  transition: --hub-zune-main-ink-live 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    --hub-zune-main-muted-live 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    --hub-zune-main-accent-live 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    --hub-zune-main-accent-soft-live 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    --hub-zune-main-line-live 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    --hub-zune-menu-ink-live 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    --hub-zune-menu-muted-live 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    --hub-zune-menu-accent-live 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    --hub-zune-menu-accent-soft-live 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    --hub-zune-menu-line-live 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 2147483646;
+}
+
+/* Dynamic colour is shared by Dock, Fade, and Float. Dock opts into the same
+   sampled surface and contrast palette; disabling it restores the selected
+   Bandkit theme for every style. */
+.hub-player[data-player-style="docked"][data-dynamic-color="true"] {
+  --hub-docked-surface: var(--hub-zune-surface-live, var(--hub-panel));
+  --hub-ink: var(--hub-zune-main-ink-live, var(--hub-panel-ink));
+  --hub-muted: var(--hub-zune-main-muted-live, var(--hub-panel-muted));
+  --hub-faint: var(--hub-zune-main-muted-live, var(--hub-panel-faint));
+  --hub-line: var(--hub-zune-main-line-live, var(--hub-panel-line));
+  --hub-accent: var(--hub-zune-main-accent-live, var(--hub-panel-accent));
+  --hub-accent-soft: var(--hub-zune-main-accent-soft-live, var(--hub-panel-accent-soft));
+  --hub-scrub-accent: var(--hub-zune-main-accent-live, var(--hub-panel-accent));
+  --hub-scrub-remaining: var(--hub-zune-main-line-live, var(--hub-panel-line));
+  background: transparent;
+  transition: background-color 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 160ms ease, color 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hub-player[data-player-style="zune"][data-dynamic-color="false"] {
+  --hub-zune-surface: var(--hub-panel);
+  --hub-ink: var(--hub-panel-ink);
+  --hub-muted: var(--hub-panel-muted);
+  --hub-faint: var(--hub-panel-faint);
+  --hub-line: var(--hub-panel-line);
+  --hub-accent: var(--hub-panel-accent);
+  --hub-accent-soft: var(--hub-panel-accent-soft);
+  --hub-scrub-accent: var(--hub-panel-accent);
+  --hub-scrub-remaining: var(--hub-panel-line);
+}
+
+.hub-player[data-player-style="zune"][data-dynamic-color="false"] .hub-player-sections {
+  --hub-ink: var(--hub-panel-ink);
+  --hub-muted: var(--hub-panel-muted);
+  --hub-faint: var(--hub-panel-faint);
+  --hub-line: var(--hub-panel-line);
+  --hub-accent: var(--hub-panel-accent);
+  --hub-accent-soft: var(--hub-panel-accent-soft);
+}
+
+.hub-player.is-frosted-glass[data-player-style="zune"]::before {
+  display: none;
+}
+
+.hub-player[data-player-style="zune"] .hub-player-backdrop-glow {
+  bottom: -96px;
+  display: block;
+  height: calc(228px + var(--hub-player-offset, 0px));
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-50%);
+  width: var(--hub-fade-backdrop-width);
+  z-index: 0;
+  transition: width 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* A manually resized Zune player keeps its broad feathered shoulders, but the
+   surface now grows from the same persisted width as the playback content. */
+.hub-player[data-player-style="zune"][data-content-width="custom"]:not([data-player-variant="rounded"]) {
+  --hub-fade-backdrop-width: min(calc(var(--hub-player-custom-width, 900px) + 640px), calc(100vw + 160px));
+}
+
+.hub-player[data-player-style="zune"][data-content-width="wide"]:not([data-player-variant="rounded"]) {
+  --hub-fade-backdrop-width: min(1560px, calc(100vw + 120px));
+}
+
+.hub-player[data-player-style="zune"][data-content-width="full"]:not([data-player-variant="rounded"]) {
+  --hub-fade-backdrop-width: calc(100vw + 160px);
+}
+
+/* Keep the two progressively blurred surfaces and shape only their upper
+   contour. The shallow lower shoulders retain coverage near the outer corners
+   while the taller layers lift the soft falloff above metadata and controls. */
+.hub-player[data-player-style="zune"] .hub-player-backdrop-glow::before,
+.hub-player[data-player-style="zune"] .hub-player-backdrop-glow::after {
+  background-color: var(--hub-zune-surface);
+  border-radius: 50% 50% 0 0 / 90% 90% 0 0;
+  content: "";
+  left: 50%;
+  mix-blend-mode: var(--hub-player-blend-mode, normal);
+  pointer-events: none;
+  position: absolute;
+  transition: background-color 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateX(-50%);
+}
+
+/* Fade's plume is an optical effect rather than a component surface. Keep its
+   tapered contour when Square or Custom corners flatten the surrounding UI. */
+:host([data-corner-style="square"]) .hub-player[data-player-style="zune"]:not([data-player-variant="rounded"]) .hub-player-backdrop-glow::before,
+:host([data-corner-style="square"]) .hub-player[data-player-style="zune"]:not([data-player-variant="rounded"]) .hub-player-backdrop-glow::after,
+:host([data-corner-style="custom"]) .hub-player[data-player-style="zune"]:not([data-player-variant="rounded"]) .hub-player-backdrop-glow::before,
+:host([data-corner-style="custom"]) .hub-player[data-player-style="zune"]:not([data-player-variant="rounded"]) .hub-player-backdrop-glow::after {
+  border-radius: 50% 50% 0 0 / 90% 90% 0 0 !important;
+}
+
+.hub-player[data-player-style="zune"] .hub-player-backdrop-glow::before {
+  bottom: -18px;
+  filter: blur(clamp(28px, 2.2vw, 42px));
+  height: calc(244px + var(--hub-player-offset, 0px));
+  opacity: 0.98;
+  width: 104%;
+  z-index: 1;
+}
+
+.hub-player[data-player-style="zune"] .hub-player-backdrop-glow::after {
+  bottom: -54px;
+  filter: blur(clamp(9px, 0.75vw, 13px));
+  height: calc(280px + var(--hub-player-offset, 0px));
+  opacity: 1;
+  width: 94%;
+  z-index: 2;
+}
+
+.hub-player[data-player-style="zune"] .hub-player-content {
+  box-sizing: border-box;
+  margin-left: auto;
+  margin-right: auto;
+  pointer-events: auto;
+  position: relative;
+  transform: translateY(calc(0px - var(--hub-zune-content-lift) - var(--hub-player-offset, 0px)));
+  width: min(800px, calc(100vw - 48px));
+  z-index: 2;
+}
+
+.hub-player[data-player-style="zune"] :is(.hub-dj-drawer, .hub-player-actions, .hub-player-sections, .hub-toast) {
+  pointer-events: auto;
+}
+
+.hub-player[data-player-style="zune"][data-content-width="tight"] .hub-player-content {
+  width: min(640px, calc(100vw - 48px));
+}
+
+.hub-player[data-player-style="zune"][data-content-width="wide"] .hub-player-content {
+  width: min(1120px, calc(100vw - 48px));
+}
+
+.hub-player[data-player-style="zune"][data-content-width="custom"] .hub-player-content {
+  width: min(var(--hub-player-custom-width, 900px), calc(100vw - 48px));
+}
+
+.hub-player[data-player-style="zune"][data-content-width="full"] .hub-player-content {
+  margin-left: auto;
+  margin-right: auto;
+  width: calc(100vw - 48px);
+}
+
+.hub-player[data-player-style="zune"] .hub-player-art-link {
+  align-self: center;
+  border-radius: 7px;
+  height: calc(100% - 20px);
+  margin: 10px;
+  transform: scale(1);
+  transform-origin: center;
+  transition: opacity 150ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  width: calc(var(--hub-player-height) - 20px);
+}
+
+.hub-player[data-player-style="docked"] .hub-player-art-link {
+  transform: scale(1);
+  transform-origin: center;
+  transition: opacity 150ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hub-player[data-player-style="docked"] .hub-player-actions {
+  gap: 0;
+  left: var(--hub-zune-actions-x, 48px);
+  top: 50%;
+  z-index: 9;
+}
+
+.hub-player[data-player-style="docked"] .hub-skip-button {
+  height: 32px;
+  width: 28px;
+}
+
+.hub-player[data-player-style="docked"] .hub-previous-button {
+  margin-right: -10px;
+}
+
+.hub-player[data-player-style="docked"] .hub-next-button {
+  margin-left: -10px;
+}
+
+:host([data-corner-style="square"]) .hub-player[data-player-style="zune"] .hub-player-art-link {
+  border-radius: 0 !important;
+}
+
+:host([data-corner-style="custom"]) .hub-player[data-player-style="zune"] .hub-player-art-link {
+  border-radius: var(--hub-custom-corner-radius, 12px) !important;
+}
+
+.hub-player[data-player-style="zune"] .hub-player-main {
+  padding-left: 4px;
+  padding-right: calc(var(--hub-player-height) + 4px);
+}
+
+.hub-player[data-player-style="zune"] .hub-player-actions {
+  gap: 0;
+  left: var(--hub-zune-actions-x, calc(50% - 352px));
+  top: calc(50% - var(--hub-zune-content-lift) - var(--hub-player-offset, 0px));
+  z-index: 9;
+}
+
+.hub-player[data-player-style="zune"] .hub-skip-button {
+  height: 32px;
+  width: 28px;
+}
+
+.hub-player[data-player-style="zune"] .hub-skip-icon {
+  height: 13px;
+  width: 13px;
+}
+
+.hub-player[data-player-style="zune"] .hub-play-button .hub-button-icon {
+  height: 30px;
+  width: 30px;
+}
+
+.hub-player[data-player-style="zune"] .hub-previous-button {
+  margin-right: -10px;
+}
+
+.hub-player[data-player-style="zune"] .hub-next-button {
+  margin-left: -10px;
+}
+
+.hub-player[data-player-style="zune"] .hub-player-sections {
+  height: var(--hub-player-height);
+  left: auto;
+  right: var(--hub-zune-sections-right, 24px);
+  top: calc(50% - var(--hub-zune-content-lift) - var(--hub-player-offset, 0px));
+  transform: translateY(-50%);
+  transition: left 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    right 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    top 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  width: var(--hub-player-height);
+  z-index: 9;
+}
+
+.hub-player[data-player-style="zune"][data-panel-buttons="compact"] .hub-player-sections {
+  width: var(--hub-player-height);
+}
+
+.hub-player[data-player-style="zune"] .hub-player-sections {
+  --hub-ink: var(--hub-zune-menu-ink-live, var(--hub-zune-main-ink-live));
+  --hub-muted: var(--hub-zune-menu-muted-live, var(--hub-zune-main-muted-live));
+  --hub-faint: var(--hub-zune-menu-muted-live, var(--hub-zune-main-muted-live));
+  --hub-line: var(--hub-zune-menu-line-live, var(--hub-zune-main-line-live));
+  --hub-accent: var(--hub-zune-menu-accent-live, var(--hub-zune-main-accent-live));
+  --hub-accent-soft: var(--hub-zune-menu-accent-soft-live, var(--hub-zune-main-accent-soft-live));
+}
+
+/* Empty players reduce to the same single panel chevron used during playback.
+   It is centred until a track starts, then glides to its normal edge position
+   as the player content and its surrounding surface appear. */
+.hub-player.is-empty .hub-player-sections {
+  left: 50%;
+  right: auto;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.hub-player.is-empty[data-player-style="zune"] .hub-player-sections {
+  left: auto;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.hub-player.is-empty[data-player-style="zune"][data-panel-buttons="compact"] .hub-player-sections {
+  right: calc(50% - var(--hub-player-height) / 2);
+}
+
+.hub-player.is-empty[data-player-style="zune"]:not([data-player-variant="rounded"])[data-panel-buttons="compact"] {
+  --hub-fade-backdrop-width: 280px;
+}
+
+.hub-player.is-empty[data-player-style="zune"][data-player-variant="rounded"][data-panel-buttons="compact"] {
+  --hub-rounded-card-width: 68px;
+}
+
+/* Float collapses to a small, centred destination surface while empty. Reset
+   the visualiser lift and centre the compact card on the destination itself so
+   no unused player-height block remains above the controls. */
+.hub-player.is-empty[data-player-style="zune"][data-player-variant="rounded"][data-panel-buttons][data-visualizer] {
+  --hub-zune-content-lift: 0px;
+}
+
+.hub-player.is-empty[data-player-style="zune"][data-player-variant="rounded"] .hub-player-backdrop-glow {
+  bottom: calc(50% - 34px);
+  height: 68px;
+}
+
+.hub-player[data-player-style="zune"] .hub-player-visualizer {
+  bottom: -3px;
+  height: 72px;
+  left: 50%;
+  position: fixed;
+  right: auto;
+  transform: translateX(-50%);
+  width: min(64vw, 1520px);
+  z-index: 1;
+}
+
+.hub-player[data-player-style="zune"][data-content-width="custom"]:not([data-player-variant="rounded"]) .hub-player-visualizer {
+  width: min(calc(var(--hub-player-custom-width, 900px) + var(--hub-player-custom-width, 900px)), calc(100vw + 160px));
+}
+
+.hub-player[data-player-style="zune"] .hub-player-visualizer::before {
+  inset: 0;
+  transform-origin: 50% 100%;
+}
+
+.hub-player[data-player-style="zune"] .hub-player-spectrum {
+  bottom: 0;
+  height: 100%;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hub-player[data-player-style="zune"] .hub-player-actions {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -50%) scale(0.92);
+    transition: opacity 150ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .hub-player[data-player-style="zune"]:has(:is(.hub-player-content, .hub-player-actions):is(:hover, :focus-within)) .hub-player-actions,
+  .hub-player[data-player-style="zune"]:has(.hub-player-tools [aria-expanded="true"]) .hub-player-actions {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  .hub-player[data-player-style="zune"]:has(:is(.hub-player-content, .hub-player-actions):is(:hover, :focus-within)) .hub-player-art-link,
+  .hub-player[data-player-style="zune"]:has(.hub-player-tools [aria-expanded="true"]) .hub-player-art-link {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.88);
+  }
+}
+
+@media (hover: none) {
+  .hub-player[data-player-style="zune"] .hub-player-art-link {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .hub-player[data-player-style="zune"] .hub-player-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* Rounded is a surface-only Zune variant: playback, destinations, geometry,
+   hover behaviour, and responsive rules remain identical. Only the two broad
+   feathered plumes become compact cards with a small amount of breathing room. */
+.hub-player[data-player-style="zune"][data-player-variant="rounded"][data-visualizer]:not([data-visualizer="off"]) {
+  --hub-zune-content-lift: 42px;
+}
+
+.hub-player[data-player-style="zune"][data-player-variant="rounded"] {
+  --hub-rounded-card-width: min(812px, calc(100vw - 24px));
+}
+
+.hub-player[data-player-style="zune"][data-player-variant="rounded"][data-content-width="tight"] {
+  --hub-rounded-card-width: min(652px, calc(100vw - 24px));
+}
+
+.hub-player[data-player-style="zune"][data-player-variant="rounded"][data-content-width="wide"] {
+  --hub-rounded-card-width: min(1132px, calc(100vw - 24px));
+}
+
+.hub-player[data-player-style="zune"][data-player-variant="rounded"][data-content-width="custom"] {
+  --hub-rounded-card-width: min(calc(var(--hub-player-custom-width, 900px) + 12px), calc(100vw - 24px));
+}
+
+.hub-player[data-player-style="zune"][data-player-variant="rounded"][data-content-width="full"] {
+  --hub-rounded-card-width: calc(100vw - 36px);
+}
+
+.hub-player[data-player-style="zune"][data-player-variant="rounded"] .hub-player-visualizer {
+  width: min(calc(var(--hub-rounded-card-width) + var(--hub-rounded-card-width)), calc(100vw + 160px));
+}
+
+.hub-player[data-player-style="zune"][data-player-variant="rounded"] .hub-player-backdrop-glow {
+  bottom: calc(var(--hub-zune-content-lift) - 8px + var(--hub-player-offset, 0px));
+  height: calc(var(--hub-player-height) + 12px);
+  width: var(--hub-rounded-card-width);
+}
+
+.hub-player[data-player-style="zune"][data-player-variant="rounded"][data-content-width="tight"] .hub-player-backdrop-glow {
+  width: var(--hub-rounded-card-width);
+}
+
+.hub-player[data-player-style="zune"][data-player-variant="rounded"][data-content-width="wide"] .hub-player-backdrop-glow {
+  width: var(--hub-rounded-card-width);
+}
+
+.hub-player[data-player-style="zune"][data-player-variant="rounded"][data-content-width="custom"] .hub-player-backdrop-glow {
+  width: var(--hub-rounded-card-width);
+}
+
+.hub-player[data-player-style="zune"][data-player-variant="rounded"][data-content-width="full"] .hub-player-backdrop-glow {
+  width: var(--hub-rounded-card-width);
+}
+
+.hub-player[data-player-style="zune"][data-player-variant="rounded"] .hub-player-backdrop-glow::before {
+  background-color: var(--hub-zune-surface);
+  border: 1px solid transparent;
+  border-radius: 14px;
+  filter: none;
+  height: auto;
+  inset: 0;
+  opacity: 1;
+  transition: background-color 420ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms ease;
+  transform: none;
+  width: auto;
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  /* Float's rounded card is the visible surface, so glass belongs on that
+     card rather than on the full-width transparent player shell. */
+  .hub-player.is-frosted-glass[data-player-style="zune"][data-player-variant="rounded"] .hub-player-backdrop-glow::before {
+    background-color: color-mix(in srgb, var(--hub-zune-surface) var(--hub-glass-surface-opacity, 65%), transparent);
+    -webkit-backdrop-filter: blur(var(--hub-glass-blur, 19px)) saturate(1.16);
+    backdrop-filter: blur(var(--hub-glass-blur, 19px)) saturate(1.16);
+  }
+}
+
+.hub-player[data-player-style="zune"][data-player-variant="rounded"]:is(:hover, :focus-within) .hub-player-backdrop-glow::before {
+  border-color: color-mix(in srgb, var(--hub-line) 34%, transparent);
+}
+
+/* Dock's boundary is disclosed only when the user interacts with the bar. */
+.hub-player[data-player-style="docked"] {
+  --hub-docked-surface: var(--hub-panel);
+  height: calc(var(--hub-player-height) + var(--hub-dock-visualizer-clearance, 0px) + var(--hub-player-offset, 0px));
+  background: transparent;
+  border-top-color: transparent;
+  transition: background-color 420ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms ease;
+}
+
+.hub-player[data-player-style="docked"]::before {
+  background: var(--hub-docked-surface);
+  border-radius: inherit;
+  content: "";
+  inset: 0;
+  mix-blend-mode: var(--hub-player-blend-mode, normal);
+  pointer-events: none;
+  position: absolute;
+  transition: background-color 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 0;
+}
+
+.hub-player[data-player-style="docked"] .hub-player-content {
+  height: var(--hub-player-height);
+  position: relative;
+  z-index: 1;
+}
+
+/* Controls retain their normal row height; only the surface grows below it. */
+.hub-player[data-player-style="docked"] :is(.hub-player-actions, .hub-player-sections) {
+  top: calc(var(--hub-player-height) / 2);
+}
+
+.hub-player[data-player-style="docked"]:is(:hover, :focus-within) {
+  border-top-color: color-mix(in srgb, var(--hub-line) 42%, transparent);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .hub-player.is-frosted-glass[data-player-style="docked"]::before {
+    background: color-mix(in srgb, var(--hub-docked-surface) var(--hub-glass-surface-opacity, 65%), transparent);
+    -webkit-backdrop-filter: blur(var(--hub-glass-blur, 19px)) saturate(1.16);
+    backdrop-filter: blur(var(--hub-glass-blur, 19px)) saturate(1.16);
+  }
+}
+
+.hub-player[data-player-style="zune"][data-player-variant="rounded"] .hub-player-backdrop-glow::after {
+  display: none;
+}
+
+.hub-player-resize-handle {
+  bottom: 0;
+  cursor: ew-resize !important;
+  display: none;
+  position: absolute;
+  top: 0;
+  touch-action: none;
+  width: 16px;
+  z-index: 9;
+}
+.hub-player-resize-handle::after {
+  background: var(--hub-accent);
+  border-radius: 999px;
+  content: "";
+  height: 30px;
+  opacity: 0;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: opacity 120ms ease;
+  width: 2px;
+}
+.hub-player-resize-handle.is-left {
+  left: 0;
+}
+.hub-player-resize-handle.is-left::after {
+  left: 4px;
+}
+.hub-player-resize-handle.is-right {
+  right: 0;
+}
+.hub-player-resize-handle.is-right::after {
+  right: 4px;
+}
+.hub-player[data-player-style="docked"] .hub-player-resize-handle,
+.hub-player[data-player-style="zune"] .hub-player-resize-handle {
+  display: block;
+  pointer-events: auto;
+}
+
+.hub-player[data-player-style="docked"] .hub-player-resize-handle.is-left {
+  left: calc(var(--hub-player-content-left, 24px) - 16px);
+}
+
+.hub-player[data-player-style="docked"] .hub-player-resize-handle.is-right {
+  right: calc(100% - var(--hub-player-content-right, calc(100% - 24px)) - 16px);
+}
+
+.hub-player[data-player-style="zune"] .hub-player-resize-handle.is-left {
+  left: calc(var(--hub-player-content-left, 24px) - 8px);
+}
+
+.hub-player[data-player-style="zune"] .hub-player-resize-handle.is-right {
+  right: calc(100% - var(--hub-player-content-right, calc(100% - 24px)) - 8px);
+}
+
+.hub-player[data-player-style="zune"][data-player-variant="rounded"] .hub-player-resize-handle {
+  bottom: calc(var(--hub-zune-content-lift) - 8px + var(--hub-player-offset, 0px));
+  display: block;
+  height: calc(var(--hub-player-height) + 12px);
+  top: auto;
+}
+
+.hub-player[data-player-style="zune"][data-player-variant="rounded"] .hub-player-resize-handle.is-left {
+  left: calc((100% - var(--hub-rounded-card-width)) / 2);
+}
+
+.hub-player[data-player-style="zune"][data-player-variant="rounded"] .hub-player-resize-handle.is-right {
+  right: calc((100% - var(--hub-rounded-card-width)) / 2);
+}
+.hub-player-resize-handle:hover::after,
+.hub-player-resize-handle.is-active::after {
+  opacity: 0.22;
+}
 .hub-player-sections {
   align-items: center;
   color: var(--hub-ink);
@@ -46,8 +656,45 @@
   right: auto;
   top: 50%;
   transform: translate(-50%, -50%);
+  transition: left 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    right 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    top 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 360ms cubic-bezier(0.22, 1, 0.36, 1);
   width: var(--hub-sections-panel-width, min(420px, calc(100vw - 32px)));
 }
+
+
+.hub-chevron-drag-handle {
+  display: none;
+}
+.hub-player[data-player-style="docked"]:not(.is-empty) .hub-player-sections {
+  translate: calc(-1 * var(--hub-dock-chevron-offset, 0px)) 0;
+}
+.hub-player[data-player-style="docked"]:not(.is-empty) .hub-chevron-drag-handle {
+  display: block;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  cursor: grab;
+  touch-action: none;
+}
+.hub-chevron-drag-handle.is-left { left: -14px; }
+.hub-chevron-drag-handle.is-right { right: -14px; }
+.hub-chevron-drag-handle::after {
+  content: "";
+  position: absolute;
+  height: 22px;
+  width: 3px;
+  border-radius: 3px;
+  background: currentColor;
+  left: 5px;
+  top: calc(50% - 11px);
+  opacity: 0;
+}
+.hub-chevron-drag-handle:is(:hover, :focus-visible, .is-active)::after { opacity: 0.35; }
+.hub-chevron-drag-handle.is-active { cursor: grabbing; }
 
 .hub-player-sections .hub-header-shortcuts {
   color: inherit;
@@ -55,10 +702,14 @@
   height: 40px;
 }
 
+.hub-player-sections .hub-header-shortcut-label {
+  display: none;
+}
+
 .hub-player-sections .hub-header-shortcut:hover,
 .hub-player-sections .hub-header-shortcut:focus-visible,
 .hub-player-sections .hub-header-shortcut.is-active {
-  background: var(--hub-accent-soft);
+  background: transparent;
   color: var(--hub-accent);
 }
 
@@ -78,7 +729,7 @@
 .hub-player-sections .hub-now-playing-button:hover,
 .hub-player-sections .hub-now-playing-button:focus-visible,
 .hub-player-sections .hub-now-playing-button.is-active {
-  background: var(--hub-accent-soft);
+  background: transparent;
   border-color: transparent;
   color: var(--hub-accent);
 }
@@ -99,33 +750,54 @@
 }
 
 .hub-player-sections .hub-now-playing-count {
-  height: 17px;
-  min-width: 17px;
-  padding: 0 4px;
-  position: absolute;
-  right: -3px;
-  top: -5px;
+  display: none !important;
+}
+
+.hub-player .hub-header-shortcut-count {
+  display: none !important;
 }
 
 .hub-player-main {
-  align-items: center;
   display: grid;
-  gap: 10px;
-  grid-template-columns: auto minmax(0, 320px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   min-height: 0;
-  padding: 6px 12px 2px;
+  min-width: 0;
+  padding: 0 12px;
 }
 
+.hub-player-top-row {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  transform: translateY(6px);
+}
+
+.hub-player-playback-row {
+  align-items: center;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  padding-bottom: 4px;
+  isolation: isolate;
+  position: relative;
+}
+
+/* Compact keeps the same metadata/timeline hierarchy in a shorter shell. */
 .hub-player.is-compact .hub-player-main {
-  display: contents;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .hub-player-tools {
   align-items: center;
   display: flex;
   gap: 5px;
-  grid-column: 3;
   justify-content: flex-end;
+  justify-self: end;
+  min-width: 0;
+  position: relative;
 }
 
 .hub-player-analysis {
@@ -142,18 +814,13 @@
 
 .hub-player-analysis-badge {
   align-items: center;
-  background: var(--hub-accent-soft);
-  border: 1px solid color-mix(in srgb, var(--hub-accent) 32%, transparent);
-  border-radius: 999px;
-  color: var(--hub-accent);
+  color: var(--hub-muted);
   display: inline-flex;
-  font-size: 9px;
-  font-weight: 750;
+  font-size: 11px;
+  font-weight: 700;
   gap: 3px;
-  height: 22px;
   letter-spacing: 0.02em;
-  line-height: 1;
-  padding: 0 7px;
+  line-height: 15px;
   white-space: nowrap;
 }
 
@@ -161,15 +828,14 @@
   opacity: 0.78;
 }
 
-.hub-player[data-content-width="tight"] .hub-player-key-name,
-.hub-player.is-compact .hub-player-key-name {
+.hub-player[data-content-width="tight"] .hub-player-key-name {
   display: none;
 }
 
 .hub-now-playing-button {
   align-items: center;
   background: transparent;
-  border: 1px solid var(--hub-line);
+  border: 1px solid transparent;
   border-radius: 999px;
   color: var(--hub-ink);
   cursor: pointer;
@@ -180,12 +846,17 @@
 }
 
 .hub-now-playing-button:hover,
-.hub-now-playing-button:focus-visible,
-.hub-now-playing-button.is-active {
-  background: var(--hub-accent-soft);
-  border-color: var(--hub-accent);
+.hub-now-playing-button:focus-visible {
+  background: transparent;
+  border-color: transparent;
   color: var(--hub-accent);
   outline: 0;
+}
+
+.hub-now-playing-button.is-active {
+  background: transparent;
+  border-color: transparent;
+  color: var(--hub-accent);
 }
 
 .hub-now-playing-icon {
@@ -215,6 +886,10 @@
   padding: 0 5px;
 }
 
+.hub-now-playing-count[hidden] {
+  display: none;
+}
+
 .hub-now-playing-button.is-active .hub-now-playing-count {
   background: var(--hub-accent);
   color: var(--hub-on-accent);
@@ -223,612 +898,4 @@
 .hub-header-shortcut.is-active .hub-header-shortcut-count {
   background: var(--hub-accent);
   color: var(--hub-on-accent);
-}
-
-.hub-player-more-wrap {
-  position: relative;
-}
-
-.hub-player-more-button {
-  align-items: center;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--hub-control-radius);
-  color: var(--hub-accent);
-  cursor: pointer;
-  display: flex;
-  height: 32px;
-  justify-content: center;
-  padding: 0;
-  width: 32px;
-}
-
-.hub-player-more-dots {
-  align-items: center;
-  display: flex;
-  gap: 3px;
-  justify-content: center;
-}
-
-.hub-player-more-dots span {
-  background: currentColor;
-  border-radius: 999px;
-  display: block;
-  height: 3px;
-  width: 3px;
-}
-
-.hub-player-more-button:hover:not(:disabled),
-.hub-player-more-button:focus-visible,
-.hub-player-more-button[aria-expanded="true"] {
-  background: var(--hub-accent-soft);
-  border-color: var(--hub-accent);
-  color: var(--hub-accent);
-  outline: 0;
-}
-
-.hub-player-more-button:disabled {
-  cursor: default;
-  opacity: 0.4;
-}
-
-.hub-player-more-menu {
-  background: var(--hub-card);
-  border: 1px solid var(--hub-line);
-  border-radius: 5px;
-  bottom: 38px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
-  color: var(--hub-ink);
-  min-width: 126px;
-  padding: 5px;
-  position: absolute;
-  right: 0;
-  z-index: 20;
-}
-
-.hub-player-more-menu[hidden] {
-  display: none;
-}
-
-.hub-player-more-menu .hub-queue-actions.is-labeled {
-  gap: 2px;
-}
-
-.hub-player-more-menu .hub-playlist-destination.is-labeled {
-  display: block;
-}
-
-.hub-player-more-menu .hub-playlist-destination-menu {
-  bottom: auto;
-  left: calc(100% + 6px);
-  right: auto;
-  top: -6px;
-}
-
-.hub-player-more-menu .hub-playlist-destination-menu.opens-left {
-  left: auto;
-  right: calc(100% + 6px);
-}
-
-.hub-player-more-menu .hub-queue-action.is-labeled {
-  background: transparent;
-  border-color: transparent;
-  border-radius: 3px;
-  color: var(--hub-ink);
-  height: 34px;
-  padding: 0 8px;
-}
-
-.hub-player-more-menu .hub-queue-action.is-labeled:hover:not(:disabled),
-.hub-player-more-menu .hub-queue-action.is-labeled:focus-visible {
-  background: var(--hub-accent-soft);
-  border-color: transparent;
-  color: var(--hub-accent);
-}
-
-.hub-player-more-menu .hub-queue-action.is-labeled.is-active {
-  background: var(--hub-accent-soft);
-  border-color: transparent;
-  color: var(--hub-accent);
-}
-
-.hub-player-track {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  justify-content: flex-start;
-  min-width: 0;
-}
-
-.hub-player-track.is-empty {
-  display: none;
-}
-
-.hub-player-art-link {
-  display: block;
-  flex: 0 0 42px;
-  height: 42px;
-  width: 42px;
-}
-
-.hub-player-art-link .hub-art {
-  height: 42px;
-  width: 42px;
-}
-
-.hub-player .hub-track-copy {
-  align-items: flex-start;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  text-align: left;
-}
-
-.hub-player .hub-track-title {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-  line-height: 16px;
-}
-
-.hub-player .hub-track-artist {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 10px;
-  line-height: 15px;
-}
-
-.hub-player-actions {
-  align-items: center;
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  min-height: 32px;
-}
-
-.hub-player.is-compact .hub-player-actions {
-  grid-area: actions;
-}
-
-.hub-player.is-compact .hub-player-track {
-  grid-area: track;
-}
-
-.hub-player.is-compact .hub-player-tools {
-  grid-area: tools;
-  grid-column: tools;
-}
-
-.hub-dj-player-button {
-  align-items: center;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--hub-control-radius);
-  color: var(--hub-accent);
-  cursor: pointer;
-  display: flex;
-  height: 32px;
-  justify-content: center;
-  padding: 0;
-  width: 32px;
-}
-
-.hub-dj-player-button:hover,
-.hub-dj-player-button:focus-visible {
-  background: var(--hub-accent-soft);
-  border-color: var(--hub-accent);
-  outline: 0;
-}
-
-.hub-dj-player-button img {
-  display: none;
-}
-
-.hub-dj-player-button::before {
-  background: currentColor;
-  content: "";
-  height: 18px;
-  mask: var(--hub-dj-icon) center / contain no-repeat;
-  -webkit-mask: var(--hub-dj-icon) center / contain no-repeat;
-  width: 18px;
-}
-
-.hub-dj-player-button.is-active {
-  background: var(--hub-accent);
-  border-color: var(--hub-accent);
-  color: var(--hub-on-accent);
-}
-
-.hub-play-button {
-  align-items: center;
-  background: var(--hub-control-bg);
-  border: 1px solid var(--hub-control-border);
-  border-radius: var(--hub-control-radius);
-  color: var(--hub-control-fg);
-  cursor: pointer;
-  display: flex;
-  height: 36px;
-  justify-content: center;
-  padding: 0;
-  width: 36px;
-}
-
-.hub-play-button:hover,
-.hub-play-button:focus-visible {
-  background: var(--hub-accent-soft);
-  border-color: var(--hub-accent);
-  box-shadow: none;
-  color: var(--hub-accent);
-  filter: none;
-  outline: 0;
-}
-
-.hub-play-button:disabled {
-  box-shadow: none;
-  cursor: default;
-  filter: none;
-  opacity: 0.35;
-}
-
-.hub-play-button .hub-button-icon {
-  height: 16px;
-  width: 16px;
-}
-
-@keyframes hub-playback-loading-spin {
-  to { transform: rotate(360deg); }
-}
-
-.hub-play-button.is-loading:disabled {
-  opacity: 1;
-  position: relative;
-}
-
-.hub-play-button.is-loading .hub-button-icon {
-  visibility: hidden;
-}
-
-.hub-play-button.is-loading::after {
-  animation: hub-playback-loading-spin 700ms linear infinite;
-  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
-  border-radius: 50%;
-  border-top-color: currentColor;
-  box-sizing: border-box;
-  content: "";
-  height: 16px;
-  position: absolute;
-  width: 16px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hub-play-button.is-loading::after {
-    animation: none;
-    border-color: currentColor;
-    opacity: 0.65;
-  }
-}
-
-.hub-skip-button {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  display: flex;
-  height: 20px;
-  justify-content: center;
-  padding: 0;
-  width: 20px;
-}
-
-.hub-skip-button img {
-  height: 15px;
-  width: 15px;
-}
-
-.hub-previous-button img {
-  transform: rotate(180deg);
-}
-
-.hub-scrub-row {
-  align-items: center;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 34px minmax(0, 1fr) 34px;
-  padding: 0 12px 10px;
-}
-
-.hub-player.is-compact .hub-scrub-row {
-  gap: 8px;
-  grid-area: scrub;
-  grid-template-columns: 34px minmax(0, 1fr) 34px;
-  min-width: 0;
-  padding: 0;
-}
-
-.hub-current-time,
-.hub-duration {
-  color: var(--hub-muted);
-  font-size: 9px;
-  font-variant-numeric: tabular-nums;
-}
-
-.hub-duration {
-  text-align: right;
-}
-
-.hub-scrub-control {
-  --hub-scrub-progress: 0%;
-  align-items: center;
-  display: flex;
-  height: 28px;
-  min-width: 0;
-  position: relative;
-  touch-action: none;
-  width: 100%;
-}
-
-.hub-scrub-slider {
-  height: 28px;
-  inset: 0;
-  opacity: 0;
-  position: absolute;
-  z-index: 2;
-  cursor: pointer;
-  margin: 0;
-  min-width: 0;
-  width: 100%;
-}
-
-.hub-scrub-waveform {
-  display: block;
-  height: 24px;
-  overflow: visible;
-  pointer-events: none;
-  width: 100%;
-}
-
-.hub-player.is-compact .hub-player-sections .hub-header-shortcuts,
-.hub-player.is-compact .hub-player-sections .hub-header-shortcut,
-.hub-player.is-compact .hub-player-sections .hub-now-playing-button {
-  height: 34px;
-}
-
-.hub-player.is-compact .hub-player-sections :is(.hub-header-shortcut, .hub-now-playing-button) {
-  width: 34px;
-}
-
-.hub-player.is-compact .hub-player-sections :is(.hub-header-shortcut-icon, .hub-now-playing-icon) {
-  height: 18px;
-  width: 18px;
-}
-
-.hub-scrub-waveform path {
-  fill: none;
-  stroke-linecap: round;
-  stroke-width: 2.4;
-}
-
-.hub-scrub-waveform-remaining {
-  stroke: var(--hub-scrub-remaining);
-}
-
-.hub-scrub-waveform-played {
-  clip-path: inset(0 calc(100% - var(--hub-scrub-progress)) 0 0);
-  stroke: var(--hub-scrub-accent);
-}
-
-.hub-scrub-playhead {
-  background: var(--hub-scrub-accent);
-  border: 2px solid var(--hub-scrub-surface);
-  border-radius: 999px;
-  box-shadow: 0 0 0 1px var(--hub-scrub-halo), 0 1px 4px color-mix(in srgb, var(--hub-ink) 22%, transparent);
-  height: 18px;
-  left: var(--hub-scrub-progress);
-  opacity: 0;
-  pointer-events: none;
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%) scale(0.75);
-  transition: box-shadow 140ms ease, height 140ms ease, opacity 120ms ease, transform 140ms ease, width 140ms ease;
-  width: 7px;
-  z-index: 1;
-}
-
-.hub-scrub-control:hover .hub-scrub-playhead,
-.hub-scrub-slider:focus-visible ~ .hub-scrub-playhead,
-.hub-scrub-slider:active ~ .hub-scrub-playhead {
-  box-shadow: 0 0 0 1px var(--hub-scrub-halo), 0 2px 7px color-mix(in srgb, var(--hub-scrub-accent) 38%, transparent);
-  height: 22px;
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
-  width: 9px;
-}
-
-@keyframes hub-pending-seek-pulse {
-  0%, 100% { box-shadow: 0 0 0 1px var(--hub-scrub-halo), 0 0 0 3px color-mix(in srgb, var(--hub-scrub-accent) 12%, transparent); }
-  50% { box-shadow: 0 0 0 1px var(--hub-scrub-halo), 0 0 0 7px color-mix(in srgb, var(--hub-scrub-accent) 28%, transparent); }
-}
-
-.hub-scrub-control.is-pending-seek .hub-scrub-playhead {
-  animation: hub-pending-seek-pulse 900ms ease-in-out infinite;
-  height: 22px;
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
-  width: 9px;
-}
-
-.hub-scrub-control.is-pending-seek .hub-scrub-waveform {
-  opacity: 0.72;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hub-scrub-control.is-pending-seek .hub-scrub-playhead {
-    animation: none;
-  }
-}
-
-.hub-scrub-control.is-traditional::before,
-.hub-scrub-control.is-traditional::after {
-  border-radius: 999px;
-  content: "";
-  height: 4px;
-  left: 0;
-  pointer-events: none;
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.hub-scrub-control.is-traditional::before {
-  background: var(--hub-scrub-remaining);
-  right: 0;
-}
-
-.hub-scrub-control.is-traditional::after {
-  background: var(--hub-scrub-accent);
-  width: var(--hub-scrub-progress);
-}
-
-.hub-scrub-control.is-traditional .hub-scrub-waveform {
-  opacity: 0;
-}
-
-.hub-scrub-control.is-traditional .hub-scrub-playhead {
-  box-sizing: border-box;
-  height: 18px;
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
-  width: 7px;
-}
-
-.hub-scrub-control.is-traditional:hover .hub-scrub-playhead,
-.hub-scrub-control.is-traditional .hub-scrub-slider:focus-visible ~ .hub-scrub-playhead,
-.hub-scrub-control.is-traditional .hub-scrub-slider:active ~ .hub-scrub-playhead {
-  height: 22px;
-  transform: translate(-50%, -50%) scale(1);
-  width: 9px;
-}
-
-.hub-scrub-slider:focus-visible + .hub-scrub-waveform {
-  border-radius: 4px;
-  outline: 2px solid color-mix(in srgb, var(--hub-scrub-accent) 62%, transparent);
-  outline-offset: 2px;
-}
-
-.hub-scrub-control.is-empty {
-  opacity: 0.5;
-}
-
-.hub-scrub-control.is-empty .hub-scrub-slider {
-  cursor: default;
-}
-
-.hub-dj-drawer {
-  background: var(--hub-card);
-  border: 1px solid color-mix(in srgb, var(--hub-line) 55%, transparent);
-  border-radius: 8px;
-  bottom: calc(100% + 10px);
-  box-sizing: border-box;
-  display: none;
-  left: var(--hub-dj-anchor-x, 50%);
-  max-height: calc(100vh - var(--hub-player-height));
-  overflow: auto;
-  padding: 14px 16px 12px;
-  position: absolute;
-  right: auto;
-  transform: translateX(-50%);
-  width: min(440px, calc(100vw - 24px));
-  z-index: 3;
-}
-
-.hub-dj-drawer.is-open {
-  display: block;
-}
-
-.hub-dj-drawer .hub-dj-card {
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  margin: 0;
-  overflow: visible;
-  padding: 0;
-}
-
-.hub-resize-handle {
-  background: var(--hub-accent);
-  bottom: 0;
-  cursor: ew-resize !important;
-  opacity: 0;
-  position: absolute;
-  pointer-events: auto;
-  top: 0;
-  touch-action: none;
-  transition: opacity 120ms ease;
-  width: 16px;
-  z-index: 8;
-}
-
-.hub-resize-handle:hover,
-.hub-resize-handle.is-active {
-  opacity: 0.18;
-}
-
-.hub-resize-handle.is-left {
-  left: 0;
-}
-
-.hub-resize-handle.is-right {
-  right: 0;
-}
-
-.hub-resize-handle.is-top,
-.hub-resize-handle.is-bottom {
-  cursor: ns-resize !important;
-  height: 16px;
-  left: 0;
-  right: 0;
-  width: auto;
-}
-
-.hub-resize-handle.is-top {
-  bottom: auto;
-  top: 0;
-}
-
-.hub-panel.is-contextual .hub-resize-handle.is-top {
-  display: block;
-  height: 12px;
-}
-
-.hub-resize-handle.is-bottom {
-  bottom: 0;
-  top: auto;
-}
-
-.hub-toast {
-  background: #111827;
-  border-radius: 6px;
-  bottom: calc(100% + 14px);
-  color: #fff;
-  font-size: 12px;
-  left: 50%;
-  max-width: 320px;
-  opacity: 0;
-  padding: 9px 12px;
-  pointer-events: none;
-  position: absolute;
-  text-align: center;
-  transform: translate(-50%, 8px);
-  transition: opacity 160ms ease, transform 160ms ease;
-  z-index: 4;
-}
-
-.hub-toast.is-visible {
-  opacity: 1;
-  transform: translate(-50%, 0);
 }

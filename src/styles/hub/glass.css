@@ -1,0 +1,91 @@
+.hub-glass-settings {
+  display: grid;
+  gap: 10px;
+}
+.hub-paper-controls[hidden] { display: none; }
+.is-paper:is(.hub-panel, .hub-dj-drawer, .hub-onboarding-dialog) {
+  background-image: var(--hub-paper-texture) !important;
+  background-size: 192px 192px, calc(var(--hub-paper-grain-size, 160px) * 2.4) calc(var(--hub-paper-grain-size, 160px) * 2.4);
+  background-blend-mode: soft-light;
+}
+/* One continuous sheet behind the panel, not separate textured strips. */
+.hub-panel.is-paper :is(.hub-content, .hub-header, .hub-panel-shortcuts) {
+  background: transparent !important;
+}
+
+.hub-glass-row {
+  min-height: 46px;
+}
+
+.hub-glass-controls {
+  display: grid;
+  gap: 2px;
+}
+
+.hub-glass-controls[hidden] {
+  display: none;
+}
+
+.hub-visualizer-options {
+  padding-top: 12px;
+}
+
+.hub-visualizer-options[hidden] {
+  display: none;
+}
+
+.hub-glass-control {
+  display: grid;
+  gap: 6px;
+}
+
+.hub-glass-slider-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 34px;
+}
+
+.hub-settings-slider {
+  accent-color: var(--hub-accent);
+  cursor: pointer;
+  margin: 0;
+  width: 100%;
+}
+
+.hub-glass-transparency:disabled,
+.hub-glass-blur:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.hub-glass-transparency-value,
+.hub-glass-blur-value,
+.hub-visualizer-opacity-value {
+  color: var(--hub-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .hub-panel.is-frosted-glass .hub-panel-card {
+    background: transparent;
+  }
+
+  .hub-panel.is-frosted-glass .hub-panel-card:is(:hover, :focus-within) {
+    background: transparent;
+  }
+
+  .hub-panel.is-frosted-glass .hub-panel-card:is(.hub-now-card, .is-playing) {
+    background: transparent;
+  }
+
+  .hub-panel.is-frosted-glass .hub-panel-card > .hub-card-footer {
+    background: transparent;
+  }
+
+  .hub-panel.is-frosted-glass .hub-panel-shortcut-count {
+    border-color: transparent;
+  }
+}

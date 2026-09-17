@@ -38,7 +38,7 @@ if (location.search.includes("header-shadow-cart")) {
   document.body.prepend(menuBar);
   window.fixtureMenuShadow = menuShadow;
 }
-window.fixtureStored = (location.search.includes("cart-ui") || location.search.includes("cart-roundtrip")) ? {
+window.fixtureStored = (location.search.includes("cart-ui") || location.search.includes("cart-roundtrip") || location.search.includes("foreign-library-roundtrip")) ? {
   bandcampHubState: {
     open: true,
     activeTab: "cart",
@@ -61,9 +61,41 @@ window.fixtureStored = (location.search.includes("cart-ui") || location.search.i
         { id: "saved-3", title: "Velocity", artist: "Gaiko", kind: "Digital track", price: 8, currency: "GBP", art: "/tests/fixtures/assets/art-velocity.png", url: "https://fixture.bandcamp.com/track/velocity" }
       ]
     }],
+    playlistView: "current",
+    playlistMode: "manual",
+    playlist: [
+      { id: "foreign-track-1", playlistItemId: "foreign-track-1", title: "Foreign Clouds", artist: "Visitor One", album: "Cloud Exchange", duration: 203, art: "/tests/fixtures/assets/art-clouds.png", pageUrl: "https://fixture.bandcamp.com/track/foreign-clouds" },
+      { id: "foreign-track-2", playlistItemId: "foreign-track-2", title: "Foreign Meridian", artist: "Visitor Two", album: "Lines Abroad", duration: 247, art: "/tests/fixtures/assets/art-meridian.png", pageUrl: "https://fixture.bandcamp.com/track/foreign-meridian" }
+    ],
+    savedPlaylists: [],
     activity: []
   }
 } : {};
+if (location.search.includes("foreign-library-roundtrip")) {
+  const state = window.fixtureStored.bandcampHubState;
+  state.activeTab = "cart";
+  state.cartView = "current";
+  state.savedCarts = [];
+  state.cart = state.cart.map((item) => ({ ...item, art: new URL(item.art, location.href).href }));
+  state.playlist = state.playlist.map((item) => ({ ...item, art: new URL(item.art, location.href).href }));
+  window.fixtureBackupHandle = {
+    kind: "file",
+    name: "BandKit Backup.json",
+    content: "",
+    async queryPermission() { return "granted"; },
+    async createWritable() {
+      return {
+        write: async (value) => { window.fixtureBackupHandle.content = String(value); },
+        close: async () => {}
+      };
+    },
+    async getFile() {
+      return { text: async () => window.fixtureBackupHandle.content };
+    }
+  };
+  window.showSaveFilePicker = async () => window.fixtureBackupHandle;
+  window.showOpenFilePicker = async () => [window.fixtureBackupHandle];
+}
 if (location.search.includes("page-dj-persist")) {
   window.fixtureStored = { bandcampHubState: { dj: { pageOpen: true } } };
 }
@@ -355,6 +387,10 @@ const fixtureChrome = {
       }
       if (message.type === "BANDCAMP_HUB_RESOLVE_CART_METADATA") {
         callback?.({ ok: true, items: (message.items || []).map((item) => ({ ...item, artist: "Resolved Cart Artist" })) });
+        return;
+      }
+      if (message.type === "BANDCAMP_HUB_RESOLVE_CART_ITEMS" && location.search.includes("foreign-library-roundtrip")) {
+        callback?.({ ok: true, items: message.items || [] });
         return;
       }
       callback?.({ ok: true, state: { enabled: false, status: "idle" } });

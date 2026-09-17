@@ -1,0 +1,199 @@
+.hub-compact-panel-button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--hub-playback-color, var(--hub-muted));
+  cursor: pointer;
+  display: none;
+  height: 44px;
+  justify-content: center;
+  opacity: 0;
+  padding: 0;
+  pointer-events: none;
+  position: relative;
+  transform: scale(0.92);
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease, transform 180ms ease;
+  width: 44px;
+}
+
+.hub-player[data-panel-buttons="compact"] .hub-compact-panel-button {
+  display: inline-flex;
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+.hub-player[data-panel-buttons="compact"] .hub-player-sections > :not(.hub-compact-panel-button):not(.hub-chevron-drag-handle) {
+  display: none;
+}
+
+.hub-player[data-panel-buttons="compact"]:is(:hover, :focus-within) .hub-compact-panel-button,
+.hub-player[data-panel-buttons="compact"] .hub-compact-panel-button.is-active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+.hub-player[data-panel-buttons="compact"] .hub-compact-panel-button:hover,
+.hub-player[data-panel-buttons="compact"] .hub-compact-panel-button:focus-visible {
+  background: transparent;
+  border-color: transparent;
+  color: var(--hub-playback-color, var(--hub-accent));
+  outline: 0;
+  transform: scale(1);
+}
+
+.hub-compact-panel-button.is-active {
+  background: transparent;
+  border-color: transparent;
+  color: var(--hub-playback-color, var(--hub-accent));
+}
+
+.hub-player[data-panel-buttons="compact"] .hub-compact-panel-button.is-active:is(:hover, :focus-visible) {
+  background: transparent;
+  color: var(--hub-playback-color, var(--hub-accent));
+}
+
+.hub-compact-panel-glyphs {
+  display: block;
+  height: 26px;
+  overflow: hidden;
+  position: relative;
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  width: 26px;
+}
+
+.hub-player[data-panel-buttons="compact"] .hub-compact-panel-button:is(:hover, :focus-visible) .hub-compact-panel-glyphs {
+  transform: scale(1.14);
+}
+
+.hub-compact-panel-icon,
+.hub-compact-panel-chevron {
+  background: currentColor;
+  inset: 1px;
+  mask: var(--hub-icon) center / contain no-repeat;
+  -webkit-mask: var(--hub-icon) center / contain no-repeat;
+  position: absolute;
+}
+
+.hub-compact-panel-chevron {
+  --hub-compact-panel-chevron-rotation: 180deg;
+  transform: rotate(180deg);
+  transition: opacity 140ms ease, transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hub-compact-panel-button.is-active .hub-compact-panel-chevron {
+  --hub-compact-panel-chevron-rotation: 0deg;
+  transform: rotate(0deg);
+}
+
+.hub-compact-panel-icon {
+  background: none;
+  mask: none;
+  -webkit-mask: none;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 24px;
+  white-space: nowrap;
+  text-align: center;
+  opacity: 0;
+  transform: translateX(-140%);
+}
+
+.hub-compact-panel-button.is-notifying .hub-compact-panel-glyphs {
+  width: 92px;
+  flex: 0 0 92px;
+}
+.hub-panel[data-player-style][data-panel-buttons] .hub-panel-shortcut.has-dot .hub-panel-shortcut-count {
+  display: inline-flex;
+  position: static;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  min-width: 0;
+  height: auto;
+  margin-left: 5px;
+}
+
+.hub-compact-panel-button.is-notifying .hub-compact-panel-chevron {
+  animation: hub-compact-panel-caret-notice 3.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hub-compact-panel-button.is-notifying .hub-compact-panel-icon {
+  animation: hub-compact-panel-notice 3.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hub-panel-shortcut-count {
+  align-items: center;
+  background: var(--hub-accent);
+  border: 1.5px solid var(--hub-card);
+  border-radius: 999px;
+  color: var(--hub-on-accent);
+  display: none;
+  font-size: 8px;
+  font-weight: 800;
+  height: 16px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 16px;
+  padding: 0 3px;
+  position: absolute;
+  right: calc(50% - 34px);
+  top: 1px;
+  z-index: 2;
+}
+
+.hub-panel-shortcut.has-dot .hub-panel-shortcut-count {
+  display: inline-flex;
+}
+
+@keyframes hub-compact-panel-notice {
+  0% { opacity: 0; transform: translateX(-140%); }
+  12%, 80% { opacity: 1; transform: translateX(0); }
+  92%, 100% { opacity: 0; transform: translateX(140%); }
+}
+
+@keyframes hub-compact-panel-caret-notice {
+  0% { opacity: 1; transform: translateX(0) rotate(var(--hub-compact-panel-chevron-rotation)); }
+  12% { opacity: 0; transform: translateX(140%) rotate(var(--hub-compact-panel-chevron-rotation)); }
+  12.01%, 88% { opacity: 0; transform: translateX(-140%) rotate(var(--hub-compact-panel-chevron-rotation)); }
+  100% { opacity: 1; transform: translateX(0) rotate(var(--hub-compact-panel-chevron-rotation)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-compact-panel-button {
+    transition: none;
+  }
+
+  .hub-compact-panel-button.is-notifying .hub-compact-panel-chevron {
+    animation: none;
+    opacity: 0;
+    transform: rotate(180deg);
+  }
+
+  .hub-compact-panel-button.is-active.is-notifying .hub-compact-panel-chevron {
+    transform: rotate(0deg);
+  }
+
+  .hub-compact-panel-button.is-notifying .hub-compact-panel-icon {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (hover: none) {
+  .hub-player[data-panel-buttons="compact"] .hub-compact-panel-button {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
+
+}
+
+.hub-panel[data-player-style="zune"] .hub-panel-shortcut-count {
+  display: none;
+}

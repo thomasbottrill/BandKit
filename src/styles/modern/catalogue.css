@@ -12,6 +12,7 @@ html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"]
 html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"], [data-bandkit-modern-page-type="merch"], [data-bandkit-modern-page-type="video"]) .leftMiddleColumns {
   float: none !important;
   grid-column: 1;
+  grid-row: 2;
   margin: 0 !important;
   min-width: 0;
   padding-top: 32px;
@@ -30,6 +31,7 @@ html[data-bandkit-modern-page="true"]:is([data-bandkit-modern-page-type="music"]
   float: none !important;
   gap: 0;
   grid-column: 2;
+  grid-row: 2;
   margin: 32px 0 0 !important;
   min-width: 0;
   padding: 0 !important;

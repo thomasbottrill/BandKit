@@ -1,0 +1,328 @@
+.hub-custom-colours {
+  display: grid;
+  gap: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.hub-custom-colours[hidden] {
+  display: none;
+}
+
+.hub-bandkit-colours {
+  background: transparent;
+  border-radius: 0;
+  display: grid;
+  gap: 2px;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0;
+}
+
+.hub-visualizer-colours {
+  margin-top: 2px;
+}
+
+.hub-visualizer-colours.is-theme-settings .hub-colour-group-label {
+  color: var(--hub-muted);
+  font-size: var(--hub-settings-control-font-size, 13px);
+  letter-spacing: 0;
+  padding: 8px 2px 3px;
+  text-transform: none;
+}
+
+.hub-visualizer-colours.is-theme-settings .hub-visualizer-colour-row {
+  margin-left: 14px;
+}
+
+.hub-visualizer-colours.is-player-settings {
+  background: transparent;
+  border-radius: 0;
+  display: grid;
+  gap: 2px;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  padding: 0;
+}
+
+.hub-settings-detail .hub-visualizer-colour-disclosure {
+  margin: 0;
+}
+
+.hub-settings-detail .hub-visualizer-colour-disclosure > .hub-settings-disclosure-trigger {
+  grid-template-columns: minmax(0, 1fr) var(--hub-settings-control-tail-width);
+  min-height: 46px;
+  padding: 5px 0;
+}
+
+.hub-settings-detail .hub-visualizer-colour-disclosure > .hub-settings-disclosure-trigger .hub-settings-disclosure-title {
+  color: var(--hub-muted);
+  font-size: var(--hub-settings-control-font-size);
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.hub-settings-detail .hub-visualizer-colour-disclosure > .hub-settings-disclosure-trigger .hub-settings-disclosure-chevron {
+  justify-self: center;
+  opacity: 0.72;
+  transform: rotate(0deg);
+}
+
+.hub-settings-detail .hub-visualizer-colour-disclosure.is-open > .hub-settings-disclosure-trigger .hub-settings-disclosure-chevron {
+  transform: rotate(180deg);
+}
+
+.hub-settings-detail .hub-visualizer-colour-disclosure > .hub-settings-disclosure-content {
+  padding: 0 0 2px;
+}
+
+.hub-visualizer-colour-row {
+  color: var(--hub-muted);
+}
+
+.hub-visualizer-colour-control {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-right: 8px;
+}
+
+:is(.hub-visualizer-colour-control, .hub-theme-colour-control) .hub-colour-link-state {
+  min-height: 0;
+}
+
+:is(.hub-visualizer-colour-control, .hub-theme-colour-control) .hub-colour-source {
+  font-size: var(--hub-settings-control-font-size, 13px);
+  line-height: 28px;
+}
+
+:is(.hub-visualizer-colour-control, .hub-theme-colour-control) .hub-colour-link {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--hub-muted);
+  font-size: 11px;
+  line-height: 28px;
+  padding: 0;
+}
+
+:is(.hub-visualizer-colour-control, .hub-theme-colour-control) .hub-colour-link:is(:hover, :focus-visible) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--hub-accent);
+}
+
+.hub-colour-group-label {
+  color: var(--hub-faint);
+  font-size: 9px;
+  font-weight: 700;
+  grid-column: 1 / -1;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.hub-colour-group-description {
+  color: var(--hub-muted);
+  font-size: 10px;
+  grid-column: 1 / -1;
+  line-height: 1.35;
+  margin: 0 0 2px;
+}
+
+.hub-custom-theme-panel {
+  border-top: 0;
+  margin-top: 2px;
+  padding-top: 0;
+}
+
+.hub-theme-save-control {
+  align-items: center;
+  display: inline-flex;
+}
+
+.hub-theme-name {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--hub-muted) 48%, transparent);
+  border-radius: 0;
+  color: var(--hub-muted);
+  font-size: var(--hub-settings-control-font-size, 13px);
+  font-weight: 700;
+  min-width: 0;
+  padding: 4px 0 3px;
+  width: min(170px, 100%);
+}
+
+.hub-theme-name::placeholder {
+  color: var(--hub-faint);
+}
+
+.hub-theme-save-popover {
+  align-items: center;
+  background: var(--hub-panel);
+  border: 1px solid var(--hub-line);
+  border-radius: 5px;
+  box-shadow: 0 10px 28px color-mix(in srgb, #000 22%, transparent);
+  box-sizing: border-box;
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  width: min(260px, calc(100vw - 16px));
+}
+
+.hub-theme-save-popover[hidden] {
+  display: none;
+}
+
+.hub-theme-save-popover .hub-theme-name {
+  flex: 1 1 auto;
+}
+
+.hub-settings-action.hub-save-theme {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--hub-accent);
+  margin-top: 0;
+  margin-right: var(--hub-settings-compact-control-inset, 8px);
+  white-space: nowrap;
+  width: auto;
+}
+
+.hub-settings-action.hub-save-theme:is(:hover, :focus-visible, :active) {
+  background: transparent;
+  color: var(--hub-accent);
+}
+
+.hub-colour-field {
+  align-items: center;
+  color: var(--hub-muted);
+  display: flex;
+  font-size: 12px;
+  justify-content: space-between;
+  padding: 5px 2px;
+}
+
+.hub-music-bar-player-colour-row[hidden] {
+  display: none;
+}
+
+.hub-visualizer-colours .hub-visualizer-colour-row,
+.hub-theme-colour-row {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 46px;
+  padding: 5px 0;
+}
+
+.hub-theme-colour-control {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-right: var(--hub-settings-compact-control-inset, 8px);
+}
+
+.hub-colour-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.hub-colour-label {
+  cursor: pointer;
+}
+
+.hub-colour-field input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--hub-line);
+  border-radius: 4px;
+  box-sizing: border-box;
+  cursor: pointer;
+  flex: 0 0 auto;
+  height: 28px;
+  overflow: hidden;
+  padding: 0;
+  width: 28px;
+}
+
+.hub-colour-field input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.hub-colour-field input[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: 3px;
+}
+
+.hub-colour-field input[type="color"]::-moz-color-swatch {
+  border: 0;
+  border-radius: 3px;
+}
+
+/* The hex field stays quiet at rest — value only, no chrome — and shows its
+   edges on hover or focus, so colour rows do not gain a boxed input each. */
+.hub-colour-hex {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: var(--hub-muted);
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: var(--hub-settings-control-font-size, 12px);
+  font-variant-numeric: tabular-nums;
+  height: 28px;
+  min-width: 0;
+  padding: 0 6px;
+  text-align: right;
+  transition: border-color var(--hub-settings-color-duration, 140ms) ease, color var(--hub-settings-color-duration, 140ms) ease;
+  width: 72px;
+}
+
+.hub-colour-field:hover .hub-colour-hex,
+.hub-colour-hex:focus-visible {
+  border-color: var(--hub-line);
+  color: var(--hub-ink);
+}
+
+.hub-colour-hex:focus-visible {
+  border-color: var(--hub-accent);
+  outline: 0;
+}
+
+.hub-colour-link-state {
+  min-height: 18px;
+}
+
+.hub-colour-source {
+  color: var(--hub-faint);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.hub-colour-link {
+  background: color-mix(in srgb, var(--hub-accent) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--hub-accent) 28%, var(--hub-line));
+  border-radius: 999px;
+  color: var(--hub-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 16px;
+  padding: 0 6px;
+}
+
+.hub-colour-link:hover,
+.hub-colour-link:focus-visible {
+  background: var(--hub-accent-soft);
+  border-color: var(--hub-accent);
+  color: var(--hub-accent);
+  outline: 0;
+}

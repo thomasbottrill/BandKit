@@ -3,19 +3,15 @@
   margin-left: auto;
 }
 
-.hub-panel-content-header > .hub-section-heading-meta + .hub-close {
-  margin-left: var(--hub-control-gap);
-}
-
 .hub-cart-view-header.hub-panel-content-header {
-  grid-template-columns: minmax(0, 1fr) auto var(--hub-control-size);
+  grid-template-columns: minmax(0, 1fr) var(--hub-control-size);
 }
 
 .hub-cart-view-header {
   align-items: center;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   line-height: 20px;
   margin: 0 0 16px;
   min-height: var(--hub-control-size);
@@ -57,28 +53,10 @@
   opacity: 1;
 }
 
-.hub-cart-view-tab.is-active::after {
-  background: currentColor;
-  border-radius: 999px;
-  bottom: -4px;
-  content: "";
-  height: 2px;
-  left: 0;
-  position: absolute;
-  right: 0;
-}
-
 .hub-cart-view-tab:focus-visible {
   border-radius: 4px;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--hub-accent) 28%, transparent);
   outline: 0;
-}
-
-.hub-cart-view-meta {
-  color: var(--hub-muted);
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
 }
 
 .hub-eyebrow-row {
@@ -108,10 +86,27 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.025);
 }
 
+.hub-panel-card {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.hub-panel-card:is(:hover, :focus-within) {
+  background: transparent;
+  border-color: transparent;
+}
+
+.hub-panel-card > .hub-card-footer {
+  background: transparent;
+  border-top-color: transparent;
+}
+
 .hub-now-card {
   align-items: center;
-  background: color-mix(in srgb, var(--hub-accent) 18%, var(--hub-card));
-  border-color: color-mix(in srgb, var(--hub-accent) 38%, transparent);
+  background: transparent;
+  border-color: transparent;
   display: grid;
   gap: 10px;
   grid-template-columns: 28px 40px minmax(0, 1fr) auto;
@@ -185,14 +180,12 @@
 
 .hub-inline-link {
   cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
-  text-underline-offset: 2px;
+  text-decoration: none;
 }
 
-.hub-inline-link:hover {
+.hub-inline-link:is(:hover, :focus-visible) {
   color: var(--hub-accent);
-  text-decoration-color: currentColor;
+  text-decoration: none;
 }
 
 .hub-inline-link[aria-disabled="true"] {
@@ -312,9 +305,9 @@
 
 .hub-playlist-destination-menu {
   background: var(--hub-card);
-  border: 1px solid var(--hub-line);
+  border: 1px solid color-mix(in srgb, var(--hub-line) 20%, var(--hub-card));
   border-radius: 5px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  box-shadow: none;
   color: var(--hub-ink);
   left: auto;
   min-width: 160px;
@@ -330,17 +323,52 @@
 }
 
 .hub-playlist-menu-option {
+  align-items: center;
   background: transparent;
   border: 0;
   border-radius: 3px;
   color: var(--hub-ink);
   cursor: pointer;
-  display: block;
+  display: flex;
   font: inherit;
   font-size: 11px;
+  gap: 7px;
   padding: 7px 8px;
   text-align: left;
+  text-decoration: none !important;
   width: 100%;
+}
+
+.hub-playlist-menu-option.is-prominent {
+  font-weight: 600;
+}
+
+.hub-playlist-menu-option-glyph {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 14px;
+  font-size: 14px;
+  height: 14px;
+  justify-content: center;
+  line-height: 14px;
+  width: 14px;
+}
+
+.hub-playlist-menu-option-icon {
+  background: currentColor;
+  display: block;
+  flex: 0 0 auto;
+  height: 14px;
+  mask: var(--hub-playlist-option-icon) center / contain no-repeat;
+  -webkit-mask: var(--hub-playlist-option-icon) center / contain no-repeat;
+  width: 14px;
+}
+
+.hub-playlist-menu-option.is-wishlist.is-active,
+.hub-playlist-menu-option.is-wishlist.is-active:is(:hover, :focus-visible),
+.hub-wishlist-action.is-active,
+.hub-wishlist-action.is-active:is(:hover, :focus-visible) {
+  color: #ff9c00;
 }
 
 .hub-playlist-menu-option:hover:not(:disabled),
@@ -348,6 +376,7 @@
   background: var(--hub-accent-soft);
   color: var(--hub-accent);
   outline: 0;
+  text-decoration: none !important;
 }
 
 .hub-playlist-menu-option:disabled {
@@ -422,10 +451,15 @@
 }
 
 .hub-empty {
+  box-sizing: border-box;
   color: var(--hub-faint);
   font-size: 12px;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: 30px 0;
   text-align: center;
+  white-space: normal;
 }
 
 .hub-playlist-toolbar {
@@ -443,23 +477,41 @@
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--hub-control-radius);
-  color: var(--hub-accent);
+  color: var(--hub-muted);
   cursor: pointer;
   display: inline-flex;
   height: var(--hub-control-size);
   justify-content: center;
   padding: 0;
   position: relative;
-  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, opacity 140ms ease;
   width: var(--hub-control-size);
+}
+
+/* Match the Settings intent model: toolbar actions stay quiet until the user
+   points to or keyboard-focuses one, then the chosen action takes the accent
+   while its inactive siblings recede. Persistently active/open actions remain
+   legible so state is never communicated by hover alone. */
+.hub-toolbar:has(:is(.hub-playlist-toolbar-icon, .hub-saved-playlist-icon-button):is(:hover, :focus-visible))
+  :is(.hub-playlist-toolbar-icon, .hub-saved-playlist-icon-button):not(:hover):not(:focus-visible):not(.is-active):not([aria-expanded="true"]):not([aria-pressed="true"]),
+.hub-saved-playlist-icon-actions:has(.hub-saved-playlist-icon-button:is(:hover, :focus-visible))
+  :is(.hub-playlist-toolbar-icon, .hub-saved-playlist-icon-button):not(:hover):not(:focus-visible):not(.is-active):not([aria-expanded="true"]):not([aria-pressed="true"]) {
+  opacity: 0.38;
 }
 
 .hub-playlist-toolbar-icon:hover:not(:disabled),
 .hub-playlist-toolbar-icon:focus-visible,
-.hub-playlist-toolbar-icon[aria-expanded="true"],
+.hub-playlist-toolbar-icon[aria-expanded="true"] {
+  background: transparent;
+  border-color: transparent;
+  color: var(--hub-accent);
+  outline: 0;
+}
+
 .hub-playlist-toolbar-icon.is-active {
-  background: var(--hub-accent-soft);
+  background: var(--hub-accent);
   border-color: var(--hub-accent);
+  color: var(--hub-on-accent);
   outline: 0;
 }
 
@@ -474,6 +526,17 @@
 .hub-playlist-toolbar-icon .hub-button-icon {
   height: var(--hub-control-icon-size);
   width: var(--hub-control-icon-size);
+}
+
+.hub-playlist-toolbar-icon.is-add-page .hub-button-icon {
+  -webkit-mask:
+    var(--hub-icon) center / contain no-repeat,
+    radial-gradient(circle 6px at 100% 100%, #000 0 5.5px, transparent 6px);
+  -webkit-mask-composite: source-out;
+  mask:
+    var(--hub-icon) center / contain no-repeat,
+    radial-gradient(circle 6px at 100% 100%, #000 0 5.5px, transparent 6px);
+  mask-composite: subtract;
 }
 
 /* Now Playing can refresh while playback metadata is settling. Keep the
@@ -494,9 +557,9 @@
 
 .hub-toolbar-actions-menu {
   background: var(--hub-card);
-  border: 1px solid var(--hub-line);
+  border: 1px solid color-mix(in srgb, var(--hub-line) 20%, var(--hub-card));
   border-radius: var(--hub-control-radius);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  box-shadow: none;
   color: var(--hub-ink);
   min-width: 180px;
   padding: 4px;
@@ -553,7 +616,7 @@
 .hub-add-page-badge {
   align-items: center;
   background: var(--hub-accent);
-  border: 1px solid var(--hub-card);
+  border: 0;
   border-radius: 999px;
   bottom: 2px;
   color: var(--hub-on-accent);
@@ -590,12 +653,29 @@
   user-select: none;
 }
 
-.hub-playlist-track:not(.is-playing):is(:hover, :focus-within) {
-  background: color-mix(in srgb, var(--hub-card-ink) 3%, var(--hub-card));
+/* Panel collections share one compact media-card silhouette. Artwork is
+   structural: it fills the card height and clips only against the outer left
+   edge, matching the persistent music bar. */
+.hub-compact-media-card {
+  height: 64px;
+  min-height: 64px;
+  overflow: hidden;
+  position: relative;
+}
+
+.hub-playlist-track.hub-compact-media-card {
+  gap: 10px;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  padding: 0 8px 0 0;
 }
 
 .hub-playlist-track:active {
   cursor: grabbing;
+}
+
+.hub-playlist-track.is-page-queue-track,
+.hub-playlist-track.is-page-queue-track:active {
+  cursor: default;
 }
 
 .hub-playlist-track:focus-visible {
@@ -619,9 +699,9 @@
 }
 
 .hub-playlist-track.is-playing {
-  background: color-mix(in srgb, var(--hub-accent) 18%, var(--hub-card));
-  border-color: color-mix(in srgb, var(--hub-accent) 38%, transparent);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.025);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .hub-playlist-track.is-dragging {
@@ -663,8 +743,15 @@
   justify-content: center;
   overflow: hidden;
   padding: 0;
+  position: relative;
   transition: background-color 100ms ease, border-color 100ms ease, color 100ms ease;
   width: 40px;
+}
+
+.hub-compact-media-card .hub-playlist-media-toggle {
+  border-radius: var(--hub-control-radius);
+  height: 64px;
+  width: 64px;
 }
 
 .hub-playlist-media-art,
@@ -675,38 +762,114 @@
   width: 40px;
 }
 
+.hub-compact-media-card .hub-playlist-media-art,
+.hub-compact-media-card .hub-playlist-media-art .hub-art {
+  border-radius: 0 !important;
+  height: 64px;
+  width: 64px;
+}
+
+.hub-playlist-media-art {
+  position: relative;
+  transform: scale(1);
+  transform-origin: center;
+  transition: opacity 150ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hub-playlist-position-badge {
+  align-items: center;
+  background: color-mix(in srgb, var(--hub-control-bg) 88%, transparent);
+  border: 1px solid var(--hub-control-border);
+  border-radius: 3px;
+  bottom: 4px;
+  color: var(--hub-control-fg);
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 700;
+  height: 16px;
+  justify-content: center;
+  left: 4px;
+  line-height: 1;
+  min-width: 16px;
+  padding: 0 3px;
+  pointer-events: none;
+  position: absolute;
+}
+
 .hub-playlist-media-icon {
   align-items: center;
-  background: var(--hub-control-bg);
+  background: transparent;
   border: 1px solid var(--hub-control-border);
   border-radius: 4px;
-  display: none;
+  display: flex;
   height: 40px;
+  inset: 0;
   justify-content: center;
+  opacity: 0;
+  position: absolute;
+  transform: scale(0.92);
+  transform-origin: center;
+  transition: opacity 150ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
   width: 40px;
 }
 
+.hub-compact-media-card .hub-playlist-media-icon {
+  border: 0;
+  border-radius: var(--hub-control-radius);
+  height: 64px;
+  width: 64px;
+}
+
+:host([data-corner-style="square"]) .hub-compact-media-card :is(
+  .hub-playlist-media-toggle,
+  .hub-playlist-media-icon,
+  .hub-art-link,
+  .hub-playlist-mosaic,
+  .hub-activity-icon,
+  .hub-saved-playlist-art-action
+) {
+  border-radius: 0 !important;
+}
+
+:host([data-corner-style="custom"]) .hub-compact-media-card :is(
+  .hub-playlist-media-toggle,
+  .hub-playlist-media-icon,
+  .hub-art-link,
+  .hub-playlist-mosaic,
+  .hub-activity-icon,
+  .hub-saved-playlist-art-action
+) {
+  border-radius: var(--hub-custom-corner-radius, 12px) !important;
+}
+
+:host([data-corner-style]) .hub-compact-media-card :is(.hub-art, .hub-playlist-mosaic-image) {
+  border-radius: 0 !important;
+}
+
 .hub-playlist-media-icon .hub-button-icon {
-  height: 16px;
-  width: 16px;
+  color: var(--hub-accent);
+  filter: none;
+  height: 24px;
+  mix-blend-mode: normal;
+  width: 24px;
 }
 
-.hub-playlist-track:hover .hub-playlist-media-art,
-.hub-playlist-track:focus-within .hub-playlist-media-art {
-  display: none;
+.hub-playlist-media-toggle:is(:hover, :focus-visible) .hub-playlist-media-art {
+  opacity: 0;
+  transform: scale(0.88);
 }
 
-.hub-playlist-track:hover .hub-playlist-media-icon,
-.hub-playlist-track:focus-within .hub-playlist-media-icon {
-  display: flex;
+.hub-playlist-media-toggle:is(:hover, :focus-visible) .hub-playlist-media-icon {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .hub-playlist-media-toggle:hover .hub-playlist-media-icon,
 .hub-playlist-media-toggle:focus-visible .hub-playlist-media-icon {
-  background: var(--hub-accent-soft);
-  border-color: var(--hub-accent);
+  background: transparent;
+  border-color: transparent;
   box-shadow: none;
-  color: var(--hub-accent);
+  color: rgba(255, 255, 255, 0.96);
 }
 
 .hub-playlist-media-toggle:hover,
@@ -724,14 +887,25 @@
   outline-offset: 2px;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .hub-playlist-media-art,
+  .hub-playlist-media-icon {
+    transition: none;
+  }
+}
+
 .hub-playlist-meta {
   color: var(--hub-faint);
   display: block;
-  font-size: 9px;
-  line-height: 13px;
+  font-size: 11px;
+  line-height: 15px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.hub-playlist-album-link {
+  color: inherit;
 }
 
 .hub-playlist-meta.is-error {
@@ -740,21 +914,23 @@
 
 .hub-playlist-detail-row {
   align-items: center;
-  display: flex;
-  gap: 6px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
   margin-top: 2px;
   min-width: 0;
   overflow: hidden;
+  width: 100%;
 }
 
 .hub-playlist-detail-row .hub-playlist-meta {
-  flex: 0 1 auto;
   min-width: 0;
 }
 
 .hub-playlist-detail-row .hub-playlist-analysis {
-  flex: 0 1 auto;
+  justify-self: end;
   margin-top: 0;
+  white-space: nowrap;
 }
 
 .hub-playlist-analysis {
@@ -766,20 +942,15 @@
   overflow: hidden;
 }
 
-.hub-playlist-analysis-chip {
-  background: color-mix(in srgb, var(--hub-muted) 9%, transparent);
-  border: 1px solid color-mix(in srgb, var(--hub-muted) 24%, transparent);
-  border-radius: 3px;
+.hub-playlist-analysis-text {
   color: var(--hub-muted);
   flex: 0 1 auto;
-  font-size: 8px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  line-height: 14px;
+  font-weight: 500;
+  line-height: 15px;
   max-width: 100%;
   overflow: hidden;
-  padding: 0 4px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

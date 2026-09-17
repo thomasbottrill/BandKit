@@ -1,0 +1,15 @@
+/* Player and panel links use colour—not decoration—to reveal intent. Keep
+   this last in the hub cascade so view-specific card rules cannot restore
+   browser underlines or replace the themed hover/focus accent. */
+.hub-panel a,
+.hub-player a,
+.hub-dj-drawer a {
+  text-decoration: none !important;
+}
+
+.hub-panel a:not([aria-disabled="true"]):is(:hover, :focus-visible),
+.hub-player a:not([aria-disabled="true"]):is(:hover, :focus-visible),
+.hub-dj-drawer a:not([aria-disabled="true"]):is(:hover, :focus-visible) {
+  color: var(--hub-accent) !important;
+  text-decoration: none !important;
+}

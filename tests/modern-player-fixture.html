@@ -434,7 +434,7 @@
           && getComputedStyle(document.querySelector("main h1")).color === "rgb(248, 250, 252)"
           && selectedTheme?.textContent.includes("Midnight")
           && selectedTheme?.getAttribute("role") === "combobox"
-          && themeOptions.length === 8
+          && themeOptions.length === 17
           && themeOptions.every((option) => option.querySelectorAll(".hub-theme-option-swatch").length === 4)
           && customTheme
           && themeMode?.getAttribute("aria-checked") === "true"
@@ -615,7 +615,7 @@
         const exportedText = exportedDocument.querySelector("#bandkit-playlist-data")?.textContent || "";
         let exportedPayload = null;
         try { exportedPayload = JSON.parse(exportedText); } catch {}
-        const backButton = detailToolbar?.querySelector(".hub-saved-playlist-back");
+        const backButton = detailActionRow?.querySelector(".hub-saved-playlist-back");
         const detailTracks = root?.querySelectorAll(".hub-saved-playlist-track");
         const firstTrackActions = detailTracks?.[0]?.querySelector(".hub-queue-actions");
         const detailTrackActionsHidden = getComputedStyle(firstTrackActions).opacity === (detailTracks?.[0]?.matches(":hover") ? "1" : "0");

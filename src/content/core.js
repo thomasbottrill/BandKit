@@ -7,10 +7,64 @@ export function createElement(tag, className, text) {
   return element;
 }
 
+export function enableRangeReset(input, defaultValue) {
+  const resetValue = String(defaultValue);
+  input.dataset.defaultValue = resetValue;
+  input.addEventListener("dblclick", (event) => {
+    event.preventDefault();
+    input.value = resetValue;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  return input;
+}
+
+export function createShapedRange(input, { vertical = false } = {}) {
+  const range = createElement("span", `hub-shaped-range${vertical ? " is-vertical" : ""}`);
+  const handle = createElement("span", "hub-shaped-range-handle");
+  handle.setAttribute("aria-hidden", "true");
+
+  const sync = () => {
+    const minimum = Number(input.min);
+    const maximum = Number(input.max);
+    const value = Number(input.value);
+    const ratio = maximum > minimum
+      ? Math.max(0, Math.min(1, (value - minimum) / (maximum - minimum)))
+      : 0;
+    const offset = 10 - ratio * 20;
+    range.style.setProperty("--hub-shaped-range-position", `calc(${(ratio * 100).toFixed(3)}% + ${offset.toFixed(3)}px)`);
+  };
+
+  input.addEventListener("input", sync);
+  input.addEventListener("change", sync);
+  range.append(input, handle);
+  sync();
+  return { element: range, sync };
+}
+
 export function createButtonIcon(icon) {
   const glyph = createElement("span", "hub-button-icon");
   glyph.style.setProperty("--hub-icon", `url('${asset(icon)}')`);
   return glyph;
+}
+
+export function createPanelBackButton(label, onBack, className = "") {
+  const button = createElement("button", `hub-panel-back-button${className ? ` ${className}` : ""}`);
+  button.type = "button";
+  button.setAttribute("aria-label", label);
+  button.append(
+    createButtonIcon("icon-arrow-left.svg"),
+    createElement("span", "hub-panel-back-label", "Back")
+  );
+  button.addEventListener("click", onBack);
+  return button;
+}
+
+export function createPanelCaret(className = "") {
+  const caret = createElement("span", `hub-panel-caret${className ? ` ${className}` : ""}`);
+  caret.style.setProperty("--hub-icon", `url('${asset("icon-panel-caret.svg")}')`);
+  caret.setAttribute("aria-hidden", "true");
+  return caret;
 }
 
 export function resolveImage(source) {
@@ -34,10 +88,9 @@ export function createArt(source, small = false) {
   return image;
 }
 
-export function createSectionHeading(label, metaText = "") {
+export function createSectionHeading(label) {
   const heading = createElement("h2", "hub-section-heading");
   heading.append(createElement("span", "hub-section-heading-label", label));
-  if (metaText) heading.append(createElement("span", "hub-section-heading-meta", metaText));
   return heading;
 }
 

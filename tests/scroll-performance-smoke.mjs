@@ -21,7 +21,7 @@ assert.match(content, /data-bandkit-feed-action-scanned/,
   "Feed action scans must mark previously inspected controls");
 assert.match(content, /injectPlaylistButtons\(\{ incremental: true \}\)/,
   "Mutation-driven scans must process only new Feed controls");
-assert.match(content, /trackRenderSignature !== playerTrackRenderSignature/,
+assert.match(content, /signature === playerTrackRenderSignature\) \{[\s\S]*?playerTrackIdentity = trackIdentity;[\s\S]*?return;/,
   "Playback ticks must not rebuild unchanged player metadata");
 assert.match(content, /lastPageScrollAt = Date\.now\(\)/,
   "Scrolling must mark the active scroll window without running maintenance from the event handler");

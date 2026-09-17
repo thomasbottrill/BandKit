@@ -13,6 +13,8 @@ const release = process.argv.includes("--release");
 
 const scriptEntries = {
   background: "src/background/index.js",
+  "component-reference": "src/component-reference/index.js",
+  "analysis-worker": "src/offscreen/analysis-worker.js",
   "cart-autosave": "src/content/cart-autosave.js",
   content: "src/content/index.js",
   "feed-redirect": "src/content/feed-redirect.js",
@@ -23,17 +25,23 @@ const scriptEntries = {
 };
 const styleEntries = {
   hub: "src/styles/hub/index.css",
+  "component-reference": "src/component-reference/index.css",
   "collection-playlists": "src/styles/modern/collection-playlists.css",
   "modern-release": "src/styles/modern/index.css",
   popup: "src/styles/popup.css"
 };
-const staticFiles = ["manifest.json", "offscreen.html", "popup.html", "THIRD_PARTY_NOTICES.md"];
+const staticFiles = ["manifest.json", "component-reference.html", "offscreen.html", "popup.html", "THIRD_PARTY_NOTICES.md"];
 const extensionIcons = [
   "extension-icon-16.png",
   "extension-icon-32.png",
   "extension-icon-48.png",
-  "extension-icon-128.png"
+  // 96 is the extensions page's 48px card on a 2x display. Without it Chrome
+  // rescales the 128 and the glyph's diagonals go soft.
+  "extension-icon-96.png",
+  "extension-icon-128.png",
+  "extension-icon-256.png"
 ];
+const brandAssets = ["logo-type-3.svg"];
 
 async function runtimeIconNames() {
   const sourcePaths = (await walk(outputDirectory))
@@ -128,7 +136,7 @@ if (release) {
   }
 }
 
-const assetNames = [...new Set([...extensionIcons, ...await runtimeIconNames()])].sort();
+const assetNames = [...new Set([...extensionIcons, ...brandAssets, ...await runtimeIconNames()])].sort();
 for (const filename of assetNames) {
   const source = path.join(projectDirectory, "assets", filename);
   assert.ok(await fs.stat(source).then(() => true, () => false), `Missing referenced asset: assets/${filename}`);

@@ -1,0 +1,44 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import { defaultState } from "../src/content/state.js";
+import { captureVisualTheme } from "../src/content/visual-themes.js";
+import { parseVisualThemeDocument, portableVisualThemeDocument, VISUAL_THEME_FILE_FORMAT } from "../src/content/visual-theme-sharing.js";
+
+const state = structuredClone(defaultState);
+state.musicBarStyle = "rounded";
+state.scrubberHandleShape = "butterfly";
+state.musicBarVisualizer = "matrix";
+state.musicBarVisualizerType = "matrix";
+state.appearance.preset = "custom";
+state.appearance.customAccent = "#AABBCC";
+const sourceTheme = captureVisualTheme(state);
+const payload = portableVisualThemeDocument(sourceTheme, "Shared oddity", new Date("2026-09-10T00:00:00.000Z"));
+assert.equal(payload.format, VISUAL_THEME_FILE_FORMAT);
+assert.equal(payload.name, "Shared oddity");
+const imported = parseVisualThemeDocument(JSON.stringify(payload));
+assert.equal(imported.label, "Shared oddity");
+assert.equal(imported.settings.musicBarStyle, "rounded");
+assert.equal(imported.settings.scrubberHandleShape, "butterfly");
+assert.equal(imported.settings.musicBarVisualizerType, "matrix");
+assert.equal(imported.appearance.customAccent, "#aabbcc");
+assert.equal(imported.appearance.preset, "custom", "Imported themes must not depend on a palette from another browser");
+
+const hostile = structuredClone(payload);
+hostile.theme.settings.musicBarStyle = "javascript:alert(1)";
+hostile.theme.settings.musicBarTimelineColor = "red";
+hostile.theme.settings.musicBarVisualizerOpacity = 9999;
+const normalized = parseVisualThemeDocument(JSON.stringify(hostile));
+assert.equal(normalized.settings.musicBarStyle, "zune");
+assert.equal(normalized.settings.musicBarTimelineColor, null);
+assert.equal(normalized.settings.musicBarVisualizerOpacity, 400);
+assert.throws(() => parseVisualThemeDocument(""), /empty/);
+assert.throws(() => parseVisualThemeDocument("not json"), /valid JSON/);
+assert.throws(() => parseVisualThemeDocument(JSON.stringify({ ...payload, format: "bandkit-theme" })), /supported Bandkit theme/);
+
+const ui = fs.readFileSync(new URL("../src/content/runtime/visual-theme-settings.js", import.meta.url), "utf8");
+assert.match(ui, /aria-label", "Download theme"[\s\S]*?icon-download-all\.svg/);
+assert.match(ui, /aria-label", "Import theme"[\s\S]*?icon-import\.svg/);
+assert.match(ui, /input\.accept = "\.json,application\/json"/);
+assert.match(ui, /Downloaded theme/);
+assert.match(ui, /Imported and saved theme/);
+console.log("Visual theme sharing: safe export/import round trip and toolbar actions passed.");
