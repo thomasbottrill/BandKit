@@ -1,11 +1,36 @@
-import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState, updateRuntimeLive, updateRuntimeSaveState, updateRuntimeSeamless, updateRuntimeState } from "./context.js";
-import { asset, createElement, resolvedTrackPageUrl, safeBandcampReleaseUrl, safeBandcampUrl } from "../core.js";
-import { MUSIC_BAR_WIDTHS, defaultState } from "../state.js";
-import { waveformPathData } from "../waveform.js";
+import { createMusicBarPanelButton, createSectionTab, createPanelShortcut, createMusicBarShortcut } from "../components/section-navigation.js";
+import { runtimeLive, runtimeSaveState, runtimeState, updateRuntimeLive, updateRuntimeSaveState, updateRuntimeSeamless, updateRuntimeState } from "./context.js";
+import { asset, createElement, enableRangeReset, resolvedTrackPageUrl, safeBandcampReleaseUrl, safeBandcampUrl } from "../core.js";
+import { MUSIC_BAR_SCRUBBER_WIDTHS, MUSIC_BAR_STYLES, MUSIC_BAR_WIDTHS, PLAYER_BLEND_MODES, SCRUBBER_HANDLE_SHAPES, VISUALIZER_BLEND_MODES, defaultState, normalizeVisualizerType, normalizeHandleSize } from "../state.js";
+import { scrubberHandleMask, setHandleImageStyles } from "../custom-scrub-handle.js";
+import { applyTimelinePath, normalizeTimelineStyle } from "../timeline-styles.js";
 import { MESSAGES, STORAGE_KEYS } from "../../shared/contracts.js";
 import { createAppContext } from "../app-context.js";
-
-function registerRuntimeShell1(r) {
+import { CONCURRENT_SETTING_KEYS, mergeConcurrentState } from "../../shared/state-merge.js";
+import { setupCompactPanelFocusRelease, setupCompactPanelNotices } from "./interaction-guards.js";
+import { setupSettingsTooltips } from "./settings-tooltips.js";
+import { beginNowPlayingSessionRevision, nowPlayingSessionSignature, persistNowPlayingSession } from "./now-playing-session.js";
+import { resetSettingsDisclosures } from "../settings-drawer.js";
+import { setupRuntimeDomShell } from "./runtime-dom-shell.js";
+function applyMusicBarWidth(r, width, customWidth) {
+  const previousWidth = r.$player.dataset.contentWidth;
+  const previousCustomWidth = r.$player.style.getPropertyValue("--hub-player-custom-width");
+  r.$player.dataset.contentWidth = width;
+  if (width === "custom") r.$player.style.setProperty("--hub-player-custom-width", `${customWidth}px`);
+  else r.$player.style.removeProperty("--hub-player-custom-width");
+  const nextCustomWidth = r.$player.style.getPropertyValue("--hub-player-custom-width");
+  if (previousWidth === width && previousCustomWidth === nextCustomWidth) return;
+  r.$playerSectionGeometrySignature = "";
+  window.requestAnimationFrame(() => {
+    r.$syncPlayerPageSpace();
+    r.$schedulePlayerSectionGeometry();
+  });
+}
+function setOptionalColour(style, property, value) {
+  if (/^#[\da-f]{6}$/i.test(String(value || ""))) style.setProperty(property, value);
+  else style.removeProperty(property);
+}
+function registerRuntimeShellPlayer(r) {
 r.$canonicalBandcampFeedUrl = function canonicalBandcampFeedUrl(value) {
       try {
         const url = new URL(value || "", "https://bandcamp.com/");
@@ -41,6 +66,7 @@ r.$pageMediaCommand = function pageMediaCommand(action, details = {}) {
       document.dispatchEvent(new CustomEvent("bandkit:media-command", { detail: { action, ...details } }));
     };
 r.$syncPlayerPageSpace = function syncPlayerPageSpace() {
+      if (r.$visualizerFullscreen) return;
       const pageFooter = document.querySelector("#page-footer, #pgFt, page-footer, .full-page-app-wrapper > footer");
       const pageFlowParent = document.querySelector("#DiscoverApp main.app")
         || pageFooter?.parentElement
@@ -50,10 +76,12 @@ r.$syncPlayerPageSpace = function syncPlayerPageSpace() {
         r.$playerSpacer.parentElement?.style.removeProperty("scroll-padding-bottom");
         pageFlowParent.append(r.$playerSpacer);
       }
-      const playerHeight = Math.ceil(r.$player.getBoundingClientRect().height);
+      const playerRect = r.$player.getBoundingClientRect();
+      const playerHeight = Math.ceil(playerRect.height);
       if (!playerHeight) return;
-      const reservedHeight = `${playerHeight}px`;
-      const discoverReservedHeight = `${playerHeight + 16}px`;
+      const playerBottomGap = Math.max(0, Math.ceil(window.innerHeight - playerRect.bottom));
+      const reservedHeight = `${playerHeight + playerBottomGap}px`;
+      const discoverReservedHeight = `${playerHeight + playerBottomGap + 16}px`;
       r.$playerSpacer.style.setProperty("height", reservedHeight, "important");
       r.$playerSpacer.style.setProperty("flex-basis", reservedHeight, "important");
       const discoverDetail = document.querySelector("#DiscoverApp .focused-result");
@@ -70,10 +98,8 @@ r.$syncPlayerPageSpace = function syncPlayerPageSpace() {
       pageFlowParent.style.setProperty("scroll-padding-bottom", reservedHeight);
     };
 r.$buildScrubWaveform = function buildScrubWaveform(signature, width) {
-      const { pathData, pixelWidth } = waveformPathData(signature, width);
-      r.$scrubWaveform.setAttribute("viewBox", `0 0 ${pixelWidth} 24`);
-      r.$scrubWaveformRemaining.setAttribute("d", pathData);
-      r.$scrubWaveformPlayed.setAttribute("d", pathData);
+      const { pixelWidth } = applyTimelinePath(r.$scrubWaveform, signature, width, runtimeState.scrubberStyle, runtimeState.customTimeline, runtimeState.retainTimelineColors);
+      r.$scrubWaveformStyle = normalizeTimelineStyle(runtimeState.scrubberStyle);
       r.$scrubWaveformSignature = signature;
       r.$scrubWaveformWidth = pixelWidth;
     };
@@ -83,42 +109,146 @@ r.$refreshScrubWaveform = function refreshScrubWaveform(force = false, observedW
       const signature = pendingTrackId
         ? `${pendingTrackId}\u0000${pendingTrack?.title || ""}\u0000${pendingTrack?.artist || ""}`
         : `${runtimeLive.title || ""}\u0000${runtimeLive.artist || ""}\u0000${runtimeLive.pageUrl || ""}`;
-      if (!force && signature === r.$scrubWaveformSignature) return;
+      const sameStyle = runtimeState.scrubberStyle !== "custom" && r.$scrubWaveformStyle === normalizeTimelineStyle(runtimeState.scrubberStyle);
+      if (!force && sameStyle && signature === r.$scrubWaveformSignature) return;
       const width = Math.max(80, Math.round(observedWidth || r.$scrubControl.getBoundingClientRect().width));
-      if (signature === r.$scrubWaveformSignature && Math.abs(width - r.$scrubWaveformWidth) < 4) return;
+      if (sameStyle && signature === r.$scrubWaveformSignature && Math.abs(width - r.$scrubWaveformWidth) < 4) return;
       r.$buildScrubWaveform(signature, width);
     };
 r.$syncScrubVisual = function syncScrubVisual(value = Number(r.$scrubSlider.value) || 0) {
       const progress = Math.max(0, Math.min(1, value / 1000));
-      r.$scrubControl.style.setProperty("--hub-scrub-progress", `${(progress * 100).toFixed(2)}%`);
+      r.$scrubControl.style.setProperty("--hub-scrub-progress", `${(progress * 100).toFixed(2)}%`); if (!r.$scrubPreviewActive) r.$scrubControl.style.setProperty("--hub-scrub-preview-progress", `${(progress * 100).toFixed(2)}%`);
     };
 r.$usesTraditionalScrubber = function usesTraditionalScrubber() {
       return runtimeState.scrubberStyle === "traditional";
     };
 r.$syncScrubberStyles = function syncScrubberStyles() {
       const traditional = r.$usesTraditionalScrubber();
+      const handleShape = SCRUBBER_HANDLE_SHAPES.includes(runtimeState.scrubberHandleShape)
+        ? runtimeState.scrubberHandleShape : "pill";
+      const width = MUSIC_BAR_SCRUBBER_WIDTHS.includes(runtimeState.musicBarScrubberWidth)
+        ? runtimeState.musicBarScrubberWidth : "full";
+      runtimeState.scrubberHandleShape = handleShape;
+      runtimeState.musicBarScrubberWidth = width;
+      const roundedHandle = runtimeState.appearance.cornerStyle !== "square"
+        && !(runtimeState.appearance.cornerStyle === "custom" && Number(runtimeState.appearance.customCornerRadius) <= 0);
+      const handleMask = scrubberHandleMask(handleShape, roundedHandle, runtimeState.customScrubberHandle);
+      const handleSize = `${22 * normalizeHandleSize(runtimeState.scrubberHandleSize) / 100}px`;
+      setOptionalColour(r.$host.style, "--hub-timeline-color", runtimeState.musicBarTimelineColor);
+      setOptionalColour(r.$host.style, "--hub-handle-color", runtimeState.musicBarHandleColor);
+      setOptionalColour(document.documentElement.style, "--bandkit-timeline-color", runtimeState.musicBarTimelineColor);
+      setOptionalColour(document.documentElement.style, "--bandkit-handle-color", runtimeState.musicBarHandleColor);
+      r.$host.style.setProperty("--hub-scrub-handle-size", handleSize);
+      document.documentElement.style.setProperty("--bandkit-scrub-handle-size", handleSize);
+      r.$player.dataset.scrubHandleShape = handleShape;
+      r.$host.dataset.scrubHandleShape = handleShape;
+      r.$host.style.setProperty("--hub-scrub-handle-mask", handleMask);
+      setHandleImageStyles(r.$host.style, "--hub-scrub-handle", handleShape, runtimeState.customScrubberHandle, runtimeState.retainSvgHandleColors, runtimeState.retainPngHandleColors);
+      document.documentElement.dataset.bandkitScrubHandle = handleShape;
+      document.documentElement.style.setProperty("--bandkit-scrub-handle-mask", handleMask);
+      setHandleImageStyles(document.documentElement.style, "--bandkit-scrub-handle", handleShape, runtimeState.customScrubberHandle, runtimeState.retainSvgHandleColors, runtimeState.retainPngHandleColors);
+      if (r.$pageDjHost) {
+        r.$pageDjHost.dataset.scrubHandleShape = handleShape;
+        r.$pageDjHost.style.setProperty("--hub-scrub-handle-mask", handleMask);
+        r.$pageDjHost.style.setProperty("--hub-scrub-handle-size", handleSize);
+        setHandleImageStyles(r.$pageDjHost.style, "--hub-scrub-handle", handleShape, runtimeState.customScrubberHandle, runtimeState.retainSvgHandleColors, runtimeState.retainPngHandleColors);
+      }
+      r.$player.dataset.scrubberWidth = width;
       r.$scrubControl.classList.toggle("is-traditional", traditional);
+      if (r.$scrubWaveform) r.$refreshScrubWaveform(true);
       for (const control of document.querySelectorAll(".bandkit-page-scrub-control")) {
         control.classList.toggle("is-traditional", traditional);
       }
     };
 r.$syncMusicBarSize = function syncMusicBarSize() {
       const compact = runtimeState.musicBarSize === "compact";
-      const changed = r.$player.classList.contains("is-compact") !== compact;
+      const bottomOffset = Math.round(Math.max(0, Math.min(160, Number(runtimeState.musicBarBottomOffset) || 0)));
+      runtimeState.musicBarBottomOffset = bottomOffset;
+      const visualizerAddsDockedClearance = runtimeState.musicBarStyle === "docked"
+        && runtimeState.musicBarVisualizer !== "off";
+      const height = compact ? 72 : 96;
+      const clearance = visualizerAddsDockedClearance ? "24px" : "0px";
+      const nextHeight = `${height}px`;
+      const changed = r.$player.classList.contains("is-compact") !== compact
+        || r.$host.style.getPropertyValue("--hub-player-height") !== nextHeight
+        || r.$host.style.getPropertyValue("--hub-dock-visualizer-clearance") !== clearance
+        || r.$host.style.getPropertyValue("--hub-player-offset") !== `${bottomOffset}px`;
       r.$player.classList.toggle("is-compact", compact);
-      r.$host.style.setProperty("--hub-player-height", compact ? "72px" : "96px");
+      r.$host.style.setProperty("--hub-player-height", nextHeight);
+      r.$host.style.setProperty("--hub-dock-visualizer-clearance", clearance);
+      r.$host.style.setProperty("--hub-player-offset", `${bottomOffset}px`);
+      r.$host.style.setProperty("--hub-player-bottom-gap", `${bottomOffset}px`);
       if (changed) window.requestAnimationFrame(r.$syncPlayerPageSpace);
+    };
+r.$syncMusicBarVisualizer = function syncMusicBarVisualizer() {
+      const type = normalizeVisualizerType(runtimeState.musicBarVisualizerType, runtimeState.musicBarVisualizer);
+      const mode = runtimeState.musicBarVisualizer === "off" ? "off" : type; const opacity = Math.round(Math.max(10, Math.min(400, Number(runtimeState.musicBarVisualizerOpacity) || 100)));
+      const normalizeDimension = (value, min, max) => value === "auto" || value == null || value === ""
+        ? "auto" : Math.round(Math.max(min, Math.min(max, Number(value) || min)));
+      const width = normalizeDimension(runtimeState.musicBarVisualizerWidth, 240, 3200);
+      const height = normalizeDimension(runtimeState.musicBarVisualizerHeight, 24, 240);
+      const blendMode = VISUALIZER_BLEND_MODES.includes(runtimeState.musicBarVisualizerBlendMode)
+        ? runtimeState.musicBarVisualizerBlendMode : "normal";
+      runtimeState.musicBarVisualizer = mode; runtimeState.musicBarVisualizerType = type; runtimeState.musicBarVisualizerOpacity = opacity;
+      runtimeState.musicBarVisualizerWidth = width; runtimeState.musicBarVisualizerHeight = height; runtimeState.musicBarVisualizerBlendMode = blendMode;
+      const displayMode = mode === "off" && !r.$visualizerFullscreen ? "off" : normalizeVisualizerType(r.$visualizerPreviewType, type);
+      r.$player.dataset.visualizer = displayMode; r.$panel.dataset.visualizer = displayMode; r.$player.style.setProperty("--hub-visualizer-opacity", String(Math.min(1, opacity / 100))); r.$player.style.setProperty("--hub-visualizer-idle-opacity", String(Math.min(0.24, (opacity / 100) * 0.34)));
+      if (width === "auto") r.$playerVisualizer?.style.removeProperty("width");
+      else r.$playerVisualizer?.style.setProperty("width", `${width}px`);
+      if (height === "auto") r.$playerVisualizer?.style.removeProperty("height");
+      else r.$playerVisualizer?.style.setProperty("height", `${height}px`);
+      for (const property of ["--hub-visualizer-blend-mode", "--hub-spectrum-blend-mode"]) {
+        r.$player.style.setProperty(property, blendMode);
+      }
+      r.$syncMusicBarSize();
+    };
+}
+
+function registerRuntimeShellActions(r) {
+r.$syncMusicBarStyle = function syncMusicBarStyle() {
+      const style = runtimeState.musicBarStyle === "floating" ? "rounded"
+        : MUSIC_BAR_STYLES.includes(runtimeState.musicBarStyle) ? runtimeState.musicBarStyle : "zune";
+      const renderedStyle = style === "rounded" ? "zune" : style;
+      const renderedVariant = style === "rounded" ? "rounded" : "default";
+      const blendMode = PLAYER_BLEND_MODES.includes(runtimeState.musicBarBlendMode)
+        ? runtimeState.musicBarBlendMode : "normal";
+      const changed = r.$player.dataset.playerStyle !== renderedStyle || r.$player.dataset.playerVariant !== renderedVariant;
+      runtimeState.musicBarStyle = style;
+      runtimeState.musicBarBlendMode = blendMode;
+      r.$player.dataset.playerStyle = renderedStyle;
+      r.$player.dataset.playerVariant = renderedVariant;
+      const dynamicColor = runtimeState.musicBarDynamicColor !== false;
+      r.$player.dataset.dynamicColor = dynamicColor && runtimeState.musicBarPlayerDynamicColor !== false ? "true" : "false";
+      r.$player.dataset.blendMode = blendMode;
+      r.$player.style.setProperty("--hub-player-blend-mode", blendMode);
+      setOptionalColour(r.$player.style, "--hub-playback-color", runtimeState.musicBarControlsColor);
+      const playerColour = dynamicColor ? null : runtimeState.musicBarPlayerColor;
+      setOptionalColour(r.$player.style, "--hub-zune-surface", playerColour);
+      setOptionalColour(r.$player.style, "--hub-docked-surface", playerColour);
+      r.$panel.dataset.playerStyle = renderedStyle;
+      r.$panel.dataset.playerVariant = renderedVariant;
+      r.$panel.dataset.dynamicColor = dynamicColor && runtimeState.musicBarPanelDynamicColor !== false ? "true" : "false";
+      r.$host.style.setProperty("--hub-player-bottom-gap", "0px");
+      r.$syncMusicBarSize();
+      if (changed) {
+        r.$playerSectionGeometrySignature = "";
+        window.requestAnimationFrame(() => {
+          r.$syncPlayerPageSpace();
+          r.$schedulePlayerSectionGeometry();
+        });
+      }
     };
 r.$syncMusicBarWidth = function syncMusicBarWidth() {
       const width = MUSIC_BAR_WIDTHS.includes(runtimeState.musicBarWidth) ? runtimeState.musicBarWidth : "default";
       const customWidth = Math.round(Math.max(480, Math.min(2000, Number(runtimeState.musicBarCustomWidth) || 900)));
       runtimeState.musicBarWidth = width;
       runtimeState.musicBarCustomWidth = customWidth;
-      r.$player.dataset.contentWidth = width;
-      r.$player.style.setProperty("--hub-player-custom-width", `${customWidth}px`);
+      applyMusicBarWidth(r, width, customWidth);
     };
 r.$toggleSectionPanel = function toggleSectionPanel(tabId) {
+      r.$clearCompactPanelNotice?.();
       const currentPanelVisible = runtimeState.activeTab === tabId && !r.$panel.classList.contains("is-hidden");
+      runtimeState.musicBarRecentPanel = tabId;
       runtimeState.activeTab = tabId;
       runtimeState.open = !currentPanelVisible;
       runtimeSaveState();
@@ -170,22 +300,33 @@ r.$nativeTrackActionControl = function nativeTrackActionControl(action) {
       }
       return null;
     };
-r.$activateNativeTrackAction = function activateNativeTrackAction(action) {
-      const control = r.$nativeTrackActionControl(action);
+r.$activateNativeTrackAction = function activateNativeTrackAction(action, wishlistActive = true) { const control = r.$nativeTrackActionControl(action);
       if (!control) return false;
       if (action === "wishlist") {
         const status = `${control.getAttribute("aria-label") || ""} ${control.textContent || ""}`.toLowerCase();
         const alreadyWishlisted = control.getAttribute("aria-pressed") === "true"
           || control.classList.contains("wishlisted")
           || /in wishlist|wishlisted|remove from wishlist/.test(status);
-        if (alreadyWishlisted) return true;
+        if (alreadyWishlisted === wishlistActive) return true;
       }
       control.click();
       return true;
     };
 }
-
-function registerRuntimeShell2(r) {
+function registerRuntimeShellCommerce(r) {
+r.$syncMusicBarPanelButtons = function syncMusicBarPanelButtons() {
+      const mode = "compact";
+      const changed = r.$player.dataset.panelButtons !== mode;
+      runtimeState.musicBarPanelButtons = mode;
+      r.$player.dataset.panelButtons = mode;
+      r.$player.dataset.panelOpen = runtimeState.open === true ? "true" : "false";
+      r.$player.dataset.analysisVisibility = runtimeState.keepMusicBarAnalysisVisible === true ? "always" : "hover";
+      r.$panel.dataset.panelButtons = mode;
+      if (changed) {
+        r.$playerSectionGeometrySignature = "";
+        window.requestAnimationFrame(r.$schedulePlayerSectionGeometry);
+      }
+    };
 r.$nativeCheckoutControl = function nativeCheckoutControl() {
       const match = document.querySelector([
         "#sidecartCheckout",
@@ -194,15 +335,11 @@ r.$nativeCheckoutControl = function nativeCheckoutControl() {
         "#sidecart a.buttonLink"
       ].join(", "));
       if (!match) return null;
-      return match.matches("button, a, [role='button']")
-        ? match
+      return match.matches("button, a, [role='button']") ? match
         : match.querySelector("button, a, [role='button']") || match.closest("button, a, [role='button']");
     };
 r.$activateNativeCheckout = function activateNativeCheckout() {
-      const control = r.$nativeCheckoutControl();
-      if (!control) return false;
-      control.click();
-      return true;
+      const control = r.$nativeCheckoutControl(); if (!control) return false; control.click(); return true;
     };
 r.$runPendingTrackAction = function runPendingTrackAction() {
       const action = location.hash === "#bandkit-wishlist"
@@ -215,9 +352,10 @@ r.$runPendingTrackAction = function runPendingTrackAction() {
       if (!action) return;
       let attempts = 0;
       const wishlistKey = new URLSearchParams(location.search).get("bandkit_wishlist_key") || "";
+      const wishlistActive = new URLSearchParams(location.search).get("bandkit_wishlist_active") !== "0";
       const reportWishlistResult = (success) => {
         if (action !== "wishlist") return;
-        void r.$runtimeMessage({ type: MESSAGES.WISHLIST_RESULT, key: wishlistKey, success });
+        void r.$runtimeMessage({ type: MESSAGES.WISHLIST_RESULT, key: wishlistKey, active: wishlistActive, success });
       };
       const tryAction = () => {
         attempts += 1;
@@ -230,7 +368,7 @@ r.$runPendingTrackAction = function runPendingTrackAction() {
             activated = true;
           }
         } else {
-          activated = r.$activateNativeTrackAction(action);
+          activated = r.$activateNativeTrackAction(action, wishlistActive);
         }
         if (activated) {
           if (action !== "checkout") history.replaceState(history.state, "", `${location.pathname}${location.search}`);
@@ -251,10 +389,14 @@ r.$runPendingTrackAction = function runPendingTrackAction() {
       tryAction();
     };
 r.$openBandcampCheckout = function openBandcampCheckout() {
-      if (r.$activateNativeCheckout()) {
-        r.$showToast("Opening Bandcamp checkout…");
+      const unavailableItems = runtimeState.cart.filter((item) => item.unavailable === true);
+      if (unavailableItems.length) {
+        runtimeState.open = true; runtimeState.activeTab = "cart"; runtimeState.cartView = "current";
+        r.$render();
+        r.$showToast(`${unavailableItems.length} unavailable cart item${unavailableItems.length === 1 ? " needs" : "s need"} to be removed before checkout.`);
         return;
       }
+      if (r.$activateNativeCheckout()) { r.$showToast("Opening Bandcamp checkout…"); return; }
       const itemPage = runtimeState.cart.map((item) => safeBandcampUrl(item.url)).find(Boolean);
       const target = new URL(itemPage || "https://bandcamp.com/");
       target.hash = "bandkit-checkout";
@@ -271,7 +413,7 @@ r.$resolveTrackActionPage = async function resolveTrackActionPage(track) {
       });
       return safeBandcampUrl(resolved?.items?.[0]?.restore?.url);
     };
-r.$openTrackAction = async function openTrackAction(track, action) {
+r.$openTrackAction = async function openTrackAction(track, action, { active = true } = {}) {
       const directUrl = r.$individualTrackPageUrl(track);
       if (!directUrl) r.$showToast(`Finding “${track.title}” on Bandcamp…`);
       const pageUrl = directUrl || await r.$resolveTrackActionPage(track);
@@ -281,24 +423,25 @@ r.$openTrackAction = async function openTrackAction(track, action) {
       }
       const target = new URL(pageUrl);
       const samePage = target.origin === location.origin && target.pathname === location.pathname;
-      if (samePage && r.$activateNativeTrackAction(action)) {
-        if (action === "wishlist") r.$markWishlistTrack(track, true);
-        r.$showToast(action === "wishlist" ? "Updated the Bandcamp wishlist" : "Opened Bandcamp's purchase action");
+      if (samePage && r.$activateNativeTrackAction(action, active)) {
+        if (action === "wishlist") r.$markWishlistTrack(track, active);
+        r.$showToast(action === "wishlist" ? active ? "Added to your Bandcamp wishlist" : "Removed from your Bandcamp wishlist" : "Opened Bandcamp's purchase action");
         return;
       }
       target.hash = action === "wishlist" ? "bandkit-wishlist" : "bandkit-cart";
       if (action === "wishlist") {
         const key = r.$wishlistTrackKey(track);
         target.searchParams.set("bandkit_wishlist_key", key);
+        target.searchParams.set("bandkit_wishlist_active", active ? "1" : "0");
       }
       const response = await r.$runtimeMessage({ type: MESSAGES.OPEN_BACKGROUND_TAB, url: target.href });
       if (!response?.ok) {
         r.$showToast(response?.error || `Bandcamp could not open the ${action} action.`);
         return;
       }
-      if (action === "wishlist") r.$markWishlistTrack(track, true);
+      if (action === "wishlist") r.$markWishlistTrack(track, active);
       r.$showToast(action === "wishlist"
-        ? `Opened “${track.title}” on Bandcamp for your wishlist.`
+        ? active ? `Adding “${track.title}” to your Bandcamp wishlist.` : `Removing “${track.title}” from your Bandcamp wishlist.`
         : `Opened “${track.title}” on Bandcamp for purchase.`);
     };
 r.$wishlistTrackKey = function wishlistTrackKey(track) {
@@ -310,12 +453,26 @@ r.$markWishlistTrack = function markWishlistTrack(trackOrKey, active) {
       const key = typeof trackOrKey === "string" ? trackOrKey : r.$wishlistTrackKey(trackOrKey);
       if (!key) return;
       const keys = new Set(runtimeState.wishlistTrackKeys || []);
+      const wasActive = keys.has(key);
       if (active) keys.add(key);
       else keys.delete(key);
       runtimeState.wishlistTrackKeys = [...keys].slice(-500);
+      if (active && !wasActive && typeof trackOrKey !== "string") {
+        r.$recordActivity({
+          action: "wishlisted",
+          title: trackOrKey.title,
+          artist: trackOrKey.artist,
+          art: trackOrKey.art,
+          url: resolvedTrackPageUrl(trackOrKey),
+          artistUrl: trackOrKey.artistUrl || r.$artistUrlFromPageUrl(resolvedTrackPageUrl(trackOrKey))
+        }, { persist: false, render: false });
+      }
       runtimeSaveState();
       if (runtimeState.activeTab === "playlist") r.$render();
     };
+}
+
+function registerRuntimeShellLinks(r) {
 r.$artistUrlFromPageUrl = function artistUrlFromPageUrl(value) {
       const pageUrl = safeBandcampReleaseUrl(value);
       if (!pageUrl) return "";
@@ -360,7 +517,6 @@ r.$signedPercent = function signedPercent(value) {
       return `${rounded > 0 ? "+" : ""}${rounded.toFixed(rounded % 1 ? 1 : 0)}%`;
     };
 }
-
 function registerRuntimeShell3(r) {
 r.$showToast = function showToast(message, duration = 2200) {
       window.clearTimeout(r.$toastTimer);
@@ -403,35 +559,60 @@ r.$reportStorageWriteError = function reportStorageWriteError(error) {
         : "Bandkit could not save this change.");
     };
 r.$persistLocal = function persistLocal(values, notify = true) {
-      if (r.$storageDisabled) return;
+      if (r.$storageDisabled) return Promise.resolve(false);
       try {
         const write = chrome.storage.local.set(values);
         if (write && typeof write.catch === "function") {
-          write.catch((error) => {
+          return write.then(() => true).catch((error) => {
             if (notify) r.$reportStorageWriteError(error);
+            return false;
           });
         }
+        return Promise.resolve(true);
       } catch (error) {
         if (notify) r.$reportStorageWriteError(error);
+        return Promise.resolve(false);
       }
     };
-r.$persistNowPlayingSession = function persistNowPlayingSession() {
-      if (r.$storageDisabled) return;
-      void r.$runtimeMessage({
-        type: MESSAGES.SET_NOW_PLAYING,
-        playlist: runtimeState.playlist,
-        playlistMode: runtimeState.playlistMode
-      });
+r.$nowPlayingSessionSignature = () => nowPlayingSessionSignature(runtimeState);
+r.$beginNowPlayingSessionRevision = () => beginNowPlayingSessionRevision(r, runtimeState);
+r.$persistNowPlayingSession = () => persistNowPlayingSession(r, runtimeState);
+r.$sharedStateSnapshot = function sharedStateSnapshot(value = runtimeState) {
+      const snapshot = {
+        activity: structuredClone(value?.activity || []),
+        cart: structuredClone(value?.cart || []), cartSavedAt: value?.cartSavedAt || null, cartSummary: structuredClone(value?.cartSummary || null),
+        savedPlaylists: structuredClone(value?.savedPlaylists || []),
+        savedCarts: structuredClone(value?.savedCarts || []),
+        backupIntroSeen: value?.backupIntroSeen === true,
+        backupReminderDays: Number(value?.backupReminderDays),
+        backupReminderSnoozedAt: value?.backupReminderSnoozedAt || null,
+        lastBackupAt: value?.lastBackupAt || null,
+        appearance: structuredClone(value?.appearance || {}),
+        dj: structuredClone(value?.dj || {}),
+        settingsDrawers: structuredClone(value?.settingsDrawers || {})
+      };
+      for (const key of CONCURRENT_SETTING_KEYS) snapshot[key] = structuredClone(value?.[key]);
+      return snapshot;
+    };
+r.$setSharedStateBaseline = function setSharedStateBaseline(value = runtimeState) {
+      r.$sharedStateBaseline = r.$sharedStateSnapshot(value);
     };
 r.$saveState = updateRuntimeSaveState(function saveState() {
-      r.$persistLocal({ [STORAGE_KEYS.STATE]: runtimeState });
+      const snapshot = structuredClone(runtimeState);
+      r.$restoreVisualThemeForSave?.(snapshot);
+      const baseline = structuredClone(r.$sharedStateBaseline);
+      r.$stateSaveChain = r.$stateSaveChain.catch(() => {}).then(async () => {
+        const stored = await r.$storageGet(STORAGE_KEYS.STATE);
+        const latest = stored?.[STORAGE_KEYS.STATE] || {};
+        const payload = mergeConcurrentState(baseline, snapshot, latest);
+        if (!await r.$persistLocal({ [STORAGE_KEYS.STATE]: payload })) return;
+        r.$setSharedStateBaseline(payload);
+      });
       r.$persistNowPlayingSession();
       r.$scheduleCollectionPlaylistSync?.();
     });
 }
-
-export const registerRuntimeShell = [registerRuntimeShell1, registerRuntimeShell2, registerRuntimeShell3];
-
+export const registerRuntimeShell = [registerRuntimeShellPlayer, registerRuntimeShellActions, registerRuntimeShellCommerce, registerRuntimeShellLinks, registerRuntimeShell3];
 function setupRuntimeShell1(r) {
 r.$cartAutosave = globalThis.BandKitCartAutosave;
 r.$app = createAppContext(defaultState);
@@ -472,10 +653,9 @@ r.$seamless = updateRuntimeSeamless({
       loopBeats: 0,
       loopStart: 0,
       loopEnd: 0,
-      detectedBpm: null,
-      automaticBpm: null,
-      bpmSource: "auto",
-      bpmStatus: "idle",
+      detectedBpm: null, automaticBpm: null,
+      automaticBpmUncertain: false, bpmSource: "auto", bpmStatus: "idle",
+      bpmUncertain: false,
       detectedKey: null,
       waveform: [],
       index: -1,
@@ -488,12 +668,25 @@ r.$bpmDraft = "";
 r.$toastTimer = undefined;
 r.$storageErrorToastAt = 0;
 r.$storageDisabled = false;
+r.$sharedStateBaseline = r.$sharedStateSnapshot?.(defaultState) || {
+  savedPlaylists: [],
+  savedCarts: [],
+  backupIntroSeen: false,
+  backupReminderDays: 7,
+  backupReminderSnoozedAt: null,
+  lastBackupAt: null
+};
+r.$stateSaveChain = Promise.resolve();
+r.$nowPlayingPersistChain = Promise.resolve();
 r.$backupSavedConfirmationUntil = 0;
 r.$scanTimer = undefined;
 r.$scanIdleCallback = undefined;
 r.$playerEventScanTimer = undefined;
 r.$lastPageScrollAt = 0;
 r.$seamlessSyncTimer = undefined;
+r.$seamlessSyncPromise = null;
+r.$playbackSessionStartedAt = 0;
+r.$playbackStateRevision = 0;
 r.$pageActionsDirty = true;
 r.$pageActionsObserver = null;
 r.$playerSectionGeometryFrame = 0;
@@ -525,6 +718,15 @@ r.$mutedFeedTrackId = "";
 r.$playlistPlaybackStarting = false;
 r.$playlistPlaybackStartingRequest = 0;
 r.$playlistPlayRequest = 0;
+r.$nowPlayingRevision = 0; r.$lastNowPlayingSignature = "";
+r.$nowPlayingTransitionTrackKey = "";
+r.$nowPlayingTransitionExpiresAt = 0;
+r.$classicPageHandoffRequest = 0;
+r.$classicPageHandoffTrackKey = ""; r.$classicPageHandoffTrack = null;
+r.$classicPagePendingSeekFraction = null; r.$classicPagePendingSeekRequest = 0; r.$classicPagePendingSeekRevision = 0; r.$classicPagePendingSeekTrackKey = "";
+r.$savedPlaylistPlayRequest = 0;
+r.$savedPlaylistReplacementRequest = 0;
+r.$savedPlaylistReplacementGuardUntil = 0;
 r.$pendingPlaylistItemId = "";
 r.$feedSwitchPendingDisable = false;
 r.$pendingFeedTrackId = "";
@@ -551,7 +753,9 @@ r.$scrubRevision = 0;
 r.$scrubWaveformSignature = "";
 r.$scrubWaveformWidth = 0;
 r.$scrubWaveformResizeObserver = null;
+r.$playerSpectrumResizeObserver = null;
 r.$playerTrackRenderSignature = "";
+r.$playerTrackIdentity = "";
 r.$playerPlaybackRenderState = "";
 r.$playerAnalysisRenderSignature = "";
 r.$bpmTapTimes = [];
@@ -560,9 +764,12 @@ r.$observedAudio = new WeakSet();
 r.$bridgedMedia = null;
 r.$bridgedCart = null;
 r.$bridgedCartSummary = null;
+r.$activityDateFilter = "";
 r.$cartArtistCache = new Map();
 r.$cartArtistPending = new Set();
 r.$cartArtistAttempted = new Set();
+r.$cartActivityKeys = null;
+r.$cartActivityReadyAt = Date.now() + 10000;
 r.$pageDjOpen = false;
 r.$pageDjHost = null;
 r.$pageDjShadow = null;
@@ -589,207 +796,21 @@ r.$pageTrackPriceCache = new Map();
 r.$pageTrackPricePending = new Set();
 }
 
-function setupRuntimeShell2(r) {
-document.addEventListener("bandkit:media-state", (event) => {
-      const next = event.detail;
-      if (!next || typeof next !== "object") return;
-      const previous = r.$bridgedMedia;
-      r.$bridgedMedia = {
-        src: typeof next.src === "string" ? next.src : "",
-        paused: Boolean(next.paused),
-        ended: Boolean(next.ended),
-        currentTime: Number(next.currentTime) || 0,
-        duration: Number(next.duration) || 0,
-        playbackRate: Number(next.playbackRate) || 1,
-        volume: Number(next.volume) || 1
-      };
-      if (r.$hubReady && (!previous
-        || previous.src !== r.$bridgedMedia.src
-        || previous.paused !== r.$bridgedMedia.paused
-        || previous.ended !== r.$bridgedMedia.ended
-        || previous.duration !== r.$bridgedMedia.duration)) {
-        window.clearTimeout(r.$playerEventScanTimer);
-        r.$playerEventScanTimer = window.setTimeout(r.$scanLivePlayer, 0);
-      }
-      if (runtimeSeamless.enabled
-        && !r.$bridgedMedia.paused
-        && !r.$feedSwitchPendingDisable
-        && !r.$pendingFeedTrackId
-        && !r.$discoverSwitchPendingDisable
-        && Date.now() >= r.$collectionNativeFallbackUntil) {
-        r.$silenceNativePagePlayback();
-      }
-    });
-document.addEventListener("bandkit:cart-state", (event) => {
-      if (!Array.isArray(event.detail?.items)) return;
-      r.$bridgedCart = event.detail.items;
-      r.$bridgedCartSummary = event.detail.summary && typeof event.detail.summary === "object" ? event.detail.summary : null;
-      r.$scanLiveCart();
-    });
-r.$pageMediaCommand("getState");
-r.$root = document.createElement("li");
-r.$root.id = "bandcamp-hub-extension-root";
-r.$root.style.cssText = "list-style:none;margin:0;padding:0";
-r.$host = document.createElement("div");
-r.$host.setAttribute("data-bandcamp-hub", "");
-r.$root.append(r.$host);
-r.$shadow = r.$host.attachShadow({ mode: "open" });
-r.$style = document.createElement("style");
-r.$shadow.append(r.$style);
-r.$modernReleaseStyle = document.createElement("style");
-r.$modernReleaseStyle.id = "bandkit-modern-release-style";
-r.$launcher = document.createElement("button");
-r.$launcher.className = "hub-launcher is-panel-open";
-r.$launcher.type = "button";
-r.$launcher.title = "Toggle Bandkit (Alt+Shift+B)";
-r.$launcher.setAttribute("aria-label", "Toggle Bandkit");
-r.$launcherIcon = document.createElement("img");
-r.$launcherIcon.className = "hub-launcher-brand";
-r.$launcherIcon.src = asset("icon-bandkit.svg");
-r.$launcherIcon.alt = "";
-r.$launcher.append(r.$launcherIcon);
-r.$panel = document.createElement("section");
-r.$panel.className = "hub-panel is-contextual";
-r.$panel.setAttribute("aria-label", "Bandkit");
-r.$panel.setAttribute("aria-hidden", "true");
-r.$panel.setAttribute("inert", "");
-r.$panel.setAttribute("role", "dialog");
-r.$panel.setAttribute("aria-modal", "false");
-r.$panel.innerHTML = `
-      <header class="hub-header">
-        <div class="hub-title-row">
-          <span class="hub-title">Now Playing &amp; Playlists</span>
-        </div>
-        <div class="hub-header-actions">
-          <button class="hub-icon-button hub-reset" type="button" title="Reset size and position" aria-label="Reset size and position">
-            <span class="hub-reset-symbol" aria-hidden="true"></span>
-          </button>
-          <button class="hub-icon-button hub-layout-toggle" type="button" aria-label="Dock Bandkit to the right" title="Dock Bandkit to the right">
-            <img src="${asset("icon-dock.svg")}" alt="">
-          </button>
-          <button class="hub-icon-button hub-close" type="button" aria-label="Close Bandkit">
-            <img src="${asset("icon-close.svg")}" alt="">
-          </button>
-        </div>
-      </header>
-      <nav class="hub-tabs" aria-label="Bandkit sections"></nav>
-      <main class="hub-content"></main>
-      <footer class="hub-player">
-        <div class="hub-dj-drawer" aria-hidden="true"></div>
-        <div class="hub-player-content">
-          <div class="hub-player-main">
-          <div class="hub-player-actions">
-            <button class="hub-skip-button hub-previous-button" type="button" aria-label="Previous track">
-              <img src="${asset("icon-skip.svg")}" alt="">
-            </button>
-            <button class="hub-play-button" type="button" aria-label="Play or pause"></button>
-            <button class="hub-skip-button hub-next-button" type="button" aria-label="Next track">
-              <img src="${asset("icon-skip.svg")}" alt="">
-            </button>
-          </div>
-          <div class="hub-player-track is-empty">
-            <a class="hub-player-art-link" aria-disabled="true">
-              <img class="hub-art is-small hub-player-art" alt="">
-            </a>
-            <div class="hub-track-copy">
-              <a class="hub-track-title hub-inline-link hub-player-title" aria-disabled="true"></a>
-              <a class="hub-track-artist hub-inline-link hub-player-artist" aria-disabled="true"></a>
-            </div>
-          </div>
-          <div class="hub-player-tools">
-            <button class="hub-now-playing-button" type="button" aria-label="Open Now Playing" aria-expanded="false">
-              <span class="hub-now-playing-icon" style="--hub-icon:url('${asset("icon-now-playing.svg")}')"></span>
-              <span class="hub-now-playing-label">Now Playing</span>
-              <span class="hub-now-playing-count">0</span>
-            </button>
-            <div class="hub-player-analysis" role="group" aria-label="Track BPM and key" hidden>
-              <span class="hub-player-analysis-badge hub-player-bpm-badge" hidden></span>
-              <span class="hub-player-analysis-badge hub-player-key-badge" hidden>
-                <span class="hub-player-key-camelot"></span>
-                <span class="hub-player-key-name"></span>
-              </span>
-            </div>
-            <button class="hub-dj-player-button" type="button" aria-label="Open DJ tools" style="--hub-dj-icon:url('${asset("icon-dj.svg")}')"></button>
-            <div class="hub-player-more-wrap">
-              <button class="hub-player-more-button" type="button" aria-label="More track actions" aria-expanded="false">
-                <span class="hub-player-more-dots" aria-hidden="true"><span></span><span></span><span></span></span>
-              </button>
-              <div class="hub-player-more-menu" hidden></div>
-            </div>
-          </div>
-          </div>
-          <div class="hub-scrub-row">
-            <span class="hub-current-time">0:00</span>
-            <div class="hub-scrub-control">
-              <input class="hub-scrub-slider" type="range" min="0" max="1000" step="1" value="0" aria-label="Playback position">
-              <svg class="hub-scrub-waveform" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-                <path class="hub-scrub-waveform-remaining"></path>
-                <path class="hub-scrub-waveform-played"></path>
-              </svg>
-              <span class="hub-scrub-playhead" aria-hidden="true"></span>
-            </div>
-            <span class="hub-duration">0:00</span>
-          </div>
-        </div>
-        <div class="hub-toast" role="status" aria-live="polite"></div>
-      </footer>
-      <div class="hub-resize-handle is-left" data-edge="left" aria-hidden="true"></div>
-      <div class="hub-resize-handle is-right" data-edge="right" aria-hidden="true"></div>
-      <div class="hub-resize-handle is-top" data-edge="top" aria-hidden="true"></div>
-      <div class="hub-resize-handle is-bottom" data-edge="bottom" aria-hidden="true"></div>
-    `;
-r.$player = r.$panel.querySelector(".hub-player");
-r.$player.remove();
-r.$headerShortcuts = document.createElement("nav");
-r.$headerShortcuts.className = "hub-header-shortcuts";
-r.$headerShortcuts.setAttribute("aria-label", "Bandkit shortcuts");
-r.$playerSections = document.createElement("div");
-r.$playerSections.className = "hub-player-sections";
-r.$playerSections.setAttribute("aria-label", "Bandkit player and sections");
-r.$playerSections.append(r.$player.querySelector(".hub-now-playing-button"), r.$headerShortcuts);
-r.$player.append(r.$playerSections);
-r.$shadow.append(r.$launcher, r.$panel, r.$player);
-r.$playerSpacer = document.createElement("div");
-r.$playerSpacer.id = "bandcamp-hub-player-spacer";
-r.$playerSpacer.setAttribute("aria-hidden", "true");
-r.$playerSpacer.style.cssText = "clear:both;display:block;flex:none;grid-column:1/-1;pointer-events:none;visibility:hidden;width:100%";
-r.$discoverPlayerSpacer = r.$playerSpacer.cloneNode(false);
-r.$discoverPlayerSpacer.id = "bandcamp-hub-discover-player-spacer";
-r.$tabs = [
-      { id: "playlist", label: "Now Playing & Playlists", icon: "icon-playlist.svg" },
-      { id: "cart", label: "Cart", icon: "icon-cart.svg" },
-      { id: "activity", label: "Activity", icon: "icon-activity.svg" },
-      { id: "settings", label: "Settings", icon: "icon-settings.svg" }
-    ];
-r.$tabBar = r.$panel.querySelector(".hub-tabs");
-r.$panelHeader = r.$panel.querySelector(".hub-header");
-r.$content = r.$panel.querySelector(".hub-content");
-r.$panelTitle = r.$panel.querySelector(".hub-title");
-r.$playerArt = r.$player.querySelector(".hub-player-art");
-r.$playerArtLink = r.$player.querySelector(".hub-player-art-link");
-r.$playerTrack = r.$player.querySelector(".hub-player-track");
-r.$playerTitle = r.$player.querySelector(".hub-player-title");
-r.$playerArtist = r.$player.querySelector(".hub-player-artist");
-r.$playButton = r.$player.querySelector(".hub-play-button");
-r.$playerMoreButton = r.$player.querySelector(".hub-player-more-button");
-r.$playerMoreMenu = r.$player.querySelector(".hub-player-more-menu");
-r.$nowPlayingButton = r.$player.querySelector(".hub-now-playing-button");
-r.$nowPlayingCount = r.$player.querySelector(".hub-now-playing-count");
-r.$playerAnalysis = r.$player.querySelector(".hub-player-analysis");
-r.$playerBpmBadge = r.$player.querySelector(".hub-player-bpm-badge");
-r.$playerKeyBadge = r.$player.querySelector(".hub-player-key-badge");
-r.$playerKeyCamelot = r.$player.querySelector(".hub-player-key-camelot");
-r.$playerKeyName = r.$player.querySelector(".hub-player-key-name");
-r.$djPlayerButton = r.$player.querySelector(".hub-dj-player-button");
-r.$headerCloseButton = r.$panel.querySelector(".hub-close");
-r.$headerResetButton = r.$panel.querySelector(".hub-reset");
-r.$layoutToggleButton = r.$panel.querySelector(".hub-layout-toggle");
-}
-
 function setupRuntimeShell3(r) {
-r.$djDrawer = r.$player.querySelector(".hub-dj-drawer");
+r.$restoreIconPreload = document.createElement("img");
+r.$restoreIconPreload.src = asset("icon-restore.svg");
+r.$compactPanelButton = createMusicBarPanelButton();
+r.$playerSections.prepend(r.$compactPanelButton);
+setupCompactPanelFocusRelease(r, () => runtimeState.open);
+setupCompactPanelNotices(r, () => r.$player.dataset.panelButtons === "compact");
+setupSettingsTooltips(r);
+r.$panelShortcuts = document.createElement("nav");
+r.$panelShortcuts.className = "hub-panel-shortcuts";
+r.$panelShortcuts.setAttribute("aria-label", "Panel destinations");
+r.$panel.append(r.$panelShortcuts);
 r.$scrubControl = r.$player.querySelector(".hub-scrub-control");
 r.$scrubSlider = r.$player.querySelector(".hub-scrub-slider");
+enableRangeReset(r.$scrubSlider, 0);
 r.$scrubWaveform = r.$player.querySelector(".hub-scrub-waveform");
 r.$scrubWaveformRemaining = r.$player.querySelector(".hub-scrub-waveform-remaining");
 r.$scrubWaveformPlayed = r.$player.querySelector(".hub-scrub-waveform-played");
@@ -803,34 +824,45 @@ if (typeof ResizeObserver === "function") {
         r.$refreshScrubWaveform(true, entries[0]?.contentRect.width || 0);
       });
       r.$scrubWaveformResizeObserver.observe(r.$scrubControl);
+      r.$playerSpectrumResizeObserver = new ResizeObserver((entries) => {
+        const bounds = entries[0]?.contentRect;
+        if (bounds?.width > 0 && bounds?.height > 0) {
+          r.$spectrumCanvasSize = { width: bounds.width, height: bounds.height };
+        }
+      });
+      r.$playerSpectrumResizeObserver.observe(r.$playerSpectrum);
     }
+const returnSettingsToRoot = (tabId, control) => {
+      if (tabId !== "settings" || !control.classList.contains("is-active")) return;
+      resetSettingsDisclosures();
+      runtimeState.settingsView = "index";
+      runtimeState.settingsSubView = "index";
+    };
 for (const tab of r.$tabs) {
-      const button = document.createElement("button");
-      button.className = "hub-tab";
-      button.type = "button";
-      button.dataset.tab = tab.id;
-      button.title = tab.label;
-      button.setAttribute("aria-label", tab.label);
-      button.innerHTML = `<span class="hub-tab-icon" style="--hub-icon:url('${asset(tab.icon)}')"></span><span class="hub-tab-dot" aria-hidden="true"></span>`;
+      const button = createSectionTab(tab);
       button.addEventListener("click", () => {
+        r.$clearCompactPanelNotice?.();
+        returnSettingsToRoot(tab.id, button);
+        runtimeState.musicBarRecentPanel = tab.id;
         runtimeState.activeTab = tab.id;
-        runtimeSaveState();
-        r.$render();
+      runtimeSaveState(); r.$saveLayoutState(); r.$render();
       });
       r.$tabBar.append(button);
 
+      const panelShortcut = createPanelShortcut(tab);
+      panelShortcut.addEventListener("click", () => {
+        r.$clearCompactPanelNotice?.();
+        returnSettingsToRoot(tab.id, panelShortcut);
+        runtimeState.musicBarRecentPanel = tab.id;
+        runtimeState.activeTab = tab.id;
+        runtimeState.open = true;
+        runtimeSaveState(); r.$saveLayoutState();
+        r.$render();
+      });
+      r.$panelShortcuts.append(panelShortcut);
       if (tab.id === "playlist") continue;
 
-      const shortcut = document.createElement("button");
-      shortcut.className = "hub-header-shortcut";
-      shortcut.type = "button";
-      shortcut.dataset.tab = tab.id;
-      shortcut.title = tab.label;
-      shortcut.setAttribute("aria-label", tab.label);
-      const shortcutCounter = tab.id === "cart"
-        ? '<span class="hub-header-shortcut-count hub-cart-shortcut-count" aria-hidden="true">0</span>'
-        : '<span class="hub-header-shortcut-dot" aria-hidden="true"></span>';
-      shortcut.innerHTML = `<span class="hub-header-shortcut-icon" style="--hub-icon:url('${asset(tab.icon)}')"></span>${shortcutCounter}`;
+      const shortcut = createMusicBarShortcut(tab);
       shortcut.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -838,6 +870,13 @@ for (const tab of r.$tabs) {
       });
       r.$headerShortcuts.append(shortcut);
     }
+    r.$compactPanelButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const tabId = ["playlist", "cart", "activity", "settings"].includes(runtimeState.musicBarRecentPanel)
+        ? runtimeState.musicBarRecentPanel : "playlist";
+      r.$toggleSectionPanel(tabId);
+    });
 }
 
-export const setupRuntimeShell = [setupRuntimeShell1, setupRuntimeShell2, setupRuntimeShell3];
+export const setupRuntimeShell = [setupRuntimeShell1, ...setupRuntimeDomShell, setupRuntimeShell3];

@@ -1,0 +1,580 @@
+.hub-player-track {
+  align-items: center;
+  display: flex;
+  justify-content: flex-start;
+  min-width: 0;
+  transform: translateY(-2px);
+}
+
+.hub-player-track.is-empty {
+  display: none;
+}
+
+.hub-player.is-empty .hub-player-content {
+  grid-template-columns: minmax(0, 1fr);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.hub-player.is-empty :is(.hub-player-tools, .hub-player-playback-row) {
+  display: none !important;
+}
+
+.hub-player-art-link {
+  border-radius: 8px 0 0 8px;
+  display: block;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  width: var(--hub-player-height);
+}
+
+.hub-player-art-link[hidden],
+.hub-player:is(.is-empty, .has-no-art) .hub-player-art-link {
+  display: none;
+}
+
+.hub-player-art-link .hub-art {
+  border-radius: 0 !important;
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+@keyframes hub-player-copy-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes hub-player-art-enter {
+  from { opacity: 0; transform: translateX(-4px) scale(1.025); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes hub-player-art-leave {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes hub-player-playback-enter {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hub-player .hub-track-copy.is-track-entering {
+  animation: hub-player-copy-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hub-player-art.is-track-entering {
+  animation: hub-player-art-enter 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hub-player-art-link .hub-player-art-outgoing {
+  animation: hub-player-art-leave 240ms ease-out both;
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.hub-player:not(.is-empty) .hub-player-playback-row {
+  animation: hub-player-playback-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-player .hub-track-copy.is-track-entering,
+  .hub-player-art.is-track-entering,
+  .hub-player-art-link .hub-player-art-outgoing,
+  .hub-player:not(.is-empty) .hub-player-playback-row {
+    animation: none;
+  }
+
+  .hub-player-actions {
+    transition: none;
+  }
+}
+
+:host([data-corner-style="square"]) .hub-player-art-link {
+  border-radius: 0 !important;
+}
+
+:host([data-corner-style="custom"]) .hub-player-art-link {
+  border-radius: var(--hub-custom-corner-radius, 12px) 0 0 var(--hub-custom-corner-radius, 12px) !important;
+}
+
+.hub-player[data-player-style="docked"] .hub-player-art-link {
+  align-self: center;
+  border-radius: 8px;
+  height: calc(100% - 16px);
+  margin: 8px;
+  width: calc(var(--hub-player-height) - 16px);
+}
+
+.hub-player[data-player-style="docked"] .hub-player-main {
+  padding-left: 4px;
+}
+
+:host([data-corner-style="square"]) .hub-player[data-player-style="docked"] .hub-player-art-link {
+  border-radius: 0 !important;
+}
+
+:host([data-corner-style="custom"]) .hub-player[data-player-style="docked"] .hub-player-art-link {
+  border-radius: var(--hub-custom-corner-radius, 12px) !important;
+}
+
+.hub-player .hub-track-copy {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  text-align: left;
+}
+
+.hub-player .hub-track-title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 15px;
+}
+
+.hub-player .hub-player-secondary {
+  color: var(--hub-muted);
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 14px;
+}
+
+.hub-player .hub-player-secondary a {
+  color: inherit;
+}
+
+.hub-player .hub-player-secondary :is(.hub-player-artist, .hub-player-album) {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.hub-player .hub-player-secondary a:hover {
+  color: var(--hub-accent);
+}
+
+.hub-player-analysis:not([hidden]) + .hub-dj-player-button {
+  margin-left: 8px;
+}
+
+@container hub-player-content (max-width: 760px) {
+  .hub-player-analysis {
+    display: none !important;
+  }
+
+  .hub-player-analysis + .hub-dj-player-button {
+    margin-left: 0;
+  }
+
+  .hub-player.is-compact .hub-player-analysis:not([hidden]) {
+    display: flex !important;
+  }
+
+  .hub-player.is-compact .hub-player-analysis:not([hidden]) + .hub-dj-player-button {
+    margin-left: 6px;
+  }
+}
+
+/* Zune has the viewport available even when its central content container is
+   narrow. Keep detected tempo/key data eligible for hover or persistent
+   display instead of applying the compact card-player suppression. */
+.hub-player[data-player-style="zune"] .hub-player-analysis:not([hidden]) {
+  display: flex !important;
+}
+
+.hub-player[data-player-style="docked"] .hub-player-analysis:not([hidden]) {
+  display: flex !important;
+}
+
+.hub-player[data-player-style="zune"] .hub-player-analysis .bandkit-deep-analysis:not([hidden]) {
+  display: inline-flex !important;
+}
+
+.hub-player-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  left: 50%;
+  min-height: 32px;
+  position: absolute;
+  top: 31%;
+  transform: translate(-50%, -50%);
+  transition: top 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 8;
+}
+
+.hub-player.is-empty .hub-player-actions {
+  left: 50%;
+  opacity: 0;
+  pointer-events: none;
+  top: 50%;
+  visibility: hidden;
+}
+
+.hub-player.is-empty .hub-player-actions .hub-skip-button {
+  display: none !important;
+}
+
+.hub-player.is-empty .hub-player-actions .hub-play-button {
+  pointer-events: none;
+  transform: none;
+}
+
+.hub-dj-player-button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--hub-control-radius);
+  color: var(--hub-muted);
+  cursor: pointer;
+  display: flex;
+  height: 32px;
+  justify-content: center;
+  padding: 0;
+  position: relative;
+  width: 32px;
+}
+.hub-dj-player-button[hidden] { display: none; }
+.hub-dj-player-button:hover,
+.hub-dj-player-button:focus-visible {
+  background: transparent;
+  border-color: transparent;
+  color: var(--hub-accent);
+  outline: 0;
+}
+
+.hub-dj-player-button img {
+  display: none;
+}
+
+.hub-dj-player-button::before {
+  background: currentColor;
+  content: "";
+  height: 18px;
+  mask: var(--hub-dj-icon) center / contain no-repeat;
+  -webkit-mask: var(--hub-dj-icon) center / contain no-repeat;
+  width: 18px;
+}
+
+.hub-dj-player-button.is-active {
+  background: transparent;
+  border-color: transparent;
+  color: var(--hub-accent);
+}
+
+.hub-dj-player-button.has-active-effects::after {
+  background: var(--hub-accent);
+  border: 1px solid var(--hub-card);
+  border-radius: 50%;
+  content: "";
+  height: 6px;
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  width: 6px;
+}
+
+.hub-play-button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--hub-control-radius);
+  color: var(--hub-playback-color, var(--hub-accent));
+  cursor: pointer;
+  display: flex;
+  height: 48px;
+  justify-content: center;
+  padding: 0;
+  transition: color 120ms ease, opacity 120ms ease, transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  width: 48px;
+}
+
+.hub-play-button:hover,
+.hub-play-button:focus-visible {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--hub-playback-color, var(--hub-accent));
+  filter: none;
+  outline: 0;
+  transform: scale(1.07);
+}
+
+.hub-play-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--hub-accent) 46%, transparent);
+  outline-offset: -5px;
+}
+
+.hub-play-button:disabled {
+  box-shadow: none;
+  cursor: default;
+  filter: none;
+  opacity: 0.35;
+  transform: none;
+}
+
+.hub-play-button .hub-button-icon {
+  height: 26px;
+  width: 26px;
+}
+
+/* Pointer-driven layouts reveal the top-row controls on demand. Keyboard focus
+   does the same, while open drawers and menus pin them in place. */
+@media (hover: hover) and (pointer: fine) {
+  .hub-player-actions {
+    opacity: 1;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    transition: opacity 140ms ease, top 260ms cubic-bezier(0.22, 1, 0.36, 1), transform 140ms ease;
+  }
+
+  .hub-player-actions .hub-skip-button {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.86);
+    transition: opacity 140ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .hub-player-actions .hub-play-button {
+    background: transparent;
+    border-color: transparent;
+    color: var(--hub-playback-color, var(--hub-accent));
+    pointer-events: auto;
+  }
+
+  .hub-player-tools {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate3d(10px, 0, 0);
+    transition: opacity 180ms ease-out, transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform;
+  }
+
+  .hub-player[data-analysis-visibility="always"] .hub-player-tools {
+    gap: 0;
+    opacity: 1;
+    pointer-events: none;
+    transform: translate3d(0, 0, 0);
+  }
+
+  .hub-player[data-analysis-visibility="always"] .hub-player-tools > :not(.hub-player-analysis) {
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
+    transform: translate3d(10px, 0, 0);
+    transition: opacity 180ms ease-out, transform 240ms cubic-bezier(0.22, 1, 0.36, 1), visibility 0s linear 240ms;
+    visibility: hidden;
+    will-change: opacity, transform;
+  }
+
+  .hub-player[data-analysis-visibility="always"] .hub-player-tools > .hub-player-more-wrap {
+    right: 0;
+  }
+
+  .hub-player[data-analysis-visibility="always"] .hub-player-tools > .hub-dj-player-button {
+    right: 37px;
+  }
+
+  .hub-player[data-analysis-visibility="always"] .hub-player-analysis {
+    pointer-events: auto;
+    transform: translate3d(0, 0, 0);
+    transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  .hub-player[data-analysis-visibility="always"] .hub-player-analysis + .hub-dj-player-button {
+    margin-left: 0;
+  }
+
+  .hub-player:has(:is(.hub-player-content, .hub-player-actions):is(:hover, :focus-within)) .hub-player-actions,
+  .hub-player:has(.hub-player-tools [aria-expanded="true"]) .hub-player-actions {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, -50%);
+  }
+
+  .hub-player:has(:is(.hub-player-content, .hub-player-actions):is(:hover, :focus-within)) .hub-player-actions .hub-skip-button,
+  .hub-player:has(.hub-player-tools [aria-expanded="true"]) .hub-player-actions .hub-skip-button {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+  }
+
+  .hub-player:has(:is(.hub-player-content, .hub-player-actions):is(:hover, :focus-within)) .hub-player-actions .hub-play-button,
+  .hub-player:has(.hub-player-tools [aria-expanded="true"]) .hub-player-actions .hub-play-button {
+    background: transparent;
+    border-color: transparent;
+    color: var(--hub-playback-color, var(--hub-accent));
+  }
+
+  .hub-player:has(:is(.hub-player-content, .hub-player-actions):is(:hover, :focus-within)) .hub-player-tools,
+  .hub-player:has(.hub-player-tools [aria-expanded="true"]) .hub-player-tools {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate3d(0, 0, 0);
+  }
+
+  .hub-player[data-analysis-visibility="always"]:has(:is(.hub-player-content, .hub-player-actions):is(:hover, :focus-within)) .hub-player-tools > *,
+  .hub-player[data-analysis-visibility="always"]:has(.hub-player-tools [aria-expanded="true"]) .hub-player-tools > * {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .hub-player[data-analysis-visibility="always"]:has(:is(.hub-player-content, .hub-player-actions):is(:hover, :focus-within)) .hub-player-tools > :is(.hub-dj-player-button, .hub-player-more-wrap),
+  .hub-player[data-analysis-visibility="always"]:has(.hub-player-tools [aria-expanded="true"]) .hub-player-tools > :is(.hub-dj-player-button, .hub-player-more-wrap) {
+    transform: translate3d(0, 0, 0);
+    transition-delay: 0s;
+    visibility: visible;
+  }
+
+  .hub-player[data-analysis-visibility="always"]:has(:is(.hub-player-content, .hub-player-actions):is(:hover, :focus-within)) .hub-player-tools,
+  .hub-player[data-analysis-visibility="always"]:has(.hub-player-tools [aria-expanded="true"]) .hub-player-tools {
+    gap: 5px;
+  }
+
+  .hub-player[data-analysis-visibility="always"]:has(:is(.hub-player-content, .hub-player-actions):is(:hover, :focus-within)) .hub-player-analysis + .hub-dj-player-button,
+  .hub-player[data-analysis-visibility="always"]:has(.hub-player-tools [aria-expanded="true"]) .hub-player-analysis + .hub-dj-player-button {
+    margin-left: 0;
+  }
+
+  .hub-player[data-analysis-visibility="always"]:has(:is(.hub-player-content, .hub-player-actions):is(:hover, :focus-within)) .hub-player-analysis,
+  .hub-player[data-analysis-visibility="always"]:has(.hub-player-tools [aria-expanded="true"]) .hub-player-analysis {
+    transform: translate3d(-77px, 0, 0);
+  }
+
+  .hub-player[data-panel-open="true"]:not(:has(.hub-player-content:hover, .hub-player-content:focus-within, .hub-player-actions:hover, .hub-player-actions:focus-within)) .hub-player-actions {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -50%) scale(0.92);
+  }
+
+  .hub-player[data-player-style="zune"][data-panel-open="true"]:not(:has(.hub-player-content:hover, .hub-player-content:focus-within, .hub-player-actions:hover, .hub-player-actions:focus-within)) .hub-player-art-link {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+  }
+
+  /* Opening a panel must not break the artwork-to-transport replacement. */
+  .hub-player[data-player-style="zune"][data-panel-open="true"]:has(.hub-player-content:hover, .hub-player-actions:hover) .hub-player-actions {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  .hub-player[data-player-style="zune"][data-panel-open="true"]:has(.hub-player-content:hover, .hub-player-actions:hover) .hub-player-art-link {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.88);
+  }
+
+  .hub-player[data-player-style="docked"] .hub-player-actions {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -50%) scale(0.92);
+  }
+
+  .hub-player[data-player-style="docked"]:has(:is(.hub-player-content, .hub-player-actions):is(:hover, :focus-within)) .hub-player-actions,
+  .hub-player[data-player-style="docked"]:has(.hub-player-tools [aria-expanded="true"]) .hub-player-actions {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  .hub-player[data-player-style="docked"]:has(:is(.hub-player-content, .hub-player-actions):is(:hover, :focus-within)) .hub-player-art-link,
+  .hub-player[data-player-style="docked"]:has(.hub-player-tools [aria-expanded="true"]) .hub-player-art-link {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.88);
+  }
+}
+
+@keyframes hub-playback-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+.hub-play-button.is-loading:disabled {
+  opacity: 1;
+  position: relative;
+}
+
+/* Loading is essential feedback, even while the transport is disclosed on hover. */
+.hub-player:has(.hub-play-button.is-loading) .hub-player-actions {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translate(-50%, -50%) !important;
+  transition: none !important;
+}
+
+.hub-player:has(.hub-play-button.is-loading) .hub-player-art-link {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: none !important;
+}
+
+.hub-play-button.is-loading .hub-button-icon {
+  visibility: hidden;
+}
+
+.hub-play-button.is-loading::after {
+  animation: hub-playback-loading-spin 700ms linear infinite;
+  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 50%;
+  border-top-color: currentColor;
+  box-sizing: border-box;
+  content: "";
+  height: 22px;
+  position: absolute;
+  width: 22px;
+}
+
+/* The spinner is progress feedback, so corner preferences apply to the
+   button surface but never to the circular ring drawn above it. */
+:host([data-corner-style]) .hub-play-button.is-loading::after {
+  border-radius: 50% !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-play-button.is-loading::after {
+    animation: none;
+    border-color: currentColor;
+    opacity: 0.65;
+  }
+}
+
+.hub-skip-button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--hub-control-radius);
+  color: var(--hub-playback-color, var(--hub-accent));
+  cursor: pointer;
+  display: flex;
+  height: 36px;
+  justify-content: center;
+  padding: 0;
+  transition: color 120ms ease, opacity 120ms ease, transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  width: 36px;
+}
+
+.hub-skip-button:is(:hover, :focus-visible) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--hub-playback-color, var(--hub-accent));
+  filter: none;
+  outline: 0;
+  transform: scale(1.16);
+}

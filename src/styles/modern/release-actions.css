@@ -1,0 +1,267 @@
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions > ul {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions > ul > li {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions #collect-item {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions #collect-item.bandkit-modern-owned #purchased-msg,
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions #collect-item.bandkit-modern-owned #purchased-msg a {
+  align-items: center;
+  display: inline-flex !important;
+  line-height: 1 !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions #collect-item.bandkit-modern-owned #purchased-msg {
+  height: 32px;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions #collect-item.bandkit-modern-owned #wishlisted-msg > .wishlist-wrapper {
+  display: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions :is(
+  .share-embed-label > button,
+  #wishlist-msg,
+  #wishlisted-msg > .action
+) {
+  align-items: center;
+  appearance: none;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 4px !important;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  gap: 6px;
+  height: 32px;
+  line-height: 1 !important;
+  opacity: 1 !important;
+  padding: 0 10px !important;
+  text-decoration: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions .share-embed-icon,
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions .collect-item-icon {
+  display: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions :is(
+  .share-embed-label > button,
+  #wishlist-msg,
+  #wishlisted-msg > .action
+)::before {
+  background: currentColor;
+  content: "";
+  display: block;
+  flex: 0 0 auto;
+  height: 16px;
+  mask: var(--bandkit-release-action-icon) center / contain no-repeat;
+  -webkit-mask: var(--bandkit-release-action-icon) center / contain no-repeat;
+  width: 16px;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions .share-embed-label > button {
+  --bandkit-release-action-icon: var(--bandkit-release-share-icon);
+  color: var(--hub-accent, var(--bandkit-release-accent)) !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #pgBd .bandkit-modern-release-actions .share-embed-label > button:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--hub-accent, var(--bandkit-release-accent)) 8%, var(--hub-card, var(--bandkit-release-surface))) !important;
+  border-color: transparent !important;
+  outline: 0;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions .share-embed-label > button.is-active {
+  border-color: var(--hub-accent, var(--bandkit-release-accent)) !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions #collect-item:not(.wishlisted) #wishlist-msg {
+  --bandkit-release-action-icon: var(--bandkit-release-wishlist-icon);
+  border-color: transparent !important;
+  color: var(--hub-accent, var(--bandkit-release-accent)) !important;
+  display: inline-flex !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #pgBd .bandkit-modern-release-actions #collect-item:not(.wishlisted) #wishlist-msg a {
+  color: inherit !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions #collect-item.wishlisted #wishlist-msg {
+  display: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions #collect-item:not(.wishlisted) #wishlisted-msg {
+  display: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions #collect-item.wishlisted #wishlisted-msg {
+  align-items: center;
+  gap: 6px;
+  display: inline-flex !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions #collect-item.wishlisted #wishlisted-msg > .action {
+  --bandkit-release-action-icon: var(--bandkit-release-wishlist-filled-icon);
+  background: transparent !important;
+  border-color: transparent !important;
+  color: #ff9c00 !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #pgBd .bandkit-modern-release-actions #collect-item.wishlisted #wishlisted-msg > .action a {
+  color: inherit !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #pgBd .bandkit-modern-release-actions #collect-item:not(.wishlisted) #wishlist-msg:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--hub-accent, var(--bandkit-release-accent)) 8%, var(--hub-card, var(--bandkit-release-surface))) !important;
+  border-color: transparent !important;
+  color: var(--hub-accent, var(--bandkit-release-accent)) !important;
+  outline: 0;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #pgBd .bandkit-modern-release-actions #wishlisted-msg > .action:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, #ff9c00 10%, var(--bandkit-release-surface)) !important;
+  border-color: transparent !important;
+  color: #ff9c00 !important;
+  outline: 0;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #pgBd .bandkit-modern-release-actions #wishlist-msg:is(:hover, :focus-visible) a {
+  color: inherit !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions #wishlisted-msg > .wishlist-wrapper {
+  align-items: center;
+  display: inline-flex !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions #wishlisted-msg > :is(.action, .wishlist-wrapper)::after,
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions #wishlisted-msg > .action .collect-msg::after,
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions #wishlisted-msg > .wishlist-wrapper::before {
+  content: none !important;
+  display: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions :is(
+  #wishlisted-msg > .wishlist-wrapper > .view,
+  #purchased-msg > span > .bandkit-modern-collection-link
+) {
+  align-items: center;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 4px !important;
+  box-sizing: border-box;
+  color: var(--hub-accent, var(--bandkit-release-accent)) !important;
+  display: inline-flex !important;
+  font-size: 12px !important;
+  font-weight: 600;
+  height: 32px;
+  opacity: 1 !important;
+  padding: 0 8px !important;
+  text-decoration: none !important;
+  text-transform: capitalize;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions :is(
+  #wishlisted-msg > .wishlist-wrapper > .view,
+  #purchased-msg > span > .bandkit-modern-collection-link
+):is(:hover, :focus-visible) {
+  background-color: color-mix(in srgb, var(--hub-accent, var(--bandkit-release-accent)) 8%, var(--hub-card, var(--bandkit-release-surface))) !important;
+  border-color: transparent !important;
+  outline: 0;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-release-actions #wishlisted-msg .wishlist-button-tooltip-outer {
+  display: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn .bandkit-modern-purchase-list .bandkit-modern-gift-action {
+  display: flex !important;
+  flex: 0 0 auto;
+  margin: 0 0 0 auto !important;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  visibility: hidden;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn .bandkit-modern-purchase-list .buyItem:is(:hover, :focus-within) .bandkit-modern-gift-action {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyItem:has(> .bandkit-modern-purchase-actions) > .ft > :is(
+  .compound-button.main-button,
+  .compound-button.send-as-gift
+) {
+  display: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn .bandkit-modern-purchase-list .send-as-gift .bandkit-modern-gift-control {
+  align-items: center;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+  color: var(--bandkit-release-accent) !important;
+  display: inline-flex !important;
+  font-size: 0 !important;
+  font-weight: 600;
+  height: 42px;
+  justify-content: center;
+  min-height: 42px;
+  overflow: hidden;
+  padding: 0 !important;
+  white-space: nowrap;
+  width: 42px;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn .bandkit-modern-purchase-list .send-as-gift .bandkit-modern-gift-control:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--bandkit-release-accent) 8%, var(--bandkit-release-surface)) !important;
+  border-color: transparent !important;
+  color: var(--bandkit-release-accent) !important;
+  outline: 0;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn .bandkit-modern-purchase-list .send-as-gift .bandkit-modern-gift-control::before {
+  background: currentColor;
+  content: "";
+  display: block;
+  flex: 0 0 auto;
+  height: 18px;
+  mask: var(--bandkit-gift-icon) center / contain no-repeat;
+  -webkit-mask: var(--bandkit-gift-icon) center / contain no-repeat;
+  width: 18px;
+}
+html[data-bandkit-modern-release="true"] body.tralbum-page #discography > .bandkit-modern-discography-more-link a {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 4px;
+  color: var(--bandkit-release-accent) !important;
+  display: inline-flex;
+  font-size: 12px !important;
+  line-height: 1.45;
+  padding: 6px 9px;
+  text-decoration: none !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #discography > .bandkit-modern-discography-more-link a:hover {
+  background: color-mix(in srgb, var(--bandkit-release-accent) 8%, var(--bandkit-release-surface)) !important;
+  border-color: transparent !important;
+  text-decoration: none !important;
+}

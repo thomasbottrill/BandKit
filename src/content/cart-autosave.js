@@ -41,6 +41,7 @@
   function summarySignature(summary) {
     return JSON.stringify(summary && typeof summary === "object" ? {
       subtotal: Number.isFinite(Number(summary.subtotal)) ? Number(summary.subtotal) : null,
+      total: Number.isFinite(Number(summary.total)) ? Number(summary.total) : null,
       currency: summary.currency || null
     } : null);
   }

@@ -9,7 +9,7 @@ function waveformSeed(value) {
 
 export function waveformPathData(signature, width) {
   const pixelWidth = Math.max(80, Math.round(width));
-  const barCount = Math.max(28, Math.min(180, Math.round(pixelWidth / 4)));
+  const barCount = Math.max(28, Math.min(600, Math.round(pixelWidth / 4)));
   const step = pixelWidth / barCount;
   const amplitudes = waveformAmplitudes(signature, barCount);
   const path = amplitudes.map((height, index) => {

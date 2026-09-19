@@ -6,4 +6,13 @@
 @import "./release.css";
 @import "./tracklist-interactions.css";
 @import "./release-details.css";
+@import "./release-actions.css";
 @import "./responsive.css";
+@import "./corners.css";
+
+@import "./discover-tracks.css";
+
+@import "./discover-toolbar.css";
+@import "./home-sales.css";
+
+@import "./artwork-actions.css";

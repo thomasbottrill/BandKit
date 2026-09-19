@@ -1,0 +1,60 @@
+.hub-panel.is-frosted-glass .hub-settings-group {
+  background: color-mix(
+    in srgb,
+    var(--hub-card) calc(var(--hub-glass-surface-opacity, 65%) * 0.72),
+    transparent
+  );
+}
+
+.hub-panel.is-frosted-glass .hub-settings-subsection:is(:hover, :focus-within) {
+  background: color-mix(in srgb, var(--hub-card) calc(var(--hub-glass-surface-opacity, 65%) * 0.12), transparent);
+}
+
+.hub-panel.is-frosted-glass .hub-settings-group:is(:hover, :focus-within) {
+  background: color-mix(
+    in srgb,
+    var(--hub-card) calc(var(--hub-glass-surface-opacity, 65%) * 0.66),
+    transparent
+  );
+}
+
+.hub-analysis-primary-row {
+  min-height: 46px;
+}
+
+.hub-analysis-options {
+  margin: 2px 0 0;
+  padding-left: 0;
+}
+
+.hub-analysis-options[hidden] {
+  display: none;
+}
+
+.hub-settings-detail > .hub-controls-drawer + .hub-controls-drawer { margin-top: 0; }
+.hub-settings-detail .hub-controls-drawer > .hub-settings-disclosure-trigger { min-height: 58px; }
+.hub-settings-detail .hub-controls-drawer > .hub-settings-disclosure-trigger .hub-settings-disclosure-title {
+  font-size: 16px;
+  font-weight: 750;
+  line-height: 22px;
+}
+.hub-settings-detail .hub-controls-drawer:is(:hover, :focus-within) > .hub-settings-disclosure-trigger .hub-settings-disclosure-chevron {
+  opacity: 1;
+  color: var(--hub-accent);
+}
+.hub-controls-drawer > .hub-settings-disclosure-trigger:focus-visible .hub-settings-disclosure-title {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+@media (hover: none) {
+  .hub-settings-detail .hub-controls-drawer > .hub-settings-disclosure-trigger .hub-settings-disclosure-chevron { opacity: 1; }
+}
+
+.hub-analysis-option-row {
+  min-height: 46px;
+  padding: 10px 0;
+}
+
+.hub-settings-detail .hub-analysis-option-row[hidden] {
+  display: none;
+}

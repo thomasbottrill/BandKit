@@ -1,116 +1,654 @@
 import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState } from "./context.js";
-import { asset, createButtonIcon, formatDuration, parseClock, resolveImage, safeBandcampReleaseUrl, safeBandcampUrl } from "../core.js";
+import { discoverGenrePalette } from "../discover-colours.js";
+import { resolvePlayerPresentation } from "../player-presentation.js";
+import { syncCustomPlayerButtons } from "../custom-player-buttons.js";
+import { syncPaperSurface } from "../paper-surface.js";
+import { asset, createButtonIcon, formatDuration, resolveImage, safeBandcampReleaseUrl, safeBandcampUrl } from "../core.js";
 import { MAX_PLAYLIST_ITEMS } from "../state.js";
 import { MESSAGES } from "../../shared/contracts.js";
-
+import { playerAlbumLabel } from "./player-metadata.js";
+import { drawSpectrumAnalyzer } from "../spectrum-renderer.js";
+import { flowingColour } from "../visualizer-colour-field.js";
+import { createVisualizerFrameQueue } from "../visualizer-frame.js";
+import { registerPlayerHandoffs } from "./player-handoffs.js";
+import { syncPlayerSurface } from "./player-surface.js";
+import { syncVisualizerSurface } from "./visualizer-surface.js";
+import { syncDockChevron } from "./dock-chevron.js";
+import { readableColor } from "../color.js";
+import { syncFullscreenVisualizerGlass } from "./fullscreen-visualizer.js";
+const VISUALIZER_BLOOM_INTERVAL_MS = 96;
 function renderPlayerAnalysis(r, hasCurrentTrack) {
+  r.$djPlayerButton.hidden = runtimeState.djToolsEnabled === false || !hasCurrentTrack;
   const detectedBpm = Number(runtimeSeamless.detectedBpm);
-  const bpmLabel = Number.isFinite(detectedBpm) && detectedBpm > 0 ? `${Math.round(detectedBpm * 10) / 10} BPM` : "";
-  const keyCamelot = String(runtimeSeamless.detectedKey?.camelot || "").trim();
-  const keyName = String(runtimeSeamless.detectedKey?.shortName || "").trim();
-  const showPlayerAnalysis = runtimeState.showMusicBarAnalysis !== false
+  const bpmUncertain = runtimeSeamless.bpmUncertain === true || runtimeSeamless.bpmStatus === "error";
+  const keyUncertain = runtimeSeamless.detectedKey?.uncertain === true
+    || (["ready", "error"].includes(runtimeSeamless.bpmStatus) && !runtimeSeamless.detectedKey);
+  const bpmLabel = Number.isFinite(detectedBpm) && detectedBpm > 0
+    ? `${Math.round(detectedBpm * 10) / 10}${bpmUncertain ? "?" : ""} BPM`
+    : bpmUncertain ? "BPM?" : "";
+  const keyCamelot = runtimeState.showCamelotNotation === true ? String(runtimeSeamless.detectedKey?.camelot ? `${runtimeSeamless.detectedKey.camelot}${keyUncertain ? "?" : ""}` : (keyUncertain ? "?" : "")).trim() : "";
+  const keyName = runtimeState.showTrackKeys !== false ? String(runtimeSeamless.detectedKey?.shortName ? `${runtimeSeamless.detectedKey.shortName}${keyUncertain ? "?" : ""}` : (keyUncertain ? "Key?" : "")).trim() : "";
+  const showPlayerAnalysis = runtimeState.djToolsEnabled !== false
+    && runtimeState.showMusicBarAnalysis !== false
     && hasCurrentTrack
     && Boolean(bpmLabel || keyCamelot || keyName);
+  r.$updateDeepAnalysisButton?.(r.$playerDeepAnalysis, runtimeSeamless.track);
   const signature = `${showPlayerAnalysis}|${bpmLabel}|${keyCamelot}|${keyName}`;
   if (signature === r.$playerAnalysisRenderSignature) return;
   r.$playerAnalysisRenderSignature = signature;
   r.$playerAnalysis.hidden = !showPlayerAnalysis;
   r.$playerBpmBadge.hidden = !bpmLabel;
   r.$playerBpmBadge.textContent = bpmLabel;
-  r.$playerBpmBadge.title = bpmLabel ? `Detected tempo: ${bpmLabel}` : "";
+  r.$playerBpmBadge.title = bpmUncertain
+    ? `${detectedBpm > 0 ? "Best-effort BPM estimate" : "BPM could not be detected confidently"}${runtimeSeamless.bpmError ? `: ${runtimeSeamless.bpmError}` : ""}`
+    : bpmLabel ? `Detected tempo: ${bpmLabel}` : "";
   r.$playerKeyBadge.hidden = !(keyCamelot || keyName);
   r.$playerKeyCamelot.textContent = keyCamelot;
   r.$playerKeyName.textContent = keyName;
-  r.$playerKeyBadge.title = keyName
-    ? `Detected key: ${runtimeSeamless.detectedKey?.name || keyName}`
-    : `Detected key: ${keyCamelot}`;
+  const alternative = r.$keyAlternativeDescription?.(runtimeSeamless.detectedKey) || "";
+  r.$playerKeyBadge.title = keyUncertain
+    ? `${runtimeSeamless.detectedKey ? "Best-effort musical key estimate" : "Musical key could not be detected confidently for this track"}${alternative ? `. ${alternative}` : ""}`
+    : keyName
+    ? `Detected key: ${runtimeSeamless.detectedKey?.name || keyName}${keyCamelot ? ` · Camelot ${keyCamelot}` : ""}`
+    : keyCamelot ? `Detected Camelot notation: ${keyCamelot}` : "";
 }
 
-function registerPlayerShell1(r) {
+function restartPlayerEntry(element) {
+  if (!element) return;
+  element.classList.remove("is-track-entering");
+  void element.offsetWidth;
+  element.classList.add("is-track-entering");
+}
+
+function crossfadePlayerArtwork(r, playerArtUrl) {
+  const previousUrl = r.$playerArt.currentSrc || r.$playerArt.src || "";
+  r.$playerArtLink.querySelectorAll(".hub-player-art-outgoing").forEach((image) => image.remove());
+  if (previousUrl && previousUrl !== playerArtUrl && !r.$playerArtLink.hidden) {
+    const outgoing = r.$playerArt.cloneNode(false);
+    outgoing.classList.remove("is-track-entering");
+    outgoing.classList.add("hub-player-art-outgoing");
+    outgoing.removeAttribute("aria-label");
+    r.$playerArtLink.append(outgoing);
+    window.setTimeout(() => outgoing.remove(), 320);
+  }
+  r.$playerArt.src = playerArtUrl;
+  restartPlayerEntry(r.$playerArt);
+}
+
+function setPlayerArtwork(r, playerArtUrl) {
+  const request = (r.$playerArtRequest || 0) + 1;
+  r.$playerArtRequest = request;
+  if (!playerArtUrl) {
+    r.$player.classList.add("has-no-art");
+    r.$playerArtLink.hidden = true;
+    r.$playerArt.removeAttribute("src");
+    return;
+  }
+  const currentUrl = r.$playerArt.currentSrc || r.$playerArt.src || "";
+  if (currentUrl === playerArtUrl && !r.$playerArtLink.hidden) return;
+  const probe = document.createElement("img");
+  probe.addEventListener("load", () => {
+    if (r.$playerArtRequest !== request) return;
+    crossfadePlayerArtwork(r, playerArtUrl);
+    r.$playerArtLink.hidden = false;
+    r.$player.classList.remove("has-no-art");
+  }, { once: true });
+  probe.addEventListener("error", () => {
+    if (r.$playerArtRequest !== request) return;
+    r.$playerArtLink.hidden = true;
+    r.$player.classList.add("has-no-art");
+  }, { once: true });
+  probe.src = playerArtUrl;
+}
+
+function renderPlayerTrack(r, displayTrack, hasCurrentTrack) {
+  const playerWasEmpty = r.$player.classList.contains("is-empty");
+  r.$player.classList.toggle("is-empty", !hasCurrentTrack);
+  r.$panel.dataset.playerEmpty = String(!hasCurrentTrack);
+  r.$playerTrack.classList.toggle("is-empty", !hasCurrentTrack);
+  if (playerWasEmpty === hasCurrentTrack) {
+    r.$syncMusicBarPanelButtons?.();
+    r.$playerSectionGeometrySignature = "";
+    r.$schedulePlayerSectionGeometry?.();
+    window.setTimeout(() => {
+      r.$playerSectionGeometrySignature = "";
+      r.$schedulePlayerSectionGeometry?.();
+    }, 380);
+  }
+  const matchingSeamlessTrack = hasCurrentTrack && runtimeSeamless.track
+    ? r.$matchingQueueTrack([runtimeSeamless.track], displayTrack)
+    : null;
+  const matchingPageTrack = hasCurrentTrack ? r.$matchingQueueTrack(r.$buildSeamlessQueue(), displayTrack) : null;
+  const albumCandidates = hasCurrentTrack ? [matchingPageTrack, displayTrack, matchingSeamlessTrack].filter(Boolean) : [];
+  const albumSource = albumCandidates.find((candidate) => playerAlbumLabel(candidate, candidate.releaseUrl || candidate.pageUrl));
+  const albumUrl = albumSource?.releaseUrl || albumSource?.pageUrl || displayTrack.pageUrl;
+  const album = albumSource ? playerAlbumLabel(albumSource, albumUrl) : "";
+  const artist = hasCurrentTrack ? String(displayTrack.artist || "").trim() : "";
+  const trackIdentity = hasCurrentTrack
+    ? String(displayTrack.id || displayTrack.playlistItemId || displayTrack.pageUrl || `${displayTrack.title}\u0000${artist}`)
+    : "";
+  const trackChanged = hasCurrentTrack && trackIdentity !== r.$playerTrackIdentity;
+  const signature = hasCurrentTrack
+    ? `${displayTrack.title}\u0000${artist}\u0000${album}\u0000${displayTrack.art}\u0000${displayTrack.pageUrl}\u0000${displayTrack.artistUrl}\u0000${albumUrl}`
+    : "empty";
+  if (signature === r.$playerTrackRenderSignature) {
+    r.$playerTrackIdentity = trackIdentity;
+    return;
+  }
+  r.$playerTrackRenderSignature = signature;
+  r.$playerTrackIdentity = trackIdentity;
+  const playerArtUrl = hasCurrentTrack ? resolveImage(displayTrack.art) : "";
+  setPlayerArtwork(r, playerArtUrl);
+  r.$playerArt.alt = "";
+  r.$playerTitle.textContent = hasCurrentTrack ? displayTrack.title : "";
+  r.$playerArtist.textContent = artist;
+  r.$playerAlbum.textContent = album;
+  r.$playerAlbum.hidden = !album;
+  r.$playerAlbum.previousElementSibling.hidden = !(artist && album);
+  r.$updatePageLink(r.$playerArtLink, hasCurrentTrack ? displayTrack.pageUrl : "");
+  if (hasCurrentTrack) r.$playerArtLink.setAttribute("aria-label", `Open ${displayTrack.title}`);
+  else r.$playerArtLink.removeAttribute("aria-label");
+  r.$updatePageLink(r.$playerTitle, hasCurrentTrack ? displayTrack.pageUrl : "");
+  r.$updatePageLink(r.$playerArtist, hasCurrentTrack ? displayTrack.artistUrl || displayTrack.pageUrl : "");
+  r.$updatePageLink(r.$playerAlbum, hasCurrentTrack && album ? albumUrl : "");
+  if (trackChanged) restartPlayerEntry(r.$playerTrack.querySelector(".hub-track-copy"));
+}
+
+function pendingPlayerState(r) {
+  const pendingFeedLoading = Boolean(r.$pendingFeedTrackId);
+  const pendingFeedState = pendingFeedLoading ? r.$getFeedPlayerState(r.$pendingFeedTrackId) : null;
+  const pendingClassicLoading = Boolean(r.$classicPageHandoffTrackKey && r.$classicPageHandoffTrack);
+  const pendingClassicTrack = pendingClassicLoading ? r.$classicPageHandoffTrack : null;
+  const seamlessTrackId = String(runtimeSeamless.track?.id || "");
+  const pendingFeedSeek = Boolean(
+    (r.$pendingFeedSeekTime !== null || r.$pendingFeedSeekFraction !== null)
+    && r.$pendingFeedSeekTrackId
+    && (r.$pendingFeedSeekTrackId === r.$pendingFeedTrackId || r.$pendingFeedSeekTrackId === seamlessTrackId)
+  );
+  const pendingClassicSeek = Boolean(
+    pendingClassicLoading
+    && r.$classicPagePendingSeekFraction !== null
+    && r.$classicPagePendingSeekRequest === r.$classicPageHandoffRequest
+    && r.$classicPagePendingSeekTrackKey === r.$classicPageHandoffTrackKey
+  );
+  return { pendingClassicLoading, pendingClassicSeek, pendingClassicTrack, pendingFeedLoading, pendingFeedSeek, pendingFeedState };
+}
+
+function syncDjDrawerAnchor(r, playerRect = r.$player.getBoundingClientRect()) {
+  const buttonRect = r.$djPlayerButton.getBoundingClientRect();
+  if (!playerRect.width || !buttonRect.width) return;
+  const center = buttonRect.left + buttonRect.width / 2;
+  const zune = ["zune", "rounded"].includes(runtimeState.musicBarStyle);
+  const visualizerVisible = zune
+    && runtimeState.musicBarVisualizer !== "off"
+    && !r.$player.classList.contains("is-empty");
+  let visibleTop = playerRect.top;
+  if (visualizerVisible) {
+    const contentRect = r.$player.querySelector(".hub-player-content")?.getBoundingClientRect();
+    const visualizerRect = r.$playerVisualizer?.getBoundingClientRect();
+    if (contentRect?.height) visibleTop = Math.min(visibleTop, contentRect.top);
+    if (visualizerRect?.height) visibleTop = Math.min(visibleTop, visualizerRect.top);
+  }
+  const clearance = Math.max(0, playerRect.top - visibleTop);
+  const bottom = Math.max(10, window.innerHeight - visibleTop + 10);
+  r.$djDrawer.style.setProperty("--hub-dj-anchor-x", `${Math.round(center)}px`);
+  r.$djDrawer.style.setProperty("--hub-dj-bottom", `${Math.round(bottom)}px`);
+  r.$djDrawer.style.setProperty("--hub-dj-visualizer-clearance", `${Math.ceil(clearance)}px`);
+}
+
+function parseRenderedColor(value) {
+  const hex = String(value || "").trim().match(/^#([\da-f]{3}|[\da-f]{6})$/i);
+  if (hex) {
+    const digits = hex[1].length === 3 ? [...hex[1]].map((digit) => digit + digit).join("") : hex[1];
+    return { r: Number.parseInt(digits.slice(0, 2), 16), g: Number.parseInt(digits.slice(2, 4), 16), b: Number.parseInt(digits.slice(4, 6), 16), a: 1 };
+  }
+  const match = String(value || "").match(/^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:\s*[,/]\s*([\d.]+)%?)?\s*\)$/i);
+  if (!match) return null;
+  const alpha = match[4] === undefined ? 1 : Math.max(0, Math.min(1, Number(match[4]) / (String(value).includes("%") ? 100 : 1)));
+  return { r: Number(match[1]), g: Number(match[2]), b: Number(match[3]), a: alpha };
+}
+
+function blendRenderedColor(foreground, background) {
+  const alpha = foreground.a + background.a * (1 - foreground.a);
+  if (!alpha) return { r: 255, g: 255, b: 255, a: 1 };
+  return {
+    r: (foreground.r * foreground.a + background.r * background.a * (1 - foreground.a)) / alpha,
+    g: (foreground.g * foreground.a + background.g * background.a * (1 - foreground.a)) / alpha,
+    b: (foreground.b * foreground.a + background.b * background.a * (1 - foreground.a)) / alpha,
+    a: alpha
+  };
+}
+
+function renderedParentElement(element) {
+  if (element?.parentElement) return element.parentElement;
+  const root = element?.getRootNode?.();
+  return root instanceof ShadowRoot ? root.host : null;
+}
+
+function renderedShadowTargetAt(element, x, y) {
+  let target = element;
+  while (target?.shadowRoot) {
+    const matches = [...target.shadowRoot.querySelectorAll("*")].filter((candidate) => {
+      const rect = candidate.getBoundingClientRect();
+      if (rect.left > x || rect.right < x || rect.top > y || rect.bottom < y) return false;
+      const style = getComputedStyle(candidate);
+      return style.display !== "none" && style.visibility !== "hidden" && Number.parseFloat(style.opacity || "1") > 0;
+    });
+    const innerTarget = matches.at(-1);
+    if (!innerTarget) break;
+    target = innerTarget;
+  }
+  return target;
+}
+
+function renderedPageSurfaceAt(r, x, y) {
+  // Genre backgrounds are gradients, which the flat-colour sampler skips.
+  // All dynamic player variants share this surface source.
+  const genre = discoverGenrePalette();
+  if (genre) return genre.background;
+  const layers = document.elementsFromPoint(Math.max(0, Math.min(window.innerWidth - 1, x)), Math.max(0, Math.min(window.innerHeight - 1, y)));
+  const extensionLayers = new Set([r.$root, r.$host]);
+  for (let node = r.$root; node;) {
+    const root = node.getRootNode?.();
+    if (!(root instanceof ShadowRoot)) break;
+    extensionLayers.add(root.host);
+    node = root.host;
+  }
+  const layer = layers.find((element) => !extensionLayers.has(element) && !r.$root.contains(element));
+  const target = layer ? renderedShadowTargetAt(layer, x, y) : null;
+  if (!target) return null;
+  const minimumSurfaceWidth = Math.min(760, window.innerWidth * 0.55);
+  let surfaceRoot = target;
+  while (renderedParentElement(surfaceRoot)) {
+    const rect = surfaceRoot.getBoundingClientRect();
+    const mediaLayer = ["IMG", "PICTURE", "VIDEO", "CANVAS", "SVG"].includes(surfaceRoot.tagName)
+      || getComputedStyle(surfaceRoot).backgroundImage !== "none";
+    if (!mediaLayer && rect.width >= minimumSurfaceWidth && rect.height >= 48) break;
+    surfaceRoot = renderedParentElement(surfaceRoot);
+  }
+  const colors = [];
+  for (let element = surfaceRoot; element; element = renderedParentElement(element)) {
+    const color = parseRenderedColor(getComputedStyle(element).backgroundColor);
+    if (color?.a) colors.push(color);
+  }
+  let result = { r: 255, g: 255, b: 255, a: 1 };
+  for (let index = colors.length - 1; index >= 0; index -= 1) result = blendRenderedColor(colors[index], result);
+  return result;
+}
+
+function renderedColorCss(color) {
+  return `rgb(${Math.round(color.r)} ${Math.round(color.g)} ${Math.round(color.b)})`;
+}
+
+function colorLuminance(color) {
+  const channel = (value) => {
+    const normalized = value / 255;
+    return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+  };
+  return channel(color.r) * 0.2126 + channel(color.g) * 0.7152 + channel(color.b) * 0.0722;
+}
+
+function colorContrast(first, second) {
+  const lighter = Math.max(colorLuminance(first), colorLuminance(second));
+  const darker = Math.min(colorLuminance(first), colorLuminance(second));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function usesUnthemedBandcampProgressAccent(prefix) {
+  if (prefix !== "main" || document.documentElement.dataset.bandkitPageTheme === "true") return false;
+  if (document.querySelector("#HomepageApp, #DiscoverApp, .discover-app")) return true;
+  if (location.hostname === "daily.bandcamp.com") return true;
+  return location.hostname === "bandcamp.com" && /^\/radio(?:\/|$)/.test(location.pathname);
+}
+
+function applyZuneSurfacePalette(r, prefix, surface) {
+  const lightSurface = colorLuminance(surface) > 0.42;
+  const ink = lightSurface ? { r: 24, g: 30, b: 36 } : { r: 248, g: 249, b: 250 };
+  const muted = lightSurface ? { r: 70, g: 80, b: 89 } : { r: 211, g: 215, b: 219 };
+  const themedAccent = parseRenderedColor(getComputedStyle(r.$player).getPropertyValue("--hub-panel-accent"));
+  // Bandcamp's unthemed editorial players sit over stable, mostly neutral
+  // backdrops. Sampling their link colour can collapse the played and
+  // remaining waveform into the same grey, so retain Bandcamp blue as the
+  // progress cue on Home, Discover, Daily, and Radio. Selected page themes
+  // keep their own accent, and explicit timeline overrides still win.
+  const unthemedBandcampProgress = usesUnthemedBandcampProgressAccent(prefix);
+  const bandcampAccent = { r: 29, g: 160, b: 195 };
+  const accent = unthemedBandcampProgress
+    ? readableColor(bandcampAccent, [surface], 4.5).color
+    : themedAccent && colorContrast(themedAccent, surface) >= 3 ? themedAccent : ink;
+  r.$player.style.setProperty(`--hub-zune-${prefix}-ink-live`, renderedColorCss(ink));
+  r.$player.style.setProperty(`--hub-zune-${prefix}-muted-live`, renderedColorCss(muted));
+  r.$player.style.setProperty(`--hub-zune-${prefix}-accent-live`, renderedColorCss(accent));
+  r.$player.style.setProperty(`--hub-zune-${prefix}-accent-soft-live`, `rgb(${Math.round(accent.r)} ${Math.round(accent.g)} ${Math.round(accent.b)} / 14%)`);
+  const lineAlpha = unthemedBandcampProgress ? 0.26 : 0.42;
+  r.$player.style.setProperty(`--hub-zune-${prefix}-line-live`, `rgb(${Math.round(ink.r)} ${Math.round(ink.g)} ${Math.round(ink.b)} / ${Math.round(lineAlpha * 100)}%)`);
+}
+
+function applyDynamicPanelPalette(r, surface) {
+  const shade = colorLuminance(surface) > 0.42
+    ? { r: 0, g: 0, b: 0, a: 0.055 }
+    : { r: 255, g: 255, b: 255, a: 0.08 };
+  const panelSurface = blendRenderedColor(shade, { ...surface, a: 1 });
+  const lightSurface = colorLuminance(panelSurface) > 0.42;
+  const ink = lightSurface ? { r: 24, g: 30, b: 36 } : { r: 248, g: 249, b: 250 };
+  const muted = lightSurface ? { r: 70, g: 80, b: 89 } : { r: 211, g: 215, b: 219 };
+  const themedAccent = parseRenderedColor(getComputedStyle(r.$player).getPropertyValue("--hub-panel-accent"));
+  const accent = themedAccent ? readableColor(themedAccent, [panelSurface], 4.5).color : ink;
+  const onAccent = colorLuminance(accent) > 0.42
+    ? { r: 24, g: 30, b: 36 }
+    : { r: 248, g: 249, b: 250 };
+  const line = `rgb(${Math.round(ink.r)} ${Math.round(ink.g)} ${Math.round(ink.b)} / 42%)`;
+  const accentSoft = `rgb(${Math.round(accent.r)} ${Math.round(accent.g)} ${Math.round(accent.b)} / 14%)`;
+  const error = lightSurface ? { r: 185, g: 28, b: 28 } : { r: 254, g: 202, b: 202 };
+  for (const [property, value] of Object.entries({
+    "--hub-panel": renderedColorCss(panelSurface),
+    "--hub-header": renderedColorCss(panelSurface),
+    "--hub-wash": renderedColorCss(panelSurface),
+    "--hub-ink": renderedColorCss(ink),
+    "--hub-muted": renderedColorCss(muted),
+    "--hub-faint": renderedColorCss(muted),
+    "--hub-line": line,
+    "--hub-accent": renderedColorCss(accent),
+    "--hub-accent-soft": accentSoft,
+    "--hub-on-accent": renderedColorCss(onAccent),
+    "--hub-hover": accentSoft,
+    "--hub-error": renderedColorCss(error),
+    "--hub-panel-ink": renderedColorCss(ink),
+    "--hub-panel-muted": renderedColorCss(muted),
+    "--hub-panel-faint": renderedColorCss(muted),
+    "--hub-panel-line": line,
+    "--hub-panel-accent": renderedColorCss(accent),
+    "--hub-panel-accent-soft": accentSoft,
+    "--hub-panel-on-accent": renderedColorCss(onAccent),
+    "--hub-control-bg": renderedColorCss(accent),
+    "--hub-control-fg": renderedColorCss(onAccent),
+    "--hub-control-border": renderedColorCss(accent),
+    "--hub-control-focus": renderedColorCss(accent),
+    "--hub-scrub-accent": renderedColorCss(accent),
+    "--hub-scrub-remaining": line,
+    "--hub-scrub-surface": renderedColorCss(panelSurface),
+    "--hub-scrub-halo": line,
+    "--hub-tab-foreground": renderedColorCss(ink)
+  })) r.$panel.style.setProperty(property, value);
+}
+
+function syncZunePageSurfaces(r, playerRect) {
+  // The fullscreen background keeps the surface sampled at entry. Sampling
+  // again at fullscreen coordinates would recolour text against another area.
+  if (r.$visualizerFullscreen) return;
+  const dynamicColor = runtimeState.musicBarDynamicColor !== false;
+  const playerDynamicColor = dynamicColor && runtimeState.musicBarPlayerDynamicColor !== false;
+  const panelDynamicColor = dynamicColor && runtimeState.musicBarPanelDynamicColor !== false;
+  if (!playerDynamicColor) {
+    for (const property of [
+      "--hub-zune-surface-live", "--hub-zune-menu-surface-live",
+      "--hub-zune-main-ink-live", "--hub-zune-main-muted-live", "--hub-zune-main-accent-live",
+      "--hub-zune-main-accent-soft-live", "--hub-zune-main-line-live",
+      "--hub-zune-menu-ink-live", "--hub-zune-menu-muted-live", "--hub-zune-menu-accent-live",
+      "--hub-zune-menu-accent-soft-live", "--hub-zune-menu-line-live"
+    ]) r.$player.style.removeProperty(property);
+  }
+  if (!panelDynamicColor) {
+    for (const property of [
+      "--hub-panel", "--hub-header", "--hub-wash", "--hub-ink", "--hub-muted", "--hub-faint",
+      "--hub-line", "--hub-accent", "--hub-accent-soft", "--hub-on-accent", "--hub-hover", "--hub-error",
+      "--hub-panel-ink", "--hub-panel-muted", "--hub-panel-faint", "--hub-panel-line", "--hub-panel-accent",
+      "--hub-panel-accent-soft", "--hub-panel-on-accent", "--hub-control-bg", "--hub-control-fg",
+      "--hub-control-border", "--hub-control-focus", "--hub-scrub-accent", "--hub-scrub-remaining",
+      "--hub-scrub-surface", "--hub-scrub-halo", "--hub-tab-foreground"
+    ]) r.$panel.style.removeProperty(property);
+  }
+  if (!playerDynamicColor && !panelDynamicColor) return;
+  const contentRect = r.$player.querySelector(".hub-player-content")?.getBoundingClientRect();
+  if (!contentRect?.width) return;
+  const sampleY = playerRect.top + playerRect.height * 0.72;
+  const mainSurface = renderedPageSurfaceAt(r, contentRect.left + contentRect.width / 2, sampleY);
+  if (mainSurface) {
+    if (playerDynamicColor) {
+      r.$player.style.setProperty("--hub-zune-surface-live", renderedColorCss(mainSurface));
+      r.$player.style.setProperty("--hub-zune-menu-surface-live", renderedColorCss(mainSurface));
+      applyZuneSurfacePalette(r, "main", mainSurface);
+      applyZuneSurfacePalette(r, "menu", mainSurface);
+    }
+    if (panelDynamicColor) applyDynamicPanelPalette(r, mainSurface);
+  }
+}
+
+function normalizedCornerStyle() {
+  const style = ["square", "custom"].includes(runtimeState.appearance.cornerStyle)
+    ? runtimeState.appearance.cornerStyle : "rounded";
+  const radius = Math.round(Math.max(0, Math.min(32, Number(runtimeState.appearance.customCornerRadius) || 0)));
+  return { radius, style };
+}
+
+function syncCornerStyle(r) {
+  const { radius, style } = normalizedCornerStyle();
+  runtimeState.appearance.cornerStyle = style; runtimeState.appearance.customCornerRadius = radius;
+  r.$host.dataset.cornerStyle = style; r.$host.style.setProperty("--hub-custom-corner-radius", `${radius}px`);
+  document.documentElement.dataset.bandkitCornerStyle = style;
+  if (style === "rounded") document.documentElement.style.removeProperty("--bandkit-page-corner-radius");
+  else document.documentElement.style.setProperty("--bandkit-page-corner-radius", style === "square" ? "0px" : `${radius}px`);
+  if (r.$pageDjHost) { r.$pageDjHost.dataset.cornerStyle = style; r.$pageDjHost.style.setProperty("--hub-custom-corner-radius", `${radius}px`); }
+  r.$syncPageCornerShadowRoots?.();
+}
+
+function normalizedVisualizerSignal(signal = {}) {
+  const value = (key) => Math.max(0, Math.min(1, Number(signal[key]) || 0));
+  const level = value("level"), bass = value("bass"), mid = value("mid"), high = value("high");
+  const spectrum = Array.isArray(signal.spectrum)
+    ? signal.spectrum.slice(0, 320).map((entry) => Math.max(0, Math.min(1, (Number(entry) || 0) / 255)))
+    : [];
+  return { level, bass, mid, high, spectrum };
+}
+
+function applyMusicBarVisualizerSignal(r, signal = {}) {
+  if (!r.$playerVisualizer || document.hidden || r.$player.dataset.visualizer === "off" || r.$player.classList.contains("is-empty")) return;
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+  const values = reducedMotion
+    ? { level: 0.16, bass: 0.16, mid: 0.16, high: 0.16, spectrum: new Array(64).fill(0.08) }
+    : normalizedVisualizerSignal(signal);
+  const reactive = !reducedMotion && signal.playing !== false && signal.reactive !== false && values.spectrum.length > 0;
+  const leftEnergy = values.level * 0.8 + values.bass * 0.2;
+  const centreEnergy = values.level * 0.72 + values.mid * 0.28;
+  const rightEnergy = values.level * 0.8 + values.high * 0.2;
+  const visualizerIntensity = Math.max(1, Math.min(4, Number(runtimeState.musicBarVisualizerOpacity) / 100 || 1));
+  if (values.spectrum.length || reducedMotion) drawSpectrumAnalyzer(r, values.spectrum, reactive, visualizerIntensity);
+  const now = performance.now();
+  if (!reactive || now - Number(r.$visualizerBloomUpdatedAt || 0) >= VISUALIZER_BLOOM_INTERVAL_MS) {
+    r.$visualizerBloomUpdatedAt = now;
+    // Keep the soft backing in the same moving palette as the canvas. Reuse
+    // its cached colours and the existing bloom cadence; no extra style reads.
+    if (r.$spectrumColourCache) {
+      for (const [field, position] of [["c", 0.15], ["e", 0.34], ["a", 0.5], ["b", 0.66], ["d", 0.85]]) {
+        r.$playerVisualizer.style.setProperty(`--hub-visualizer-field-${field}`,
+          flowingColour(r.$spectrumColourCache.colours, position, r.$spectrumColourPhase || 0, r.$player.dataset.visualizer === "weave" ? 0.85 : 2));
+      }
+    }
+    for (const name of ["level", "bass", "mid", "high"]) {
+      r.$playerVisualizer.style.setProperty(`--hub-visualizer-${name}`, values[name].toFixed(3));
+    }
+    for (const [name, value] of Object.entries({
+      "bass-height": `${76 + leftEnergy * 64}%`, "bass-width": `${18 + leftEnergy * 17}%`,
+      "bloom-opacity": Math.min(1, (r.$player.dataset.visualizer === "firefly"
+        ? 0.2 + values.level * 0.65 + values.bass * 0.15
+        : 0.12 + values.level * 0.26) * visualizerIntensity).toFixed(3), blur: `${3 + values.high * 2.1}px`,
+      "high-height": `${76 + rightEnergy * 64}%`, "high-width": `${18 + rightEnergy * 17}%`,
+      "mix-a": `${15 + values.mid * 8 - values.high * 3}%`, "mix-b": `${34 + values.bass * 7 - values.high * 5}%`,
+      "mix-c": `${50 + (values.high - values.bass) * 7}%`, "mix-d": `${66 + values.high * 5 - values.bass * 7}%`,
+      "mix-e": `${85 + values.mid * 3 - values.bass * 8}%`,
+      "mid-height": `${104 + centreEnergy * 104}%`, "mid-width": `${26 + centreEnergy * 20}%`,
+      saturation: (1.06 + values.mid * 0.44).toFixed(3), scale: (0.38 + values.level * 0.68).toFixed(3)
+    })) r.$playerVisualizer.style.setProperty(`--hub-visualizer-${name}`, value);
+  }
+  r.$playerVisualizer.dataset.audioReactive = String(reactive);
+  r.$playerVisualizer.dataset.spectrumSource = values.spectrum.length ? "fft" : "none";
+  r.$visualizerSignalAt = Date.now();
+  syncVisualizerSurface(r, r.$visualizerBloomUpdatedAt === now, true);
+}
+
+function syncVisualizerFallback(r, playbackLoading) {
+  if (!runtimeLive.isPlaying || playbackLoading) { r.$applyMusicBarVisualizerSignal({ reactive: false }); return; }
+  const lastSignalOrResume = Math.max(Number(r.$visualizerSignalAt || 0), Number(r.$visualizerResumeAt || 0));
+  if (Date.now() - lastSignalOrResume <= 700 || !runtimeSeamless.waveform?.length) return;
+  const index = Math.min(runtimeSeamless.waveform.length - 1,
+    Math.floor((Number(runtimeSeamless.progress) || 0) * runtimeSeamless.waveform.length));
+  const level = Math.max(0, Math.min(1, Number(runtimeSeamless.waveform[index]) || 0));
+  r.$applyMusicBarVisualizerSignal({ level, bass: level, mid: level * 0.82, high: level * 0.58, reactive: true });
+}
+
+function registerPlayerPresentation(r) {
+r.$applyMusicBarVisualizerSignal = (signal) => applyMusicBarVisualizerSignal(r, signal);
+r.$visualizerFrameQueue = createVisualizerFrameQueue({
+  render: r.$applyMusicBarVisualizerSignal,
+  visible: () => !document.hidden && (r.$visualizerFullscreen || runtimeState.musicBarVisualizer !== "off") && !r.$player.classList.contains("is-empty")
+});
+r.$queueMusicBarVisualizerSignal = (signal) => r.$visualizerFrameQueue.push(signal);
+r.$syncFrostedGlass = function syncFrostedGlass() {
+      syncPaperSurface(r, runtimeState.appearance);
+      const enabled = runtimeState.appearance.frostedGlass === true;
+      const transparency = Math.round(Math.max(0, Math.min(70, Number(runtimeState.appearance.glassTransparency) || 0)));
+      const blur = Math.round(Math.max(0, Math.min(30, Number(runtimeState.appearance.glassBlur) || 0)));
+      runtimeState.appearance.frostedGlass = enabled;
+      runtimeState.appearance.glassTransparency = transparency;
+      runtimeState.appearance.glassBlur = blur;
+      const opacity = `${100 - transparency}%`;
+      for (const surface of [r.$player, r.$panel, r.$djDrawer, r.$onboardingDialog].filter(Boolean)) {
+        surface.classList.toggle("is-frosted-glass", enabled);
+        surface.style.setProperty("--hub-glass-surface-opacity", opacity);
+        surface.style.setProperty("--hub-glass-blur", `${blur}px`);
+      }
+      syncFullscreenVisualizerGlass(r);
+    };
+r.$syncCornerStyle = () => syncCornerStyle(r);
 r.$syncPlayerSectionGeometry = function syncPlayerSectionGeometry() {
       r.$playerSectionGeometryFrame = 0;
+      const playerRect = r.$player.getBoundingClientRect(); if (!playerRect.width) return;
+      syncZunePageSurfaces(r, playerRect);
+      syncPlayerSurface(r);
+      syncDjDrawerAnchor(r, playerRect);
+      const zune = ["zune", "rounded"].includes(runtimeState.musicBarStyle);
+      const empty = r.$player.classList.contains("is-empty");
+      const contextual = zune || empty;
       const rect = r.$panel.getBoundingClientRect();
-      if (!rect.width) return;
-      const signature = `${Math.round(rect.left)}|${Math.round(rect.width)}`;
+      if (!contextual && !rect.width) return;
+      const panelWidth = r.$panel.offsetWidth || rect.width || Number.parseFloat(getComputedStyle(r.$panel).width) || Math.min(420, window.innerWidth - 32);
+      const panelCenter = rect.left + rect.width / 2;
+      const contentRect = r.$player.querySelector(".hub-player-content")?.getBoundingClientRect() || null;
+      const docked = runtimeState.musicBarStyle === "docked" && !empty;
+      const zuneSectionsRight = zune && contentRect?.width ? Math.max(12, playerRect.right - contentRect.right) : null;
+      if (zuneSectionsRight !== null) {
+        r.$player.style.setProperty("--hub-zune-sections-right", `${Math.round(zuneSectionsRight)}px`);
+      }
+      const sectionRect = r.$playerSections.getBoundingClientRect();
+      const sectionCenter = docked
+        ? window.innerWidth - 16 - panelWidth / 2 - playerRect.left
+        : contextual
+          ? sectionRect.left + sectionRect.width / 2 - playerRect.left
+          : panelCenter - playerRect.left;
+      const sectionWidth = contextual ? sectionRect.width : 48;
+      if (!empty) syncDockChevron(r, sectionCenter);
+      const anchorCenter = playerRect.left + sectionCenter;
+      const maxPanelLeft = Math.max(12, window.innerWidth - panelWidth - 12);
+      const panelLeft = contextual ? Math.max(12, Math.min(maxPanelLeft, anchorCenter - panelWidth / 2)) : null;
+      const artAnchoredControls = zune || runtimeState.musicBarStyle === "docked";
+      const artRect = artAnchoredControls && !r.$playerArtLink.hidden ? r.$playerArtLink.getBoundingClientRect() : null;
+      const zuneActionsX = artRect?.width
+        ? artRect.left + artRect.width / 2 - playerRect.left
+        : contentRect?.width ? contentRect.left + Math.min(48, contentRect.height / 2) - playerRect.left : null;
+      const contentLeft = contentRect?.width ? contentRect.left - playerRect.left : null;
+      const contentRight = contentRect?.width ? contentRect.right - playerRect.left : null;
+      const signature = `${Math.round(sectionCenter)}|${Math.round(sectionWidth)}|${panelLeft === null ? "docked" : Math.round(panelLeft)}|${zuneActionsX === null ? "none" : Math.round(zuneActionsX)}|${zuneSectionsRight === null ? "none" : Math.round(zuneSectionsRight)}|${contentLeft === null ? "none" : Math.round(contentLeft)}|${contentRight === null ? "none" : Math.round(contentRight)}`;
       if (signature === r.$playerSectionGeometrySignature) return;
       r.$playerSectionGeometrySignature = signature;
-      r.$player.style.setProperty("--hub-sections-center-x", `${Math.round(rect.left + rect.width / 2)}px`);
-      r.$player.style.setProperty("--hub-sections-panel-width", `${Math.round(rect.width)}px`);
+      r.$player.style.setProperty("--hub-sections-center-x", `${Math.round(sectionCenter)}px`);
+      r.$player.style.setProperty("--hub-sections-panel-width", `${Math.round(sectionWidth)}px`);
+      if (zuneActionsX === null) r.$player.style.removeProperty("--hub-zune-actions-x");
+      else r.$player.style.setProperty("--hub-zune-actions-x", `${Math.round(zuneActionsX)}px`);
+      if (zuneSectionsRight === null) r.$player.style.removeProperty("--hub-zune-sections-right");
+      else r.$player.style.setProperty("--hub-zune-sections-right", `${Math.round(zuneSectionsRight)}px`);
+      if (contentLeft === null || contentRight === null) {
+        r.$player.style.removeProperty("--hub-player-content-left");
+        r.$player.style.removeProperty("--hub-player-content-right");
+      } else {
+        r.$player.style.setProperty("--hub-player-content-left", `${Math.round(contentLeft)}px`);
+        r.$player.style.setProperty("--hub-player-content-right", `${Math.round(contentRight)}px`);
+      }
+      if (panelLeft === null) {
+        if (!docked) r.$panel.style.removeProperty("--hub-context-panel-left");
+      } else {
+        r.$panel.style.setProperty("--hub-context-panel-left", `${Math.round(panelLeft)}px`);
+      }
     };
 r.$schedulePlayerSectionGeometry = function schedulePlayerSectionGeometry() {
       if (r.$playerSectionGeometryFrame) return;
       r.$playerSectionGeometryFrame = window.requestAnimationFrame(r.$syncPlayerSectionGeometry);
     };
+window.addEventListener("scroll", r.$schedulePlayerSectionGeometry, { passive: true });
+window.addEventListener("resize", r.$schedulePlayerSectionGeometry, { passive: true });
+}
+
+function registerPlayerShell1(r) {
 r.$renderPlayer = function renderPlayer() {
-      r.$syncMusicBarSize(); r.$syncMusicBarWidth(); r.$syncScrubberStyles();
-      const pendingFeedLoading = Boolean(r.$pendingFeedTrackId);
-      const pendingFeedState = pendingFeedLoading ? r.$getFeedPlayerState(r.$pendingFeedTrackId) : null;
-      const displayTrack = pendingFeedState?.track || runtimeLive;
-      const hasCurrentTrack = Boolean((runtimeLive.hasPlaybackStarted || pendingFeedLoading) && displayTrack.title);
-      const seamlessTrackId = String(runtimeSeamless.track?.id || "");
-      const pendingFeedSeek = Boolean(
-        (r.$pendingFeedSeekTime !== null || r.$pendingFeedSeekFraction !== null)
-        && r.$pendingFeedSeekTrackId
-        && (r.$pendingFeedSeekTrackId === r.$pendingFeedTrackId || r.$pendingFeedSeekTrackId === seamlessTrackId)
-      );
-      const playbackLoading = Boolean((runtimeSeamless.enabled && runtimeSeamless.status === "loading") || pendingFeedLoading);
+      r.$syncMusicBarStyle(); r.$syncMusicBarPanelButtons(); r.$syncMusicBarSize();
+      r.$syncMusicBarVisualizer(); r.$syncMusicBarWidth(); r.$syncFrostedGlass();
+      r.$syncCornerStyle(); r.$syncScrubberStyles();
+      r.$syncDjEffectIndicator?.();
+      r.$schedulePlayerSectionGeometry();
+      const pending = pendingPlayerState(r); const { pendingClassicLoading, pendingClassicSeek, pendingClassicTrack, pendingFeedLoading, pendingFeedSeek, pendingFeedState } = pending;
+      const nativeDiscover = r.$getDiscoverPlayerState?.();
+      const audibleDiscover = nativeDiscover?.control?.getAttribute("aria-label") === "Pause" && !r.$discoverTrackPlaybackActive ? nativeDiscover : null;
+      const pendingDiscoverTrack = audibleDiscover?.track || r.$discoverPendingTrack;
+      const displayIsPlaying = Boolean(audibleDiscover || runtimeLive.isPlaying);
+      const candidateTrack = pendingDiscoverTrack || pendingFeedState?.track || pendingClassicTrack || runtimeLive;
+      const presentation = resolvePlayerPresentation(r.$selectedPlayerTrack, candidateTrack,
+        runtimeLive.hasPlaybackStarted || pendingDiscoverTrack || pendingFeedLoading || pendingClassicLoading,
+        r.$nowPlayingExplicitlyCleared);
+      r.$selectedPlayerTrack = presentation.track;
+      const displayTrack = presentation.track || candidateTrack;
+      const hasCurrentTrack = Boolean(presentation.track);
+      if (!hasCurrentTrack && runtimeState.dj.open) {
+        runtimeState.dj.open = false;
+        runtimeSaveState();
+        r.$renderDjTools();
+      }
+      const playbackLoading = !audibleDiscover && Boolean(pendingDiscoverTrack || presentation.retained || r.$discoverHandoffBusy || r.$discoverSwitchPendingDisable || (runtimeSeamless.enabled && runtimeSeamless.status === "loading") || pendingFeedLoading || pendingClassicLoading); r.$player.classList.toggle("is-playing", hasCurrentTrack && displayIsPlaying && !playbackLoading);
+      syncVisualizerFallback(r, playbackLoading);
       r.$playButton.disabled = !hasCurrentTrack || playbackLoading;
       r.$playButton.setAttribute("aria-disabled", String(!hasCurrentTrack || playbackLoading));
-      r.$playButton.setAttribute("aria-label", playbackLoading ? `Loading ${displayTrack.title || "track"}` : "Play or pause");
+      r.$playButton.setAttribute("aria-label", !hasCurrentTrack
+        ? "No track selected"
+        : playbackLoading ? `Loading ${displayTrack.title || "track"}` : "Play or pause");
       r.$playButton.classList.toggle("is-loading", playbackLoading);
-      r.$playerTrack.classList.toggle("is-empty", !hasCurrentTrack);
-      const trackRenderSignature = hasCurrentTrack
-        ? `${displayTrack.title}\u0000${displayTrack.artist}\u0000${displayTrack.art}\u0000${displayTrack.pageUrl}\u0000${displayTrack.artistUrl}`
-        : "empty";
-      if (trackRenderSignature !== r.$playerTrackRenderSignature) {
-        r.$playerTrackRenderSignature = trackRenderSignature;
-        if (hasCurrentTrack) {
-          const playerArtUrl = resolveImage(displayTrack.art);
-          if (playerArtUrl) r.$playerArt.src = playerArtUrl;
-          else r.$playerArt.removeAttribute("src");
-          r.$playerArtLink.hidden = !playerArtUrl;
-          r.$playerArt.alt = "";
-          r.$playerTitle.textContent = displayTrack.title;
-          r.$playerArtist.textContent = displayTrack.artist;
-          r.$updatePageLink(r.$playerArtLink, displayTrack.pageUrl);
-          r.$playerArtLink.setAttribute("aria-label", `Open ${displayTrack.title}`);
-          r.$updatePageLink(r.$playerTitle, displayTrack.pageUrl);
-          r.$updatePageLink(r.$playerArtist, displayTrack.artistUrl || displayTrack.pageUrl);
-        } else {
-          r.$playerArt.removeAttribute("src");
-          r.$playerArtLink.hidden = true;
-          r.$playerArt.alt = "";
-          r.$playerTitle.textContent = "";
-          r.$playerArtist.textContent = "";
-          r.$updatePageLink(r.$playerArtLink, "");
-          r.$playerArtLink.removeAttribute("aria-label");
-          r.$updatePageLink(r.$playerTitle, "");
-          r.$updatePageLink(r.$playerArtist, "");
-        }
-      }
-      const playbackRenderState = runtimeLive.isPlaying ? "playing" : "paused";
+      renderPlayerTrack(r, displayTrack, hasCurrentTrack);
+      const playbackRenderState = displayIsPlaying ? "playing" : "paused";
       if (playbackRenderState !== r.$playerPlaybackRenderState) {
         r.$playerPlaybackRenderState = playbackRenderState;
-        r.$playButton.replaceChildren(createButtonIcon(runtimeLive.isPlaying ? "icon-pause.svg" : "icon-play.svg"));
+        r.$playButton.replaceChildren(createButtonIcon(displayIsPlaying ? "icon-pause.svg" : "icon-play.svg"));
       }
       const audio = runtimeSeamless.enabled ? null : r.$getAudio();
-      const duration = pendingFeedLoading
+      syncCustomPlayerButtons(r, runtimeState, displayIsPlaying);
+      const duration = pendingDiscoverTrack ? Number(pendingDiscoverTrack.duration) || 0 : pendingFeedLoading
         ? Number(pendingFeedState?.duration) || 0
-        : runtimeSeamless.enabled ? Number(runtimeSeamless.duration) || 0 : Number(audio?.duration) || Number(runtimeLive.duration) || 0;
-      const currentTime = pendingFeedLoading
+        : pendingClassicLoading ? Number(pendingClassicTrack?.duration) || 0
+        : runtimeSeamless.enabled ? Number(runtimeSeamless.duration) || 0 : Number(audio?.duration) || Number(runtimeLive.duration) || (presentation.retained ? Number(displayTrack.duration) || 0 : 0);
+      const currentTime = pendingDiscoverTrack ? 0 : pendingFeedLoading
         ? pendingFeedSeek ? r.$pendingFeedSeekTime !== null ? Number(r.$pendingFeedSeekTime) || 0 : (Number(r.$pendingFeedSeekFraction) || 0) * duration : Number(pendingFeedState?.currentTime) || 0
+        : pendingClassicLoading ? pendingClassicSeek ? (Number(r.$classicPagePendingSeekFraction) || 0) * duration : 0
         : runtimeSeamless.enabled ? Number(runtimeSeamless.currentTime) || 0 : Number(audio?.currentTime) || Number(runtimeLive.currentTime) || 0;
-      if (!r.$scrubbing) {
-        r.$scrubSlider.value = String(pendingFeedSeek && r.$pendingFeedSeekFraction !== null ? Math.round(r.$pendingFeedSeekFraction * 1000) : duration ? Math.round(Math.max(0, Math.min(1, currentTime / duration)) * 1000) : 0);
-        r.$currentTimeLabel.textContent = formatDuration(currentTime);
+      if (!r.$scrubbing && !r.$scrubPreviewActive) {
+        const pendingSeekFraction = pendingFeedSeek && r.$pendingFeedSeekFraction !== null ? r.$pendingFeedSeekFraction : pendingClassicSeek ? r.$classicPagePendingSeekFraction : null;
+        r.$scrubSlider.value = String(pendingSeekFraction !== null
+          ? Math.round(pendingSeekFraction * 1000)
+          : duration ? Math.round(Math.max(0, Math.min(1, currentTime / duration)) * 1000) : 0);
+        r.$currentTimeLabel.textContent = formatDuration(currentTime); r.$durationLabel.textContent = `−${formatDuration(Math.max(0, duration - currentTime))}`;
       }
       r.$syncScrubVisual();
       r.$refreshScrubWaveform();
       r.$scrubSlider.setAttribute("aria-valuetext", `${formatDuration((Number(r.$scrubSlider.value) / 1000) * duration)} of ${formatDuration(duration)}`);
       r.$scrubControl.classList.toggle("is-empty", !duration);
-      r.$scrubControl.classList.toggle("is-pending-seek", pendingFeedSeek);
+      r.$scrubControl.classList.toggle("is-pending-seek", pendingFeedSeek || pendingClassicSeek);
       r.$scrubControl.setAttribute("aria-busy", String(playbackLoading));
-      r.$durationLabel.textContent = formatDuration(duration);
+      r.$scrubDuration = duration;
       const queuedTracks = runtimeState.playlist.length
         ? runtimeState.playlist.length
         : runtimeSeamless.enabled && Array.isArray(runtimeSeamless.queue) && runtimeSeamless.queue.length
@@ -119,40 +657,38 @@ r.$renderPlayer = function renderPlayer() {
         ? 1 + (Array.isArray(runtimeLive.tracks) ? runtimeLive.tracks.length : 0)
         : 0;
       const showingSavedPlaylists = runtimeState.playlistView === "saved";
-      const sectionCount = showingSavedPlaylists ? runtimeState.savedPlaylists.length : queuedTracks;
-      const sectionLabel = showingSavedPlaylists ? "Playlists" : "Now Playing";
+      const sectionCount = queuedTracks;
       const sectionIcon = showingSavedPlaylists ? "icon-playlist.svg" : "icon-now-playing.svg";
-      const sectionCountLabel = showingSavedPlaylists
-        ? `${sectionCount} saved`
-        : `${sectionCount} song${sectionCount === 1 ? "" : "s"}`;
       r.$nowPlayingButton.dataset.view = showingSavedPlaylists ? "saved" : "current";
       r.$nowPlayingButton.querySelector(".hub-now-playing-icon")?.style.setProperty("--hub-icon", `url('${asset(sectionIcon)}')`);
-      r.$nowPlayingButton.querySelector(".hub-now-playing-label").textContent = sectionLabel;
+      r.$nowPlayingButton.querySelector(".hub-now-playing-label").textContent = "Play";
       r.$nowPlayingCount.textContent = String(sectionCount);
-      r.$nowPlayingButton.setAttribute("aria-label", `${sectionLabel}, ${sectionCountLabel}`);
+      r.$nowPlayingCount.hidden = showingSavedPlaylists || sectionCount === 0;
+      r.$nowPlayingButton.setAttribute("aria-label", showingSavedPlaylists
+        ? "Playlists"
+        : sectionCount ? `Now Playing, ${sectionCount} song${sectionCount === 1 ? "" : "s"}` : "Now Playing");
       r.$nowPlayingButton.title = r.$nowPlayingButton.getAttribute("aria-label");
       const sectionPanelActive = runtimeState.open && runtimeState.activeTab === "playlist";
       r.$nowPlayingButton.classList.toggle("is-active", sectionPanelActive);
-      r.$nowPlayingButton.setAttribute("aria-expanded", String(sectionPanelActive));
+      r.$nowPlayingButton.setAttribute("aria-expanded", String(sectionPanelActive)); r.$syncPageCartButtonUi();
       renderPlayerAnalysis(r, hasCurrentTrack);
-      const djPlayerButtonRect = r.$djPlayerButton.getBoundingClientRect();
-      r.$player.style.setProperty("--hub-dj-anchor-x", `${Math.round(djPlayerButtonRect.left + djPlayerButtonRect.width / 2)}px`);
+      syncDjDrawerAnchor(r);
       r.$renderPlayerMoreActions();
     };
 r.$setOpen = function setOpen(open) {
       runtimeState.open = open;
-      runtimeSaveState();
-      r.$saveLayoutState();
+      runtimeSaveState(); r.$saveLayoutState();
       r.$render();
+      if (open) r.$schedulePlaylistMetadataRefresh(0);
     };
 r.$openBandKitCart = function openBandKitCart() {
       r.$closePagePlaylistMenu();
+      runtimeState.musicBarRecentPanel = "cart";
       runtimeState.open = true;
       runtimeState.activeTab = "cart";
       runtimeState.cartView = "current";
       runtimeState.selectedSavedCartId = null;
-      runtimeSaveState();
-      r.$saveLayoutState();
+      runtimeSaveState(); r.$saveLayoutState();
       r.$render();
     };
 r.$handleNativeHeaderCart = function handleNativeHeaderCart(event) {
@@ -176,7 +712,7 @@ r.$handleNativeHeaderCart = function handleNativeHeaderCart(event) {
 r.$syncPageDjToolsUi = function syncPageDjToolsUi() {
       for (const button of document.querySelectorAll(".bandcamp-hub-page-dj")) {
         button.classList.toggle("is-active", r.$pageDjOpen);
-        button.hidden = r.$pageDjOpen;
+        button.hidden = runtimeState.djToolsEnabled === false || r.$pageDjOpen;
         button.setAttribute("aria-expanded", String(r.$pageDjOpen));
         button.setAttribute("aria-pressed", String(r.$pageDjOpen));
         button.title = "Show BPM and tempo controls on this page";
@@ -185,20 +721,21 @@ r.$syncPageDjToolsUi = function syncPageDjToolsUi() {
     };
 r.$renderPageDjTools = function renderPageDjTools() {
       if (!r.$pageDjHost?.isConnected || !r.$pageDjSurface) return;
-      r.$pageDjHost.hidden = !r.$pageDjOpen;
+      r.$pageDjHost.hidden = runtimeState.djToolsEnabled === false || !r.$pageDjOpen;
       r.$pageDjSurface.replaceChildren();
-      if (r.$pageDjOpen) r.$pageDjSurface.append(r.$createPageDjToolsCard());
+      if (runtimeState.djToolsEnabled !== false && r.$pageDjOpen) r.$pageDjSurface.append(r.$createPageDjToolsCard());
       r.$syncPageDjToolsUi();
     };
-r.$toggleDjTools = function toggleDjTools() {
+r.$toggleDjTools = function toggleDjTools() { if (runtimeState.djToolsEnabled === false) return;
       runtimeState.dj.open = !runtimeState.dj.open;
-      runtimeSaveState();
+      runtimeSaveState(); r.$saveLayoutState();
       r.$renderDjTools();
     };
-r.$togglePageDjTools = function togglePageDjTools() {
+r.$togglePageDjTools = function togglePageDjTools() { if (runtimeState.djToolsEnabled === false) return;
       r.$pageDjOpen = !r.$pageDjOpen;
       runtimeState.dj.pageOpen = r.$pageDjOpen;
       runtimeSaveState();
+      r.$saveLayoutState();
       r.$renderPageDjTools();
     };
 r.$parseJsonAttribute = function parseJsonAttribute(element, attribute) {
@@ -223,12 +760,14 @@ r.$getAudio = function getAudio() {
 r.$setDjTempo = function setDjTempo(percent) {
       const clamped = Math.max(-runtimeState.dj.range, Math.min(runtimeState.dj.range, Number(percent) || 0));
       runtimeState.dj.rate = Math.round((1 + clamped / 100) * 1000) / 1000;
+      if (Math.abs(runtimeState.dj.rate - 1) > 0.001) runtimeState.dj.autoTempo = false;
       r.$applyDjToAudio();
     };
 }
 
 function registerPlayerShell2(r) {
 r.$applyDjToAudio = function applyDjToAudio(target = r.$getAudio()) {
+      r.$syncDjEffectIndicator?.();
       if (runtimeSeamless.enabled) {
         void r.$seamlessCommand(MESSAGES.SEAMLESS_SET_DJ, {
           rate: runtimeState.dj.rate,
@@ -407,502 +946,4 @@ r.$loadModernPlaylistQueue = async function loadModernPlaylistQueue(modern) {
     };
 }
 
-function registerPlayerShell3(r) { r.$getModernPlayerState = function getModernPlayerState() {
-      const player = document.querySelector("section.floating-player.has-track, section.floating-player:has(.track-meta[streamurl])");
-      if (!player) return null;
-      const key = player.querySelector(".play-pause-button:is(.outline, .outline-opaque)[tracklistkey], .play-pause-button[tracklistkey]")?.getAttribute("tracklistkey") || "";
-      const sourceContext = r.$modernPlayerSourceContext(player, key);
-      const playlistSeed = r.$getModernPlaylistSeed(key);
-      const sourceMetadataNode = sourceContext?.matches?.("[data-item-json]") ? sourceContext : sourceContext?.querySelector?.("[data-item-json]");
-      const sourceItemData = r.$parseJsonAttribute(sourceMetadataNode, "data-item-json") || {};
-      const sourceAlbum = sourceItemData.item_title
-        || (sourceContext ? r.$elementText(sourceContext, [".collection-item-title", ".release-title", ".title"]) : "")
-        || "";
-      const modernTrackCandidates = [...player.querySelectorAll(".meta-wrapper-wide .track-meta[streamurl], .track-meta[streamurl]")];
-      const unique = [...new Map(modernTrackCandidates.map((node) => [node.getAttribute("streamurl"), node])).values()];
-      const domQueue = unique.map((node, index) => {
-        const pageUrl = r.$modernTrackPageUrl(node, sourceContext);
-        const artist = r.$elementText(node, [".artist-name"]).replace(/^by\s+/i, "") || "Bandcamp";
-        return {
-          id: node.id || `${node.getAttribute("streamurl")}|${index}`,
-          title: r.$elementText(node, [".title-text", ".track-title", ".title"]) || `Bandcamp track ${index + 1}`,
-          artist,
-          album: sourceAlbum || document.title,
-          art: node.querySelector("img")?.currentSrc || node.querySelector("img")?.src || sourceContext?.querySelector("img")?.currentSrc || sourceContext?.querySelector("img")?.src || "",
-          pageUrl,
-          artistUrl: r.$modernTrackArtistUrl(node, pageUrl),
-          duration: Number(node.getAttribute("duration")) || 0,
-          url: node.getAttribute("streamurl") || ""
-        };
-      }).filter((track) => /^https:\/\/[^/]*\.bcbits\.com\//.test(track.url));
-      const seedQueue = playlistSeed?.tracks
-        .map((item, sourceIndex) => r.$modernPlaylistTrack(item, playlistSeed.title, sourceIndex))
-        .filter(Boolean) || [];
-      const queue = seedQueue.length ? seedQueue : domQueue;
-      if (!queue.length) return null;
-      const currentNode = unique.find((node) => node.closest(".currently-playing"));
-      const currentUrl = currentNode?.getAttribute("streamurl") || "";
-      const index = Math.max(0, queue.findIndex((track) => track.url === currentUrl));
-      const currentControl = currentNode?.closest(".track-list-item")?.querySelector(".play-pause-button[trackindex]");
-      const sourceIndex = currentControl?.hasAttribute("trackindex")
-        ? Number(currentControl.getAttribute("trackindex"))
-        : Number(queue[index]?.sourceIndex ?? index);
-      const timeline = player.querySelector("input[type='range']");
-      const isPlaying = Boolean(player.querySelector(".play-pause-button[aria-label='Pause']"));
-      return {
-        player,
-        queue,
-        index,
-        sourceIndex,
-        track: queue[index],
-        currentTime: Number(timeline?.value) || 0,
-        duration: Number(timeline?.max) || queue[index]?.duration || 0,
-        isPlaying,
-        key,
-        isPlaylistPage: Boolean(playlistSeed),
-        playlistSeed
-      };
-    };
-r.$modernPlayerLinksReady = function modernPlayerLinksReady(modern) {
-      return Boolean(modern?.queue.length && modern.queue.every((track) => r.$modernReleasePageUrl(track.pageUrl)));
-    };
-r.$getDiscoverPlayerState = function getDiscoverPlayerState() {
-      const player = document.querySelector(".discover-player");
-      if (!player) return null;
-      const control = player.querySelector(".play-pause-button");
-      const focused = player.closest(".focused-result") || player.parentElement;
-      const links = [...player.querySelectorAll(".player-info a[href], a[href]")];
-      const albumLink = links.find((link) => /^from\s+/i.test(link.textContent || "")) || links.find((link) => /album\//.test(link.href));
-      const artistLink = links.find((link) => /^by\s+/i.test(link.textContent || ""));
-      const title = r.$elementText(player, [".player-info .title", ".title"]);
-      if (!title) return null;
-      const pageUrl = albumLink?.href || focused?.querySelector("a[href*='bandcamp.com']")?.href || location.href;
-      const artistUrl = artistLink?.href || r.$artistUrlFromPageUrl(pageUrl);
-      const artist = (artistLink?.textContent || "Bandcamp").replace(/^by\s+/i, "").trim() || "Bandcamp";
-      const displayedCurrentTime = parseClock(r.$elementText(player, [".playback-time.current"]));
-      const displayedDuration = parseClock(r.$elementText(player, [".playback-time.total"]));
-      const currentTime = Number(r.$bridgedMedia?.currentTime) || displayedCurrentTime;
-      const duration = Number(r.$bridgedMedia?.duration) || displayedDuration;
-      const timeline = player.querySelector("input[type='range']");
-      const sliderProgress = Number(timeline?.value);
-      const progress = Number.isFinite(sliderProgress) ? sliderProgress : duration ? currentTime / duration : 0;
-      return {
-        player,
-        control,
-        timeline,
-        isPlaying: control?.getAttribute("aria-label") === "Pause" || Boolean(r.$bridgedMedia && !r.$bridgedMedia.paused && !r.$bridgedMedia.ended),
-        currentTime,
-        duration,
-        progress: Math.max(0, Math.min(1, progress)),
-        track: {
-          id: `${pageUrl}|${title}`,
-          title,
-          artist,
-          album: (albumLink?.textContent || "").replace(/^from\s+/i, "").trim(),
-          art: focused?.querySelector("img[alt^='View'], img")?.currentSrc || focused?.querySelector("img[alt^='View'], img")?.src || runtimeLive.art,
-          pageUrl,
-          artistUrl,
-          duration,
-          url: r.$bridgedMedia?.src || ""
-        },
-        queue: []
-      };
-    };
-r.$feedStreamTrackId = function feedStreamTrackId(value) {
-      try {
-        return new URL(value || "", location.href).searchParams.get("track_id") || "";
-      } catch {
-        return "";
-      }
-    };
-r.$feedStreamUrl = function feedStreamUrl(trackId) {
-      const id = String(trackId || "");
-      if (!id) return "";
-      const url = new URL("/stream_redirect", "https://bandcamp.com");
-      url.searchParams.set("enc", "mp3-128");
-      url.searchParams.set("track_id", id);
-      return url.href;
-    };
-r.$getFeedPlayerState = function getFeedPlayerState(preferredTrackId = "") {
-      if (!document.body.classList.contains("feed") && !/\/feed\/?$/.test(location.pathname)) return null;
-      const audio = r.$getAudio();
-      const audioTrackId = r.$feedStreamTrackId(audio?.currentSrc || audio?.src);
-      const playingNode = document.querySelector(".collection-item-container.playing[data-trackid]");
-      const trackId = String(preferredTrackId || playingNode?.dataset.trackid || audioTrackId);
-      if (!trackId) return null;
-      const seededFromPendingClick = Boolean(
-        preferredTrackId
-        && audioTrackId !== trackId
-        && r.$pendingFeedTrackId === trackId
-      );
-      if (preferredTrackId && audioTrackId !== trackId && !seededFromPendingClick) return null;
-      const audioMatchesTrack = audioTrackId === trackId;
-      const matchingNodes = [...document.querySelectorAll(".collection-item-container[data-trackid]")]
-        .filter((node) => node.dataset.trackid === trackId);
-      const metadataNode = matchingNodes.find((node) => node.dataset.itemJson) || playingNode || matchingNodes[0];
-      if (!metadataNode) return null;
-      const itemData = r.$parseJsonAttribute(metadataNode, "data-item-json") || {};
-      const storyNode = matchingNodes.find((node) => node.classList.contains("story-innards")) || metadataNode;
-      const itemLink = storyNode.querySelector("a.item-link[href]") || metadataNode.querySelector("a.item-link[href], a[href*='bandcamp.com/album/'], a[href*='bandcamp.com/track/']");
-      const artistLink = storyNode.querySelector("a.artist-name[href]");
-      const pageUrl = itemData.item_url || itemLink?.href || location.href;
-      const artistUrl = itemData.band_url || artistLink?.href || r.$artistUrlFromPageUrl(pageUrl);
-      const title = itemData.featured_track_title || r.$elementText(storyNode, [".fav-track-title", ".collection-item-title", ".waypoint-item-title"]);
-      if (!title) return null;
-      const artist = itemData.band_name || r.$elementText(storyNode, [".collection-item-artist", ".artist-name", ".waypoint-artist-title"]).replace(/^by\s+/i, "") || "Bandcamp";
-      const duration = (audioMatchesTrack ? Number(audio?.duration) : 0)
-        || Number(itemData.featured_track_duration)
-        || parseClock(r.$elementText(storyNode, [".time_total"]));
-      const currentTime = seededFromPendingClick
-        && r.$pendingFeedSeekTrackId === trackId
-        && (r.$pendingFeedSeekTime !== null || r.$pendingFeedSeekFraction !== null)
-        ? r.$pendingFeedSeekTime !== null ? Number(r.$pendingFeedSeekTime) || 0 : (Number(r.$pendingFeedSeekFraction) || 0) * duration
-        : (audioMatchesTrack ? Number(audio?.currentTime) : 0)
-          || parseClock(r.$elementText(storyNode, [".time_elapsed"]));
-      const control = storyNode.querySelector(".track_play_auxiliary") || metadataNode.querySelector(".track_play_auxiliary") || document.querySelector(`.track_play_auxiliary[data-trackid="${trackId}"]`);
-      return {
-        player: storyNode,
-        control,
-        isPlaying: seededFromPendingClick || Boolean(audioMatchesTrack && audio && !audio.paused && !audio.ended),
-        seededFromPendingClick,
-        currentTime,
-        duration,
-        progress: duration ? Math.max(0, Math.min(1, currentTime / duration)) : 0,
-        track: {
-          id: String(trackId),
-          title,
-          artist,
-          album: itemData.item_title || r.$elementText(storyNode, [".collection-item-title"]),
-          art: itemData.item_art_url || storyNode.querySelector(".tralbum-art-large, img")?.currentSrc || storyNode.querySelector(".tralbum-art-large, img")?.src || runtimeLive.art,
-          pageUrl,
-          artistUrl,
-          duration,
-          url: audioMatchesTrack
-            ? audio?.currentSrc || audio?.src || ""
-            : seededFromPendingClick ? r.$feedStreamUrl(trackId) : ""
-        },
-        queue: []
-      };
-    };
-r.$suppressRemovedFeedTrack = function suppressRemovedFeedTrack(item) {
-      const feed = r.$getFeedPlayerState();
-      if (!feed?.track || !r.$matchingQueueTrack([item], feed.track)) return;
-      r.$suppressedFeedTrackId = String(feed.track.id || item?.id || "");
-      r.$pendingFeedTrackId = "";
-      r.$pendingFeedSeekTime = null; r.$pendingFeedSeekFraction = null;
-      r.$pendingFeedSeekTrackId = "";
-      window.clearTimeout(r.$feedHandoffTimer);
-      const audio = r.$getAudio();
-      if (audio && !audio.paused) audio.pause();
-    };
-r.$muteFeedAudioForHandoff = function muteFeedAudioForHandoff(trackId) {
-      const audio = r.$getAudio();
-      if (!audio) return;
-      if (r.$mutedFeedAudio !== audio) {
-        if (r.$mutedFeedAudio) r.$mutedFeedAudio.muted = r.$mutedFeedAudioWasMuted;
-        r.$mutedFeedAudio = audio;
-        r.$mutedFeedAudioWasMuted = Boolean(audio.muted);
-      }
-      r.$mutedFeedTrackId = String(trackId || "");
-      audio.muted = true;
-    };
-}
-
-function registerPlayerShell4(r) {
-r.$restoreFeedAudioMute = function restoreFeedAudioMute(trackId = "") {
-      if (!r.$mutedFeedAudio || (trackId && r.$mutedFeedTrackId && String(trackId) !== r.$mutedFeedTrackId)) return;
-      r.$mutedFeedAudio.muted = r.$mutedFeedAudioWasMuted;
-      r.$mutedFeedAudio = null;
-      r.$mutedFeedAudioWasMuted = false;
-      r.$mutedFeedTrackId = "";
-    };
-r.$finishFeedAudioHandoff = function finishFeedAudioHandoff(trackId, expectedAudio = r.$getAudio()) {
-      const requestedTrackId = String(trackId || "");
-      if (!expectedAudio || !requestedTrackId) return;
-      window.clearTimeout(r.$feedNativePauseTimer);
-      const finish = () => {
-        if (r.$pendingFeedTrackId && r.$pendingFeedTrackId !== requestedTrackId) return;
-        const currentAudio = r.$getAudio();
-        const currentTrackId = r.$feedStreamTrackId(currentAudio?.currentSrc || currentAudio?.src);
-        const isMutedHandoffAudio = currentAudio === r.$mutedFeedAudio;
-        if (currentAudio !== expectedAudio || (!isMutedHandoffAudio && currentTrackId && currentTrackId !== requestedTrackId)) return;
-        if (!expectedAudio.paused) expectedAudio.pause();
-        r.$restoreFeedAudioMute(requestedTrackId);
-      };
-      const afterNativePlaySettles = () => {
-        window.clearTimeout(r.$feedNativePauseTimer);
-        r.$feedNativePauseTimer = window.setTimeout(finish, 60);
-      };
-      if (expectedAudio.paused) {
-        finish();
-        return;
-      }
-      expectedAudio.addEventListener("playing", afterNativePlaySettles, { once: true });
-      r.$feedNativePauseTimer = window.setTimeout(finish, 500);
-    };
-r.$stopModernPagePlayer = function stopModernPagePlayer() {
-      const button = document.querySelector("section.floating-player .play-pause-button.outline[aria-label='Pause'], section.floating-player .player-controls .play-pause-button[aria-label='Pause']");
-      if (!button) return;
-      r.$suppressModernControl = true;
-      button.click();
-      window.setTimeout(() => {
-        r.$suppressModernControl = false;
-      }, 0);
-    };
-r.$silenceNativePagePlayback = function silenceNativePagePlayback() {
-      r.$pageMediaCommand("pauseAll");
-      for (const media of document.querySelectorAll("audio, video")) {
-        if (!media.paused) media.pause();
-      }
-      r.$stopModernPagePlayer();
-    };
-r.$handoffModernPlayer = async function handoffModernPlayer(requestedIndex = null) {
-      const modern = r.$getModernPlayerState();
-      if (!modern) return false;
-      const sourceIndex = requestedIndex === null ? modern.sourceIndex : Math.max(0, Number(requestedIndex) || 0);
-      const requestedTrackKey = r.$playlistTrackKey(modern.queue.find((track) => Number(track.sourceIndex) === sourceIndex))
-        || `${modern.key}:${sourceIndex}`;
-      if (r.$modernHandoffBusy) {
-        if (requestedTrackKey && (requestedTrackKey !== r.$modernHandoffTrackKey || r.$modernHandoffSuperseded)) {
-          if (!r.$modernHandoffSuperseded) r.$playlistPlayRequest += 1;
-          r.$modernHandoffSuperseded = true;
-          r.$modernHandoffPendingIndex = sourceIndex;
-        }
-        return false;
-      }
-      r.$modernHandoffBusy = true;
-      r.$modernHandoffTrackKey = requestedTrackKey;
-      r.$modernHandoffSuperseded = false;
-      try {
-        const loaded = await r.$loadModernPlaylistQueue(modern);
-        if (r.$modernHandoffSuperseded) return false;
-        const index = loaded.sourceToQueue.get(sourceIndex);
-        if (index === undefined || !loaded.queue[index]) return false;
-        const prepared = await r.$prepareExternalNowPlaying(loaded.queue[index], loaded.queue, {
-          trustProvidedStreams: true,
-          replaceQueue: modern.isPlaylistPage
-        });
-        if (r.$modernHandoffSuperseded) return false;
-        if (prepared.index < 0) return false;
-        const latestModern = r.$getModernPlayerState() || modern;
-        const response = await r.$runtimeMessage({
-          type: MESSAGES.SEAMLESS_ENABLE,
-          queue: prepared.queue,
-          index: prepared.index,
-          currentTime: requestedIndex === null ? latestModern.currentTime : 0,
-          handoffStartedAt: Date.now(),
-          autoplay: true,
-          rate: runtimeState.dj.rate,
-          preservePitch: runtimeState.dj.preservePitch,
-          filterValue: runtimeState.dj.filterValue,
-          gainDb: runtimeState.dj.gainDb,
-          eqLowDb: runtimeState.dj.eqLowDb,
-          eqMidDb: runtimeState.dj.eqMidDb,
-          eqHighDb: runtimeState.dj.eqHighDb
-        });
-        if (!response?.ok) return false;
-        if (prepared.request !== r.$playlistPlayRequest) return false;
-        r.$stopModernPagePlayer();
-        r.$applySeamlessState(response.state);
-        return true;
-      } finally {
-        r.$modernHandoffBusy = false;
-        r.$modernHandoffTrackKey = "";
-        r.$modernHandoffSuperseded = false;
-        if (r.$modernHandoffPendingIndex !== null) {
-          const pendingIndex = r.$modernHandoffPendingIndex;
-          r.$modernHandoffPendingIndex = null;
-          window.setTimeout(() => void r.$handoffModernPlayer(pendingIndex), 0);
-        }
-      }
-    };
-r.$scheduleModernHandoff = function scheduleModernHandoff(requestedKey = "", requestedIndex = null) {
-      const request = ++r.$modernHandoffRequest;
-      const poll = (attempt = 0) => {
-        window.setTimeout(() => {
-          if (request !== r.$modernHandoffRequest) return;
-          const modern = r.$getModernPlayerState();
-          if (modern && (!requestedKey || modern.key === requestedKey)) {
-            if (r.$modernPlayerLinksReady(modern) || attempt >= 6) {
-              void r.$handoffModernPlayer(requestedIndex);
-              return;
-            }
-          }
-          if (attempt < 6) poll(attempt + 1);
-        }, attempt ? Math.min(500, 100 + attempt * 75) : 40);
-      };
-      poll();
-    };
-r.$isReusableStreamUrl = function isReusableStreamUrl(value) {
-      try {
-        const url = new URL(value);
-        const isBcbits = url.hostname === "bcbits.com" || url.hostname.endsWith(".bcbits.com");
-        const isBandcampRedirect = url.hostname === "bandcamp.com" && url.pathname === "/stream_redirect" && url.searchParams.has("track_id");
-        return url.protocol === "https:" && (isBcbits || isBandcampRedirect);
-      } catch {
-        return false;
-      }
-    };
-r.$handoffDiscoverPlayer = async function handoffDiscoverPlayer() {
-      if (r.$discoverHandoffBusy) return false;
-      const discover = r.$getDiscoverPlayerState();
-      if (!discover?.track || !r.$isReusableStreamUrl(discover.track.url)) return false;
-      r.$discoverHandoffBusy = true;
-      r.$discoverHandoffTrackKey = r.$playlistTrackKey(discover.track);
-      try {
-        const prepared = await r.$prepareExternalNowPlaying(discover.track, [], { trustProvidedStreams: true });
-        if (prepared.index < 0) return false;
-        const latestDiscover = r.$getDiscoverPlayerState();
-        if (!latestDiscover?.track || r.$playlistTrackKey(latestDiscover.track) !== r.$discoverHandoffTrackKey) {
-          r.$discoverHandoffPending = true;
-          return false;
-        }
-        const latestCurrentTime = Number(latestDiscover.currentTime);
-        const handoffCurrentTime = Number.isFinite(latestCurrentTime)
-          ? Math.max(0, latestCurrentTime)
-          : Math.max(0, Number(discover.currentTime) || 0);
-        const response = await r.$runtimeMessage({
-          type: MESSAGES.SEAMLESS_ENABLE,
-          queue: prepared.queue,
-          index: prepared.index,
-          currentTime: handoffCurrentTime,
-          handoffStartedAt: Date.now(),
-          autoplay: true,
-          rate: runtimeState.dj.rate,
-          preservePitch: runtimeState.dj.preservePitch,
-          filterValue: runtimeState.dj.filterValue,
-          gainDb: runtimeState.dj.gainDb,
-          eqLowDb: runtimeState.dj.eqLowDb,
-          eqMidDb: runtimeState.dj.eqMidDb,
-          eqHighDb: runtimeState.dj.eqHighDb
-        });
-        if (!response?.ok) return false;
-        if (prepared.request !== r.$playlistPlayRequest) return false;
-        r.$pageMediaCommand("pause");
-        r.$applySeamlessState(response.state);
-        return true;
-      } finally {
-        r.$discoverHandoffBusy = false;
-        r.$discoverHandoffTrackKey = "";
-        if (r.$discoverHandoffPending) {
-          r.$discoverHandoffPending = false;
-          window.setTimeout(r.$scanLivePlayer, 0);
-        }
-      }
-    };
-}
-
-function registerPlayerShell5(r) {
-r.$handoffFeedPlayer = async function handoffFeedPlayer(requestedTrackId = "") {
-      if (r.$feedHandoffBusy) {
-        return Boolean(requestedTrackId && String(requestedTrackId) === r.$feedHandoffTrackId);
-      }
-      const feed = r.$getFeedPlayerState(requestedTrackId);
-      if (!feed?.track || !feed.isPlaying || !r.$isReusableStreamUrl(feed.track.url)) return false;
-      if (r.$suppressedFeedTrackId && String(feed.track.id || requestedTrackId || "") === r.$suppressedFeedTrackId) {
-        r.$pendingFeedTrackId = "";
-        r.$pendingFeedSeekTime = null;
-        r.$pendingFeedSeekFraction = null;
-        r.$pendingFeedSeekTrackId = "";
-        const suppressedAudio = r.$getAudio();
-        if (suppressedAudio && !suppressedAudio.paused) suppressedAudio.pause();
-        r.$restoreFeedAudioMute(feed.track.id || requestedTrackId);
-        return true;
-      }
-      const sameSeamlessTrack = Boolean(runtimeSeamless.enabled && r.$matchingQueueTrack([runtimeSeamless.track], feed.track));
-      if (sameSeamlessTrack) {
-        const currentAudio = r.$getAudio();
-        if (currentAudio && !currentAudio.paused) currentAudio.pause();
-        r.$restoreFeedAudioMute(feed.track.id || requestedTrackId);
-        return true;
-      }
-      r.$feedHandoffBusy = true;
-      r.$feedHandoffTrackId = String(feed.track.id || requestedTrackId || "");
-      try {
-        // Feed stories only expose Bandcamp's stream_redirect endpoint. Resolve
-        // the release metadata first so the offscreen player receives the final
-        // bcbits media URL instead of depending on a cross-origin redirect.
-        const prepared = await r.$prepareExternalNowPlaying(feed.track);
-        if (prepared.index < 0) return false;
-        if (prepared.request !== r.$playlistPlayRequest) return false;
-        const preparedDuration = Number(prepared.queue[prepared.index]?.duration) || 0;
-        if (r.$pendingFeedSeekFraction !== null && preparedDuration) r.$pendingFeedSeekTime = r.$pendingFeedSeekFraction * preparedDuration;
-        const handoffSeekRevision = r.$pendingFeedSeekRevision;
-        const handoffCurrentTime = r.$pendingFeedSeekTime === null ? feed.currentTime : r.$pendingFeedSeekTime;
-        const response = await r.$runtimeMessage({
-          type: MESSAGES.SEAMLESS_ENABLE,
-          queue: prepared.queue,
-          index: prepared.index,
-          currentTime: handoffCurrentTime,
-          autoplay: true,
-          rate: runtimeState.dj.rate,
-          preservePitch: runtimeState.dj.preservePitch,
-          filterValue: runtimeState.dj.filterValue,
-          gainDb: runtimeState.dj.gainDb,
-          eqLowDb: runtimeState.dj.eqLowDb,
-          eqMidDb: runtimeState.dj.eqMidDb,
-          eqHighDb: runtimeState.dj.eqHighDb
-        });
-        if (!response?.ok) return false;
-        if (prepared.request !== r.$playlistPlayRequest) return false;
-        const responseDuration = Number(response.state?.duration) || Number(response.state?.track?.duration) || 0;
-        if (r.$pendingFeedSeekTime === null && r.$pendingFeedSeekFraction !== null && responseDuration) {
-          r.$pendingFeedSeekTime = r.$pendingFeedSeekFraction * responseDuration;
-        }
-        r.$applySeamlessState(response.state);
-        if (r.$pendingFeedSeekTime !== null
-          && (r.$pendingFeedSeekRevision !== handoffSeekRevision || Math.abs(r.$pendingFeedSeekTime - handoffCurrentTime) > 0.05)) {
-          await r.$seamlessCommand(MESSAGES.SEAMLESS_SEEK, { currentTime: r.$pendingFeedSeekTime });
-        }
-        r.$finishFeedAudioHandoff(r.$feedHandoffTrackId, r.$getAudio());
-        return true;
-      } finally {
-        r.$feedHandoffBusy = false;
-        r.$feedHandoffTrackId = "";
-      }
-    };
-r.$scheduleFeedHandoff = function scheduleFeedHandoff(trackId, attempt = 0) {
-      const requestedTrackId = String(trackId || "");
-      if (!requestedTrackId) return;
-      if (requestedTrackId === r.$suppressedFeedTrackId) {
-        r.$pendingFeedTrackId = "";
-        r.$pendingFeedSeekTime = null;
-        r.$pendingFeedSeekFraction = null;
-        r.$pendingFeedSeekTrackId = "";
-        r.$syncFeedPagePlaybackUi();
-        r.$renderPlayer();
-        return;
-      }
-      r.$pendingFeedTrackId = requestedTrackId;
-      window.clearTimeout(r.$feedHandoffTimer);
-      r.$feedHandoffTimer = window.setTimeout(async () => {
-        if (r.$pendingFeedTrackId !== requestedTrackId) return;
-        if (r.$feedSwitchPendingDisable) {
-          if (attempt < 15) r.$scheduleFeedHandoff(requestedTrackId, attempt + 1);
-          return;
-        }
-        if (await r.$handoffFeedPlayer(requestedTrackId)) return;
-        if (r.$pendingFeedTrackId !== requestedTrackId) return;
-        if (attempt < 15) r.$scheduleFeedHandoff(requestedTrackId, attempt + 1);
-        else {
-          r.$pendingFeedTrackId = "";
-          r.$pendingFeedSeekTime = null;
-          r.$pendingFeedSeekFraction = null;
-          r.$pendingFeedSeekTrackId = "";
-          r.$syncFeedPagePlaybackUi();
-          r.$renderPlayer();
-          r.$restoreFeedAudioMute(requestedTrackId);
-          const fallbackControl = document.querySelector(`.track_play_auxiliary[data-trackid="${CSS.escape(requestedTrackId)}"]`);
-          if (fallbackControl) {
-            r.$feedNativeFallbackTrackId = requestedTrackId;
-            r.$feedNativeFallbackUntil = Date.now() + 5000;
-            fallbackControl.click();
-          }
-        }
-      }, attempt ? 90 : 0);
-    };
-}
-
-export const registerPlayerShell = [registerPlayerShell1, registerPlayerShell2, registerPlayerShell3, registerPlayerShell4, registerPlayerShell5];
-
-export const setupPlayerShell = [];
+export const registerPlayerShell = [registerPlayerPresentation, registerPlayerShell1, registerPlayerShell2, ...registerPlayerHandoffs];

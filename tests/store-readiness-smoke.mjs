@@ -17,11 +17,16 @@ assert.deepEqual(Object.keys(manifest.commands), ["toggle-bandkit"]);
 assert.ok(manifest.permissions.includes("storage"));
 assert.ok(manifest.permissions.includes("offscreen"));
 assert.ok(manifest.permissions.includes("scripting"));
+// 16/32/48/128 are the sizes Chrome and the store require; 96 and 256 are the
+// 2x variants of the 48px extensions-page card and the 128px install dialog,
+// without which Chrome rescales a smaller icon and softens the glyph's edges.
 assert.deepEqual(manifest.icons, {
   16: "assets/extension-icon-16.png",
   32: "assets/extension-icon-32.png",
   48: "assets/extension-icon-48.png",
-  128: "assets/extension-icon-128.png"
+  96: "assets/extension-icon-96.png",
+  128: "assets/extension-icon-128.png",
+  256: "assets/extension-icon-256.png"
 });
 assert.deepEqual(manifest.action.default_icon, {
   16: "assets/extension-icon-16.png",
@@ -38,11 +43,11 @@ for (const [declaredSize, iconPath] of Object.entries(manifest.icons)) {
 }
 assert.match(popup, /assets\/icon-bandkit\.svg/);
 assert.match(content, /launcherIcon\.src = asset\("icon-bandkit\.svg"\)/);
-assert.match(content, /aboutIcon\.src = asset\("icon-bandkit\.svg"\)/);
-assert.match(content, /`Release v\$\{chrome\.runtime\.getManifest\(\)\.version\}`/);
+assert.match(content, /aboutIcon\.src = asset\("logo-type-3\.svg"\)/);
+assert.match(content, /"Release"[\s\S]*?`v\$\{chrome\.runtime\.getManifest\(\)\.version\}`/);
 
 for (const entry of manifest.content_scripts.filter((item) => item.matches?.includes("https://*.bandcamp.com/*"))) {
-  assert.ok(entry.exclude_matches?.includes("https://daily.bandcamp.com/*"), "Broad injections must exclude Bandcamp Daily");
+  assert.ok(!entry.exclude_matches?.includes("https://daily.bandcamp.com/*"), "Bandcamp Daily must receive Bandkit playback and cart integration");
   assert.ok(entry.exclude_matches?.includes("https://help.bandcamp.com/*"), "Broad injections must exclude Bandcamp Help");
   assert.ok(entry.exclude_matches?.includes("https://bandcamp.com/privacy*"), "Broad injections must exclude Bandcamp legal pages");
 }
@@ -54,9 +59,9 @@ assert.match(content, /hideHeaderCart:\s*true/);
 assert.match(content, /hideBandcampPlayer:\s*true/);
 assert.match(content, /Delete all Bandkit data/);
 assert.match(content, /BANDCAMP_HUB_DELETE_ALL_DATA/);
-assert.match(content, /Send feedback/);
-assert.match(content, /View feedback/);
-assert.match(content, /fir-fruitadens-b76\.notion\.site/);
+assert.match(content, /Send Feedback/i);
+assert.match(content, /View Feedback/i);
+assert.match(content, /picturesque-minute-159\.notion\.site/);
 assert.match(content, /Support Bandkit/);
 assert.match(content, /https:\/\/buy\.stripe\.com\/cNi00jgyeeifgIIdPU6Ri00/);
 assert.match(content, /supportLink\.target = "_blank"/);

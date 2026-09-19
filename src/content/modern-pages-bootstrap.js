@@ -15,6 +15,7 @@ import { STORAGE_KEYS } from "../shared/contracts.js";
     if (["www", "daily", "blog", "get", "help"].includes(subdomain)) return "";
     if (/^\/(?:album|track|merch)\/.+/.test(pathname)) return "release";
     if (pathname === "/video") return "video";
+    if (pathname === "/subscribe") return "subscribe";
     if (pathname === "/community") return "community";
     if (pathname === "/merch") return "merch";
     if (pathname === "/artists") return "music";

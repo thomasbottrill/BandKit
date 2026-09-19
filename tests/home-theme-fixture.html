@@ -10,6 +10,16 @@
     #HomepageApp { min-height: 100vh; }
     .g-section { background: #222; color: #fff; padding: 56px; }
     .g-section.inverted { background: #ecf3f4; color: #222; }
+    .menu-bar { background: #222; color: #fff; padding: 20px 56px; }
+    .menu-bar a { color: #b64625; }
+    .dark-mode { --page-text-color: #ecf3f4; --page-text-color-secondary: rgba(255, 255, 255, .72); }
+    time.dark-mode { color: var(--page-text-color-secondary); }
+    .text-badge.dark-mode { background: rgba(255, 255, 255, .08); color: var(--page-text-color); }
+    .pill-group { display: flex; gap: 12px; margin-top: 22px; }
+    .g-pill.filled.dark-mode { background: #fff; border: 1px solid #fff; border-radius: 999px; color: #63f7d5; padding: 8px 18px; text-decoration: none; }
+    #page-footer { background: #333; color: #f8f8f8; padding: 56px; }
+    #page-footer h3, #page-footer p { color: #222; }
+    #page-footer a { color: #b64625; }
     .page-wrapper { margin: auto; max-width: 1280px; }
     .subtitle-row { display: flex; justify-content: space-between; }
     .carousel { display: grid; gap: 18px; grid-template-columns: repeat(5, minmax(0, 1fr)); list-style: none; margin: 24px 0 0; padding: 0; }
@@ -25,13 +35,15 @@
 </head>
 <body>
   <div id="HomepageApp">
+    <header class="menu-bar"><a href="#home" aria-label="Bandcamp home">Bandcamp</a></header>
     <main>
-      <section class="g-section inverted carousel-container">
+      <section class="g-section inverted carousel-container discover-tags">
         <div class="page-wrapper">
           <header>
             <h2 class="header">Playlists in fan collections</h2>
             <div class="subtitle-row"><p>Discover playlists curated by fans.</p><a href="#playlists">View your playlists</a></div>
           </header>
+          <div class="pill-group"><a class="g-pill filled dark-mode" href="#electronic">electronic</a></div>
           <ul class="carousel">
             <li class="card-item dark-mode playlist-card generated-image">
               <div class="card">
@@ -40,12 +52,15 @@
                   <button class="g-button play-pause-button over-image" aria-label="Play"><span>▶</span></button>
                 </div>
                 <div class="content"><a class="stretch-link" href="#one"><div class="title">ambient reading</div><div class="subtitle">232 tracks</div></a><div class="attribution-meta attribution">David James</div></div>
+                <time class="dark-mode">45 seconds ago</time>
+                <span class="text-badge sm dark-mode">Free</span>
               </div>
             </li>
           </ul>
         </div>
       </section>
     </main>
+    <footer id="page-footer"><h3>Bandcamp Daily</h3><p>Read about new music.</p><a href="#about">About</a></footer>
   </div>
   <script>
     window.fixtureStored = { bandcampHubState: { open: false, playlist: [], savedPlaylists: [], appearance: {
@@ -56,7 +71,7 @@
       runtime: {
         lastError: null,
         getURL: (path) => new URL(`/dist/unpacked/${path}`, location.href).href,
-        getManifest: () => ({ version: "0.7.9" }),
+        getManifest: () => ({ version: "0.8.0" }),
         sendMessage(_message, callback) { callback?.({ ok: true, state: window.fixturePlaybackState }); },
         onMessage: { addListener() {} }
       },
@@ -87,13 +102,28 @@
       const attribution = section.querySelector(".attribution");
       const image = section.querySelector("img.image");
       const overlay = section.querySelector(".play-pause-button.over-image");
+      const time = section.querySelector("time");
+      const badge = section.querySelector(".text-badge");
+      const genreChip = section.querySelector(".g-pill");
+      const menu = document.querySelector(".menu-bar");
+      const menuLink = menu.querySelector("a");
+      const footer = document.querySelector("#page-footer");
+      const footerHeading = footer.querySelector("h3");
+      const footerLink = footer.querySelector("a");
       const surface = getComputedStyle(section).backgroundColor;
+      const effectiveBackground = (node, fallback) => getComputedStyle(node).backgroundColor === "rgba(0, 0, 0, 0)" ? fallback : getComputedStyle(node).backgroundColor;
       const passed = document.documentElement.dataset.bandkitPageTheme === "true"
         && ratio(getComputedStyle(heading).color, surface) >= 7
         && ratio(getComputedStyle(attribution).color, surface) >= 4.5
+        && ratio(getComputedStyle(time).color, surface) >= 4.5
+        && ratio(getComputedStyle(badge).color, effectiveBackground(badge, surface)) >= 4.5
+        && ratio(getComputedStyle(genreChip).color, effectiveBackground(genreChip, surface)) >= 7
+        && ratio(getComputedStyle(menuLink).color, getComputedStyle(menu).backgroundColor) >= 7
+        && ratio(getComputedStyle(footerHeading).color, getComputedStyle(footer).backgroundColor) >= 7
+        && ratio(getComputedStyle(footerLink).color, getComputedStyle(footer).backgroundColor) >= 4.5
         && getComputedStyle(overlay).backgroundColor === "rgba(0, 0, 0, 0)"
         && image.complete && image.naturalWidth > 0;
-      document.title = passed ? "PASS: themed Home surface and artwork fixture" : `FAIL: Home theme ${surface}/${getComputedStyle(heading).color}/${getComputedStyle(attribution).color}/${getComputedStyle(overlay).backgroundColor}/${image.naturalWidth}`;
+      document.title = passed ? "PASS: themed Home surface, genre chips and artwork fixture" : `FAIL: Home theme ${surface}/${getComputedStyle(heading).color}/${getComputedStyle(attribution).color}/${getComputedStyle(genreChip).color}/${effectiveBackground(genreChip, surface)}/${getComputedStyle(overlay).backgroundColor}/${image.naturalWidth}`;
     }, 900);
   </script>
 </body>

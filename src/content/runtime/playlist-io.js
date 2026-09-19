@@ -3,9 +3,10 @@ import { escapeHtml, formatDuration, portableBandcampUrl, resolveImage, safeBand
 import { contrast, hexColor, hexString, luminance, mixColor, readableColor } from "../color.js";
 import { BUILT_IN_THEMES, MAX_SAVED_THEMES, THEME_COLOR_KEYS } from "../state.js";
 import { MESSAGES } from "../../shared/contracts.js";
+import { appearanceVisualizerColourDefaults, customVisualizerColors, resolvedVisualizerColors, themeVisualizerColors } from "../visualizer-theme.js";
 
 function registerPlaylistIo1(r) {
-r.$playPlaylistAt = async function playPlaylistAt(requestedIndex = 0, { forceRefresh = false } = {}) {
+r.$playPlaylistAt = async function playPlaylistAt(requestedIndex = 0, { forceRefresh = false, revealPanel = true } = {}) {
       r.$releaseExplicitPlaybackClear();
       if (!runtimeState.playlist.length) {
         r.$showToast("Add a streamable Bandcamp track to the playlist first.");
@@ -24,8 +25,14 @@ r.$playPlaylistAt = async function playPlaylistAt(requestedIndex = 0, { forceRef
       if (String(target.id || "") === r.$suppressedFeedTrackId) r.$suppressedFeedTrackId = "";
       const playRequest = ++r.$playlistPlayRequest;
       r.$pendingPlaylistItemId = target.playlistItemId;
-      if (queueChanged && r.$isNowPlayingView()) r.$render();
-      else r.$syncCurrentPlaylistPlaybackUi();
+      if (queueChanged && r.$isNowPlayingView()) {
+        // This render is the result of an explicit row activation, rather than
+        // a routine playback/analysis refresh. The selected row has consumed
+        // everything above it, so the visible queue must be replaced even
+        // while the pointer or keyboard focus is still on the old card.
+        r.$forcePlaylistPanelRefresh = true;
+        try { r.$render(); } finally { r.$forcePlaylistPanelRefresh = false; }
+      } else r.$syncCurrentPlaylistPlaybackUi();
       const activeQueueTrack = r.$matchingQueueTrack(runtimeSeamless.queue, target);
       const activeIndex = activeQueueTrack ? runtimeSeamless.queue.indexOf(activeQueueTrack) : -1;
       if (!forceRefresh && r.$playlistIsActive() && activeIndex >= 0) {
@@ -99,10 +106,13 @@ r.$playPlaylistAt = async function playPlaylistAt(requestedIndex = 0, { forceRef
         if (playRequest !== r.$playlistPlayRequest) return false;
         r.$applySeamlessState(response.state);
         if (r.$pendingPlaylistItemId === target.playlistItemId) r.$pendingPlaylistItemId = "";
-        runtimeState.open = true;
-        runtimeState.activeTab = "playlist";
-        runtimeState.playlistView = "current";
+        if (revealPanel) {
+          runtimeState.open = true;
+          runtimeState.activeTab = "playlist";
+          runtimeState.playlistView = "current";
+        }
         runtimeSaveState();
+        r.$saveLayoutState();
         r.$render();
         r.$showToast(`Playing ${queue.length} playlist track${queue.length === 1 ? "" : "s"}${hydrated.failed ? ` · ${hydrated.failed} unavailable` : ""}`);
         return true;
@@ -187,11 +197,13 @@ r.$restoreSavedPlaylist = function restoreSavedPlaylist(snapshot, mode = "replac
       let addedCount = incoming.length;
       if (mode === "replace") {
         runtimeState.playlist = incoming;
+        r.$resetPlaylistShuffle();
       } else {
         addedCount = r.$addTracksToPlaylist(incoming, { quiet: true });
       }
       runtimeState.playlistView = "current";
       runtimeSaveState();
+      r.$saveLayoutState();
       r.$render();
       if (syncPlayback) void r.$syncActivePlaylistQueue();
       r.$showToast(mode === "replace"
@@ -200,6 +212,74 @@ r.$restoreSavedPlaylist = function restoreSavedPlaylist(snapshot, mode = "replac
           ? `Added ${addedCount} track${addedCount === 1 ? "" : "s"} from “${snapshot.name}” to Now Playing`
           : `No new tracks from “${snapshot.name}” were added`);
     };
+}
+
+function registerPlaylistIoSavedPlayback(r) {
+r.$playSavedPlaylist = async function playSavedPlaylist(snapshot, { shuffle = false, startIndex = null } = {}) {
+      const incoming = r.$normalizePlaylist(snapshot?.items);
+      if (!incoming.length) {
+        r.$showToast("This saved playlist has no tracks to play.");
+        return false;
+      }
+
+      const selectedIndex = Math.max(0, Math.min(incoming.length - 1, Number(startIndex) || 0));
+      const playbackItems = !shuffle && startIndex != null ? [incoming[selectedIndex]] : incoming;
+      const request = ++r.$savedPlaylistPlayRequest;
+      const previousNowPlaying = {
+        items: r.$normalizePlaylist(runtimeState.playlist),
+        mode: runtimeState.playlistMode,
+        shuffleEnabled: runtimeState.playlistShuffleEnabled === true,
+        shuffleOrder: Array.isArray(runtimeState.playlistShuffleOrder) ? [...runtimeState.playlistShuffleOrder] : [],
+        view: runtimeState.playlistView
+      };
+      r.$savedPlaylistReplacementRequest = request;
+      r.$savedPlaylistReplacementGuardUntil = Date.now() + 120000;
+      try {
+        // Replace the visible queue atomically. Publishing a separate empty
+        // playback state first lets a delayed cross-tab clear race the refill.
+        // SEAMLESS_ENABLE below replaces the offscreen queue and starts index 0.
+        r.$restoreSavedPlaylist({ ...snapshot, items: playbackItems }, "replace", { syncPlayback: false });
+        if (shuffle && r.$enablePlaylistShuffle({ keepFirst: false })) {
+          runtimeSaveState();
+          r.$render();
+        }
+        if (request !== r.$savedPlaylistPlayRequest) return false;
+        const intendedItems = r.$normalizePlaylist(runtimeState.playlist);
+        const started = await r.$playPlaylistAt(0, { forceRefresh: true });
+        if (request !== r.$savedPlaylistPlayRequest) return false;
+        if (!started) {
+          runtimeState.playlist = previousNowPlaying.items;
+          runtimeState.playlistMode = previousNowPlaying.mode;
+          runtimeState.playlistShuffleEnabled = previousNowPlaying.shuffleEnabled;
+          runtimeState.playlistShuffleOrder = previousNowPlaying.shuffleOrder;
+          runtimeState.playlistView = previousNowPlaying.view;
+          runtimeSaveState();
+          r.$render();
+          return false;
+        }
+
+        // Startup state can arrive while the saved queue is being hydrated. Keep
+        // any refreshed metadata, but never let that transient playback state
+        // consume part of the saved playlist that the user explicitly reloaded.
+        const reconciledItems = r.$mergeHydratedPlaylist(intendedItems, runtimeState.playlist);
+        if (JSON.stringify(reconciledItems) !== JSON.stringify(runtimeState.playlist)) {
+          runtimeState.playlist = reconciledItems;
+          runtimeState.playlistMode = "manual";
+          runtimeState.playlistView = "current";
+          runtimeSaveState();
+          r.$render();
+        }
+        return true;
+      } finally {
+        if (r.$savedPlaylistReplacementRequest === request) {
+          r.$savedPlaylistReplacementRequest = 0;
+          r.$savedPlaylistReplacementGuardUntil = Date.now() + 30000;
+        }
+      }
+    };
+}
+
+function registerPlaylistIo2b(r) {
 r.$shareFileName = function shareFileName(value, fallback) {
       const name = String(value || "").trim().toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
@@ -207,7 +287,18 @@ r.$shareFileName = function shareFileName(value, fallback) {
         .slice(0, 72);
       return name || fallback;
     };
-r.$sharedCollectionDocument = function sharedCollectionDocument({ title, eyebrow, summary, rows, embeddedPayload, embeddedId }) {
+r.$sharedCollectionDocument = function sharedCollectionDocument({
+      title,
+      eyebrow,
+      summary,
+      rows,
+      embeddedPayload,
+      embeddedId,
+      controls = "",
+      afterContent = "",
+      extraStyles = "",
+      script = ""
+    }) {
       const emptyState = '<div class="empty">There are no items in this collection.</div>';
       const embeddedData = embeddedPayload && embeddedId
         ? `<script type="application/json" id="${escapeHtml(embeddedId)}">${embeddedPayload}<\/script>`
@@ -221,16 +312,19 @@ r.$sharedCollectionDocument = function sharedCollectionDocument({ title, eyebrow
     <style>
       :root{color-scheme:light;--ink:#17202a;--muted:#66737f;--line:#dfe5e8;--accent:#1687a7;--surface:#fff;--wash:#f3f6f7}
       *{box-sizing:border-box}body{background:var(--wash);color:var(--ink);font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:0;padding:42px 20px}main{margin:auto;max-width:820px}header{margin-bottom:24px}.eyebrow{color:var(--accent);font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}h1{font-size:clamp(28px,5vw,44px);letter-spacing:-.035em;line-height:1.05;margin:7px 0 10px}.summary{color:var(--muted);margin:0}.collection{display:grid;gap:12px}.item{align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;display:grid;gap:18px;grid-template-columns:96px minmax(0,1fr);padding:14px}.art,.art-placeholder{aspect-ratio:1;background:#e9eef0;border-radius:8px;display:block;object-fit:cover;overflow:hidden;width:96px}.art-placeholder{align-items:center;color:#8a969f;display:flex;font-size:11px;font-weight:700;justify-content:center;text-align:center}.kind{color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.item h2{font-size:19px;line-height:1.2;margin:2px 0}.item a{color:inherit;text-decoration-color:color-mix(in srgb,var(--accent) 55%,transparent);text-underline-offset:3px}.item h2 a{text-decoration:none}.item h2 a:hover{color:var(--accent)}.byline,.album{color:var(--muted);margin:3px 0}.album strong{color:var(--ink)}.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.chip{background:#edf6f8;border:1px solid #cbe3e9;border-radius:999px;color:#226477;font-size:11px;font-weight:700;padding:2px 8px}.empty{background:var(--surface);border:1px solid var(--line);border-radius:12px;color:var(--muted);padding:28px;text-align:center}.footer{color:var(--muted);font-size:11px;margin-top:22px}.footer a{color:var(--accent)}
+      ${extraStyles}
       @media(max-width:520px){body{padding:24px 12px}.item{align-items:start;gap:12px;grid-template-columns:72px minmax(0,1fr);padding:11px}.art,.art-placeholder{width:72px}.item h2{font-size:16px}}
     </style>
   </head>
   <body>
     <main>
-      <header><div class="eyebrow">${escapeHtml(eyebrow)}</div><h1>${escapeHtml(title)}</h1><p class="summary">${escapeHtml(summary)}</p></header>
+      <header><div class="eyebrow">${escapeHtml(eyebrow)}</div><h1>${escapeHtml(title)}</h1><p class="summary">${escapeHtml(summary)}</p>${controls}</header>
       <section class="collection">${rows || emptyState}</section>
+      ${afterContent}
       <p class="footer">Shared from Bandcamp with Bandkit. Open any title to view it on Bandcamp.</p>
     </main>
     ${embeddedData}
+    ${script ? `<script>${script}<\/script>` : ""}
   </body>
   </html>`;
     };
@@ -260,8 +354,11 @@ r.$createPlaylistDocument = function createPlaylistDocument(items = runtimeState
         const artist = artistUrl ? `<a href="${escapeHtml(artistUrl)}">${escapeHtml(item.artist)}</a>` : escapeHtml(item.artist);
         const chips = [
           item.duration ? formatDuration(item.duration) : "",
-          r.$formatPlaylistBpm(item.bpm),
-          [item.key?.camelot, item.key?.shortName].filter(Boolean).join(" · ")
+          r.$formatPlaylistBpm(item.bpm, item.bpmUncertain),
+          [
+            runtimeState.showCamelotNotation === true ? item.key?.camelot : "",
+            runtimeState.showTrackKeys !== false ? item.key?.shortName : ""
+          ].filter(Boolean).join(" · ")
         ].filter(Boolean).map((value) => `<span class="chip">${escapeHtml(value)}</span>`).join("");
         return `<article class="item">${r.$collectionArtwork(item.art, item.title, pageUrl)}<div><div class="kind">Track</div><h2>${title}</h2><p class="byline">by ${artist}</p>${item.album ? `<p class="album"><strong>Album:</strong> ${escapeHtml(item.album)}</p>` : ""}${chips ? `<div class="chips">${chips}</div>` : ""}</div></article>`;
       }).join("");
@@ -430,6 +527,7 @@ r.$selectedAppearanceTheme = function selectedAppearanceTheme() {
           label: "Custom",
           accent: runtimeState.appearance.customAccent,
           scrubAccent: runtimeState.appearance.customScrubAccent || runtimeState.appearance.customAccent,
+          visualizerColors: customVisualizerColors(runtimeState.appearance),
           surface: runtimeState.appearance.customPanelLinked === false
             ? runtimeState.appearance.customSurface
             : content,
@@ -441,7 +539,12 @@ r.$selectedAppearanceTheme = function selectedAppearanceTheme() {
           secondaryText: runtimeState.appearance.customSecondaryText
         };
       }
-      return selectedTheme || BUILT_IN_THEMES[0];
+      const theme = selectedTheme || BUILT_IN_THEMES[0];
+      return {
+        ...theme,
+        visualizerColors: resolvedVisualizerColors(themeVisualizerColors(theme), runtimeState.appearance,
+          appearanceVisualizerColourDefaults(runtimeState.appearance, [...BUILT_IN_THEMES, ...(runtimeState.appearance.savedThemes || [])]))
+      };
     };
 r.$portableAppearanceTheme = function portableAppearanceTheme(theme = r.$selectedAppearanceTheme()) {
       const surfaceColor = hexColor(theme.surface, { r: 255, g: 255, b: 255, a: 1 });
@@ -451,6 +554,7 @@ r.$portableAppearanceTheme = function portableAppearanceTheme(theme = r.$selecte
         label: String(theme.label || "Custom").trim().slice(0, 28) || "Custom",
         accent: theme.accent,
         scrubAccent: theme.scrubAccent || theme.accent,
+        visualizerColors: themeVisualizerColors(theme),
         surface: theme.surface,
         card: theme.card || hexString(luminance(surfaceColor) < 0.34
           ? mixColor(surfaceColor, { r: 255, g: 255, b: 255, a: 1 }, 0.07)
@@ -471,7 +575,7 @@ r.$validThemeHex = function validThemeHex(value) {
     };
 r.$parseThemeBackup = function parseThemeBackup(text) {
       const source = String(text || "").trim();
-      if (!source) throw new Error("The selected theme file is empty.");
+      if (!source) throw new Error("The selected palette file is empty.");
       let payload;
       try {
         payload = JSON.parse(source);
@@ -479,7 +583,7 @@ r.$parseThemeBackup = function parseThemeBackup(text) {
         throw new Error("The selected file is not valid JSON.");
       }
       if (payload?.format !== "bandkit-theme" || Number(payload.version) !== 1 || !payload.theme || typeof payload.theme !== "object") {
-        throw new Error("This is not a supported Bandkit theme.");
+        throw new Error("This is not a supported Bandkit palette.");
       }
       const label = String(payload.name || payload.theme.label || "Imported theme").trim().slice(0, 28) || "Imported theme";
       const theme = { label };
@@ -491,11 +595,18 @@ r.$parseThemeBackup = function parseThemeBackup(text) {
         throw new Error("The theme has an invalid scrubAccent colour.");
       }
       theme.scrubAccent = (payload.theme.scrubAccent || theme.accent).toLowerCase();
+      if (payload.theme.visualizerColors != null
+        && (!Array.isArray(payload.theme.visualizerColors)
+          || payload.theme.visualizerColors.length !== 3
+          || payload.theme.visualizerColors.some((colour) => !r.$validThemeHex(colour)))) {
+        throw new Error("The theme has invalid visualizer colours.");
+      }
+      theme.visualizerColors = (payload.theme.visualizerColors || themeVisualizerColors(theme)).map((colour) => colour.toLowerCase());
       return theme;
     };
 r.$hasSavedThemeCapacity = function hasSavedThemeCapacity() {
       if ((runtimeState.appearance.savedThemes || []).length < MAX_SAVED_THEMES) return true;
-      r.$showToast(`You can save up to ${MAX_SAVED_THEMES} themes. Delete one before creating or importing another.`);
+      r.$showToast(`You can save up to ${MAX_SAVED_THEMES} palettes. Delete one before creating or importing another.`);
       return false;
     };
 }
@@ -511,17 +622,18 @@ r.$exportAppearanceTheme = function exportAppearanceTheme() {
         exportedAt: exportedAt.toISOString(),
         theme: {
           ...Object.fromEntries(THEME_COLOR_KEYS.map((key) => [key, theme[key]])),
-          scrubAccent: theme.scrubAccent
+          scrubAccent: theme.scrubAccent,
+          visualizerColors: theme.visualizerColors
         }
       };
       const blobUrl = URL.createObjectURL(new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json" }));
       const link = document.createElement("a");
       const slug = theme.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "custom";
       link.href = blobUrl;
-      link.download = `bandkit-theme-${slug}.json`;
+      link.download = `bandkit-palette-${slug}.json`;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-      r.$showToast(`Downloaded theme “${theme.label}”`);
+      r.$showToast(`Downloaded palette “${theme.label}”`);
     };
 r.$importAppearanceTheme = async function importAppearanceTheme(file, button) {
       if (!file) return;
@@ -539,6 +651,9 @@ r.$importAppearanceTheme = async function importAppearanceTheme(file, button) {
         runtimeState.appearance.pageAware = false;
         runtimeState.appearance.customAccent = savedTheme.accent;
         runtimeState.appearance.customScrubAccent = savedTheme.scrubAccent === savedTheme.accent ? null : savedTheme.scrubAccent;
+        runtimeState.appearance.customVisualizerColor1 = savedTheme.visualizerColors?.[0] || null;
+        runtimeState.appearance.customVisualizerColor2 = savedTheme.visualizerColors?.[1] || null;
+        runtimeState.appearance.customVisualizerColor3 = savedTheme.visualizerColors?.[2] || null;
         runtimeState.appearance.customSurface = savedTheme.surface;
         runtimeState.appearance.customPanelLinked = savedTheme.surface === savedTheme.card;
         runtimeState.appearance.customCard = savedTheme.card;
@@ -551,9 +666,9 @@ r.$importAppearanceTheme = async function importAppearanceTheme(file, button) {
         r.$applyAppearance();
         runtimeSaveState();
         r.$render();
-        r.$showToast(`Imported and saved theme “${savedTheme.label}”`);
+        r.$showToast(`Imported and saved palette “${savedTheme.label}”`);
       } catch (error) {
-        r.$showToast(error?.message || "The theme could not be imported.");
+        r.$showToast(error?.message || "The palette could not be imported.");
       } finally {
         button.disabled = false;
       }
@@ -580,6 +695,9 @@ r.$accessibleAppearanceTheme = function accessibleAppearanceTheme(theme = r.$sel
       const cardMutedResult = readableColor(preferredSecondaryText, [card], 4.5);
       const preferredAccent = hexColor(theme.accent, { r: 29, g: 160, b: 195, a: 1 });
       const preferredScrubAccent = hexColor(theme.scrubAccent || theme.accent, preferredAccent);
+      const preferredVisualizerColors = themeVisualizerColors(theme).map((colour, index) => (
+        hexColor(colour, index === 1 ? preferredScrubAccent : preferredAccent)
+      ));
       const panelAccentResult = readableColor(preferredAccent, [panel], 4.5);
       const cardAccentResult = readableColor(preferredAccent, [card], 4.5);
       const accentResult = readableColor(preferredAccent, [pageSurface], 4.5);
@@ -603,15 +721,19 @@ r.$accessibleAppearanceTheme = function accessibleAppearanceTheme(theme = r.$sel
         backgroundText: backgroundTextResult.color, backgroundMuted: backgroundMutedResult.color,
         backgroundAccent: backgroundAccentResult.color, backgroundBorder, backgroundOnAccent,
         navbarText: navbarTextResult.color,
-        accent, panelAccent, cardAccent: cardAccentResult.color, preferredScrubAccent, muted,
+        accent, panelAccent, cardAccent: cardAccentResult.color, preferredScrubAccent, preferredVisualizerColors, muted,
         border, panelBorder, cardBorder, onAccent, panelOnAccent, cardOnAccent,
-        adjusted: panelTextResult.adjusted || cardTextResult.adjusted || textResult.adjusted || backgroundTextResult.adjusted || navbarTextResult.adjusted || mutedResult.adjusted || backgroundMutedResult.adjusted || panelMutedResult.adjusted || cardMutedResult.adjusted || panelAccentResult.adjusted || cardAccentResult.adjusted || accentResult.adjusted || backgroundAccentResult.adjusted,
-        textContrast: Math.min(contrast(panelTextResult.color, panel), contrast(cardTextResult.color, card), contrast(text, pageSurface), contrast(backgroundTextResult.color, background), contrast(navbarTextResult.color, navbar)),
+        adjusted: panelTextResult.adjusted || cardTextResult.adjusted || textResult.adjusted
+          || backgroundTextResult.adjusted || navbarTextResult.adjusted || mutedResult.adjusted
+          || backgroundMutedResult.adjusted || panelMutedResult.adjusted || cardMutedResult.adjusted
+          || panelAccentResult.adjusted || cardAccentResult.adjusted || accentResult.adjusted
+          || backgroundAccentResult.adjusted,
+        textContrast: Math.min(contrast(panelTextResult.color, panel), contrast(cardTextResult.color, card),
+          contrast(text, pageSurface), contrast(backgroundTextResult.color, background),
+          contrast(navbarTextResult.color, navbar)),
         accentContrast: Math.min(contrast(panelAccent, panel), contrast(cardAccentResult.color, card), contrast(accent, pageSurface))
       };
     };
 }
 
-export const registerPlaylistIo = [registerPlaylistIo1, registerPlaylistIo2, registerPlaylistIo3, registerPlaylistIo4];
-
-export const setupPlaylistIo = [];
+export const registerPlaylistIo = [registerPlaylistIo1, registerPlaylistIo2, registerPlaylistIoSavedPlayback, registerPlaylistIo2b, registerPlaylistIo3, registerPlaylistIo4];

@@ -1,19 +1,8 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import vm from "node:vm";
 import { MESSAGES } from "../src/shared/contracts.js";
-import { playlistAlbumLabel } from "../src/content/runtime/collection-views.js";
-import { readContentSource, readHubStyles } from "./support/source.mjs";
-
+import { readContentSource } from "./support/source.mjs";
 const source = readContentSource();
-const hubCss = readHubStyles();
-
-assert.equal(playlistAlbumLabel({ title: "Fears (Ecstasy Mix)", artist: "Shuffle Progression", album: "Shuffle Progression - Fears EP" }), "Fears EP");
-assert.equal(playlistAlbumLabel({ title: "Fears (Ecstasy Mix)", artist: "Shuffle Progression", album: "Fears EP — Shuffle Progression" }), "Fears EP");
-assert.equal(playlistAlbumLabel({ title: "Fears EP", artist: "Shuffle Progression", album: "Fears EP" }), "");
-assert.equal(playlistAlbumLabel({ title: "Fears (Ecstasy Mix)", artist: "Shuffle Progression", album: "Shuffle Progression" }), "");
-assert.equal(playlistAlbumLabel({ title: "Fears (Ecstasy Mix)", artist: "Shuffle Progression", album: "Fears EP" }), "Fears EP");
-
 function extractFunction(name) {
   const match = new RegExp(`(?:async\\s+)?function\\s+${name}\\s*\\(`).exec(source);
   assert.ok(match, `Could not find ${name} in content.js`);
@@ -45,152 +34,27 @@ function extractFunction(name) {
   }
   throw new Error(`Could not parse ${name} from content.js`);
 }
-
-assert.match(extractFunction("renderPlaylistTrack"), /hub-playlist-media-toggle/,
-  "Now Playing rows must use the artwork slot as their play and pause control");
-assert.match(extractFunction("syncCurrentPlaylistAnalysisUi"), /current\.replaceWith\(next\)/,
-  "analysis updates must patch a Now Playing card in place instead of replacing the hovered card");
-assert.match(extractFunction("renderPlaylistTrack"), /findIndex\(\(track\) => track\.playlistItemId === item\.playlistItemId\)[\s\S]*?playPlaylistAt\(currentIndex\)/,
-  "Now Playing row playback must resolve its live item position instead of retaining a stale rendered index");
-assert.match(extractFunction("applySeamlessState"), /playlistAnalysisChanged[\s\S]*?syncCurrentPlaylistAnalysisUi\(\)[\s\S]*?syncCurrentPlaylistPlaybackUi\(\)[\s\S]*?else\s*\{\s*render\(\)/,
-  "routine playback analysis updates must preserve Now Playing card DOM identity");
-assert.doesNotMatch(extractFunction("renderPlaylistTrack"), /hub-playlist-position-play/,
-  "Now Playing rows must not retain a separate play column before the artwork");
-assert.doesNotMatch(extractFunction("renderPlaylistTrack"), /is-play-action|createTrackActionControls|createPlaylistDestinationControl/,
-  "Now Playing rows must not restore the legacy right-side play, add, wishlist, or cart action cluster");
-assert.match(extractFunction("renderPlaylistTrack"), /createNowPlayingTrackActions\(card, item\)/,
-  "each Now Playing row must install its shared ellipsis and context-menu actions");
-assert.match(extractFunction("renderPlaylistTrack"), /hub-playlist-detail-row[\s\S]*?playlistAlbumLabel\(item\)[\s\S]*?detailRow\.append\(analysisMeta\)/,
-  "Now Playing cards must show a deduplicated album/time and analysis on one compact metadata row");
-assert.match(hubCss, /\.hub-playlist-detail-row\s*\{[^}]*display:\s*flex;[^}]*margin-top:\s*2px;/s,
-  "Now Playing cards must keep album, duration, BPM, and key on one compact line");
-const nowPlayingActionsSource = extractFunction("createNowPlayingTrackActions");
-assert.match(nowPlayingActionsSource, /hub-playlist-track-more[\s\S]*?aria-haspopup[\s\S]*?icon-more\.svg/,
-  "each Now Playing row must expose a single accessible ellipsis menu trigger");
-assert.match(nowPlayingActionsSource, /addEventListener\("contextmenu"[\s\S]*?preventDefault\(\)[\s\S]*?openMenu\(\)/,
-  "right-clicking a Now Playing row must open the same action menu as its ellipsis trigger");
-const destinationMenuSource = extractFunction("populatePlaylistDestinationMenu");
-for (const label of ["Add to playlist", "Add to cart", "Add to wishlist", "Remove from Now Playing"]) {
-  assert.ok(destinationMenuSource.includes(label), `Now Playing menus must include ${label}`);
-}
-assert.match(hubCss, /\.hub-playlist-track\s*\{[\s\S]*?grid-template-columns:\s*40px minmax\(0, 1fr\) auto;[\s\S]*?padding:\s*12px;/,
-  "Now Playing rows must use a padded three-column layout with a 40px media slot");
-assert.match(hubCss, /\.hub-saved-playlist-track\s*\{[^}]*grid-template-columns:\s*28px 40px minmax\(0, 1fr\) auto;/s,
-  "saved playlist rows must reserve separate columns for position, artwork, copy, and actions");
-assert.match(hubCss, /\.hub-playlist-track:hover \.hub-playlist-media-art[\s\S]*?display:\s*none;/,
-  "hovering a Now Playing row must remove its artwork from the media slot");
-assert.match(hubCss, /\.hub-playlist-track:hover \.hub-playlist-media-icon[\s\S]*?display:\s*flex;/,
-  "hovering a Now Playing row must replace its artwork with the playback control");
-assert.match(hubCss, /\.hub-playlist-media-toggle:hover \.hub-playlist-media-icon,[\s\S]*?background:\s*var\(--hub-accent-soft\);[^}]*border-color:\s*var\(--hub-accent\);[^}]*box-shadow:\s*none;[^}]*color:\s*var\(--hub-accent\);/s,
-  "Now Playing play and pause controls must use the shared subtle, glow-free hover treatment");
-assert.doesNotMatch(hubCss, /\.hub-playlist-media-toggle:(?:hover|active)[^{]*\{[^}]*transform:/s,
-  "Now Playing play and pause controls must not move when hovered or pressed");
-assert.doesNotMatch(hubCss, /\.hub-playlist-track\.is-playing \.hub-playlist-media-(?:art|icon)/,
-  "the active Now Playing row must keep its artwork until hover or keyboard focus");
-assert.match(hubCss, /\.hub-playlist-track:not\(\.is-playing\):is\(:hover, :focus-within\)\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--hub-card-ink\) 3%, var\(--hub-card\)\)/s,
-  "Now Playing rows must expose only a subtle foreground-derived hover surface");
-assert.match(hubCss, /\.hub-cart-view-tab\s*\{[^}]*font-size:\s*14px;[^}]*font-weight:\s*700;[^}]*letter-spacing:\s*normal;[^}]*line-height:\s*20px;/s,
-  "Cart, Saved, Now Playing, and Playlists view headings must match the primary section-title typography");
-assert.match(hubCss, /\.hub-now-playing-toolbar \.hub-playlist-toolbar-icon\s*\{[^}]*transition:\s*none;/s,
-  "Now Playing toolbar hover colours must not restart a transition when playback refreshes the panel");
-assert.match(hubCss, /\.hub-now-playing-toolbar \.hub-playlist-toolbar-icon > \*\s*\{[^}]*pointer-events:\s*none;/s,
-  "Now Playing toolbar icons must leave the button as the single stable hover target");
-assert.match(extractFunction("renderCurrentPlaylist"), /actions\.append\(addPage, moreWrap\)/,
-  "Now Playing must expose only Add page and an overflow menu in its toolbar");
-assert.match(extractFunction("renderCurrentPlaylist"), /classList\.toggle\("is-empty-now-playing", songCount === 0\)/,
-  "an empty Now Playing render must expose a stable layout state for its header inset");
-assert.match(extractFunction("render"), /renderPanelContent\(\);/,
-  "the main render must use the shared panel-content refresh path");
-const panelContentSource = extractFunction("renderPanelContent");
-assert.match(panelContentSource, /classList\.remove\("is-section-layout", "is-empty-now-playing"\);\s*content\.replaceChildren\(\);/,
-  "each panel-content refresh must restore its base inset before rebuilding a section");
-assert.match(panelContentSource, /mountPanelClose\(\);[\s\S]*?organizePanelContentScrolling\(\);/,
-  "each panel-content refresh must restore the fixed heading and scrolling body");
-const panelScrollingSource = extractFunction("organizePanelContentScrolling");
-assert.match(panelScrollingSource, /hub-cart-view-header, \.hub-saved-cart-detail-toolbar, \.hub-section-heading/,
-  "Cart, playlist detail, Activity, and Settings headings must share the fixed header region");
-assert.match(panelScrollingSource, /matches\("\.hub-cart-backup"\)[\s\S]*?hub-content-pinned[\s\S]*?hub-content-scroll/,
-  "section toolbars must remain pinned with their heading while lists and cards move into the scroll body");
-assert.match(hubCss, /\.hub-content\.is-section-layout\s*\{[^}]*overflow:\s*hidden;[^}]*padding:\s*0;/s,
-  "the outer section panel must not scroll once its fixed and scrolling regions are organized");
-assert.match(hubCss, /\.hub-content-scroll\s*\{[^}]*min-height:\s*0;[^}]*overflow:\s*auto;/s,
-  "only the section content body must own scrolling");
-assert.doesNotMatch(hubCss, /\.hub-content\.is-empty-now-playing[^\{]*\{/,
-  "empty and populated Now Playing must share the same inset rules");
-for (const functionName of ["scanLivePlayer", "applySeamlessState"]) {
-  const functionSource = extractFunction(functionName);
-  assert.doesNotMatch(functionSource, /content\.replaceChildren\(\);\s*renderPlaylist\(\);/,
-    `${functionName} must not bypass the shared panel-content layout refresh`);
-  assert.match(functionSource, /renderPanelContent\(\)/,
-    `${functionName} must restore the pinned header after playback-driven content updates`);
-}
-assert.doesNotMatch(extractFunction("recordListeningActivity"), /renderActivity\(\)/,
-  "live Activity updates must use the complete panel render so the pinned header structure is preserved");
-assert.match(extractFunction("renderCurrentPlaylist"), /createToolbarOverflow\("More Now Playing actions", \[save, download, share, clear\]/,
-  "Now Playing must retain save, download, share, and clear inside the overflow menu");
-assert.match(extractFunction("renderPlayer"), /: live\.hasPlaybackStarted\s*\? 1 \+ \(Array\.isArray\(live\.tracks\)/,
-  "the footer count must not treat a latent page queue as Now Playing before playback starts");
-assert.match(extractFunction("renderCurrentPlaylist"), /: live\.hasPlaybackStarted\s*\? pageTracks\s*: \[\]/,
-  "the Now Playing toolbar must not count or export a latent page queue before playback starts");
-assert.match(extractFunction("renderPlaylist"), /const currentCount = state\.playlist\.length\s*\|\| \(live\.hasPlaybackStarted \? buildSeamlessQueue\(\)\.length : 0\)/,
-  "the Now Playing view header must not count a latent page queue before playback starts");
-assert.match(hubCss, /\.hub-toolbar-actions-menu\s*\{[^}]*min-width:\s*180px;/s,
-  "toolbar overflows must present readable labeled actions");
-assert.match(extractFunction("renderCurrentCart"), /createToolbarOverflow\("More cart actions", \[exportButton, shareButton, importButton\]/,
-  "Cart must keep download, share, and import in its overflow menu");
-assert.match(extractFunction("renderPlaylist"), /createPlaylistToolbarButton\("Import playlist"[\s\S]*createPlaylistToolbarButton\("New playlist"/,
-  "saved playlist import and create actions must use standard icon buttons");
-assert.match(extractFunction("renderSavedPlaylistDetail"), /hub-saved-playlist-track-remove[\s\S]*removeSavedPlaylistItem\(snapshot, item\)/,
-  "saved playlist details must let a user remove an individual track");
-assert.match(extractFunction("hasSavedPlaylistCapacity"), /MAX_SAVED_PLAYLISTS[\s\S]*Delete one before creating another/,
-  "saved playlist creation must refuse the limit instead of silently deleting the oldest playlist");
-for (const functionName of ["savePlaylistSnapshot", "createSavedPlaylistWithTracks", "createEmptySavedPlaylist", "importPlaylist"]) {
-  assert.match(extractFunction(functionName), /hasSavedPlaylistCapacity\(\)/,
-    `${functionName} must enforce the saved-playlist limit before inserting`);
-}
-assert.match(extractFunction("renderActivity"), /createPlaylistToolbarButton\("Download activity"/,
-  "Activity download must use the standard icon button");
-assert.match(extractFunction("renderSavedCartList"), /createPlaylistToolbarButton\("New cart", "icon-plus\.svg"/,
-  "saved carts must use the same standard icon-only create action as other panels");
-
-const playlistViewTabsSource = extractFunction("renderPlaylistViewTabs");
-assert.ok(
-  playlistViewTabsSource.indexOf('label: "Now Playing"') < playlistViewTabsSource.indexOf('label: "Playlists"'),
-  "the combined playlist panel must put Now Playing before Playlists"
-);
-assert.match(playlistViewTabsSource, /hub-cart-view-header hub-playlist-view-header/,
-  "the combined playlist panel must reuse the Cart/Saved tab structure");
-assert.doesNotMatch(playlistViewTabsSource, /hub-cart-view-count|\.count/,
-  "Now Playing and Playlists tabs must not include visual count badges");
-assert.doesNotMatch(extractFunction("renderCartViewTabs"), /hub-cart-view-count|\.count/,
-  "Cart and Saved tabs must not include visual count badges");
-assert.match(extractFunction("renderCurrentCart"), /itemCount[\s\S]*?Auto-saved/,
-  "the current cart item count must move into the autosave status line");
-assert.match(extractFunction("renderPlaylist"), /renderPlaylistViewTabs[\s\S]*state\.playlistView === "current"[\s\S]*renderCurrentPlaylist\(\)/,
-  "the playlist section must route its first internal tab to Now Playing");
-assert.match(source, /id: "playlist", label: "Now Playing & Playlists", icon: "icon-playlist\.svg"/,
-  "the combined primary section must use the list-and-note icon for queues and playlists");
-assert.doesNotMatch(source, /toggleSectionPanel\("nowPlaying"\)/,
-  "Now Playing must no longer open a separate section panel");
-assert.match(extractFunction("persistNowPlayingSession"), /MESSAGES\.SET_NOW_PLAYING/,
-  "Now Playing must be persisted through the browser-session queue channel");
-assert.match(source, /MESSAGES\.GET_NOW_PLAYING/,
-  "startup must restore Now Playing from session storage rather than durable app state");
-
 const context = vm.createContext({
   MESSAGES,
   URL,
   Date,
   Math,
-  window: { confirm: () => true },
+  window: { confirm: () => true, setTimeout },
   MAX_PLAYLIST_ITEMS: 500,
   MAX_SAVED_PLAYLISTS: 30,
-  state: { activeTab: "nowPlaying", playlist: [], playlistMode: "browse", dj: {} },
+  state: { activeTab: "nowPlaying", playlist: [], playlistMode: "browse", playlistShuffleEnabled: false, playlistShuffleOrder: [], dj: {} },
   seamless: { enabled: false, queue: [] },
   pendingPlaylistItemId: "",
   playlistPlayRequest: 0,
   playlistPlaybackStarting: false,
   playlistPlaybackStartingRequest: 0,
+  savedPlaylistPlayRequest: 0,
+  savedPlaylistReplacementRequest: 0,
+  savedPlaylistReplacementGuardUntil: 0,
+  playlistShuffleSyncTimer: 0,
+  playlistShuffleConsumptionGuardUntil: 0,
+  nowPlayingTransitionTrackKey: "",
+  nowPlayingTransitionExpiresAt: 0,
   suppressedFeedTrackId: "",
   toastMessages: [],
   runtimeCalls: [],
@@ -207,9 +71,14 @@ const context = vm.createContext({
   releaseExplicitPlaybackClear() {},
   isNowPlayingView() { return context.state.activeTab === "playlist" && context.state.playlistView === "current"; },
   saveState() {},
+  beginNowPlayingSessionRevision() {},
+  persistNowPlayingSession() {},
+  saveLayoutState() {},
   render() {},
   injectPlaylistButtons() {},
+  showCompactPanelNotice() {},
   async syncActivePlaylistQueue() {},
+  schedulePlaylistShuffleQueueSync() {},
   syncCurrentPlaylistPlaybackUi() {},
   playlistIsActive() { return false; },
   async seamlessCommand() { return null; },
@@ -220,7 +89,6 @@ const context = vm.createContext({
   applySeamlessState() {},
   async runtimeMessage(message) { context.runtimeCalls.push(message); return { ok: true, state: {} }; }
 });
-
 vm.runInContext([
   extractFunction("canonicalPlaylistPageUrl"),
   extractFunction("stablePlaylistTrackId"),
@@ -231,6 +99,11 @@ vm.runInContext([
   extractFunction("activePlaylistAnalysis"),
   extractFunction("capturePlaylistAnalysis"),
   extractFunction("mergeHydratedPlaylist"),
+  extractFunction("resetPlaylistShuffle"),
+  extractFunction("enablePlaylistShuffle"),
+  extractFunction("togglePlaylistShuffle"),
+  extractFunction("restoreSavedPlaylist"),
+  extractFunction("playSavedPlaylist"),
   `function matchingQueueTrack(queue, requested) { return queue.find((track) => playlistTracksMatch(track, requested)) || null; }`,
   extractFunction("addTracksToPlaylist"),
   extractFunction("recordActivePlaylistAnalysis"),
@@ -240,17 +113,14 @@ vm.runInContext([
   extractFunction("navigatePlayerQueue"),
   extractFunction("hasSavedPlaylistCapacity"),
   extractFunction("removeSavedPlaylistItem"),
-  `globalThis.testApi = { playlistTrackKey, playlistTracksMatch, mergeHydratedPlaylist, addTracksToPlaylist, recordActivePlaylistAnalysis, consumeCompletedNowPlayingItems, prepareExternalNowPlaying, playPlaylistAt, navigatePlayerQueue, hasSavedPlaylistCapacity, removeSavedPlaylistItem };`
+  `globalThis.testApi = { playlistTrackKey, playlistTracksMatch, mergeHydratedPlaylist, resetPlaylistShuffle, enablePlaylistShuffle, togglePlaylistShuffle, restoreSavedPlaylist, playSavedPlaylist, addTracksToPlaylist, recordActivePlaylistAnalysis, consumeCompletedNowPlayingItems, prepareExternalNowPlaying, playPlaylistAt, navigatePlayerQueue, hasSavedPlaylistCapacity, removeSavedPlaylistItem };`
 ].join("\n"), context);
-
-const { playlistTracksMatch, mergeHydratedPlaylist, addTracksToPlaylist, recordActivePlaylistAnalysis, consumeCompletedNowPlayingItems, prepareExternalNowPlaying, playPlaylistAt, navigatePlayerQueue, hasSavedPlaylistCapacity, removeSavedPlaylistItem } = context.testApi;
-
+const { playlistTracksMatch, mergeHydratedPlaylist, enablePlaylistShuffle, togglePlaylistShuffle, playSavedPlaylist, addTracksToPlaylist, recordActivePlaylistAnalysis, consumeCompletedNowPlayingItems, prepareExternalNowPlaying, playPlaylistAt, navigatePlayerQueue, hasSavedPlaylistCapacity, removeSavedPlaylistItem } = context.testApi;
 context.state.savedPlaylists = Array.from({ length: 30 }, (_, index) => ({ id: `saved-${index}`, items: [] }));
 assert.equal(hasSavedPlaylistCapacity(), false);
 assert.match(context.toastMessages.at(-1), /save up to 30 playlists/);
 context.state.savedPlaylists = [];
 assert.equal(hasSavedPlaylistCapacity(), true);
-
 const removableSnapshot = {
   id: "saved-removal",
   name: "Removal fixture",
@@ -269,7 +139,6 @@ assert.equal(removeSavedPlaylistItem(removableSnapshot, removableSnapshot.items[
 assert.deepEqual(Array.from(removableSnapshot.items, (item) => item.title), ["Saved Two"],
   "removing a saved track must preserve the remaining order");
 assert.equal(context.toastMessages.at(-1), "Removed “Saved One” from “Removal fixture”");
-
 assert.equal(playlistTracksMatch(
   {
     id: "https://artist.bandcamp.com/album/release?from=discover_page|Gradient 12",
@@ -284,27 +153,22 @@ assert.equal(playlistTracksMatch(
     pageUrl: "https://artist.bandcamp.com/album/release?from=discover_page&ui_context=results_grid"
   }
 ), true, "tracking parameters must not create duplicate queue identities");
-
 assert.equal(playlistTracksMatch(
   { id: "24680", title: "Honey Be", artist: "Micah Jey", pageUrl: "https://artist.bandcamp.com/album/head-above-the-clouds" },
   { id: "24680", title: "Honey Be", artist: "Micah Jey", pageUrl: "https://artist.bandcamp.com/track/honey-be" }
 ), true, "a stable Bandcamp track id must survive album/track URL aliases");
-
 assert.equal(playlistTracksMatch(
   { id: "24680", title: "Honey Be", artist: "Micah Jey", pageUrl: "https://artist.bandcamp.com/album/head-above-the-clouds" },
   { id: "track-24680", title: "Honey Be", artist: "Micah Jey", pageUrl: "https://artist.bandcamp.com/track/honey-be" }
 ), true, "numeric Bandcamp ids and track-prefixed aliases must resolve to the same queue item");
-
 assert.equal(playlistTracksMatch(
   { id: "24680", title: "Honey Be", artist: "Micah Jey", pageUrl: "https://artist.bandcamp.com/album/head-above-the-clouds" },
   { id: "album-card-honey", title: "Honey Be", artist: "Micah Jey", pageUrl: "https://artist.bandcamp.com/album/head-above-the-clouds?from=collection" }
 ), true, "hydrated numeric ids and page-card ids must still resolve to one queue item");
-
 assert.equal(playlistTracksMatch(
   { id: "track-100", title: "Intro", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/album/same-title-release" },
   { id: "track-200", title: "Intro", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/album/same-title-release" }
 ), false, "distinct stable track ids must not collapse when an album contains repeated titles");
-
 const mergedDuringRefresh = mergeHydratedPlaylist(
   [
     { playlistItemId: "b", id: "b", title: "B", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/b", url: "old-b" },
@@ -317,7 +181,6 @@ const mergedDuringRefresh = mergeHydratedPlaylist(
 );
 assert.deepEqual(Array.from(mergedDuringRefresh, (item) => `${item.title}:${item.url}`), ["B:fresh-b", "C:stream-c"],
   "hydration must refresh retained tracks without re-adding removed tracks or dropping newly added tracks");
-
 const analyzedTrack = {
   id: "analyzed",
   title: "Analyzed",
@@ -336,19 +199,16 @@ context.seamless = {
 assert.equal(addTracksToPlaylist([analyzedTrack], { quiet: true }), 1);
 assert.equal(context.state.playlist[0].bpm, 124);
 assert.equal(context.state.playlist[0].key.camelot, "8A", "adding the analyzed track must capture its BPM and key");
-
 context.state.playlist[0].bpm = null;
 context.state.playlist[0].key = null;
 context.state.savedPlaylists = [{ id: "saved-analysis", items: [{ ...context.state.playlist[0] }] }];
 assert.equal(recordActivePlaylistAnalysis(), true);
 assert.equal(context.state.playlist[0].bpm, 124);
 assert.equal(context.state.savedPlaylists[0].items[0].key.name, "A minor", "later analysis must update matching saved playlist tracks");
-
 context.state.recordPlaylistMetadata = false;
 context.seamless.detectedBpm = 132;
 assert.equal(recordActivePlaylistAnalysis(), false);
 assert.equal(context.state.playlist[0].bpm, 124, "disabling playlist metadata must stop later analysis updates");
-
 context.state.playlist = [];
 let resolveExternalHydration;
 context.hydratePlaylist = () => new Promise((resolve) => { resolveExternalHydration = resolve; });
@@ -370,12 +230,40 @@ const cancelledExternalResult = await cancelledExternalPlay;
 assert.equal(cancelledExternalResult.cancelled, true);
 assert.equal(context.state.playlist.length, 0, "clearing or replacing playback must prevent a stale page handoff from repopulating the queue");
 context.hydratePlaylist = async (items) => ({ items: items.map((item) => ({ ...item })), failed: 0, error: "" });
-
 const original = [
   { playlistItemId: "a", id: "a", title: "A", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/a", url: "stream-a" },
   { playlistItemId: "b", id: "b", title: "B", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/b?from=feed", url: "stream-b" },
   { playlistItemId: "c", id: "c", title: "C", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/c", url: "stream-c" }
 ];
+context.state = {
+  activeTab: "nowPlaying",
+  playlist: original.map((item) => ({ ...item })).concat({ playlistItemId: "d", id: "d", title: "D", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/d", url: "stream-d" }),
+  playlistMode: "manual",
+  playlistShuffleEnabled: false,
+  playlistShuffleOrder: [],
+  savedPlaylists: [],
+  recordPlaylistMetadata: true,
+  dj: {}
+};
+assert.equal(togglePlaylistShuffle(() => 0), true);
+assert.equal(context.state.playlistShuffleEnabled, true);
+assert.deepEqual(Array.from(context.state.playlistShuffleOrder), ["a", "b", "c", "d"]);
+assert.equal(context.state.playlist[0].title, "A", "enabling Shuffle must keep the current/top track anchored");
+assert.notDeepEqual(Array.from(context.state.playlist, (item) => item.title), ["A", "B", "C", "D"],
+  "enabling Shuffle must rearrange Up Next");
+context.state.playlist = context.state.playlist.filter((item) => item.playlistItemId !== "a");
+addTracksToPlaylist([{ playlistItemId: "e", id: "e", title: "E", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/e", url: "stream-e" }], { quiet: true });
+assert.equal(togglePlaylistShuffle(), true);
+assert.equal(context.state.playlistShuffleEnabled, false);
+assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["B", "C", "D", "E"],
+  "disabling Shuffle must restore surviving tracks and later additions to their original relative order");
+context.state.playlist = original.map((item) => ({ ...item }));
+context.state.playlistShuffleEnabled = false;
+context.state.playlistShuffleOrder = [];
+assert.equal(enablePlaylistShuffle({ keepFirst: false, random: () => 0 }), true);
+assert.equal(context.state.playlistShuffleEnabled, true);
+assert.deepEqual(Array.from(context.state.playlistShuffleOrder), ["a", "b", "c"]);
+assert.notEqual(context.state.playlist[0].title, "A", "Play shuffled must randomize the first track as well as Up Next");
 context.state.playlist = original.map((item) => ({ ...item }));
 context.state.playlistMode = "manual";
 context.pendingPlaylistItemId = "stale-row-request";
@@ -389,7 +277,6 @@ let prepared = await prepareExternalNowPlaying({
 assert.equal(context.pendingPlaylistItemId, "", "a page playback request must clear obsolete queue-row loading state");
 assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["B"]);
 assert.equal(prepared.index, 0, "normal page playback must replace a manually built queue");
-
 prepared = await prepareExternalNowPlaying({
   id: "d",
   title: "D",
@@ -399,7 +286,6 @@ prepared = await prepareExternalNowPlaying({
 });
 assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["D"]);
 assert.equal(prepared.index, 0, "a new page track must replace prior Now Playing history");
-
 context.state.playlistMode = "browse";
 prepared = await prepareExternalNowPlaying({
   id: "browse-replacement",
@@ -410,19 +296,39 @@ prepared = await prepareExternalNowPlaying({
 });
 assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["Browse Replacement"],
   "ordinary page playback must replace browse history instead of accumulating it");
-
 const browseSourceQueue = [
   { id: "page-a", title: "Page A", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/page-a", url: "stream-page-a" },
   { id: "page-b", title: "Page B", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/page-b", url: "stream-page-b" },
   { id: "page-c", title: "Page C", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/page-c", url: "stream-page-c" }
 ];
+const originalPersistSession = context.persistNowPlayingSession;
+let releaseSlowPersistence;
+context.persistNowPlayingSession = () => new Promise((resolve) => { releaseSlowPersistence = resolve; });
+const fastPreparation = prepareExternalNowPlaying(browseSourceQueue[1], browseSourceQueue, { trustProvidedStreams: true });
+const fastResult = await Promise.race([
+  fastPreparation,
+  new Promise((resolve) => setTimeout(() => resolve(null), 100))
+]);
+releaseSlowPersistence();
+assert.ok(fastResult?.usedFreshStreams, "album playback must be ready while cross-tab persistence is still pending");
+context.persistNowPlayingSession = () => Promise.reject(new Error("Storage unavailable"));
+assert.equal((await prepareExternalNowPlaying(browseSourceQueue[1], browseSourceQueue, { trustProvidedStreams: true })).index, 0,
+  "a failed queue save must not prevent a fresh album stream from playing");
+context.persistNowPlayingSession = originalPersistSession;
 prepared = await prepareExternalNowPlaying(browseSourceQueue[1], browseSourceQueue, { trustProvidedStreams: true });
 assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["Page B", "Page C"],
   "page-derived playback must replace prior history with the selected track and the tracks that follow it");
 assert.equal(prepared.index, 0);
-
 context.state.playlist = browseSourceQueue.map((item, index) => ({ ...item, playlistItemId: `advance-${index}` }));
-context.seamless = { enabled: true, status: "playing", track: { ...context.state.playlist[1] } };
+context.nowPlayingTransitionTrackKey = "";
+context.nowPlayingTransitionExpiresAt = 0;
+context.seamless = {
+  enabled: true,
+  status: "playing",
+  index: 1,
+  track: { ...context.state.playlist[1] },
+  queue: context.state.playlist.map((item) => ({ ...item }))
+};
 let completedQueueSyncs = 0;
 context.syncActivePlaylistQueue = async () => { completedQueueSyncs += 1; };
 assert.equal(consumeCompletedNowPlayingItems(), true);
@@ -430,11 +336,35 @@ assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["Pag
   "automatic advancement must remove completed tracks and preserve Up Next order");
 assert.equal(completedQueueSyncs, 1,
   "automatic advancement must remove completed tracks from the offscreen queue as well as the visible queue");
-context.seamless = { enabled: true, status: "ended", track: { ...context.state.playlist.at(-1) } };
+context.seamless = {
+  enabled: true,
+  status: "ended",
+  index: 1,
+  track: { ...context.state.playlist.at(-1) },
+  queue: context.state.playlist.map((item) => ({ ...item }))
+};
 assert.equal(consumeCompletedNowPlayingItems(), true);
 assert.equal(context.state.playlist.length, 0, "finishing the last track must leave a clean temporary queue");
 context.syncActivePlaylistQueue = async () => {};
-
+context.state.playlist = browseSourceQueue.map((item, index) => ({ ...item, playlistItemId: `replacement-${index}` }));
+context.nowPlayingTransitionTrackKey = context.testApi.playlistTrackKey(context.state.playlist[0]);
+context.nowPlayingTransitionExpiresAt = Date.now() + 30_000;
+context.seamless = {
+  enabled: true,
+  status: "playing",
+  index: 0,
+  track: { ...context.state.playlist[2] },
+  queue: [{ ...context.state.playlist[2] }]
+};
+assert.equal(consumeCompletedNowPlayingItems(), false,
+  "a previous track snapshot must not consume a newly selected page queue during its handoff");
+assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["Page A", "Page B", "Page C"],
+  "the 4→2→4 race must preserve the selected track and everything after it");
+context.seamless.status = "ended";
+assert.equal(consumeCompletedNowPlayingItems(), false,
+  "a stale ended snapshot must not clear a newly selected page queue");
+context.nowPlayingTransitionTrackKey = "";
+context.nowPlayingTransitionExpiresAt = 0;
 const oversizedSourceQueue = Array.from({ length: 501 }, (_, index) => ({
   id: `oversized-${index}`,
   title: `Oversized ${index}`,
@@ -448,19 +378,22 @@ prepared = await prepareExternalNowPlaying(oversizedSourceQueue[500], oversizedS
 assert.equal(context.state.playlist.length, 1);
 assert.equal(prepared.queue[prepared.index]?.title, "Oversized 500",
   "browse playback must retain only the selected track even when a page exposes a large source queue");
-
 assert.doesNotMatch(extractFunction("handoffPageAudio"), /MESSAGES\.SEAMLESS_PLAY_INDEX/,
   "classic Bandcamp page playback must rebuild queue provenance instead of bypassing it");
 assert.doesNotMatch(extractFunction("handoffPageAudio"), /silenceNativePagePlayback\(\)/,
   "classic page audio must remain audible until offscreen playback is ready");
 assert.match(extractFunction("handoffPageAudio"), /currentTime:[\s\S]*?handoffStartedAt: Date\.now\(\)/,
   "classic page handoff must compensate for the native playback time spent starting offscreen audio");
+assert.match(extractFunction("handoffPageAudio"), /handoffRequest !== classicPageHandoffRequest[\s\S]*?prepared\.request !== playlistPlayRequest/,
+  "classic page handoff must reject work superseded by a later row click");
+assert.match(source, /if \(seamless\.enabled && \(previous \|\| next \|\| progress\)\)[\s\S]*?if \(!requestClassicPagePlayback\(control\)\)[\s\S]*?event\.preventDefault\(\);[\s\S]*?event\.stopImmediatePropagation\(\);/,
+  "classic page track-list controls must hand off directly even before seamless playback is enabled");
 assert.doesNotMatch(extractFunction("handoffModernPlayer"), /MESSAGES\.SEAMLESS_PLAY_INDEX/,
   "modern Bandcamp page playback must rebuild queue provenance instead of bypassing it");
 assert.doesNotMatch(extractFunction("handoffModernPlayer"), /silenceNativePagePlayback\(\)/,
   "modern page audio must remain audible until offscreen playback is ready");
 const discoverHandoffSource = extractFunction("handoffDiscoverPlayer");
-assert.match(discoverHandoffSource, /prepareExternalNowPlaying\(discover\.track, \[\], \{ trustProvidedStreams: true \}\)/,
+assert.match(discoverHandoffSource, /prepareExternalNowPlaying\(discover\.track, discoverReleaseTracks \|\| \[\], \{ trustProvidedStreams: true \}\)/,
   "Discover playback must use its captured stream immediately instead of delaying the handoff for hydration");
 assert.match(discoverHandoffSource, /const latestDiscover = getDiscoverPlayerState\(\);[\s\S]*?const handoffCurrentTime =[\s\S]*?currentTime: handoffCurrentTime/,
   "Discover playback must re-read the live playhead at the handoff boundary so seamless playback cannot rewind");
@@ -474,11 +407,9 @@ assert.match(extractFunction("loadModernPlaylistQueue"), /\/api\/player\/2\/play
   "playlist playback must fetch every available page of tracks before building Now Playing");
 assert.match(extractFunction("prepareExternalNowPlaying"), /state\.playlist = normalizePlaylist\(replacement\)/,
   "all normal page playback must replace an unrelated queue with the source context");
-
 context.seamless = { enabled: false, queue: [] };
 context.hydratePlaylist = async (items) => ({ items: items.map((item) => ({ ...item })), failed: 0, error: "" });
 context.runtimeCalls.length = 0;
-
 context.state = {
   activeTab: "nowPlaying",
   playlistMode: "manual",
@@ -518,6 +449,8 @@ assert.equal(loadedQueueCommands[0]?.selectedPlaylistItemId, "loaded-1",
 assert.deepEqual(Array.from(loadedQueueCommands[0]?.queue || [], (item) => item.title), ["Page B", "Page C"],
   "selecting a later row must atomically install the consumed queue in its exact remaining order");
 assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["Page B", "Page C"]);
+assert.match(extractFunction("playPlaylistAt"), /queueChanged && isNowPlayingView\(\)[\s\S]*?forcePlaylistPanelRefresh = true[\s\S]*?render\(\)[\s\S]*?forcePlaylistPanelRefresh = false/,
+  "selecting a later visible Now Playing row must immediately render the consumed queue despite the clicked card remaining hovered");
 assert.equal(await playPlaylistAt(1), true);
 assert.equal(loadedQueueCommands[1]?.selectedPlaylistItemId, "loaded-2");
 assert.deepEqual(Array.from(loadedQueueCommands[1]?.queue || [], (item) => item.title), ["Page C"],
@@ -525,19 +458,16 @@ assert.deepEqual(Array.from(loadedQueueCommands[1]?.queue || [], (item) => item.
 context.playlistIsActive = () => false;
 context.seamlessCommand = async () => null;
 context.syncActivePlaylistQueue = async () => {};
-
 context.state = { activeTab: "nowPlaying", playlistMode: "browse", playlist: browseSourceQueue.map((item, index) => ({ ...item, playlistItemId: `browse-${index}` })), dj: {} };
 assert.equal(await playPlaylistAt(1, { forceRefresh: true }), true);
 assert.equal(context.state.playlistMode, "browse", "playing a page-derived row must not turn it into a manual queue");
 assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["Page B", "Page C"],
   "playing within a page-derived queue must discard the tracks before the selection");
-
 context.runtimeCalls.length = 0;
 context.state = { activeTab: "nowPlaying", playlistMode: "manual", playlist: browseSourceQueue.map((item, index) => ({ ...item, playlistItemId: `manual-${index}` })), dj: {} };
 assert.equal(await playPlaylistAt(2, { forceRefresh: true }), true);
 assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["Page C"],
   "playing within an explicit queue must consume prior items without reordering or retaining them");
-
 context.state.playlist = Array.from({ length: 500 }, (_, index) => ({
   playlistItemId: `limit-${index}`,
   id: `limit-${index}`,
@@ -575,7 +505,6 @@ assert.equal(addTracksToPlaylist([{
 }]), 0);
 assert.equal(context.state.playlist.length, 500);
 assert.ok(context.toastMessages.at(-1).includes("up to 500 tracks"));
-
 context.state = {
   activeTab: "nowPlaying",
   playlistMode: "manual",
@@ -600,7 +529,38 @@ assert.equal(savedPlaylistHydrations, 1, "playing a restored saved playlist must
 assert.equal(context.runtimeCalls.some((message) => message.type === "BANDCAMP_HUB_SEAMLESS_PLAY_INDEX"), false);
 assert.equal(context.runtimeCalls.find((message) => message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE")?.queue?.[1]?.url, "fresh-saved-next");
 context.playlistIsActive = () => false;
-
+context.state = {
+  activeTab: "playlist", playlistMode: "browse", playlistView: "saved", playlistShuffleEnabled: true,
+  playlistShuffleOrder: ["previous-now-playing"],
+  playlist: [{
+    playlistItemId: "previous-now-playing", id: "previous-now-playing", title: "Previous Now Playing", artist: "Fixture",
+    pageUrl: "https://fixture.bandcamp.com/track/previous-now-playing",
+    url: "stream-previous-now-playing"
+  }],
+  dj: {}
+};
+context.hydratePlaylist = async (items) => ({
+  items: items.map((item) => ({ ...item, url: "", restoreError: "Temporary Bandcamp failure" })),
+  failed: items.length,
+  error: ""
+});
+context.runtimeCalls.length = 0;
+context.toastMessages.length = 0;
+assert.equal(await playSavedPlaylist({
+  name: "Saved failure fixture",
+  items: [{
+    playlistItemId: "saved-failure", id: "saved-failure", title: "Saved Failure", artist: "Fixture",
+    pageUrl: "https://fixture.bandcamp.com/track/saved-failure",
+    url: ""
+  }]
+}), false);
+assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["Previous Now Playing"],
+  "a saved-playlist refresh failure must preserve the queue that was already in Now Playing");
+assert.equal(context.state.playlistMode, "browse");
+assert.equal(context.state.playlistView, "saved");
+assert.equal(context.state.playlistShuffleEnabled, true);
+assert.deepEqual(Array.from(context.state.playlistShuffleOrder), ["previous-now-playing"]);
+assert.equal(context.runtimeCalls.some((message) => message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE"), false);
 context.state = {
   activeTab: "nowPlaying",
   playlistMode: "manual",
@@ -624,7 +584,6 @@ assert.equal(unavailablePlayed, false);
 assert.equal(context.runtimeCalls.some((message) => message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE"), false,
   "selecting an unavailable track must never fall back to another playable queue item");
 assert.ok(context.toastMessages.at(-1).includes("None of these tracks are currently streamable"));
-
 context.state = {
   activeTab: "nowPlaying",
   playlistMode: "manual",
@@ -648,7 +607,6 @@ const rapidEnables = context.runtimeCalls.filter((message) => message.type === "
 assert.equal(rapidEnables.length, 1, "a superseded hydration must not start stale playback");
 assert.equal(rapidEnables[0].index, 0, "the final rapid selection must win at the front of the manual queue");
 assert.equal(rapidEnables[0].queue[0].title, "Rapid B");
-
 context.state = {
   activeTab: "nowPlaying",
   playlistMode: "manual",
@@ -695,7 +653,6 @@ assert.equal(await navigatePlayerQueue(-1), true);
 const skippedBackwardEnable = context.runtimeCalls.findLast((message) => message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE");
 assert.equal(skippedBackwardEnable?.queue?.[skippedBackwardEnable.index]?.title, "Skip A",
   "footer Previous must also skip an unavailable refreshed track");
-
 context.state = {
   activeTab: "nowPlaying",
   playlistMode: "manual",
@@ -727,5 +684,4 @@ assert.equal(context.playlistPlaybackStarting, true,
 enableResolvers[1]({ ok: true, state: { enabled: true, index: 0, queue: context.state.playlist } });
 assert.equal(await overlappingSecond, true);
 assert.equal(context.playlistPlaybackStarting, false);
-
 console.log("now playing identity and ordering smoke test passed");

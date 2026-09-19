@@ -1,0 +1,75 @@
+
+.hub-backup-reminder {
+  align-items: center;
+  background: color-mix(in srgb, var(--hub-ink) 4%, var(--hub-card));
+  border: 0;
+  border-radius: var(--hub-control-radius);
+  color: var(--hub-ink);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin: 8px 0 4px;
+  min-height: 42px;
+  outline: 0;
+  padding: 10px 12px;
+}
+.hub-backup-reminder-heading {
+  color: var(--hub-muted);
+  display: block;
+  font-size: var(--hub-settings-control-font-size);
+  line-height: var(--hub-settings-label-line-height);
+  transition: color var(--hub-settings-color-duration) ease;
+  white-space: nowrap;
+}
+
+.hub-backup-reminder:is(:hover, :focus-visible, :focus-within) .hub-backup-reminder-heading {
+  color: var(--hub-accent);
+}
+
+.hub-backup-reminder:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--hub-accent) 28%, transparent);
+}
+
+.hub-backup-reminder :is(.hub-backup-reminder-save, .hub-backup-reminder-later) {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  color: var(--hub-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--hub-settings-control-font-size);
+  font-weight: 700;
+  margin: 0;
+  min-height: var(--hub-settings-input-height);
+  padding: 0;
+  width: auto;
+}
+
+.hub-backup-reminder :is(.hub-backup-reminder-save, .hub-backup-reminder-later):is(:hover, :focus-visible) {
+  background: none;
+  color: var(--hub-accent);
+  outline: 0;
+}
+
+.hub-backup-reminder.is-saved {
+  background: color-mix(in srgb, var(--hub-ink) 4%, var(--hub-card));
+}
+
+.hub-backup-reminder-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--hub-settings-row-gap);
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.hub-backup-reminder-save:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.hub-backup-frequency {
+  flex: 0 0 auto;
+  min-width: var(--hub-settings-input-width);
+}

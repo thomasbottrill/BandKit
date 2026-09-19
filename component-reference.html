@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Bandkit · Component reference</title>
+  <link rel="stylesheet" href="component-reference.css">
+</head>
+<body>
+  <header>
+    <h1>Bandkit components</h1>
+    <p>Production components, isolated sample state. Hover or Tab to inspect focus and tooltips; open menus to inspect expanded states.</p>
+    <div class="controls">
+      <label>Theme <select id="theme"></select></label>
+      <label>Panel width <select id="width"><option value="420">420 px</option><option value="340">340 px</option><option value="600">600 px</option></select></label>
+      <label><input id="disabled" type="checkbox"> Disabled controls</label>
+      <button id="reset" type="button">Reset samples</button>
+    </div>
+    <p id="status" role="status">Changes here are temporary and never touch your Bandkit data.</p>
+  </header>
+  <main id="reference"></main>
+  <script src="component-reference.js"></script>
+</body>
+</html>

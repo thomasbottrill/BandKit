@@ -1,13 +1,51 @@
+import { discoverGenrePalette } from "../discover-colours.js";
 import { runtimeState } from "./context.js";
 import { asset } from "../core.js";
 import { accessibleControlPalette, accessibleScrubberPalette, colorString, contrast, luminance, mixColor, parseColor, readableColor } from "../color.js";
-
+import { BUILT_IN_THEMES } from "../state.js";
+import { appearanceVisualizerColourDefaults, resolvedVisualizerColors, visualizerThemeVariables } from "../visualizer-theme.js";
+import { registerModernReleaseLayout } from "./modern-release-layout.js";
 function registerModernLayoutPurchases(r) {
 r.$prepareModernPurchaseActions = function prepareModernPurchaseActions(purchaseList) {
       for (const item of purchaseList.querySelectorAll(":scope > .buyItem")) {
         const mainAction = item.querySelector(".compound-button.main-button");
         const buyControl = mainAction?.querySelector("button.buy-link, a.buy-link, button, a");
-        if (!mainAction || !buyControl) continue;
+        const giftEntries = [...item.querySelectorAll(".compound-button.send-as-gift")]
+          .map((action) => ({
+            action,
+            control: action.querySelector("button, a")
+          }))
+          .filter((entry) => entry.control)
+          .map((entry) => ({
+            ...entry,
+            ariaLabel: entry.control.getAttribute("aria-label"),
+            title: entry.control.getAttribute("title"),
+            icon: entry.action.style.getPropertyValue("--bandkit-gift-icon"),
+            iconPriority: entry.action.style.getPropertyPriority("--bandkit-gift-icon")
+          }));
+        const restoreGiftControls = () => {
+          for (const { action, control, ariaLabel, title, icon, iconPriority } of giftEntries) {
+            action.classList.remove("bandkit-modern-gift-action");
+            control.classList.remove("bandkit-modern-gift-control");
+            if (ariaLabel === null) control.removeAttribute("aria-label");
+            else control.setAttribute("aria-label", ariaLabel);
+            if (title === null) control.removeAttribute("title");
+            else control.setAttribute("title", title);
+            if (icon) action.style.setProperty("--bandkit-gift-icon", icon, iconPriority);
+            else action.style.removeProperty("--bandkit-gift-icon");
+          }
+        };
+        for (const { action, control } of giftEntries) {
+          action.classList.add("bandkit-modern-gift-action");
+          action.style.setProperty("--bandkit-gift-icon", `url('${asset("icon-gift.svg")}')`);
+          control.classList.add("bandkit-modern-gift-control");
+          control.setAttribute("aria-label", "Send as gift");
+          control.title = "Send as gift";
+        }
+        if (!mainAction || !buyControl) {
+          if (giftEntries.length) r.$modernReleaseCleanups.push(restoreGiftControls);
+          continue;
+        }
         const actionRow = r.$createModernReleaseShell("div", "bandkit-modern-purchase-actions");
         item.append(actionRow);
         r.$moveModernReleaseNode(mainAction, actionRow);
@@ -38,39 +76,19 @@ r.$prepareModernPurchaseActions = function prepareModernPurchaseActions(purchase
           detailTextRestores.push([node, node.nodeValue]);
           node.nodeValue = compactText;
         }
-        const giftAction = item.querySelector(".compound-button.send-as-gift");
-        const giftControl = giftAction?.querySelector("button, a");
-        const giftAriaLabel = giftControl?.getAttribute("aria-label");
-        const giftTitle = giftControl?.getAttribute("title");
-        if (giftAction && giftControl) {
-          r.$moveModernReleaseNode(giftAction, actionRow);
-          giftAction.classList.add("bandkit-modern-gift-action");
-          giftControl.classList.add("bandkit-modern-gift-control");
-          giftControl.style.setProperty("--bandkit-gift-icon", `url('${asset("icon-gift.svg")}')`);
-          giftControl.setAttribute("aria-label", "Send as gift");
-          giftControl.title = "Send as gift";
-        }
+        for (const { action } of giftEntries) r.$moveModernReleaseNode(action, actionRow);
         r.$modernReleaseCleanups.push(() => {
           mainAction.classList.remove("bandkit-modern-buy-card");
           mainAction.classList.remove("is-track-purchase");
           buyControl.classList.remove("bandkit-modern-buy-control");
           if (buyAriaLabel === null) buyControl.removeAttribute("aria-label");
           else buyControl.setAttribute("aria-label", buyAriaLabel);
-          giftAction?.classList.remove("bandkit-modern-gift-action");
-          if (giftControl) {
-            giftControl.classList.remove("bandkit-modern-gift-control");
-            giftControl.style.removeProperty("--bandkit-gift-icon");
-            if (giftAriaLabel === null) giftControl.removeAttribute("aria-label");
-            else giftControl.setAttribute("aria-label", giftAriaLabel);
-            if (giftTitle === null) giftControl.removeAttribute("title");
-            else giftControl.setAttribute("title", giftTitle);
-          }
+          restoreGiftControls();
           for (const [node, text] of detailTextRestores) node.nodeValue = text;
         });
       }
     };
 }
-
 function registerModernLayoutSupporters(r) {
 r.$prepareModernSupporters = function prepareModernSupporters(releaseBody) {
       const supporters = document.querySelector(".middleColumn > .collected-by, .collected-by.tralbum.collectors");
@@ -79,7 +97,6 @@ r.$prepareModernSupporters = function prepareModernSupporters(releaseBody) {
         const profileSection = releaseBody.querySelector(":scope > .bandkit-modern-profile-section");
         if (profileSection) profileSection.after(supporters);
         else releaseBody.prepend(supporters);
-
         supporters.dataset.bandkitExpanded = "false";
         const minimizeSupporters = r.$createModernReleaseShell("button", "bandkit-modern-supporters-toggle");
         minimizeSupporters.type = "button";
@@ -87,7 +104,6 @@ r.$prepareModernSupporters = function prepareModernSupporters(releaseBody) {
         minimizeSupporters.hidden = true;
         minimizeSupporters.setAttribute("aria-expanded", "false");
         supporters.append(minimizeSupporters);
-
         const supporterDetails = supporters.querySelector(".deets");
         if (supporterDetails) {
           const reviews = r.$createModernReleaseShell("div", "bandkit-modern-supporter-reviews");
@@ -100,7 +116,6 @@ r.$prepareModernSupporters = function prepareModernSupporters(releaseBody) {
             const node = supporterDetails.querySelector(selector);
             if (node) r.$moveModernReleaseNode(node, supporterGrid);
           }
-
           const reviewItems = [...reviews.querySelectorAll(":scope > .writing")];
           let activeReview = 0;
           const showReview = (index) => {
@@ -124,7 +139,6 @@ r.$prepareModernSupporters = function prepareModernSupporters(releaseBody) {
             }
           };
           startReviewRotation();
-
           const moreSupporters = supporterGrid.querySelector(":scope > .more-thumbs");
           const avatarGrid = supporterGrid.querySelector(":scope > .no-writing");
           let supporterLayoutFrame = 0;
@@ -197,15 +211,33 @@ r.$prepareModernDiscography = function prepareModernDiscography() {
       const headingText = headingLink?.textContent || "";
       heading?.classList.add("bandkit-modern-section-title");
       if (headingLink) headingLink.textContent = "Discography";
-      const discographyList = discography.querySelector(":scope > ul");
-      const releaseItems = [...(discographyList?.children || [])].filter((item) => item.matches("li"));
-      for (const item of releaseItems.slice(3)) item.classList.add("bandkit-modern-discography-extra");
       const showMore = discography.querySelector(":scope > .showMore");
+      const showMoreLink = showMore?.querySelector("a[href]");
+      const releaseItems = [...(discography.querySelector(":scope > ul")?.children || [])]
+        .filter((item) => item.matches("li"));
+      const extraReleases = releaseItems.slice(3);
+      const moreLabel = showMoreLink?.textContent || "more releases...";
+      const setExpanded = (expanded) => {
+        discography.classList.toggle("bandkit-modern-discography-expanded", expanded);
+        showMoreLink?.setAttribute("aria-expanded", String(expanded));
+        if (showMoreLink) showMoreLink.textContent = expanded ? "fewer releases..." : moreLabel;
+      };
+      const toggleExtraReleases = (event) => {
+        if (!extraReleases.length) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        setExpanded(!discography.classList.contains("bandkit-modern-discography-expanded"));
+      };
       showMore?.classList.add("bandkit-modern-discography-more-link");
+      showMoreLink?.addEventListener("click", toggleExtraReleases, true);
+      if (showMoreLink && extraReleases.length) setExpanded(false);
       r.$modernReleaseCleanups.push(() => {
+        showMoreLink?.removeEventListener("click", toggleExtraReleases, true);
+        discography.classList.remove("bandkit-modern-discography-expanded");
+        showMoreLink?.removeAttribute("aria-expanded");
+        if (showMoreLink) showMoreLink.textContent = moreLabel;
         heading?.classList.remove("bandkit-modern-section-title");
         if (headingLink) headingLink.textContent = headingText;
-        for (const item of releaseItems) item.classList.remove("bandkit-modern-discography-extra");
         showMore?.classList.remove("bandkit-modern-discography-more-link");
       });
       return discography;
@@ -253,155 +285,6 @@ r.$prepareModernReleaseInfo = function prepareModernReleaseInfo(releaseBody, rig
       return section;
     };
 }
-
-function registerModernLayout1(r) {
-r.$prepareModernReleaseLayout = function prepareModernReleaseLayout() {
-      if (r.$modernReleaseLayoutPrepared || !r.$isClassicReleasePage()) return;
-      const release = document.querySelector(".trackView");
-      const trackInfoInner = document.querySelector("#trackInfoInner");
-      const commands = trackInfoInner?.querySelector(":scope > .tralbumCommands");
-      const rightColumn = document.querySelector("#rightColumn");
-      const trackTable = document.querySelector("#track_table");
-      if (!release || !trackInfoInner || !rightColumn) return;
-      if (commands) {
-        const addTrigger = [...commands.querySelectorAll("button, a")].find((control) => {
-          const text = control.textContent?.trim() || "";
-          const accessibleName = `${control.getAttribute("aria-label") || ""} ${control.getAttribute("title") || ""}`.trim();
-          return text === "+" || /^add to(?: collection)?$/i.test(accessibleName);
-        });
-        if (addTrigger) {
-          const hiddenTrigger = addTrigger.closest("li") || addTrigger;
-          hiddenTrigger.classList.add("bandkit-modern-add-trigger");
-          r.$modernReleaseCleanups.push(() => hiddenTrigger.classList.remove("bandkit-modern-add-trigger"));
-        }
-      }
-
-      const purchasePanel = r.$createModernReleaseShell("section", "bandkit-modern-purchase-panel");
-      const purchaseList = r.$createModernReleaseShell("ul", "bandkit-modern-purchase-list");
-      purchasePanel.append(purchaseList);
-      const artistCard = rightColumn.querySelector(":scope > #bio-container");
-      if (artistCard) artistCard.after(purchasePanel);
-      else rightColumn.prepend(purchasePanel);
-      for (const item of commands?.querySelectorAll(":scope > .buyItem") || []) {
-        r.$moveModernReleaseNode(item, purchaseList);
-      }
-      r.$prepareModernPurchaseActions(purchaseList);
-      if (commands && [...commands.children].every((item) => item.classList.contains("bandkit-modern-add-trigger"))) {
-        commands.classList.add("bandkit-modern-commands-empty");
-        r.$modernReleaseCleanups.push(() => commands.classList.remove("bandkit-modern-commands-empty"));
-      }
-      r.$markModernTrackAvailability(trackTable);
-
-      const releasePrimary = r.$createModernReleaseShell("section", "bandkit-modern-release-primary");
-      const musicColumn = r.$createModernReleaseShell("div", "bandkit-modern-music-column");
-      const artColumn = r.$createModernReleaseShell("div", "bandkit-modern-art-column");
-      releasePrimary.append(musicColumn, artColumn);
-      release.append(releasePrimary);
-      for (const node of [
-        document.querySelector("#name-section"),
-        document.querySelector("#trackInfo")
-      ]) {
-        if (node) r.$moveModernReleaseNode(node, musicColumn);
-      }
-      const artworkColumn = document.querySelector(".middleColumn");
-      const featuredVideo = [...(artworkColumn?.children || [])].find((node) => (
-        node.matches(".col-span")
-        && node.querySelector(".video-wrapper, iframe.video-generic-iframe, video:not(.hidden-video-mobile-player)")
-      ));
-      if (featuredVideo) {
-        const videoSection = r.$createModernReleaseShell("section", "bandkit-modern-video-section");
-        r.$moveModernReleaseNode(featuredVideo, videoSection);
-        releasePrimary.before(videoSection);
-      }
-      if (artworkColumn) r.$moveModernReleaseNode(artworkColumn, artColumn);
-
-      const releaseBody = r.$createModernReleaseShell("section", "bandkit-modern-release-body");
-      const notesPanel = r.$createModernReleaseShell("section", "bandkit-modern-notes-panel", "Release notes");
-      if (trackTable) {
-        r.$moveModernReleaseNode(trackTable, trackInfoInner);
-        const inlinePlayer = trackInfoInner.querySelector(":scope > .inline_player");
-        if (inlinePlayer) inlinePlayer.after(trackTable);
-      } else {
-        releaseBody.classList.add("is-single-track");
-      }
-      artColumn.append(notesPanel);
-      release.append(releaseBody);
-
-      const discography = r.$prepareModernDiscography();
-      r.$prepareModernReleaseProfile(releaseBody, artistCard, discography);
-      const supporters = r.$prepareModernSupporters(releaseBody);
-
-      for (const selector of [
-        ".about-label", ".tralbum-about", ".credits-label", ".tralbum-credits",
-        ".license-label", "#license"
-      ]) {
-        const node = document.querySelector(selector);
-        if (node && !notesPanel.contains(node)) r.$moveModernReleaseNode(node, notesPanel);
-      }
-
-      const tagsLabel = document.querySelector(".tags-label");
-      const tags = document.querySelector(".tralbum-tags");
-      let tagsPanel = null;
-      if (tagsLabel || tags) {
-        tagsPanel = r.$createModernReleaseShell("section", "bandkit-modern-tags-panel", "Tags");
-        releaseBody.append(tagsPanel);
-        if (tagsLabel) r.$moveModernReleaseNode(tagsLabel, tagsPanel);
-        if (tags) r.$moveModernReleaseNode(tags, tagsPanel);
-
-        if (supporters) {
-          let tagsWidthFrame = 0;
-          const syncTagsWidth = () => {
-            window.cancelAnimationFrame(tagsWidthFrame);
-            tagsWidthFrame = window.requestAnimationFrame(() => {
-              const width = supporters.getBoundingClientRect().width;
-              if (width > 0) {
-                tagsPanel.style.setProperty("width", `${width}px`, "important");
-                tagsPanel.style.setProperty("max-width", `${width}px`, "important");
-              }
-            });
-          };
-          const tagsWidthObserver = new ResizeObserver(syncTagsWidth);
-          tagsWidthObserver.observe(supporters);
-          syncTagsWidth();
-          r.$modernReleaseCleanups.push(() => {
-            window.cancelAnimationFrame(tagsWidthFrame);
-            tagsWidthObserver.disconnect();
-            tagsPanel.style.removeProperty("width");
-            tagsPanel.style.removeProperty("max-width");
-          });
-        }
-      }
-
-      r.$prepareModernReleaseInfo(releaseBody, rightColumn);
-
-      const recommendations = document.querySelector("#recommendations_container");
-      if (recommendations) {
-        const recommendationsTitle = r.$createModernReleaseShell("h2", "bandkit-modern-recommendations-title");
-        recommendationsTitle.textContent = "More to explore";
-        recommendations.prepend(recommendationsTitle);
-
-        const activateRecommendationCard = (event) => {
-          const target = event.target instanceof Element ? event.target : null;
-          const card = target?.closest(".recommended-album");
-          if (!card || !recommendations.contains(card)) return;
-          recommendations.querySelectorAll(".recommended-album.selected").forEach((candidate) => {
-            candidate.classList.toggle("selected", candidate === card);
-          });
-          card.classList.add("selected");
-          card.closest(".first-row")?.classList.add("expanded");
-        };
-        recommendations.addEventListener("pointerover", activateRecommendationCard);
-        recommendations.addEventListener("focusin", activateRecommendationCard);
-        r.$modernReleaseCleanups.push(() => {
-          recommendations.removeEventListener("pointerover", activateRecommendationCard);
-          recommendations.removeEventListener("focusin", activateRecommendationCard);
-        });
-      }
-
-      r.$modernReleaseLayoutPrepared = true;
-    };
-}
-
 function registerModernLayout2(r) {
 r.$restoreModernReleaseLayout = function restoreModernReleaseLayout() {
       if (!r.$modernReleaseLayoutPrepared) return;
@@ -579,6 +462,43 @@ r.$setModernReleasePalette = function setModernReleasePalette(palette) {
     };
 }
 
+function bandcampFeedPalette(palette) {
+  const accent = { r: 29, g: 160, b: 195, a: 1 };
+  const accentSoft = { ...accent, a: palette.scheme === "dark" ? 0.18 : 0.12 };
+  return { ...palette, link: accent, accentSoft, raisedLink: accent, raisedAccentSoft: accentSoft };
+}
+
+function pageAwareThemeSource(r) {
+  const white = { r: 255, g: 255, b: 255, a: 1 };
+  const black = { r: 17, g: 24, b: 39, a: 1 };
+  const genre = discoverGenrePalette();
+  const pageBackground = genre?.background || r.$firstComputedColor(["#pgBd", "#pgBdWrapper", ".page-bg", "body"], "backgroundColor") || white;
+  const pageText = genre?.text || r.$firstComputedColor([".primaryText", "#name-section .title", ".track-title", "#pgBd", "body"], "color") || black;
+  const pageSecondary = genre?.text || r.$firstComputedColor([".secondaryText", ".track-number", ".time", "body"], "color");
+  const pageAccent = genre?.accent || r.$firstComputedColor(["a.primaryText", ".download-link", ".buy-link", "#track_table a", "a"], "color") || { r: 29, g: 160, b: 195, a: 1 };
+  const darkPage = luminance(pageBackground) < 0.34;
+  const panelColor = mixColor(pageBackground, darkPage ? white : black, darkPage ? 0.07 : 0.045);
+  panelColor.a = 1;
+  const panelCss = colorString(panelColor);
+  const signature = [pageBackground, pageText, pageSecondary, pageAccent]
+    .map((color) => color ? colorString(color) : "")
+    .join("|");
+  return { darkPage, pageAccent, pageSecondary, pageText, panelColor, panelCss, signature };
+}
+
+function syncPageAwareTheme(r) {
+  if (!runtimeState.appearance.pageAware) return;
+  const source = pageAwareThemeSource(r);
+  const appliedPanel = r.$host.style.getPropertyValue("--hub-panel").trim();
+  if (r.$pageAwareThemeSignature === source.signature && appliedPanel === source.panelCss) return;
+  r.$updateThemeFromPage(source);
+}
+
+function setModernPageDataset(pageType) {
+  document.documentElement.dataset.bandkitModernPage = "true";
+  document.documentElement.dataset.bandkitModernPageType = pageType;
+}
+
 function registerModernLayout3(r) {
 r.$themedModernReleasePalette = function themedModernReleasePalette(palette) {
       if (runtimeState.appearance.pageAware && !runtimeState.appearance.applyToPage) {
@@ -595,7 +515,7 @@ r.$themedModernReleasePalette = function themedModernReleasePalette(palette) {
         ...palette,
         background: theme.background,
         surface: theme.pageSurface,
-        surfaceRaised: theme.pageSurface,
+        surfaceRaised: theme.card,
         text: theme.text,
         secondary: theme.muted,
         link: theme.accent,
@@ -634,10 +554,12 @@ r.$applyModernReleaseLayout = function applyModernReleaseLayout() {
         if (pageType === "release") r.$prepareModernReleaseLayout();
         else r.$restoreModernReleaseLayout();
         if (r.$modernReleasePalette) {
-          r.$setModernReleasePalette(r.$accessibleModernPagePalette(r.$themedModernReleasePalette(r.$modernReleasePalette)));
+          const palette = r.$accessibleModernPagePalette(r.$themedModernReleasePalette(r.$modernReleasePalette));
+          r.$setModernReleasePalette(pageType === "feed" && !runtimeState.appearance.applyToPage
+            ? bandcampFeedPalette(palette)
+            : palette);
         }
-        document.documentElement.dataset.bandkitModernPage = "true";
-        document.documentElement.dataset.bandkitModernPageType = pageType;
+        setModernPageDataset(pageType);
         document.documentElement.dataset.bandkitModernRelease = String(pageType === "release");
         return;
       }
@@ -660,7 +582,7 @@ r.$setThemeVariables = function setThemeVariables(variables) {
       r.$pageActionThemeCache = null;
       for (const [name, value] of Object.entries(variables)) {
         r.$host.style.setProperty(name, value);
-        for (const button of document.querySelectorAll(".bandcamp-hub-page-dj, .bandcamp-hub-page-overflow, .bandcamp-hub-page-playlist, .bandcamp-hub-page-cart, .bandcamp-hub-page-buy, .inline_player .play_cell > a, #track_table .play-col > a, .bandkit-page-skip-control, #DiscoverApp .results-grid-item .image-container > .play-pause-button, #DiscoverApp .results-grid-item .image-container > .play-button, #DiscoverApp .focused-result > .artwork-play-button, #DiscoverApp .focused-result > .play-pause-button, #DiscoverApp .focused-result > .play-button, #DiscoverApp .discover-detail > .play-pause-button, #DiscoverApp .discover-detail > .play-button")) button.style.setProperty(name, value);
+        for (const button of document.querySelectorAll(".bandkit-discover-tracklist, .bandcamp-hub-page-dj, .bandcamp-hub-page-overflow, .bandcamp-hub-page-playlist, .bandcamp-hub-page-cart, .bandcamp-hub-page-buy, .bandkit-modern-release-actions, .inline_player .play_cell > a, #track_table .play-col > a, .bandkit-page-skip-control, #DiscoverApp .results-grid-item .image-container > .play-pause-button, #DiscoverApp .results-grid-item .image-container > .play-button, #DiscoverApp .focused-result > .artwork-play-button, #DiscoverApp .focused-result > .play-pause-button, #DiscoverApp .focused-result > .play-button, #DiscoverApp .discover-detail > .play-pause-button, #DiscoverApp .discover-detail > .play-button")) button.style.setProperty(name, value);
       }
       for (const [panelRole, sourceRole] of Object.entries({
         "--hub-panel-accent": "--hub-accent",
@@ -673,6 +595,7 @@ r.$setThemeVariables = function setThemeVariables(variables) {
       })) r.$host.style.setProperty(panelRole, variables[sourceRole]);
       r.$syncPageDjTheme?.();
     };
+r.$syncPageAwareTheme = function syncCurrentPageAwareTheme() { syncPageAwareTheme(r); };
 r.$syncPageDjTheme = function syncPageDjTheme() {
       if (!r.$pageDjHost) return;
       const page = getComputedStyle(document.documentElement);
@@ -697,6 +620,9 @@ r.$syncPageDjTheme = function syncPageDjTheme() {
         "--hub-scrub-surface": surface
       })) r.$pageDjHost.style.setProperty(name, value);
     };
+}
+
+function registerModernLayout4(r) {
 r.$accessibleSurfaceRole = function accessibleSurfaceRole(background, preferredText, preferredMuted, preferredAccent) {
       const white = { r: 255, g: 255, b: 255, a: 1 };
       const black = { r: 17, g: 24, b: 39, a: 1 };
@@ -713,18 +639,10 @@ r.$accessibleSurfaceRole = function accessibleSurfaceRole(background, preferredT
       const onAccent = contrast(accent, white) >= contrast(accent, black) ? white : black;
       return { text, muted, accent, faint, line, onAccent };
     };
-r.$updateThemeFromPage = function updateThemeFromPage() {
-      const white = { r: 255, g: 255, b: 255, a: 1 };
-      const black = { r: 17, g: 24, b: 39, a: 1 };
-      const pageBackground = r.$firstComputedColor(["#pgBd", "#pgBdWrapper", ".page-bg", "body"], "backgroundColor") || white;
-      const pageText = r.$firstComputedColor([".primaryText", "#name-section .title", ".track-title", "#pgBd", "body"], "color") || black;
-      const pageSecondary = r.$firstComputedColor([".secondaryText", ".track-number", ".time", "body"], "color");
-      const pageAccent = r.$firstComputedColor(["a.primaryText", ".download-link", ".buy-link", "#track_table a", "a"], "color") || { r: 29, g: 160, b: 195, a: 1 };
-      const darkPage = luminance(pageBackground) < 0.34;
+r.$updateThemeFromPage = function updateThemeFromPage(source = pageAwareThemeSource(r)) {
+      const { darkPage, pageAccent, pageSecondary, pageText, panelColor } = source;
       // Keep every Bandkit surface in one colour context, but lift it just far
       // enough from the page to preserve the player and panel boundaries.
-      const panelColor = mixColor(pageBackground, darkPage ? white : black, darkPage ? 0.07 : 0.045);
-      panelColor.a = 1;
       const cardColor = panelColor;
       const preferredMuted = pageSecondary || pageText;
       const panelRole = r.$accessibleSurfaceRole(panelColor, pageText, preferredMuted, pageAccent);
@@ -734,11 +652,20 @@ r.$updateThemeFromPage = function updateThemeFromPage() {
       const headerColor = panelColor;
       const headerRole = r.$accessibleSurfaceRole(headerColor, pageText, preferredMuted, pageAccent);
       const washColor = panelColor;
-      const hoverColor = mixColor(cardColor, cardRole.text, darkPage ? 0.13 : 0.07);
+      const hoverColor = mixColor(cardColor, cardRole.accent, darkPage ? 0.22 : 0.12);
       const activeCardColor = mixColor(cardColor, cardRole.accent, 0.18);
       const controlPalette = accessibleControlPalette([panelColor, cardColor, activeCardColor], cardRole.accent);
       const scrubberPalette = accessibleScrubberPalette(cardRole.accent, cardColor);
       const scrubberRemaining = scrubberPalette.remaining;
+      const themeVisualizerColours = appearanceVisualizerColourDefaults(runtimeState.appearance, [
+        ...BUILT_IN_THEMES,
+        ...(runtimeState.appearance.savedThemes || [])
+      ]);
+      const visualizerColors = resolvedVisualizerColors(
+        [panelRole.accent, scrubberPalette.accent, mixColor(panelRole.accent, scrubberPalette.accent, 0.62)],
+        runtimeState.appearance,
+        themeVisualizerColours
+      );
 
       const variables = {
         "--hub-accent": colorString(panelRole.accent),
@@ -778,12 +705,32 @@ r.$updateThemeFromPage = function updateThemeFromPage() {
         "--hub-scrub-surface": colorString(scrubberPalette.surface),
         "--hub-scrub-halo": colorString(scrubberPalette.halo, 0.62),
         "--hub-wash": colorString(washColor)
-      };
+      }; Object.assign(variables, visualizerThemeVariables(visualizerColors, darkPage));
+      if (r.$modernBandcampPageType() === "feed" && !runtimeState.appearance.applyToPage) {
+        const feedAccent = colorString({ r: 29, g: 160, b: 195, a: 1 });
+        const feedAccentSoft = colorString({ r: 29, g: 160, b: 195, a: darkPage ? 0.22 : 0.12 });
+        Object.assign(variables, {
+          "--hub-accent": feedAccent,
+          "--hub-accent-soft": feedAccentSoft,
+          "--hub-card-accent": feedAccent,
+          "--hub-card-accent-soft": feedAccentSoft,
+          "--hub-card-footer-accent": feedAccent,
+          "--hub-card-footer-accent-soft": feedAccentSoft,
+          "--hub-control-bg": feedAccent,
+          "--hub-control-border": feedAccent,
+          "--hub-control-focus": feedAccent,
+          "--hub-scrub-accent": feedAccent,
+          ...visualizerThemeVariables(resolvedVisualizerColors(
+            [feedAccent, feedAccent, feedAccent], runtimeState.appearance, themeVisualizerColours
+          ), darkPage)
+        });
+      }
       r.$setThemeVariables(variables);
+      r.$pageAwareThemeSignature = source.signature;
     };
 }
 
-function registerModernLayout4(r) {
+function registerModernLayout5(r) {
 r.$applySelectedTheme = function applySelectedTheme() {
       const accessible = r.$accessibleAppearanceTheme();
       const surface = accessible.panel;
@@ -801,8 +748,7 @@ r.$applySelectedTheme = function applySelectedTheme() {
       const activeCard = mixColor(card, cardRole.accent, 0.18);
       const controlPalette = accessibleControlPalette([surface, card, activeCard], cardRole.accent);
       const scrubberPalette = accessibleScrubberPalette(accessible.preferredScrubAccent, card);
-      const scrubberRemaining = scrubberPalette.remaining;
-      r.$setThemeVariables({
+      const scrubberRemaining = scrubberPalette.remaining; r.$setThemeVariables({
         "--hub-accent": colorString(panelRole.accent),
         "--hub-accent-soft": colorString(panelRole.accent, dark ? 0.24 : 0.13),
         "--hub-ink": colorString(panelRole.text),
@@ -829,7 +775,7 @@ r.$applySelectedTheme = function applySelectedTheme() {
         "--hub-header": colorString(header),
         "--hub-tab-foreground": colorString(headerRole.text),
         "--hub-tab-active-bg": colorString(headerRole.text, dark ? 0.16 : 0.08),
-        "--hub-hover": colorString(mixColor(card, cardRole.text, dark ? 0.13 : 0.07)),
+        "--hub-hover": colorString(mixColor(card, cardRole.accent, dark ? 0.24 : 0.13)),
         "--hub-on-accent": colorString(panelRole.onAccent),
         "--hub-control-bg": colorString(controlPalette.background),
         "--hub-control-fg": colorString(controlPalette.foreground),
@@ -839,11 +785,12 @@ r.$applySelectedTheme = function applySelectedTheme() {
         "--hub-scrub-remaining": colorString(scrubberRemaining),
         "--hub-scrub-surface": colorString(scrubberPalette.surface),
         "--hub-scrub-halo": colorString(scrubberPalette.halo, 0.62),
+        ...visualizerThemeVariables(accessible.preferredVisualizerColors, dark),
         "--hub-wash": colorString(surface)
       });
     };
 }
-
-export const registerModernLayout = [registerModernLayoutSupporters, registerModernLayoutPurchases, registerModernLayout1, registerModernLayout2, registerModernLayout3, registerModernLayout4];
-
-export const setupModernLayout = [];
+export const registerModernLayout = [
+  registerModernLayoutSupporters, registerModernLayoutPurchases, registerModernReleaseLayout,
+  registerModernLayout2, registerModernLayout3, registerModernLayout4, registerModernLayout5
+];

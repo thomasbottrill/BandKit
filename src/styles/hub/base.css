@@ -1,4 +1,16 @@
 :host {
+  /* Panel component dimensions and motion; theme colours remain runtime-owned. */
+  --hub-settings-row-height: 46px;
+  --hub-settings-row-gap: 16px;
+  --hub-settings-row-padding: 5px;
+  --hub-settings-input-height: 32px;
+  --hub-settings-input-width: 142px;
+  --hub-settings-label-line-height: 18px;
+  --hub-settings-tooltip-radius: 4px;
+  --hub-settings-tooltip-width: 230px;
+  --hub-settings-color-duration: 140ms;
+  --hub-settings-tooltip-duration: 120ms;
+
   --hub-accent: #1da0c3;
   --hub-accent-soft: rgba(236, 254, 255, 0.55);
   --hub-ink: #111827;
@@ -48,6 +60,7 @@
   --hub-scrub-surface: #ffffff;
   --hub-scrub-halo: rgba(17, 24, 39, 0.62);
   --hub-player-height: 96px;
+  --hub-player-bottom-gap: 0px;
   --hub-panel-player-gap: 12px;
   color: var(--hub-ink);
   font-family: var(--hub-font-family, "Helvetica Neue", Helvetica, Arial, sans-serif);
@@ -61,12 +74,38 @@
   box-sizing: border-box;
 }
 
+/* Rounded preserves each component's intentional default shape. Square and
+   Custom use one shared treatment across the complete player/panel surface. */
+:host([data-corner-style="square"]) :is(.hub-panel, .hub-panel *, .hub-player, .hub-player *):not(.hub-player-art-link):not(.hub-player-art):not(.hub-button-icon):not(.hub-player-backdrop-glow),
+:host([data-corner-style="square"]) :is(.hub-panel, .hub-panel *, .hub-player, .hub-player *):not(.hub-player-art-link):not(.hub-player-art):not(.hub-button-icon):not(.hub-player-backdrop-glow)::before,
+:host([data-corner-style="square"]) :is(.hub-panel, .hub-panel *, .hub-player, .hub-player *):not(.hub-player-art-link):not(.hub-player-art):not(.hub-button-icon):not(.hub-player-backdrop-glow)::after {
+  border-radius: 0 !important;
+}
+
+:host([data-corner-style="custom"]) :is(.hub-panel, .hub-panel *, .hub-player, .hub-player *):not(.hub-player-art-link):not(.hub-player-art):not(.hub-button-icon):not(.hub-player-backdrop-glow),
+:host([data-corner-style="custom"]) :is(.hub-panel, .hub-panel *, .hub-player, .hub-player *):not(.hub-player-art-link):not(.hub-player-art):not(.hub-button-icon):not(.hub-player-backdrop-glow)::before,
+:host([data-corner-style="custom"]) :is(.hub-panel, .hub-panel *, .hub-player, .hub-player *):not(.hub-player-art-link):not(.hub-player-art):not(.hub-button-icon):not(.hub-player-backdrop-glow)::after {
+  border-radius: var(--hub-custom-corner-radius, 12px) !important;
+}
+
+/* Loading progress is an indicator, not a surface. Keep its ring circular
+   while allowing the play button beneath it to follow the selected corners. */
+:host([data-corner-style="square"]) .hub-play-button.is-loading::after,
+:host([data-corner-style="custom"]) .hub-play-button.is-loading::after {
+  border-radius: 50% !important;
+}
+
+/* Masked artwork is a glyph, not a surface. Its geometry must never be
+   distorted by the selected interface corner treatment. */
+:host([data-corner-style]) .hub-play-button .hub-button-icon {
+  border-radius: 0 !important;
+}
+
 /* Foreground roles follow the surface they are painted on. This keeps custom
    themes and Match Bandcamp readable even when panel, card, and footer colours
    sit on opposite sides of the luminance range. */
 :is(
   .hub-card:not(.hub-settings-card),
-  .hub-player,
   .hub-dj-drawer,
   .hub-launcher.is-floating + .hub-header-shortcuts,
   .hub-dj-toggle,
@@ -94,6 +133,18 @@
   --hub-faint: var(--hub-card-faint);
   --hub-line: var(--hub-card-line);
   --hub-on-accent: var(--hub-card-on-accent);
+}
+
+/* The persistent player is the panel's companion surface, so it must use the
+   panel palette rather than the raised-card palette. */
+.hub-player {
+  --hub-accent: var(--hub-panel-accent);
+  --hub-accent-soft: var(--hub-panel-accent-soft);
+  --hub-ink: var(--hub-panel-ink);
+  --hub-muted: var(--hub-panel-muted);
+  --hub-faint: var(--hub-panel-faint);
+  --hub-line: var(--hub-panel-line);
+  --hub-on-accent: var(--hub-panel-on-accent);
 }
 
 :is(
@@ -254,7 +305,8 @@ button {
 .hub-header-shortcut:hover,
 .hub-header-shortcut:focus-visible,
 .hub-header-shortcut.is-active {
-  background: rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: var(--hub-accent, currentColor);
   outline: 0;
 }
 
@@ -327,7 +379,8 @@ button {
 .hub-header-shortcuts.is-modern-header .hub-header-shortcut:hover,
 .hub-header-shortcuts.is-modern-header .hub-header-shortcut:focus-visible,
 .hub-header-shortcuts.is-modern-header .hub-header-shortcut.is-active {
-  background: rgba(0, 0, 0, 0.06);
+  background: transparent;
+  color: var(--hub-accent, currentColor);
 }
 
 .hub-launcher.is-floating + .hub-header-shortcuts {
@@ -351,9 +404,11 @@ button {
 
 .hub-panel {
   background: var(--hub-panel);
-  border: 1px solid color-mix(in srgb, var(--hub-line) 55%, transparent);
+  background-clip: padding-box;
+  border: 1px solid color-mix(in srgb, var(--hub-line) 20%, var(--hub-panel));
   border-radius: 8px;
   box-shadow: 0 8px 22px -14px rgba(0, 0, 0, 0.18);
+  color: var(--hub-panel-ink);
   display: flex;
   flex-direction: column;
   height: min(1396px, calc(100vh - 112px));
@@ -366,9 +421,47 @@ button {
   resize: none;
   right: 24px;
   top: 88px;
-  transition: opacity 150ms ease, transform 180ms ease;
+  transition: background-color 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 150ms ease,
+    bottom 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    left 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 150ms ease,
+    transform 180ms ease;
   width: 380px;
   z-index: 2147483645;
+}
+
+.hub-panel:is(:hover, :focus-within) {
+  border-color: color-mix(in srgb, var(--hub-line) 34%, var(--hub-panel));
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  /* Backdrop-filter already creates its own compositing surface. Do not add
+     paint containment or isolation here: Chromium then rasterises the tall
+     panel in separate tiles, leaving visible seams over detailed artwork. */
+  .hub-panel.is-frosted-glass {
+    background: color-mix(in srgb, var(--hub-panel) var(--hub-glass-surface-opacity, 65%), transparent);
+    -webkit-backdrop-filter: blur(var(--hub-glass-blur, 19px)) saturate(1.16);
+    backdrop-filter: blur(var(--hub-glass-blur, 19px)) saturate(1.16);
+    transition: border-color 150ms ease,
+      bottom 360ms cubic-bezier(0.22, 1, 0.36, 1),
+      color 420ms cubic-bezier(0.22, 1, 0.36, 1),
+      left 360ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 150ms ease,
+      transform 180ms ease;
+  }
+
+  .hub-panel.is-frosted-glass::before {
+    content: none;
+  }
+
+  .hub-panel.is-frosted-glass .hub-header,
+  .hub-panel.is-frosted-glass .hub-panel-shortcuts,
+  .hub-panel.is-frosted-glass .hub-content {
+    background: transparent;
+    transition-property: border-color, color, opacity, transform;
+  }
 }
 
 .hub-panel.is-hidden {
@@ -378,8 +471,8 @@ button {
 }
 
 .hub-panel.is-contextual {
-  bottom: calc(var(--hub-player-height) + var(--hub-panel-player-gap));
-  height: var(--hub-section-panel-height, calc(100vh - 160px));
+  bottom: calc(var(--hub-player-height) + var(--hub-player-bottom-gap) + var(--hub-panel-player-gap));
+  height: var(--hub-section-panel-height, min(72vh, calc(100vh - 160px)));
   left: auto;
   max-height: calc(100vh - 112px);
   min-height: min(220px, calc(100vh - 112px));
@@ -388,6 +481,51 @@ button {
   transform: none;
   width: min(420px, calc(100vw - 32px));
   z-index: 2147483647;
+}
+
+/* Page action menus live outside the shadow root. Temporarily yield the top
+   document layer so their fixed overlay can appear above an open panel. */
+.hub-panel.is-contextual.has-page-action-menu {
+  z-index: 2147483645;
+}
+
+.hub-panel.is-contextual[data-player-style="docked"] {
+  bottom: calc(var(--hub-player-height) + var(--hub-dock-visualizer-clearance, 0px) + var(--hub-player-bottom-gap) + var(--hub-panel-player-gap));
+  left: var(--hub-context-panel-left, auto);
+  right: auto;
+}
+
+.hub-panel.is-contextual[data-player-style="zune"] {
+  bottom: calc(var(--hub-player-height) + var(--hub-player-bottom-gap) - 20px);
+  left: var(--hub-context-panel-left, 12px);
+  right: auto;
+}
+
+.hub-panel.is-contextual[data-player-style="zune"][data-panel-buttons="compact"] {
+  bottom: calc(var(--hub-player-height) + var(--hub-player-bottom-gap) + 20px);
+}
+
+.hub-panel.is-contextual[data-player-style="zune"][data-player-variant="rounded"][data-panel-buttons="compact"] {
+  bottom: calc(var(--hub-player-height) + var(--hub-player-bottom-gap) + 36px);
+}
+
+/* Float lifts its surface a further 24px (18px to 42px) for the
+   visualizer. Keep the panel's existing clearance above that surface. */
+.hub-panel.is-contextual[data-player-style="zune"][data-player-variant="rounded"][data-panel-buttons="compact"][data-visualizer]:not([data-visualizer="off"]):not([data-player-empty="true"]) {
+  bottom: calc(var(--hub-player-height) + var(--hub-player-bottom-gap) + 60px);
+}
+
+/* Empty bars launch their panels from the centred destination controls. Dock
+   normally keeps its panel at the right edge, so explicitly centre it here;
+   Float also follows its newly compact surface vertically. */
+.hub-panel.is-contextual[data-player-empty="true"][data-player-style="docked"] {
+  left: var(--hub-context-panel-left, 12px);
+  right: auto;
+  transform: none;
+}
+
+.hub-panel.is-contextual[data-player-empty="true"][data-player-style="zune"][data-player-variant="rounded"][data-panel-buttons][data-visualizer] {
+  bottom: calc(var(--hub-player-bottom-gap) + var(--hub-player-height) / 2 + 44px);
 }
 
 .hub-panel.is-contextual.is-hidden {
@@ -403,6 +541,121 @@ button {
 
 .hub-panel.is-contextual .hub-header {
   display: none;
+}
+
+.hub-panel-shortcuts {
+  background: var(--hub-panel);
+  border-top: 0;
+  column-gap: 4px;
+  display: none;
+  flex: 0 0 64px;
+  grid-template-columns: repeat(4, 68px);
+  justify-content: center;
+  padding: 8px 12px;
+  transition: background-color 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hub-panel[data-panel-buttons="compact"] .hub-panel-shortcuts {
+  display: grid;
+}
+
+.hub-panel-shortcut {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: var(--hub-panel-muted);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  padding: 0;
+  position: relative;
+  transition: color 120ms ease;
+}
+
+.hub-panel-shortcut:hover,
+.hub-panel-shortcut:focus-visible {
+  color: var(--hub-panel-accent);
+  outline: 0;
+}
+
+.hub-panel-shortcut::before {
+  background: transparent;
+  border-radius: 999px;
+  content: "";
+  height: 40px;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transition: background-color 120ms ease, box-shadow 120ms ease, width 160ms ease;
+  width: 40px;
+}
+
+.hub-panel-shortcut:hover::before {
+  background: transparent;
+  width: 68px;
+}
+
+.hub-panel-shortcut:focus-visible::before {
+  box-shadow: none;
+}
+
+.hub-panel-shortcut.is-active {
+  color: var(--hub-panel-accent);
+}
+
+.hub-panel-shortcut.is-active::before {
+  background: transparent;
+  box-shadow: none;
+  width: 68px;
+}
+
+.hub-panel-shortcut-icon {
+  background: currentColor;
+  height: 20px;
+  mask: var(--hub-icon) center / contain no-repeat;
+  -webkit-mask: var(--hub-icon) center / contain no-repeat;
+  position: relative;
+  width: 20px;
+  z-index: 1;
+}
+
+.hub-panel-shortcut-label {
+  display: none;
+}
+
+.hub-panel[data-panel-buttons="compact"] .hub-panel-shortcuts {
+  background: transparent;
+  column-gap: 24px;
+  flex-basis: 58px;
+  grid-template-columns: repeat(4, max-content);
+  padding: 8px 16px 12px;
+}
+
+.hub-panel[data-panel-buttons="compact"] .hub-panel-shortcut {
+  border-radius: 0;
+  color: var(--hub-panel-muted);
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 0;
+  opacity: 0.66;
+  transition: color 120ms ease, opacity 120ms ease;
+}
+
+.hub-panel[data-panel-buttons="compact"] .hub-panel-shortcut:is(:hover, :focus-visible, .is-active) {
+  color: var(--hub-panel-accent);
+  opacity: 1;
+}
+
+.hub-panel[data-panel-buttons="compact"] .hub-panel-shortcut::before,
+.hub-panel[data-panel-buttons="compact"] .hub-panel-shortcut-icon,
+.hub-panel[data-panel-buttons="compact"] .hub-panel-shortcut-count {
+  display: none;
+}
+
+.hub-panel[data-panel-buttons="compact"] .hub-panel-shortcut-label {
+  display: inline;
 }
 
 .hub-panel.is-docked {
@@ -459,6 +712,7 @@ button {
   padding: 0 16px;
   cursor: grab;
   touch-action: none;
+  transition: background-color 420ms cubic-bezier(0.22, 1, 0.36, 1), border-color 420ms cubic-bezier(0.22, 1, 0.36, 1);
   user-select: none;
 }
 
@@ -503,16 +757,53 @@ button {
   background: transparent;
   border: 0;
   border-radius: var(--hub-control-radius);
+  color: var(--hub-muted);
   cursor: pointer;
   display: inline-flex;
   height: var(--hub-control-size);
   justify-content: center;
   padding: 0;
+  transition: color 120ms ease;
   width: var(--hub-control-size);
 }
 
 .hub-icon-button:hover {
-  background: var(--hub-hover);
+  background: transparent;
+  color: var(--hub-accent);
+}
+
+.hub-icon-button.hub-close {
+  color: var(--hub-muted);
+}
+
+.hub-icon-button.hub-close:is(:hover, :focus-visible) {
+  background: transparent;
+  color: var(--hub-accent);
+  outline: 0;
+}
+
+.hub-icon-button:is(:focus-visible) {
+  background: transparent;
+  color: var(--hub-accent);
+  outline: 0;
+}
+
+.hub-icon-button:is(.is-active, [aria-expanded="true"], [aria-pressed="true"]) {
+  color: var(--hub-accent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hub-panel .hub-close {
+    opacity: 0;
+    pointer-events: none;
+    transition: color 120ms ease, opacity 120ms ease;
+  }
+
+  .hub-panel:is(:hover, :focus-within) .hub-close,
+  .hub-panel .hub-close:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .hub-icon-button img {
@@ -542,8 +833,8 @@ button {
 }
 
 .hub-tab:hover {
-  background: var(--hub-tab-active-bg);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hub-tab-foreground) 24%, transparent);
+  background: transparent;
+  box-shadow: none;
 }
 
 .hub-tab:focus-visible {
@@ -552,17 +843,7 @@ button {
 }
 
 .hub-tab.is-active {
-  background: var(--hub-tab-active-bg);
-}
-
-.hub-tab.is-active::after {
-  background: var(--hub-tab-foreground);
-  bottom: 0;
-  content: "";
-  height: 2px;
-  left: 0;
-  position: absolute;
-  right: 0;
+  background: transparent;
 }
 
 .hub-tab-icon {
@@ -630,11 +911,13 @@ button {
   --hub-card-footer-line: var(--hub-panel-line);
   --hub-card-footer-on-accent: var(--hub-panel-on-accent);
   background: var(--hub-wash);
+  color: var(--hub-ink);
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
   padding: 16px;
+  transition: background-color 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .hub-content.is-section-layout {
@@ -646,26 +929,57 @@ button {
 
 .hub-content-pinned {
   flex: 0 0 auto;
+  overflow: visible;
   padding: 16px 16px 0;
+  position: relative;
+  z-index: 4;
 }
 
 .hub-content-scroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-anchor: none;
   overscroll-behavior: contain;
   padding: 0 16px 16px;
+  position: relative;
+  z-index: 1;
 }
 
-.hub-content::-webkit-scrollbar,
-.hub-content-scroll::-webkit-scrollbar {
-  width: 8px;
+:host * {
+  scrollbar-color: color-mix(in srgb, var(--hub-panel-muted) 58%, transparent) transparent;
+  scrollbar-width: thin;
 }
 
-.hub-content::-webkit-scrollbar-thumb,
-.hub-content-scroll::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border: 2px solid transparent;
-  border-radius: 999px;
+:host *::-webkit-scrollbar {
+  height: 7px;
+  width: 7px;
+}
+
+:host *::-webkit-scrollbar-track,
+:host *::-webkit-scrollbar-corner {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+:host *::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--hub-panel-muted) 58%, transparent);
   background-clip: padding-box;
+  border: 1px solid transparent;
+  border-radius: 999px;
+}
+
+:host *::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--hub-panel-accent) 72%, transparent);
+  background-clip: padding-box;
+}
+
+.hub-panel::-webkit-scrollbar-button,
+.hub-panel *::-webkit-scrollbar-button {
+  display: none;
+  height: 0;
+  width: 0;
 }

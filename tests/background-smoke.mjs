@@ -8,6 +8,8 @@ let tabUpdatedListener;
 let offscreenCreated = false;
 let offscreenCreateCalls = 0;
 let offscreenCreateDetails = null;
+let offscreenContextGate = null;
+let offscreenRestoreGate = null;
 let injected = false;
 let injectedFiles = [];
 let tabMessageCalls = 0;
@@ -67,21 +69,45 @@ const playlistTralbumFixture = {
   ]
 };
 
-globalThis.fetch = async (url) => ({
-  ok: true,
-  async text() {
-    const tralbum = String(url).includes("free-track")
-      ? { artist: "Fixture Artist", FREE: 1, current: { id: 404, type: "track", title: "Free Track", minimum_price: 1.5, download_pref: 1 } }
-      : playlistTralbumFixture;
-    return `<meta property="og:image" content="//f4.bcbits.com/img/a-fixture_10.jpg"><script data-band-currency="AUD"></script><script data-tralbum='${JSON.stringify(tralbum)}' data-cart='{&quot;currency&quot;:&quot;USD&quot;}'></script><li class="buyItem digital"><button class="buy-link">Free Download</button></li><script type="application/ld+json">${JSON.stringify(digitalOfferFixture)}</script>`;
+let playlistFetchFailuresRemaining = 0;
+let collectionFetchCalls = 0;
+globalThis.fetch = async (url) => {
+  if (String(url).includes("/api/fancollection/1/search_items")) {
+    collectionFetchCalls += 1;
+    return {
+      ok: true,
+      async json() {
+        return {
+          tralbums: [{ item_type: "track", item_id: 101, tralbum_type: "t", tralbum_id: 101, album_id: 202, band_id: 303 }]
+        };
+      }
+    };
   }
-});
+  if (String(url).includes("retry-track") && playlistFetchFailuresRemaining-- > 0) {
+    throw new Error("temporary network failure");
+  }
+  return {
+    ok: true,
+    async text() {
+      const tralbum = String(url).includes("free-track")
+        ? { artist: "Fixture Artist", FREE: 1, current: { id: 404, type: "track", title: "Free Track", minimum_price: 1.5, download_pref: 1 } }
+        : playlistTralbumFixture;
+      return `<meta property="og:image" content="//f4.bcbits.com/img/a-fixture_10.jpg"><script data-band-currency="AUD"></script><script data-tralbum='${JSON.stringify(tralbum)}' data-cart='{&quot;currency&quot;:&quot;USD&quot;}'></script><li class="buyItem digital"><button class="buy-link">Free Download</button></li><script type="application/ld+json">${JSON.stringify(digitalOfferFixture)}</script>`;
+    }
+  };
+};
 
 globalThis.chrome = {
   runtime: {
     id: "fixture-extension",
     getURL: (path) => `chrome-extension://fixture-extension/${path}`,
     getContexts: async (query) => {
+      if (query?.contextTypes?.includes("OFFSCREEN_DOCUMENT") && offscreenContextGate) {
+        const gate = offscreenContextGate;
+        offscreenContextGate = null;
+        gate.entered();
+        await gate.wait;
+      }
       return query?.contextTypes?.includes("OFFSCREEN_DOCUMENT") && offscreenCreated
         ? [{ contextType: "OFFSCREEN_DOCUMENT" }]
         : [];
@@ -91,6 +117,7 @@ globalThis.chrome = {
     async sendMessage(message) {
       if (message.target === "offscreen") {
         offscreenMessages.push(message);
+        if (message.type === "BANDCAMP_HUB_OFFSCREEN_RESTORE" && offscreenRestoreGate) await offscreenRestoreGate;
         const previous = message.state || session.bandcampHubPlayback || {};
         const disabled = message.type.endsWith("DISABLE");
         const paused = message.type.endsWith("PAUSE") || message.type.endsWith("PLAY_PAUSE");
@@ -254,7 +281,38 @@ assert.equal(response.state.queue.length, 1);
 const playbackQueue = response.state.queue;
 assert.equal(offscreenCreated, true);
 assert.equal(offscreenCreateCalls, 1);
-assert.deepEqual(offscreenCreateDetails.reasons, ["BLOBS"]);
+assert.deepEqual(offscreenCreateDetails.reasons, ["BLOBS", "WORKERS"]);
+
+let releaseOlderEnable;
+let markOlderEnableEntered;
+const olderEnableEntered = new Promise((resolve) => { markOlderEnableEntered = resolve; });
+offscreenContextGate = {
+  entered: markOlderEnableEntered,
+  wait: new Promise((resolve) => { releaseOlderEnable = resolve; })
+};
+offscreenMessages.length = 0;
+const olderEnable = send({
+  type: "BANDCAMP_HUB_SEAMLESS_ENABLE",
+  queue: [{ title: "Older", url: "https://t4.bcbits.com/stream/older" }],
+  index: 0,
+  autoplay: true
+}, { url: "https://artist.bandcamp.com/album/fixture" });
+await olderEnableEntered;
+const newerEnable = await send({
+  type: "BANDCAMP_HUB_SEAMLESS_ENABLE",
+  queue: [{ title: "Newer", url: "https://t4.bcbits.com/stream/newer" }],
+  index: 0,
+  autoplay: true
+}, { url: "https://artist.bandcamp.com/album/fixture" });
+releaseOlderEnable();
+const staleEnable = await olderEnable;
+assert.equal(newerEnable.state.track.title, "Newer");
+assert.equal(staleEnable.stale, true, "an older enable request that finishes setup last must be discarded");
+assert.deepEqual(
+  offscreenMessages.filter((message) => message.type === "BANDCAMP_HUB_OFFSCREEN_ENABLE").map((message) => message.queue[0].title),
+  ["Newer"],
+  "rapid A-to-B playback must never dispatch A after B"
+);
 
 offscreenCreated = false;
 session.bandcampHubPlayback = {
@@ -279,6 +337,32 @@ assert.equal(offscreenMessages[0].state.currentTime, 43);
 assert.equal(offscreenMessages[0].state.isPlaying, true);
 assert.ok(offscreenMessages.some((message) => message.type === "BANDCAMP_HUB_OFFSCREEN_PLAY_PAUSE"));
 assert.ok(offscreenMessages.some((message) => message.type === "BANDCAMP_HUB_OFFSCREEN_NEXT"));
+
+offscreenCreated = false;
+offscreenMessages.length = 0;
+await send({ type: "BANDCAMP_HUB_SEAMLESS_ENABLE", queue: playbackQueue, index: 0, autoplay: true },
+  { url: "https://artist.bandcamp.com/album/fixture" });
+assert.deepEqual(offscreenMessages.map((message) => message.type), ["BANDCAMP_HUB_OFFSCREEN_ENABLE"],
+  "a cold album selection must start directly without loading the previous saved stream");
+
+offscreenCreated = false;
+offscreenMessages.length = 0;
+let releaseOldRestore;
+offscreenRestoreGate = new Promise((resolve) => { releaseOldRestore = resolve; });
+const oldResume = send({ type: "BANDCAMP_HUB_SEAMLESS_PLAY_PAUSE" }, { url: "https://artist.bandcamp.com/album/fixture" });
+for (let attempt = 0; attempt < 20 && !offscreenMessages.length; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(offscreenMessages[0]?.type, "BANDCAMP_HUB_OFFSCREEN_RESTORE");
+const replacement = await Promise.race([
+  send({ type: "BANDCAMP_HUB_SEAMLESS_ENABLE", queue: playbackQueue, index: 0, autoplay: true },
+    { url: "https://artist.bandcamp.com/album/fixture" }),
+  new Promise((resolve) => setTimeout(() => resolve(null), 100))
+]);
+releaseOldRestore();
+offscreenRestoreGate = null;
+await oldResume;
+assert.equal(replacement?.ok, true, "a fresh album click must bypass an already-stalled saved-track restoration");
+assert.equal(offscreenMessages.at(-1).type, "BANDCAMP_HUB_OFFSCREEN_ENABLE",
+  "an old resume command must not pause the new album after its slow restoration finishes");
 
 response = await send({
   type: "BANDCAMP_HUB_GET_SEAMLESS_STATE"
@@ -358,6 +442,16 @@ assert.equal(response.items[0].duration, 181);
 assert.equal(response.items[0].artist, "Fixture Artist");
 assert.equal(response.items[0].art, "https://f4.bcbits.com/img/a-fixture_10.jpg");
 
+playlistFetchFailuresRemaining = 1;
+response = await send({
+  type: "BANDCAMP_HUB_RESOLVE_PLAYLIST_ITEMS",
+  items: [{ playlistItemId: "playlist-retry", id: "101", title: "Fixture Track", artist: "Bandcamp", pageUrl: "https://artist.bandcamp.com/track/retry-track" }]
+}, { url: "https://artist.bandcamp.com/album/fixture" });
+assert.equal(response.ok, true);
+assert.equal(response.items[0].url, "https://t4.bcbits.com/stream/refreshed-fixture",
+  "playlist hydration must retry a transient Bandcamp page failure before marking the track unavailable");
+assert.equal(playlistFetchFailuresRemaining, -1);
+
 response = await send({
   type: "BANDCAMP_HUB_RESOLVE_PLAYLIST_ITEMS",
   items: [{ playlistItemId: "missing-stable", id: "999", title: "Missing Stable Track", album: "Fixture Album", pageUrl: "https://artist.bandcamp.com/album/fixture-album" }]
@@ -405,15 +499,48 @@ assert.equal(response.items[0].minimumPrice, 1.5, "free tracks may expose an int
 assert.equal(response.items[0].currency, "AUD");
 assert.equal(response.items[0].purchaseStatus, "free");
 
+const replacementQueue = [{ id: "new-track", title: "New Track", url: "https://t4.bcbits.com/stream/new-track" }];
+response = await send({
+  type: "BANDCAMP_HUB_SET_NOW_PLAYING",
+  playlist: replacementQueue,
+  playlistMode: "browse",
+  revision: 100,
+  transitionTrackKey: "new-track",
+  transitionExpiresAt: Date.now() + 30_000
+}, { tab: { id: 7 }, url: "https://artist.bandcamp.com/album/fixture" });
+assert.equal(response.ok, true);
+response = await send({
+  type: "BANDCAMP_HUB_SET_NOW_PLAYING",
+  playlist: [{ id: "old-track", title: "Old Track", url: "https://t4.bcbits.com/stream/old-track" }],
+  playlistMode: "browse",
+  revision: 99
+}, { tab: { id: 8 }, url: "https://other.bandcamp.com/album/old" });
+assert.equal(response.stale, true, "a delayed tab must not replace a newer Now Playing revision");
+response = await send({
+  type: "BANDCAMP_HUB_SET_NOW_PLAYING",
+  playlist: replacementQueue,
+  playlistMode: "browse",
+  revision: 100,
+  transitionTrackKey: ""
+}, { tab: { id: 8 }, url: "https://other.bandcamp.com/album/old" });
+assert.equal(response.ok, true, "the winning revision may clear its transition after playback commits");
+response = await send({ type: "BANDCAMP_HUB_GET_NOW_PLAYING" }, { url: "https://artist.bandcamp.com/album/fixture" });
+assert.equal(response.playlist[0].title, "New Track");
+assert.equal(response.revision, 100);
+assert.equal(response.transitionTrackKey, "");
+
 response = await send({
   type: "BANDCAMP_HUB_SEAMLESS_UPDATE_QUEUE",
   queue: [{ playlistItemId: "playlist-one", title: "Fixture Track", url: "https://t4.bcbits.com/stream/refreshed-fixture" }],
+  expectedTrack: { id: "fixture-track", title: "Fixture Track", url: "https://t4.bcbits.com/stream/refreshed-fixture" },
   selectedPlaylistItemId: "playlist-one",
   autoplay: true
 }, { url: "https://artist.bandcamp.com/album/fixture" });
 assert.equal(response.ok, true);
 assert.equal(offscreenMessages.at(-1).type, "BANDCAMP_HUB_OFFSCREEN_UPDATE_QUEUE");
 assert.equal(offscreenMessages.at(-1).queue[0].playlistItemId, "playlist-one");
+assert.equal(offscreenMessages.at(-1).expectedTrack.id, "fixture-track",
+  "queue updates must carry the playback snapshot they were based on");
 assert.equal(offscreenMessages.at(-1).selectedPlaylistItemId, "playlist-one");
 assert.equal(offscreenMessages.at(-1).autoplay, true);
 
@@ -470,6 +597,40 @@ assert.equal(response.items[0].restore.item_id, 101);
 assert.equal(response.items[1].restore.item_type, "a");
 assert.equal(response.items[1].restore.item_id, 202);
 assert.equal(response.items[1].restore.url, "https://artist.bandcamp.com/album/fixture-album");
+
+response = await send({
+  type: "BANDCAMP_HUB_RESOLVE_COLLECTION_MEMBERSHIP",
+  fanId: 77,
+  bandId: 303,
+  searchKey: "Fixture Artist",
+  itemType: "album",
+  itemId: 202,
+  albumId: 202
+}, { url: "https://artist.bandcamp.com/album/fixture-album" });
+assert.equal(response.ok, true);
+assert.equal(response.owned, true, "a purchased track must mark its parent album as in the collection");
+
+response = await send({
+  type: "BANDCAMP_HUB_RESOLVE_COLLECTION_MEMBERSHIP",
+  fanId: 77,
+  bandId: 303,
+  searchKey: "Fixture Artist",
+  itemType: "album",
+  itemId: 999,
+  albumId: 999
+}, { url: "https://artist.bandcamp.com/album/wishlist-only" });
+assert.equal(response.ok, true);
+assert.equal(response.owned, false, "wishlist-only releases must not inherit another album's collection state");
+assert.equal(collectionFetchCalls, 1, "collection membership lookups should share the short-lived fan collection cache");
+
+response = await send({ type: "BANDCAMP_HUB_OPEN_COMPONENT_REFERENCE", url: "https://example.com/ignored" }, {
+  id: "fixture-extension", url: "https://bandcamp.com/discover"
+});
+assert.equal(response.ok, true);
+assert.equal(createdBackgroundTab.url, "chrome-extension://fixture-extension/component-reference.html", "The hidden command must open only the packaged reference");
+assert.equal(createdBackgroundTab.active, true);
+response = await send({ type: "BANDCAMP_HUB_OPEN_COMPONENT_REFERENCE" }, { id: "another-extension", url: "https://bandcamp.com/discover" });
+assert.equal(response.ok, false);
 
 response = await send({
   type: "BANDCAMP_HUB_OPEN_BACKGROUND_TAB",
@@ -529,6 +690,39 @@ assert.deepEqual(tabMessages
   .map(({ message }) => message.state.status), ["loading", "playing"],
 "offscreen state broadcasts must preserve arrival order");
 chrome.storage.session.set = originalSessionSet;
+
+tabMessages.length = 0;
+await Promise.all([0.1, 0.4, 0.9].map((level) => send({
+  type: "BANDCAMP_HUB_OFFSCREEN_VISUALIZER",
+  signal: { level, spectrum: [Math.round(level * 255)] }
+}, { url: "chrome-extension://fixture-extension/offscreen.html" })));
+await new Promise((resolve) => setTimeout(resolve, 45));
+const visualizerMessages = tabMessages.filter(({ message }) => message.type === "BANDCAMP_HUB_VISUALIZER_STATE");
+assert.equal(visualizerMessages.length, 1,
+  "visualizer broadcasts must coalesce queued analyzer samples instead of replaying a burst");
+assert.equal(visualizerMessages[0].message.signal.level, 0.9,
+  "the coalesced broadcast must deliver the newest analyzer sample");
+
+// Reproduce IPC acknowledgements that stay pending across multiple FFT frames.
+// The old global Promise.allSettled gate delivered only the first sample here.
+const originalTabSendMessage = chrome.tabs.sendMessage;
+const delayedVisualizerAcks = [];
+tabMessages.length = 0;
+chrome.tabs.sendMessage = (tabId, message) => {
+  if (message.type !== "BANDCAMP_HUB_VISUALIZER_STATE") return originalTabSendMessage(tabId, message);
+  tabMessages.push({ tabId, message });
+  return new Promise((resolve) => delayedVisualizerAcks.push(resolve));
+};
+for (const level of [0.2, 0.3, 0.5, 0.7, 0.8]) {
+  await send({ type: "BANDCAMP_HUB_OFFSCREEN_VISUALIZER", signal: { level } },
+    { url: "chrome-extension://fixture-extension/offscreen.html" });
+  await new Promise((resolve) => setTimeout(resolve, 45));
+}
+assert.deepEqual(tabMessages.map(({ message }) => message.signal.level), [0.2, 0.3, 0.5, 0.7, 0.8],
+  "Unresolved acknowledgements must not gate subsequent visualizer dispatches");
+delayedVisualizerAcks.forEach((resolve) => resolve());
+await Promise.resolve();
+chrome.tabs.sendMessage = originalTabSendMessage;
 
 offscreenCreated = true;
 session.bandcampHubPlayback = {

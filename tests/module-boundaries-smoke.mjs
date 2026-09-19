@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createAppContext } from "../src/content/app-context.js";
-import { parseCartBackup, portableCartItem } from "../src/content/cart-model.js";
+import { mergeCartSnapshots, parseCartBackup, portableCartItem } from "../src/content/cart-model.js";
 import { accessibleScrubberPalette, contrast, hexColor } from "../src/content/color.js";
 import { safeBandcampReleaseUrl } from "../src/content/core.js";
 import { createPlaylistModel } from "../src/content/playlist-model.js";
@@ -23,6 +23,7 @@ assert.deepEqual(cleanupOrder, ["second", "first"], "Cleanup must be reverse-ord
 
 assert.equal(MESSAGES.SEAMLESS_ENABLE, "BANDCAMP_HUB_SEAMLESS_ENABLE");
 assert.equal(STORAGE_KEYS.STATE, "bandcampHubState");
+assert.equal(STORAGE_KEYS.ONBOARDING_COMPLETE, "bandcampHubOnboardingComplete");
 assert.equal(STORAGE_KEYS.NOW_PLAYING, "bandcampHubNowPlayingSession");
 assert.ok(Object.isFrozen(MESSAGES) && Object.isFrozen(STORAGE_KEYS));
 
@@ -50,10 +51,23 @@ assert.equal(scrubberPalette.remaining.a, 1, "Unplayed waveform bars must use a 
 assert.ok(contrast(scrubberPalette.remaining, scrubberPalette.surface) >= 2,
   "Unplayed waveform bars must retain useful contrast against their surface");
 assert.ok(waveformPathData("fixture", 320).pathData.length > 100);
+assert.equal((waveformPathData("fixture", 2000).pathData.match(/M/g) || []).length, 500,
+  "Wide music bars must add waveform bars instead of stretching a capped low-detail path");
 assert.deepEqual(waveformAmplitudes("fixture", 32), waveformAmplitudes("fixture", 32),
   "Fallback waveform samples must be deterministic");
 assert.equal(waveformAmplitudes("fixture", 32).length, 32);
 assert.equal(portableCartItem({ title: "Test", url: "https://artist.bandcamp.com/album/test" }).title, "Test");
 assert.throws(() => parseCartBackup("{}"), /not a supported Bandkit cart backup/);
+const knownCart = Array.from({ length: 6 }, (_, index) => ({
+  title: `Known ${index + 1}`,
+  restore: { item_type: "a", item_id: index + 1 }
+}));
+const newestItem = { title: "Newest", restore: { item_type: "a", item_id: 7 } };
+assert.deepEqual(mergeCartSnapshots(knownCart, [newestItem]), {
+  items: [newestItem, ...knownCart],
+  partial: true
+}, "a one-item album-page snapshot must merge with the complete cart instead of replacing it");
+assert.deepEqual(mergeCartSnapshots(knownCart, []).items, knownCart,
+  "a transient empty sidecart render must never erase the known cart");
 
 console.log("Module boundaries and shared contracts checks passed.");

@@ -1,25 +1,113 @@
-.hub-settings-card {
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  margin: 0;
-  padding: 0 0 18px;
+.hub-settings-overview-stack {
+  display: grid;
+  gap: 0;
+  padding: 18px 24px 28px;
 }
 
-.hub-settings-card + .hub-settings-card {
-  border-top: 0;
-  padding-top: 2px;
+.hub-settings-overview-trigger {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--hub-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font: inherit;
+  min-height: 58px;
+  padding: 8px 0;
+  text-align: left;
+  transition: color 140ms ease, opacity 140ms ease;
+  width: 100%;
+}
+
+.hub-settings-overview-title {
+  color: inherit;
+  font-size: 16px;
+  font-weight: 750;
+  line-height: 22px;
+}
+
+.hub-settings-overview-icon {
+  color: currentColor;
+  flex: 0 0 20px;
+  height: 20px;
+  margin-left: auto;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-4px);
+  transition: opacity 120ms ease, transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  width: 20px;
+}
+
+.hub-settings-overview-trigger:is(:hover, :focus-visible) .hub-settings-overview-icon {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.hub-settings-overview-trigger:is(:hover, :focus-visible) {
+  color: var(--hub-accent);
+  outline: 0;
+}
+
+.hub-settings-overview-trigger:focus-visible .hub-settings-overview-title {
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+  text-underline-offset: 4px;
+}
+
+.hub-settings-overview-stack:has(.hub-settings-overview-trigger:is(:hover, :focus-visible))
+  .hub-settings-overview-trigger:not(:hover):not(:focus-visible) {
+  opacity: 0.38;
+}
+
+.hub-settings-detail-toolbar {
+  display: flex;
+}
+
+.hub-settings-back-row {
+  margin: 0 24px 8px;
+}
+
+.hub-settings-detail-title {
+  align-items: center;
+  color: var(--hub-ink);
+  display: flex;
+  flex: 1 1 auto;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  margin: 0;
+  min-width: 0;
+  min-height: 20px;
+}
+
+.hub-settings-detail-icon {
+  color: var(--hub-accent);
+  flex: 0 0 16px;
+  height: 16px;
+  width: 16px;
+}
+
+.hub-settings-detail {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.hub-settings-subview-stack {
+  padding: 0;
+}
+
+/* Opening a drawer can make Settings cross the vertical-overflow threshold.
+   Let the themed scrollbar consume only the existing trailing padding so it
+   overlays that quiet edge instead of narrowing and shifting the controls. */
+.hub-content-scroll.is-settings-scroll {
+  overflow-x: hidden;
+  padding-right: max(0px, calc(16px - var(--hub-settings-scrollbar-width, 0px)));
 }
 
 .hub-settings-heading {
-  color: var(--hub-muted);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  line-height: 14px;
-  margin: 0 0 9px;
-  text-transform: uppercase;
+  margin: 0;
 }
 
 .hub-settings-row {
@@ -68,7 +156,7 @@
   text-transform: uppercase;
 }
 
-.hub-settings-inline-field:first-child .hub-settings-select {
+.hub-settings-inline-field:not(:last-child) .hub-settings-select {
   max-width: 96px;
 }
 
@@ -80,6 +168,240 @@
   border-top: 0;
   margin-top: 10px;
   padding-top: 0;
+}
+
+.hub-settings-group {
+  background: color-mix(in srgb, var(--hub-card-ink) 2%, var(--hub-card));
+  border: 1px solid transparent;
+  border-radius: 4px;
+  margin-top: 0;
+  padding: 12px;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.hub-settings-group:is(:hover, :focus-within) {
+  background: color-mix(in srgb, var(--hub-card-accent) 3%, var(--hub-card));
+  border-color: color-mix(in srgb, var(--hub-card-accent) 18%, transparent);
+}
+
+.hub-settings-group + .hub-settings-group {
+  margin-top: 0;
+}
+
+.hub-settings-detail > .hub-settings-group {
+  margin-top: 0;
+}
+
+.hub-settings-disclosure {
+  overflow: hidden;
+  padding: 0;
+}
+
+.hub-settings-disclosure:has(:is(.hub-theme-picker, .hub-settings-picker).is-open) {
+  overflow: visible;
+  position: relative;
+  z-index: 10;
+}
+
+.hub-settings-disclosure-trigger {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--hub-card-ink);
+  cursor: pointer;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 16px minmax(0, 1fr) 14px;
+  min-height: 56px;
+  padding: 11px 16px 11px 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.hub-settings-disclosure-icon {
+  color: var(--hub-card-accent);
+  height: 16px;
+  opacity: 0.86;
+  width: 16px;
+}
+
+.hub-settings-disclosure-trigger:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--hub-control-focus);
+  outline: 0;
+}
+
+.hub-settings-disclosure-copy {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.hub-settings-disclosure-title {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.hub-settings-disclosure-description {
+  color: var(--hub-card-muted);
+  font-size: 10.5px;
+  line-height: 14px;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.hub-settings-disclosure-trigger:is(:hover, :focus-visible) .hub-settings-disclosure-description,
+.hub-settings-disclosure.is-open .hub-settings-disclosure-description {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .hub-settings-disclosure-description {
+    opacity: 1;
+  }
+}
+
+.hub-settings-disclosure-chevron {
+  color: var(--hub-card-muted);
+  justify-self: center;
+  transform: rotate(0deg);
+  transition: color 140ms ease, transform 140ms ease;
+}
+
+.hub-settings-disclosure-trigger:is(:hover, :focus-visible) .hub-settings-disclosure-chevron {
+  color: var(--hub-card-accent);
+}
+
+.hub-settings-disclosure.is-open .hub-settings-disclosure-chevron {
+  transform: rotate(180deg);
+}
+
+.hub-settings-disclosure-content {
+  display: grid;
+  gap: 0;
+  padding: 0 12px 12px;
+}
+
+.hub-settings-disclosure-content[hidden] {
+  display: none;
+}
+
+.hub-settings-subsection {
+  border-radius: 3px;
+  min-width: 0;
+  padding: 10px 0;
+  transition: background-color 140ms ease;
+}
+
+.hub-settings-subsection + .hub-settings-subsection {
+  border-top: 1px solid color-mix(in srgb, var(--hub-card-ink) 8%, transparent);
+}
+
+.hub-settings-subsection:is(:hover, :focus-within) {
+  background: color-mix(in srgb, var(--hub-card-accent) 2%, transparent);
+}
+
+.hub-settings-disclosure-content > .hub-settings-subsection:first-child {
+  padding-top: 4px;
+}
+
+.hub-settings-disclosure-content > .hub-settings-subsection:last-child {
+  padding-bottom: 2px;
+}
+
+.hub-theme-settings-group.hub-settings-disclosure-content,
+.hub-page-appearance-settings.hub-settings-disclosure-content {
+  padding-top: 4px;
+}
+
+.hub-appearance-mode-row {
+  display: block;
+  padding: 0 0 10px;
+}
+
+.hub-appearance-mode-row .hub-settings-segmented {
+  width: 100%;
+}
+
+.hub-music-bar-settings {
+  display: grid;
+  gap: 14px;
+}
+
+.hub-dj-settings {
+  display: grid;
+  gap: 10px;
+}
+
+.hub-dj-settings > .hub-dj-secondary-row {
+  margin-left: 0;
+}
+
+.hub-dj-secondary-row[hidden] {
+  display: none;
+}
+
+.hub-theme-settings-group {
+  display: grid;
+  gap: 10px;
+}
+
+.hub-page-appearance-settings {
+  display: grid;
+  gap: 0;
+  margin-top: 12px;
+}
+
+.hub-page-appearance-copy {
+  margin-bottom: 4px;
+}
+
+.hub-music-bar-settings-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hub-music-bar-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.hub-music-bar-field-label {
+  color: var(--hub-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hub-music-bar-field .hub-settings-select {
+  max-width: none;
+  width: 100%;
+}
+
+.hub-music-bar-field .hub-settings-width-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.hub-music-bar-field .hub-settings-width-control > .hub-settings-select {
+  min-width: 0;
+}
+
+.hub-music-bar-field .hub-settings-width-control.is-custom {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr) auto;
+}
+
+.hub-music-bar-field .hub-settings-width-control.is-custom > .hub-settings-number {
+  min-width: 0;
+  width: 100%;
+}
+
+.hub-music-bar-field .hub-settings-width-control.is-custom > .hub-settings-select {
+  background-position: right 10px center, right 5px center;
+  padding-right: 20px;
 }
 
 .hub-settings-select {
@@ -101,210 +423,77 @@
   padding: 5px 34px 5px 8px;
 }
 
-.hub-settings-width-control {
-  align-items: center;
-  display: flex;
-  gap: 5px;
-  justify-content: flex-end;
-}
-
-.hub-settings-number {
-  background: var(--hub-panel);
-  border: 1px solid var(--hub-line);
-  border-radius: 4px;
-  color: var(--hub-ink);
-  font-size: 11px;
-  height: 30px;
-  padding: 5px 6px;
-  width: 70px;
-}
-
-.hub-settings-number:focus-visible {
-  border-color: var(--hub-accent);
-  outline: 2px solid var(--hub-accent-soft);
-  outline-offset: 1px;
-}
-
-.hub-settings-unit {
-  color: var(--hub-muted);
-  font-size: 10px;
-}
-
-.hub-settings-number[hidden],
-.hub-settings-unit[hidden] {
-  display: none;
-}
-
-.hub-settings-copy {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.hub-settings-copy strong {
-  color: var(--hub-ink);
-  font-size: 12px;
-  line-height: 16px;
-}
-
-.hub-settings-copy span,
-.hub-settings-note {
-  color: var(--hub-muted);
-  font-size: 11px;
-  line-height: 15px;
-}
-
-.hub-settings-badge,
-.hub-settings-version {
-  border-radius: 999px;
-  flex: 0 0 auto;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 4px 7px;
-}
-
-.hub-settings-badge {
-  background: var(--hub-line);
-  color: var(--hub-muted);
-}
-
-.hub-settings-copy .hub-settings-version {
-  background: var(--hub-control-bg);
-  border: 1px solid var(--hub-control-border);
-  color: var(--hub-control-fg);
-}
-
-.hub-settings-badge.is-active {
-  background: var(--hub-accent-soft);
-  color: var(--hub-accent);
-}
-
-.hub-settings-toggle {
-  background: var(--hub-panel);
-  border: 1px solid var(--hub-line);
-  border-radius: 999px;
-  cursor: pointer;
-  flex: 0 0 auto;
-  height: 22px;
-  padding: 2px;
-  position: relative;
-  transition: background 150ms ease;
-  width: 38px;
-}
-
-.hub-settings-toggle.is-active {
-  background: var(--hub-panel);
-}
-
-.hub-settings-toggle-thumb {
-  background: var(--hub-muted);
-  border-radius: 999px;
+.hub-panel-caret {
+  background: currentColor;
   display: block;
-  height: 16px;
-  transform: translateX(0);
-  transition: transform 150ms ease;
-  width: 16px;
+  height: 12px;
+  mask: var(--hub-icon) center / contain no-repeat;
+  -webkit-mask: var(--hub-icon) center / contain no-repeat;
+  width: 12px;
 }
 
-.hub-settings-toggle.is-active .hub-settings-toggle-thumb {
-  background: var(--hub-accent);
-  transform: translateX(16px);
-}
-
-.hub-settings-field-label {
-  color: var(--hub-muted);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  margin: 12px 0 6px;
-  text-transform: uppercase;
-}
-
-.hub-appearance-mode-row {
-  align-items: end;
-}
-
-.hub-settings-segmented {
-  background: var(--hub-panel);
-  border: 1px solid var(--hub-line);
-  border-radius: 5px;
-  display: grid;
-  flex: 0 0 auto;
-  gap: 2px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  padding: 2px;
-}
-
-.hub-settings-segment {
-  background: var(--hub-panel);
-  border: 1px solid transparent;
-  border-radius: 3px;
-  color: var(--hub-ink);
-  cursor: pointer;
-  font-size: 10px;
-  font-weight: 700;
-  min-height: 27px;
-  padding: 5px 9px;
-  white-space: nowrap;
-  width: auto;
-}
-
-.hub-settings-segment:hover,
-.hub-settings-segment:focus-visible {
-  color: var(--hub-card-accent);
-}
-
-.hub-settings-segment:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--hub-control-focus) 36%, transparent);
-  outline: 1px solid var(--hub-control-focus);
-  outline-offset: 1px;
-}
-
-.hub-settings-segment.is-active {
-  background: color-mix(in srgb, var(--hub-accent) 12%, var(--hub-panel));
-  border-color: var(--hub-accent);
-  box-shadow: none;
-  color: var(--hub-accent);
-}
-
-.hub-theme-picker-field {
-  margin-top: 10px;
-}
-
-.hub-theme-picker-field .hub-settings-field-label {
-  margin-top: 0;
-}
-
-.hub-theme-picker {
+.hub-settings-picker {
+  flex: 0 0 168px;
   position: relative;
-  z-index: 5;
+  z-index: 6;
 }
 
-.hub-theme-combobox {
+.hub-settings-picker.is-open,
+.hub-theme-picker.is-open {
+  z-index: 100;
+}
+
+.hub-settings-combobox {
   align-items: center;
+  appearance: none;
   background: var(--hub-panel);
   border: 1px solid var(--hub-line);
   border-radius: 4px;
   color: var(--hub-ink);
   cursor: pointer;
   display: grid;
-  gap: 9px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 7px;
+  grid-template-columns: minmax(0, 1fr) 12px;
   min-height: 34px;
-  padding: 5px 9px;
-  text-align: left;
+  padding: 4px 8px;
+  text-align: right;
   width: 100%;
 }
 
-.hub-theme-combobox:hover,
-.hub-theme-combobox:focus-visible,
-.hub-theme-picker.is-open .hub-theme-combobox {
+.hub-settings-picker.has-preview .hub-settings-combobox {
+  grid-template-columns: 26px minmax(0, 1fr) 12px;
+  text-align: left;
+}
+
+.hub-settings-combobox:is(:hover, :focus-visible),
+.hub-settings-picker.is-open .hub-settings-combobox {
   border-color: var(--hub-accent);
   outline: 0;
 }
 
-.hub-theme-combobox-label,
-.hub-theme-option-label {
+.hub-settings-combobox-preview:empty,
+.hub-settings-picker-option-preview:empty,
+.hub-settings-picker-option-trailing:empty {
+  display: none;
+}
+
+/* A quiet end-of-row marker. It carries its own accessible name, so it reads as
+   provenance rather than as a control inside the option. */
+.hub-settings-picker-option-trailing {
+  align-items: center;
+  color: var(--hub-faint);
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+.hub-settings-picker-option:is(:hover, :focus-visible) .hub-settings-picker-option-trailing,
+.hub-settings-picker-option.is-selected .hub-settings-picker-option-trailing {
+  color: currentColor;
+}
+
+.hub-settings-combobox-label,
+.hub-settings-picker-option-label {
   font-size: 11px;
   font-weight: 700;
   min-width: 0;
@@ -313,58 +502,59 @@
   white-space: nowrap;
 }
 
-.hub-theme-combobox-chevron {
-  border-bottom: 1.5px solid currentColor;
-  border-right: 1.5px solid currentColor;
-  height: 7px;
-  margin: -3px 3px 0 7px;
-  transform: rotate(45deg);
-  transition: transform 120ms ease, margin 120ms ease;
-  width: 7px;
+.hub-settings-combobox-chevron {
+  transition: transform 140ms ease;
 }
 
-.hub-theme-picker.is-open .hub-theme-combobox-chevron {
-  margin-top: 3px;
-  transform: rotate(225deg);
+.hub-settings-picker.is-open .hub-settings-combobox-chevron {
+  transform: rotate(180deg);
 }
 
-.hub-theme-option-palette {
-  border: 1px solid color-mix(in srgb, var(--hub-ink) 18%, transparent);
-  border-radius: 3px;
-  display: grid;
-  flex: 0 0 auto;
-  grid-template-columns: repeat(4, 1fr);
-  height: 17px;
-  overflow: hidden;
-  width: 58px;
-}
-
-.hub-theme-option-swatch {
-  display: block;
-}
-
-.hub-theme-options {
+.hub-settings-picker-options {
   background: var(--hub-panel);
-  border: 1px solid var(--hub-line);
+  border: 1px solid color-mix(in srgb, var(--hub-line) 20%, var(--hub-panel));
   border-radius: 5px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  box-shadow: none;
   display: grid;
   gap: 2px;
-  left: 0;
   margin-top: 4px;
-  max-height: 230px;
+  max-height: min(350px, 60vh);
+  min-width: 100%;
   overflow-y: auto;
   padding: 4px;
   position: absolute;
   right: 0;
   top: 100%;
+  width: max-content;
 }
 
-.hub-theme-options[hidden] {
+/* Open settings menus are portalled to the shadow root so they overlay the
+   panel instead of increasing the settings scroller's layout height. */
+:host > :is(.hub-settings-picker-options, .hub-theme-options) {
+  box-sizing: border-box;
+}
+
+.hub-settings-picker-options[hidden] {
   display: none;
 }
 
-.hub-theme-option {
+/* Keep the Handle field compact in the settings row, but give its portalled
+   list enough room for full shape names and a stable preview/label layout. */
+:host > .hub-scrub-handle-picker-options {
+  overflow-x: hidden;
+  width: min(220px, calc(100vw - 16px));
+}
+
+:host > .hub-scrub-handle-picker-options .hub-settings-picker-option {
+  grid-template-columns: 26px minmax(0, 1fr);
+}
+
+:host > .hub-scrub-handle-picker-options .hub-settings-picker-option-label {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.hub-settings-picker-option {
   align-items: center;
   background: transparent;
   border: 0;
@@ -372,504 +562,159 @@
   color: var(--hub-ink);
   cursor: pointer;
   display: grid;
-  gap: 9px;
-  grid-template-columns: auto minmax(0, 1fr) 14px;
-  min-height: 31px;
-  padding: 5px;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 34px;
+  padding: 4px 6px;
+  text-align: left;
+  transition: color 140ms ease, opacity 140ms ease;
+  width: 100%;
+}
+
+.hub-settings-picker.has-preview .hub-settings-picker-option,
+.hub-settings-picker-options.has-preview .hub-settings-picker-option {
+  grid-template-columns: 26px minmax(0, 1fr);
+}
+
+.hub-settings-picker-options.has-preview .hub-settings-picker-option.has-no-option-preview {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.hub-settings-picker-option:is(:hover, :focus-visible) {
+  background: transparent;
+  color: var(--hub-accent);
+  outline: 0;
+}
+
+.hub-settings-picker-option.is-selected {
+  color: var(--hub-accent);
+}
+
+.hub-settings-picker-option.is-selected .hub-settings-picker-option-label {
+  font-weight: 800;
+}
+
+.hub-settings-picker-options:has(.hub-settings-picker-option:is(:hover, :focus-visible))
+  .hub-settings-picker-option:not(:hover, :focus-visible) {
+  opacity: 0.38;
+}
+
+.hub-scrub-handle-picker {
+  flex: 0 0 168px;
+  position: relative;
+  z-index: 6;
+}
+
+.hub-scrub-handle-combobox {
+  align-items: center;
+  background: var(--hub-panel);
+  border: 1px solid var(--hub-line);
+  border-radius: 4px;
+  color: var(--hub-ink);
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  min-height: 34px;
+  padding: 4px 8px;
   text-align: left;
   width: 100%;
 }
 
-.hub-theme-option:hover,
-.hub-theme-option:focus-visible {
-  background: var(--hub-accent-soft);
+.hub-scrub-handle-combobox:is(:hover, :focus-visible),
+.hub-scrub-handle-picker.is-open .hub-scrub-handle-combobox {
+  border-color: var(--hub-accent);
   outline: 0;
 }
 
-.hub-theme-option-check {
-  color: var(--hub-accent);
+.hub-scrub-handle-combobox-label,
+.hub-scrub-handle-option-label {
   font-size: 11px;
-  opacity: 0;
-  text-align: center;
-}
-
-.hub-theme-option.is-selected .hub-theme-option-check {
-  opacity: 1;
-}
-
-.hub-theme-presets {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: repeat(4, 1fr);
-}
-
-.hub-theme-sharing-row {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 8px;
-}
-
-.hub-theme-management-row {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 8px;
-}
-
-.hub-settings-action.hub-theme-management-action {
-  margin-top: 0;
-  width: 100%;
-}
-
-.hub-settings-action.hub-theme-management-action.is-danger {
-  border-color: color-mix(in srgb, #b42318 45%, var(--hub-line));
-  color: #b42318;
-}
-
-.hub-settings-action.hub-theme-sharing-action {
-  align-items: center;
-  display: inline-flex;
-  gap: 6px;
-  justify-content: center;
-  margin-top: 0;
-  min-width: 0;
-  width: 100%;
-}
-
-.hub-theme-sharing-action .hub-button-icon {
-  flex: 0 0 auto;
-}
-
-.hub-theme-preset {
-  align-items: stretch;
-  background: var(--theme-background, var(--hub-card-footer));
-  border: 1px solid var(--hub-line);
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  min-height: 68px;
-  overflow: hidden;
-  padding: 0;
-  position: relative;
-}
-
-.hub-theme-preset.is-active {
-  border-color: var(--hub-accent);
-  box-shadow: inset 0 0 0 2px var(--hub-accent), 0 0 0 1px var(--hub-panel);
-}
-
-.hub-theme-preview {
-  background: var(--theme-background);
-  inset: 0;
-  overflow: hidden;
-  position: absolute;
-}
-
-.hub-theme-preview::before {
-  background: var(--theme-surface);
-  border: 1px solid color-mix(in srgb, var(--theme-text) 18%, transparent);
-  border-radius: 4px 0 0 0;
-  bottom: 21px;
-  content: "";
-  left: 18px;
-  position: absolute;
-  right: 0;
-  top: 9px;
-}
-
-.hub-theme-preview::after {
-  background: var(--theme-accent);
-  border-radius: 999px;
-  content: "";
-  height: 7px;
-  left: 6px;
-  position: absolute;
-  top: 8px;
-  width: 7px;
-}
-
-.hub-theme-preset-label {
-  background: color-mix(in srgb, var(--theme-panel) 92%, transparent);
-  color: var(--theme-text);
-  font-size: 10px;
   font-weight: 700;
-  line-height: 14px;
+  min-width: 0;
   overflow: hidden;
-  padding: 4px 3px;
-  position: relative;
   text-overflow: ellipsis;
   white-space: nowrap;
-  z-index: 2;
 }
 
-.hub-theme-preset.is-custom .hub-theme-preview {
-  background: linear-gradient(135deg, var(--theme-background) 0 42%, var(--theme-accent) 42% 52%, var(--theme-surface) 52% 100%);
+.hub-scrub-handle-preview {
+  display: block;
+  height: 24px;
+  position: relative;
+  width: 24px;
 }
 
-.hub-theme-preset.is-custom .hub-theme-preview::before {
-  background: color-mix(in srgb, var(--theme-panel) 72%, transparent);
-  border-style: dashed;
-}
-
-.hub-theme-preset.is-custom .hub-theme-preview::after {
-  background: conic-gradient(var(--theme-accent), var(--theme-surface), var(--theme-background), var(--theme-accent));
-  height: 13px;
-  left: 6px;
-  top: 7px;
-  width: 13px;
-}
-
-.hub-theme-custom-mark {
-  background: var(--theme-text);
-  height: 13px;
-  mask: var(--hub-icon) center / contain no-repeat;
-  -webkit-mask: var(--hub-icon) center / contain no-repeat;
+.hub-scrub-handle-preview::before,
+.hub-scrub-handle-preview::after {
+  content: "";
+  inset: 1px;
+  mask: var(--hub-scrub-handle-option-mask) center / contain no-repeat;
   position: absolute;
-  right: 7px;
-  top: 7px;
-  width: 13px;
-  z-index: 2;
+  -webkit-mask: var(--hub-scrub-handle-option-mask) center / contain no-repeat;
 }
 
-.hub-theme-accessibility {
-  align-items: center;
+.hub-scrub-handle-preview::before {
+  background: var(--hub-scrub-surface);
+}
+
+.hub-scrub-handle-preview::after {
+  background: var(--hub-scrub-accent);
+  inset: 4px;
+}
+
+.hub-scrub-handle-options {
   background: var(--hub-panel);
-  border: 1px solid var(--hub-line);
+  border: 1px solid color-mix(in srgb, var(--hub-line) 20%, var(--hub-panel));
   border-radius: 5px;
-  color: var(--hub-ink);
-  display: flex;
-  gap: 7px;
-  justify-content: space-between;
-  margin-top: 14px;
-  padding: 8px 10px;
-}
-
-.hub-theme-accessibility strong {
-  font-size: 11px;
-  line-height: 15px;
-}
-
-.hub-theme-accessibility span {
-  color: var(--hub-muted);
-  font-size: 10px;
-  line-height: 15px;
-  text-align: right;
-}
-
-.hub-theme-accessibility.is-adjusted strong {
-  color: var(--hub-accent);
-}
-
-.hub-custom-colours {
+  box-shadow: none;
   display: grid;
-  gap: 6px;
-  grid-template-columns: repeat(2, 1fr);
-}
-
-.hub-custom-theme-panel {
-  border-top: 0;
-  margin-top: 14px;
-  padding-top: 0;
-}
-
-.hub-save-theme-row {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  margin-top: 7px;
-}
-
-.hub-theme-name {
-  background: var(--hub-panel);
-  border: 1px solid var(--hub-line);
-  border-radius: 4px;
-  color: var(--hub-ink);
-  font-size: 12px;
-  min-width: 0;
-  padding: 6px 8px;
-}
-
-.hub-theme-name::placeholder {
-  color: var(--hub-faint);
-}
-
-.hub-settings-action.hub-save-theme {
-  margin-top: 0;
-  white-space: nowrap;
-  width: auto;
-}
-
-.hub-colour-field {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-bottom: 0;
-  border-radius: 0;
-  color: var(--hub-muted);
-  display: flex;
-  font-size: 12px;
-  justify-content: space-between;
-  padding: 5px 2px;
-}
-
-.hub-colour-field.is-linked-colour {
-  grid-column: 1 / -1;
-}
-
-.hub-colour-field input {
-  background: var(--hub-panel);
-  border: 1px solid var(--hub-line);
-  border-radius: 3px;
-  cursor: pointer;
-  height: 23px;
-  padding: 0;
-  width: 31px;
-}
-
-.hub-colour-controls {
-  align-items: center;
-  display: flex;
-  gap: 6px;
-}
-
-.hub-colour-link {
-  background: transparent;
-  border: 0;
-  color: var(--hub-accent);
-  cursor: pointer;
-  font: inherit;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 3px 0;
-}
-
-.hub-colour-link:disabled {
-  color: var(--hub-faint);
-  cursor: default;
-}
-
-.hub-settings-action {
-  align-items: center;
-  background: transparent;
-  border: 1px solid var(--hub-line);
-  border-radius: 4px;
-  color: var(--hub-accent);
-  cursor: pointer;
-  display: inline-flex;
-  font-size: 12px;
-  font-weight: 700;
-  justify-content: center;
-  margin-top: 10px;
-  min-height: 36px;
-  padding: 7px 10px;
-  text-decoration: none;
+  gap: 2px;
+  margin-top: 4px;
+  max-height: min(350px, 60vh);
+  overflow-y: auto;
+  padding: 4px;
+  position: absolute;
+  right: 0;
+  top: 100%;
   width: 100%;
 }
 
-.hub-settings-action:hover {
-  background: var(--hub-hover);
+.hub-scrub-handle-options[hidden] {
+  display: none;
 }
 
-.hub-settings-feedback-actions {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.hub-backup-actions {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 6px;
-}
-
-.hub-backup-row {
-  align-items: flex-start;
-  background: var(--hub-panel);
-  border: 1px solid var(--hub-line);
-  border-radius: 6px;
-  padding: 10px;
-}
-
-.hub-settings-action.hub-backup-action {
-  flex: 0 0 auto;
-  font-size: 11px;
-  height: 30px;
-  margin: 0;
-  min-height: 30px;
-  padding: 4px 10px;
-  width: auto;
-}
-
-.hub-settings-action.hub-backup-action:disabled {
-  cursor: wait;
-  opacity: 0.65;
-}
-
-.hub-backup-location {
-  overflow-wrap: anywhere;
-}
-
-.hub-backup-frequency-row {
-  margin-top: 12px;
-}
-
-.hub-settings-action.hub-settings-danger {
-  border-color: color-mix(in srgb, #c62828 42%, var(--hub-line));
-  color: #b42318;
-}
-
-.hub-settings-action.hub-settings-danger:disabled {
-  cursor: wait;
-  opacity: 0.65;
-}
-
-.hub-settings-note {
-  margin: 9px 0 0;
-}
-
-.hub-about-brand {
-  justify-content: flex-start;
-  margin-top: 14px;
-}
-
-.hub-about-brand-icon {
-  flex: 0 0 auto;
-  height: 34px;
-  object-fit: contain;
-  width: 34px;
-}
-
-.hub-support-card {
-  padding-bottom: 8px;
-}
-
-.hub-support-copy {
-  margin-bottom: 10px;
-}
-
-.hub-settings-action.hub-support-action {
-  background: var(--hub-accent);
-  border-color: var(--hub-accent);
-  color: var(--hub-on-accent);
-  margin-top: 0;
-}
-
-.hub-settings-action.hub-support-action:hover {
-  background: color-mix(in srgb, var(--hub-accent) 88%, var(--hub-ink));
-}
-
-.hub-player {
-  background: var(--hub-card);
-  border-top: 1px solid color-mix(in srgb, var(--hub-ink) 28%, var(--hub-card));
-  bottom: 0;
-  height: var(--hub-player-height);
-  left: 0;
-  position: fixed;
-  right: 0;
-  width: 100vw;
-  z-index: 2147483647;
-}
-
-.hub-player-content {
-  display: grid;
-  grid-template-rows: 58px 38px;
-  height: 100%;
-  margin: 0 auto;
-  max-width: 800px;
-  width: min(calc(100% - 48px), calc(100% - 704px));
-}
-.hub-backup-reminder {
+.hub-scrub-handle-option {
   align-items: center;
-  background: color-mix(in srgb, var(--hub-accent) 9%, var(--hub-card));
-  border: 1px solid color-mix(in srgb, var(--hub-accent) 28%, var(--hub-line));
-  border-radius: 10px;
-  color: var(--hub-ink);
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-  margin: 8px 0 4px;
-  padding: 10px 12px;
-}
-
-.hub-backup-reminder-heading {
-  color: var(--hub-ink);
-  display: block;
-  font-size: 14px;
-  line-height: 1.35;
-  margin: 0 0 1px;
-}
-
-.hub-backup-reminder-copy {
-  color: var(--hub-muted);
-  font-size: 12px;
-  line-height: 1.45;
-  min-width: 0;
-}
-
-.hub-backup-reminder-save {
-  background: var(--hub-accent);
-  border: 1px solid var(--hub-accent);
-  border-radius: 7px;
-  color: var(--hub-on-accent);
-  cursor: pointer;
-  font-weight: 750;
-  flex: 0 0 auto;
-  min-height: 34px;
-  padding: 0 12px;
-}
-
-.hub-backup-reminder-save:hover:not(:disabled) {
-  filter: brightness(0.92);
-}
-
-.hub-backup-reminder-save:focus-visible {
-  outline: 3px solid var(--hub-accent-soft);
-  outline-offset: 3px;
-}
-
-.hub-backup-reminder-save:disabled {
-  cursor: wait;
-  opacity: 0.68;
-}
-
-.hub-backup-reminder.is-saved {
-  background: color-mix(in srgb, #24a56a 10%, var(--hub-card));
-  border-color: color-mix(in srgb, #24a56a 42%, var(--hub-line));
-}
-
-.hub-backup-reminder-actions {
-  align-items: center;
-  display: flex;
-  flex: 0 0 auto;
-  gap: 4px;
-}
-
-.hub-backup-reminder-later {
   background: transparent;
   border: 0;
-  border-radius: 6px;
-  color: var(--hub-muted);
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  min-height: 34px;
-  padding: 0 6px;
-}
-
-.hub-backup-reminder-later:hover {
+  border-radius: 3px;
   color: var(--hub-ink);
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 26px minmax(0, 1fr);
+  min-height: 34px;
+  padding: 4px 6px;
+  text-align: left;
+  transition: color 140ms ease, opacity 140ms ease;
+  width: 100%;
 }
 
-.hub-backup-reminder-later:focus-visible {
-  outline: 3px solid var(--hub-accent-soft);
-  outline-offset: 2px;
+.hub-scrub-handle-option:is(:hover, :focus-visible) {
+  background: transparent;
+  color: var(--hub-accent);
+  outline: 0;
 }
 
-.hub-backup-frequency {
-  flex: 0 0 auto;
-  min-width: 142px;
+.hub-scrub-handle-option.is-selected {
+  color: var(--hub-accent);
+}
+
+.hub-scrub-handle-option.is-selected .hub-scrub-handle-option-label {
+  font-weight: 800;
+}
+
+.hub-scrub-handle-options:has(.hub-scrub-handle-option:is(:hover, :focus-visible))
+  .hub-scrub-handle-option:not(:hover, :focus-visible) {
+  opacity: 0.38;
 }

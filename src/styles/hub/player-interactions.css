@@ -1,0 +1,537 @@
+.hub-player .hub-player-actions .hub-skip-button:is(:hover, :focus-visible) {
+  transform: scale(1.16);
+}
+
+.hub-skip-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--hub-playback-color, var(--hub-accent)) 42%, transparent);
+  outline-offset: -4px;
+}
+
+.hub-skip-button:disabled {
+  color: var(--hub-muted);
+  cursor: default;
+  opacity: 0.4;
+}
+
+.hub-skip-icon {
+  background: currentColor;
+  height: 16px;
+  mask: var(--hub-skip-icon) center / contain no-repeat;
+  -webkit-mask: var(--hub-skip-icon) center / contain no-repeat;
+  width: 16px;
+}
+
+.hub-previous-button .hub-skip-icon {
+  transform: rotate(180deg);
+}
+
+.hub-scrub-row {
+  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-self: center;
+  max-width: 100%;
+  min-width: min(420px, 100%);
+  padding: 0;
+  transition: width 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  width: min(64%, 1040px);
+}
+
+.hub-player[data-scrubber-width="small"] .hub-scrub-row {
+  min-width: min(280px, 100%);
+  width: min(40%, 680px);
+}
+
+.hub-player[data-scrubber-width="full"] .hub-scrub-row {
+  min-width: 0;
+  width: 100%;
+}
+
+.hub-scrub-time-readout {
+  align-items: center;
+  bottom: calc(100% - 1px);
+  color: var(--hub-muted);
+  display: flex;
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  justify-content: space-between;
+  left: 0;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  transform: translateY(3px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  white-space: nowrap;
+  z-index: 3;
+}
+
+.hub-scrub-control:hover .hub-scrub-time-readout,
+.hub-scrub-control:focus-within .hub-scrub-time-readout {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* The standard bar has ~5px of slack above the timeline for this readout; the
+   compact bar has none, so the times landed on the artist/album line. The band
+   the readout needs is the one the secondary line occupies, so in compact that
+   line yields while the readout is showing. The title stays put, nothing moves,
+   and this holds for every player style, which only changes the shell around
+   this grid. */
+.hub-player.is-compact .hub-player-main:has(.hub-scrub-control:is(:hover, :focus-within)) .hub-player-secondary {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.hub-player.is-compact .hub-player-secondary {
+  transition: opacity 120ms ease;
+}
+
+.hub-scrub-control {
+  --hub-scrub-progress: 0%;
+  align-items: center;
+  display: flex;
+  height: 28px;
+  min-width: 0;
+  position: relative;
+  touch-action: none;
+  width: 100%;
+}
+
+.hub-scrub-slider {
+  height: 28px;
+  inset: 0;
+  opacity: 0;
+  position: absolute;
+  z-index: 2;
+  cursor: pointer;
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.hub-scrub-waveform {
+  display: block;
+  height: 24px;
+  overflow: visible;
+  pointer-events: none;
+  width: 100%;
+}
+
+.hub-player.is-compact .hub-player-sections .hub-header-shortcuts,
+.hub-player.is-compact .hub-player-sections .hub-header-shortcut,
+.hub-player.is-compact .hub-player-sections .hub-now-playing-button {
+  height: 34px;
+}
+
+.hub-player.is-compact .hub-player-sections :is(.hub-header-shortcut, .hub-now-playing-button) {
+  width: 34px;
+}
+
+.hub-player.is-compact .hub-player-sections :is(.hub-header-shortcut-icon, .hub-now-playing-icon) {
+  height: 18px;
+  width: 18px;
+}
+
+.hub-scrub-waveform path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 2.4;
+}
+
+.hub-scrub-waveform-remaining {
+  filter: none;
+  mix-blend-mode: var(--hub-visualizer-blend-mode, normal);
+  stroke: color-mix(in srgb, var(--hub-scrub-remaining) 72%, var(--hub-panel-ink) 28%);
+}
+
+.hub-scrub-waveform-played {
+  clip-path: inset(0 calc(100% - var(--hub-scrub-progress)) 0 0);
+  stroke: var(--hub-timeline-color, var(--hub-scrub-accent));
+}
+
+.hub-scrub-playhead {
+  background: transparent;
+  border: 0;
+  height: 22px;
+  left: var(--hub-scrub-progress);
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.75);
+  transition: opacity 120ms ease, transform 140ms ease;
+  width: 22px;
+  z-index: 1;
+}
+
+.hub-scrub-playhead::before,
+.hub-scrub-playhead::after {
+  content: "";
+  inset: 0;
+  mask: var(--hub-scrub-handle-mask) center / contain no-repeat;
+  position: absolute;
+  -webkit-mask: var(--hub-scrub-handle-mask) center / contain no-repeat;
+}
+
+.hub-scrub-playhead::before {
+  background: var(--hub-scrub-surface);
+}
+
+.hub-scrub-playhead::after {
+  background: var(--hub-handle-color, var(--hub-scrub-accent));
+  inset: 4px;
+}
+
+.hub-scrub-control:hover .hub-scrub-playhead,
+.hub-scrub-slider:focus-visible ~ .hub-scrub-playhead,
+.hub-scrub-slider:active ~ .hub-scrub-playhead {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+@keyframes hub-pending-seek-pulse {
+  0%, 100% { opacity: 0.72; }
+  50% { opacity: 1; }
+}
+
+.hub-scrub-control.is-pending-seek .hub-scrub-playhead {
+  animation: hub-pending-seek-pulse 900ms ease-in-out infinite;
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.hub-scrub-control.is-pending-seek .hub-scrub-waveform {
+  opacity: 0.72;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-scrub-control.is-pending-seek .hub-scrub-playhead {
+    animation: none;
+  }
+}
+
+.hub-scrub-control.is-traditional::before,
+.hub-scrub-control.is-traditional::after {
+  border-radius: 999px;
+  content: "";
+  height: 4px;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.hub-scrub-control.is-traditional::before {
+  background: var(--hub-scrub-remaining);
+  right: 0;
+}
+
+.hub-scrub-control.is-traditional::after {
+  background: var(--hub-timeline-color, var(--hub-scrub-accent));
+  width: var(--hub-scrub-progress);
+}
+
+.hub-scrub-control.is-traditional .hub-scrub-waveform {
+  opacity: 0;
+}
+
+.hub-scrub-control.is-traditional .hub-scrub-playhead {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.75);
+}
+
+.hub-scrub-control.is-traditional:hover .hub-scrub-playhead,
+.hub-scrub-control.is-traditional .hub-scrub-slider:focus-visible ~ .hub-scrub-playhead,
+.hub-scrub-control.is-traditional .hub-scrub-slider:active ~ .hub-scrub-playhead {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.hub-scrub-control.is-traditional.is-pending-seek .hub-scrub-playhead {
+  opacity: 1;
+}
+
+.hub-scrub-slider:focus-visible + .hub-scrub-waveform {
+  border-radius: 4px;
+  outline: 2px solid color-mix(in srgb, var(--hub-scrub-accent) 62%, transparent);
+  outline-offset: 2px;
+}
+
+.hub-scrub-control.is-empty {
+  opacity: 0.5;
+}
+
+.hub-scrub-control.is-empty .hub-scrub-slider {
+  cursor: default;
+}
+
+:is(.hub-settings-slider, .hub-dj-page-tempo-input, .hub-dj-fader-input, .hub-dj-vertical-tempo)::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--hub-handle-color, var(--hub-scrub-accent));
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  filter: none;
+  height: 20px;
+  margin-top: -8px;
+  mask: var(--hub-scrub-handle-mask) center / contain no-repeat;
+  width: 20px;
+  -webkit-mask: var(--hub-scrub-handle-mask) center / contain no-repeat;
+}
+
+:is(.hub-settings-slider, .hub-dj-page-tempo-input)::-moz-range-thumb {
+  background: var(--hub-handle-color, var(--hub-scrub-accent));
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  filter: none;
+  height: 20px;
+  mask: var(--hub-scrub-handle-mask) center / contain no-repeat;
+  width: 20px;
+}
+
+.hub-shaped-range {
+  display: block;
+  height: 20px;
+  min-width: 0;
+  position: relative;
+  width: 100%;
+}
+
+.hub-shaped-range > :is(.hub-settings-slider, .hub-dj-page-tempo-input) {
+  left: 0;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 100%;
+}
+
+.hub-shaped-range > :is(.hub-settings-slider, .hub-dj-page-tempo-input, .hub-dj-fader-input, .hub-dj-vertical-tempo)::-webkit-slider-thumb {
+  background: transparent;
+  border: 0;
+  mask: none;
+  -webkit-mask: none;
+}
+
+.hub-shaped-range > :is(.hub-settings-slider, .hub-dj-page-tempo-input, .hub-dj-fader-input, .hub-dj-vertical-tempo)::-moz-range-thumb {
+  background: transparent;
+  border: 0;
+  mask: none;
+}
+
+.hub-shaped-range-handle {
+  --hub-shaped-range-handle-rotation: 0deg;
+  height: 22px;
+  left: var(--hub-shaped-range-position, calc(50% + 0px));
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(var(--hub-shaped-range-handle-rotation));
+  transition: transform 140ms ease;
+  width: 22px;
+  z-index: 1;
+}
+
+.hub-shaped-range-handle::before,
+.hub-shaped-range-handle::after {
+  content: "";
+  inset: 0;
+  mask: var(--hub-scrub-handle-mask) center / contain no-repeat;
+  position: absolute;
+  -webkit-mask: var(--hub-scrub-handle-mask) center / contain no-repeat;
+}
+
+.hub-shaped-range-handle::before {
+  background: var(--hub-scrub-surface);
+}
+
+.hub-shaped-range-handle::after {
+  background: var(--hub-handle-color, var(--hub-scrub-accent));
+  inset: 3px;
+}
+
+.hub-shaped-range.is-vertical .hub-shaped-range-handle {
+  --hub-shaped-range-handle-rotation: 90deg;
+}
+
+.hub-shaped-range:is(:hover, :focus-within) .hub-shaped-range-handle {
+  transform: translate(-50%, -50%) rotate(var(--hub-shaped-range-handle-rotation)) scale(1.1);
+}
+
+.hub-shaped-range:has(input:disabled) .hub-shaped-range-handle {
+  opacity: 0.42;
+  transform: translate(-50%, -50%) rotate(var(--hub-shaped-range-handle-rotation));
+}
+
+.hub-dj-fader-rail > .hub-shaped-range {
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(90deg);
+  width: 120px;
+}
+
+/* The tempo range already rotates clockwise, so reverse its handle to keep
+   custom shapes upright in the page coordinate system. */
+.hub-dj-fader:not(.is-gain) .hub-shaped-range-handle {
+  --hub-shaped-range-handle-rotation: -90deg;
+}
+
+.hub-dj-fader.is-gain .hub-dj-fader-rail > .hub-shaped-range {
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+
+.hub-dj-fader-rail .hub-shaped-range > .hub-dj-fader-input {
+  height: 20px;
+  inset: 0;
+  position: absolute;
+  transform: none;
+  width: 100%;
+}
+
+.hub-dj-drawer {
+  /* DJ tools are a companion to the music bar, not a raised card. Remap the
+     card roles used by their controls to the shared panel palette so custom,
+     matched-page, and built-in themes cannot make the drawer drift away. */
+  --hub-card: var(--hub-panel);
+  --hub-card-accent: var(--hub-panel-accent);
+  --hub-card-accent-soft: var(--hub-panel-accent-soft);
+  --hub-card-ink: var(--hub-panel-ink);
+  --hub-card-muted: var(--hub-panel-muted);
+  --hub-card-faint: var(--hub-panel-faint);
+  --hub-card-line: var(--hub-panel-line);
+  --hub-card-on-accent: var(--hub-panel-on-accent);
+  background: var(--hub-panel);
+  border: 1px solid color-mix(in srgb, var(--hub-line) 55%, transparent);
+  border-radius: 8px;
+  bottom: var(--hub-dj-bottom, calc(var(--hub-player-height) + 10px));
+  box-sizing: border-box;
+  display: block;
+  left: var(--hub-dj-anchor-x, 50%);
+  max-height: calc(100vh - var(--hub-player-height) - var(--hub-dj-visualizer-clearance, 0px));
+  opacity: 0;
+  overflow: hidden;
+  padding: 14px 16px 12px;
+  pointer-events: none;
+  position: fixed;
+  right: auto;
+  transform: translateX(-50%);
+  width: min(440px, calc(100vw - 24px));
+  z-index: 2147483647;
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .hub-dj-drawer.is-frosted-glass {
+    -webkit-backdrop-filter: blur(var(--hub-glass-blur, 19px)) saturate(1.24) contrast(1.03);
+    backdrop-filter: blur(var(--hub-glass-blur, 19px)) saturate(1.24) contrast(1.03);
+    background:
+      linear-gradient(135deg, rgb(255 255 255 / 10%), transparent 38%, rgb(255 255 255 / 3%) 64%, transparent),
+      color-mix(in srgb, var(--hub-panel) var(--hub-glass-surface-opacity, 65%), transparent);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    will-change: backdrop-filter, opacity;
+  }
+}
+
+.hub-dj-drawer.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* An empty music bar can never own a usable DJ session. Keep the detached
+   surface composited for instant glass, but prevent stale persisted state from
+   painting it while the player is empty. */
+.hub-player.is-empty + .hub-dj-drawer {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hub-dj-drawer .hub-dj-card {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0;
+  max-height: calc(100vh - var(--hub-player-height) - var(--hub-dj-visualizer-clearance, 0px) - 28px);
+  overflow: auto;
+  padding: 0;
+}
+
+.hub-resize-handle {
+  background: var(--hub-accent);
+  bottom: 0;
+  cursor: ew-resize !important;
+  opacity: 0;
+  position: absolute;
+  pointer-events: auto;
+  top: 0;
+  touch-action: none;
+  transition: opacity 120ms ease;
+  width: 16px;
+  z-index: 8;
+}
+
+.hub-resize-handle:hover,
+.hub-resize-handle.is-active {
+  opacity: 0.18;
+}
+
+.hub-resize-handle.is-left {
+  left: 0;
+}
+
+.hub-resize-handle.is-right {
+  right: 0;
+}
+
+.hub-resize-handle.is-top,
+.hub-resize-handle.is-bottom {
+  cursor: ns-resize !important;
+  height: 16px;
+  left: 0;
+  right: 0;
+  width: auto;
+}
+
+.hub-resize-handle.is-top {
+  bottom: auto;
+  top: 0;
+}
+
+.hub-panel.is-contextual .hub-resize-handle.is-top {
+  display: block;
+  height: 12px;
+}
+
+.hub-resize-handle.is-bottom {
+  bottom: 0;
+  top: auto;
+}
+
+.hub-toast {
+  background: #111827;
+  border-radius: 6px;
+  bottom: calc(100% + 14px);
+  color: #fff;
+  font-size: 12px;
+  left: 50%;
+  max-width: 320px;
+  opacity: 0;
+  padding: 9px 12px;
+  pointer-events: none;
+  position: absolute;
+  text-align: center;
+  transform: translate(-50%, 8px);
+  transition: opacity 160ms ease, transform 160ms ease;
+  z-index: 4;
+}
+
+.hub-toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}

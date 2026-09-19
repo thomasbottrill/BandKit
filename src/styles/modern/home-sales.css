@@ -1,0 +1,88 @@
+#HomepageApp #sales-feed .item > .bandkit-sales-feed-actions {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  left: var(--bandkit-home-sale-actions-left, 14px);
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: var(--bandkit-home-sale-actions-top, 72px);
+  transition: opacity 120ms ease;
+  z-index: 5;
+}
+
+#HomepageApp #sales-feed .item:is(:hover, :focus-within, .bandkit-home-sale-current) > .bandkit-sales-feed-actions,
+#HomepageApp #sales-feed .item > .bandkit-sales-feed-actions:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#HomepageApp #sales-feed .bandkit-sales-feed-actions > :is(.bandkit-home-sale-play, .bandcamp-hub-page-playlist.is-home-sale-add) {
+  align-items: center !important;
+  appearance: none !important;
+  background: var(--hub-card, rgba(255, 255, 255, 0.94)) !important;
+  border: 1px solid transparent !important;
+  border-radius: 6px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  box-sizing: border-box !important;
+  color: var(--hub-accent, var(--bandkit-page-accent, #1da0c3)) !important;
+  cursor: pointer;
+  display: inline-flex !important;
+  font-size: 0 !important;
+  height: 26px !important;
+  justify-content: center !important;
+  line-height: 0 !important;
+  margin: 0 !important;
+  min-height: 26px !important;
+  padding: 0 !important;
+  transform: none !important;
+  width: 26px !important;
+}
+
+#HomepageApp #sales-feed .bandkit-sales-feed-actions > :is(.bandkit-home-sale-play, .bandcamp-hub-page-playlist.is-home-sale-add):is(:hover, :focus-visible) {
+  background: color-mix(in srgb, currentColor 10%, var(--hub-card, #fff)) !important;
+  border-color: currentColor !important;
+  outline: 0 !important;
+}
+
+#HomepageApp #sales-feed .bandkit-home-sale-play::before,
+#HomepageApp #sales-feed .bandcamp-hub-page-playlist.is-home-sale-add::before {
+  background: currentColor !important;
+  content: "";
+  display: block !important;
+  height: 14px !important;
+  width: 14px !important;
+}
+
+#HomepageApp #sales-feed .bandkit-home-sale-play::before {
+  mask: var(--bandkit-search-play-icon) center / contain no-repeat;
+  -webkit-mask: var(--bandkit-search-play-icon) center / contain no-repeat;
+}
+
+#HomepageApp #sales-feed .bandcamp-hub-page-playlist.is-home-sale-add::before {
+  mask: var(--hub-plus-icon) center / contain no-repeat;
+  -webkit-mask: var(--hub-plus-icon) center / contain no-repeat;
+}
+
+#HomepageApp #sales-feed .bandcamp-hub-page-playlist.is-home-sale-add.is-added {
+  background: var(--hub-accent, var(--bandkit-page-accent, #1da0c3)) !important;
+  color: var(--hub-on-accent, #fff) !important;
+}
+
+#HomepageApp #sales-feed .bandkit-home-sale-play:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+@media (hover: none) {
+  #HomepageApp #sales-feed .item > .bandkit-sales-feed-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #HomepageApp #sales-feed .item > .bandkit-sales-feed-actions {
+    transition: none;
+  }
+}

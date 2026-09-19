@@ -1,0 +1,190 @@
+.hub-settings-action {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--hub-line);
+  border-radius: 4px;
+  color: var(--hub-accent);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  justify-content: center;
+  margin-top: 10px;
+  min-height: 36px;
+  padding: 7px 10px;
+  text-decoration: none;
+  width: 100%;
+}
+
+.hub-settings-action:hover {
+  background: var(--hub-hover);
+}
+
+.hub-settings-feedback-actions {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hub-backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  max-width: 100%;
+  width: auto;
+}
+
+.hub-settings-detail .hub-backup-row {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  padding: 5px 0;
+}
+
+.hub-backup-row .hub-settings-copy {
+  min-width: 0;
+}
+
+.hub-settings-action.hub-backup-action {
+  flex: 0 0 auto;
+  font-size: 11px;
+  height: 30px;
+  margin: 0;
+  min-height: 30px;
+  padding: 4px 10px;
+  width: auto;
+}
+
+.hub-settings-action.hub-backup-action:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.hub-backup-location {
+  overflow-wrap: anywhere;
+}
+
+.hub-backup-frequency-row {
+  margin-top: 0;
+}
+
+.hub-backup-block {
+  display: grid;
+  gap: 2px;
+}
+
+.hub-backup-actions .hub-settings-danger {
+  font-size: 11px;
+  height: 30px;
+  margin: 0;
+  min-height: 30px;
+  padding: 4px 10px;
+  width: auto;
+}
+
+.hub-settings-info-group + .hub-settings-info-group {
+  margin-top: 10px;
+}
+
+.hub-settings-action.hub-settings-danger {
+  border-color: color-mix(in srgb, #c62828 42%, var(--hub-line));
+  color: #b42318;
+}
+
+.hub-settings-action.hub-settings-danger:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.hub-settings-note {
+  margin: 8px 0 0;
+}
+
+.hub-about-brand-logo {
+  flex: 0 0 auto;
+  height: auto;
+  max-width: 84px;
+  object-fit: contain;
+  width: 84px;
+}
+
+.hub-support-card {
+  padding-bottom: 8px;
+}
+
+.hub-support-copy {
+  margin-bottom: 10px;
+}
+
+.hub-settings-action.hub-support-action {
+  background: var(--hub-accent);
+  border-color: var(--hub-accent);
+  color: var(--hub-on-accent);
+  margin-top: 0;
+}
+
+.hub-settings-action.hub-support-action:hover {
+  background: color-mix(in srgb, var(--hub-accent) 88%, var(--hub-ink));
+}
+
+.hub-corner-settings {
+  margin-top: 0;
+}
+
+.hub-corner-style-row {
+  align-items: stretch;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.hub-corner-style {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-width: 0;
+  width: 100%;
+}
+
+.hub-corner-controls {
+  padding: 0;
+}
+
+.hub-corner-controls[hidden] {
+  display: none;
+}
+
+.hub-corner-radius-value {
+  color: var(--hub-muted);
+  font-size: 12px;
+  min-width: 34px;
+  text-align: right;
+}
+
+.hub-visualizer-options {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.hub-visualizer-options[hidden] {
+  display: none;
+}
+
+.hub-visualizer-type-control {
+  display: grid;
+  gap: 5px;
+}
+
+.hub-visualizer-type-control .hub-settings-select {
+  max-width: none;
+  width: 100%;
+}
+
+.hub-visualizer-blend-mode-control .hub-settings-picker,
+.hub-player-blend-mode-control .hub-settings-picker {
+  width: 142px;
+}
+
+.hub-scrubbable-dimension-input.is-auto {
+  color: var(--hub-muted);
+}

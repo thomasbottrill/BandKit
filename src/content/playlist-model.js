@@ -65,7 +65,7 @@ export function createPlaylistModel({
     const camelot = String(value.camelot || "").trim().slice(0, 12);
     const shortName = String(value.shortName || "").trim().slice(0, 32);
     const name = String(value.name || "").trim().slice(0, 80);
-    return camelot || shortName || name ? { camelot, shortName, name } : null;
+    return camelot || shortName || name ? { camelot, shortName, name, uncertain: value.uncertain === true } : null;
   }
 
   function normalizePlaylistItem(track, index = 0) {
@@ -81,10 +81,12 @@ export function createPlaylistModel({
       album: String(track.album || "").slice(0, 500),
       art: resolveImage(track.art).slice(0, 4000),
       pageUrl,
+      releaseUrl: safeBandcampUrl(track.releaseUrl || (/\/album\//.test(pageUrl) ? pageUrl : "")),
       artistUrl: safeBandcampUrl(track.artistUrl),
       duration: Math.max(0, Number(track.duration) || 0),
       url: isReusableStreamUrl(track.url) ? track.url : "",
       bpm: normalizePlaylistBpm(track.bpm ?? track.detectedBpm),
+      bpmUncertain: track.bpmUncertain === true,
       key: normalizePlaylistKey(track.key ?? track.detectedKey),
       addedAt: String(track.addedAt || ""),
       restoreError: String(track.restoreError || "").slice(0, 500)

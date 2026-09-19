@@ -1,0 +1,68 @@
+/* Shared circular artwork actions for Discover and Selling right now. */
+html body #HomepageApp #sales-feed .bandkit-sales-feed-actions > :is(.bandkit-home-sale-play, .bandcamp-hub-page-playlist.is-home-sale-add):not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c),
+html body #DiscoverApp .results-grid-item .image-container > :is(.play-pause-button, .play-button, .bandcamp-hub-page-playlist.is-discover-add-to):not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c) {
+  border-radius: 50% !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  aspect-ratio: 1;
+  width: 32px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+}
+
+html body #HomepageApp #sales-feed .bandkit-sales-feed-actions > :is(.bandkit-home-sale-play, .bandcamp-hub-page-playlist.is-home-sale-add):focus-visible:not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c),
+html body #DiscoverApp .results-grid-item .image-container > :is(.play-pause-button, .play-button, .bandcamp-hub-page-playlist.is-discover-add-to):focus-visible:not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c) {
+  outline: 2px solid var(--bandkit-page-accent, #1da0c3) !important;
+  outline-offset: 3px;
+}
+
+html body #DiscoverApp .results-grid-item .image-container > .bandcamp-hub-page-playlist.is-discover-add-to {
+  left: 46px !important;
+}
+
+/* Keep the full-artwork hit target while presenting the glyph with the same
+   compact circular action style used by Selling right now. */
+html body #HomepageApp :is(.playlist-card, .new-notable .tralbum-card) .image-container .play-pause-button.over-image {
+  color: var(--hub-accent, var(--bandkit-page-accent, #1da0c3)) !important;
+}
+
+html body #HomepageApp :is(.playlist-card, .new-notable .tralbum-card) .image-container .play-pause-button.over-image::before {
+  background: var(--hub-card, rgba(255, 255, 255, 0.94));
+  bottom: 8px;
+  border: 0;
+  border-radius: 50%;
+  box-shadow: none;
+  box-sizing: border-box;
+  content: "";
+  height: 32px;
+  left: 8px;
+  pointer-events: none;
+  position: absolute;
+  top: auto;
+  transform: none;
+  transition: box-shadow 120ms ease, transform 120ms ease;
+  width: 32px;
+}
+
+html body #HomepageApp :is(.playlist-card, .new-notable .tralbum-card) .image-container .play-pause-button.over-image::after {
+  bottom: 24px;
+  left: 24px;
+  position: absolute !important;
+  top: auto;
+  transform: translate(-50%, 50%);
+  z-index: 1;
+}
+
+html body #HomepageApp :is(.playlist-card, .new-notable .tralbum-card) .image-container .play-pause-button.over-image:is(:hover, :focus-visible)::before {
+  background: color-mix(in srgb, currentColor 10%, var(--hub-card, #fff));
+}
+
+html body #HomepageApp :is(.playlist-card, .new-notable .tralbum-card) .image-container .play-pause-button.over-image:focus-visible::before {
+  box-shadow: 0 0 0 2px var(--hub-accent, var(--bandkit-page-accent, #1da0c3));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html body #HomepageApp :is(.playlist-card, .new-notable .tralbum-card) .image-container .play-pause-button.over-image::before {
+    transition: none;
+  }
+}

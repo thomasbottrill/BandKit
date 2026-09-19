@@ -685,7 +685,7 @@
         && playerOverflowIdleAppearance?.color === playerAddStyle?.color
         && getComputedStyle(playerTools).flexWrap === "nowrap"
         && [...playerTools.children].filter((control) => !control.classList.contains("bandkit-page-transport-row")).every((control) => Math.abs(control.getBoundingClientRect().top - playerAdd.getBoundingClientRect().top) <= 1)
-        && overflowMenuLabels.join("|") === "Gift|Add all to playlist…|Add all to cart…");
+        && overflowMenuLabels.join("|") === "Gift");
       const trackRows = [...document.querySelectorAll("#track_table .track_row_view")];
       const trackRowsStaySingleLine = fixtureSingleTrack || trackRows.every((row) => {
         const title = row.querySelector(".track-title");

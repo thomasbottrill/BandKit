@@ -51,7 +51,12 @@
   </main></div></div>
   <script>
     const fixtureNativePlayerVisible = location.search.includes("native-visible");
-    window.fixtureStored = location.search.includes("queue-to-discover-switch") ? { bandcampHubState: {
+    window.fixtureStored = location.search.includes("page-queue-fallback") ? { bandcampHubState: {
+      open: true,
+      activeTab: "playlist",
+      playlistView: "current",
+      playlist: []
+    } } : location.search.includes("queue-to-discover-switch") ? { bandcampHubState: {
       open: true,
       activeTab: "nowPlaying",
       playlistMode: "manual",
@@ -77,7 +82,31 @@
       } };
     }
     window.fixtureMessages = [];
-    window.fixtureSeamlessState = { enabled: false, status: "idle" };
+    window.fixtureSeamlessState = location.search.includes("page-queue-fallback") ? {
+      enabled: true,
+      status: "playing",
+      isPlaying: true,
+      currentTime: 24,
+      duration: 180,
+      progress: 24 / 180,
+      detectedBpm: 124,
+      detectedKey: { camelot: "8A", shortName: "A min", name: "A minor" },
+      track: {
+        id: "12345",
+        title: "Discover Fixture Track",
+        artist: "Fixture Artist",
+        album: "Fixture Artist - Fixture Album",
+        pageUrl: "https://fixture-artist.bandcamp.com/album/fixture-album",
+        artistUrl: "https://fixture-artist.bandcamp.com/",
+        art: "/tests/fixtures/assets/art-clouds.png",
+        duration: 180,
+        bpm: 124,
+        key: { camelot: "8A", shortName: "A min", name: "A minor" },
+        url: "https://bandcamp.com/stream_redirect?enc=mp3-128&track_id=12345"
+      },
+      queue: []
+    } : { enabled: false, status: "idle" };
+    if (location.search.includes("page-queue-fallback")) window.fixtureSeamlessState.queue = [window.fixtureSeamlessState.track];
     const nativeControl = document.querySelector(".discover-player .play-pause-button");
     if (location.search.includes("queue-to-discover-switch")) {
       nativeControl.setAttribute("aria-label", "Play");
@@ -228,6 +257,19 @@
     }, 1700);
     window.setTimeout(() => {
       const root = document.querySelector("#bandcamp-hub-extension-root")?.querySelector("[data-bandcamp-hub]")?.shadowRoot;
+      if (location.search.includes("page-queue-fallback")) {
+        const card = root?.querySelector(".hub-playlist-track.is-page-queue-track");
+        const actions = card?.querySelectorAll(".hub-playlist-track-actions .hub-playlist-icon-button");
+        const analysis = card?.querySelector(".hub-playlist-analysis-text");
+        document.title = card
+          && actions?.length === 1
+          && card.querySelector(".hub-playlist-track-more")
+          && !card.querySelector(".hub-queue-actions, .hub-current-track-toggle, .hub-playlist-analysis-chip")
+          && analysis?.textContent === "124 BPM · 8A · A min"
+          ? "PASS: Discover fallback uses current Now Playing card fixture"
+          : `FAIL: fallback card ${Boolean(card)}/${actions?.length || 0}/${analysis?.textContent || "no analysis"}`;
+        return;
+      }
       if (location.search.includes("queue-to-discover-switch")) {
         const enables = window.fixtureMessages.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE");
         const finalTrack = window.fixtureSeamlessState.track;

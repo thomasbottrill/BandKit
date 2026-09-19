@@ -1,7 +1,123 @@
 import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState, updateRuntimeState } from "./context.js";
 import { formatDuration, portableBandcampUrl } from "../core.js";
-import { MAX_SAVED_THEMES, MUSIC_BAR_WIDTHS } from "../state.js";
+import { MAX_PLAYLIST_ITEMS, MAX_SAVED_THEMES, MUSIC_BAR_SCRUBBER_WIDTHS, MUSIC_BAR_STYLES, MUSIC_BAR_WIDTHS, ONBOARDING_COMPLETE, PLAYER_BLEND_MODES, SCRUBBER_HANDLE_SHAPES, VISUALIZER_BLEND_MODES, normalizeVisualizerType, normalizeHandleSize } from "../state.js";
 import { MESSAGES, STORAGE_KEYS } from "../../shared/contracts.js";
+import { normalizedActivity, repairDuplicatedCartActivity } from "../activity-model.js";
+import { HANDLE_OUTLINE_CSS } from "../handle-outline-style.js";
+import { normalizeCustomHandle } from "../custom-scrub-handle.js";
+import { normalizeCustomTimeline } from "../custom-timeline.js";
+import { normalizeCustomPlayerButtons } from "../custom-player-buttons.js";
+import { normalizeTimelineStyle } from "../timeline-styles.js";
+import { headerMutationNeedsMount } from "./header-mutations.js";
+import { resumeVisualizer } from "../visualizer-frame.js";
+
+function normalizeGlassAppearance(appearance) {
+  const previous = [appearance.frostedGlass, appearance.glassTransparency, appearance.glassBlur];
+  appearance.frostedGlass = appearance.frostedGlass === true;
+  appearance.glassTransparency = Math.round(Math.max(0, Math.min(70, Number(appearance.glassTransparency) || 0)));
+  appearance.glassBlur = Math.round(Math.max(0, Math.min(30, Number(appearance.glassBlur) || 0)));
+  return previous.some((value, index) => value !== [appearance.frostedGlass, appearance.glassTransparency, appearance.glassBlur][index]);
+}
+
+function normalizedVisualizerDimension(value, min, max) {
+  if (value === "auto" || value == null || value === "") return "auto";
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.round(Math.max(min, Math.min(max, numeric))) : "auto";
+}
+
+function normalizedOptionalColour(value) {
+  return /^#[\da-f]{6}$/i.test(String(value || "")) ? String(value).toLowerCase() : null;
+}
+
+function normalizedCrossTabSettings(incoming, current) {
+  const onboardingCompletedVersion = Math.max(
+    0,
+    Number(current.onboardingCompletedVersion) || 0,
+    Number(incoming.onboardingCompletedVersion) || 0
+  );
+  return {
+    openHomeToFeed: Boolean(incoming.openHomeToFeed),
+    feedUrl: typeof incoming.feedUrl === "string" ? incoming.feedUrl : "",
+    onboardingCompletedVersion,
+    onboardingStep: onboardingCompletedVersion > 0 ? 0 : Math.max(0, Math.min(10, Number(incoming.onboardingStep) || 0)),
+    djToolsEnabled: incoming.djToolsEnabled !== false,
+    autoAnalyzeTracks: incoming.autoAnalyzeTracks !== false,
+    showTrackKeys: incoming.showTrackKeys !== false,
+    showCamelotNotation: incoming.showCamelotNotation === true,
+    recordPlaylistMetadata: incoming.recordPlaylistMetadata !== false,
+    showMusicBarAnalysis: incoming.showMusicBarAnalysis !== false,
+    keepMusicBarAnalysisVisible: incoming.keepMusicBarAnalysisVisible === true,
+    scrubberStyle: normalizeTimelineStyle(incoming.scrubberStyle),
+    scrubberHandleShape: SCRUBBER_HANDLE_SHAPES.includes(incoming.scrubberHandleShape)
+      ? incoming.scrubberHandleShape : "pill",
+    customScrubberHandle: normalizeCustomHandle(incoming.customScrubberHandle),
+    customTimeline: normalizeCustomTimeline(incoming.customTimeline),
+    customPlayerButtons: normalizeCustomPlayerButtons(incoming.customPlayerButtons),
+    musicBarTimelineColor: normalizedOptionalColour(incoming.musicBarTimelineColor),
+    musicBarHandleColor: normalizedOptionalColour(incoming.musicBarHandleColor),
+    musicBarControlsColor: normalizedOptionalColour(incoming.musicBarControlsColor),
+    musicBarPlayerColor: normalizedOptionalColour(incoming.musicBarPlayerColor),
+    retainTimelineColors: incoming.retainTimelineColors !== false,
+    scrubberHandleSize: normalizeHandleSize(incoming.scrubberHandleSize),
+    retainSvgHandleColors: incoming.retainSvgHandleColors === true,
+    retainPngHandleColors: incoming.retainPngHandleColors !== false,
+    musicBarScrubberWidth: MUSIC_BAR_SCRUBBER_WIDTHS.includes(incoming.musicBarScrubberWidth)
+      ? incoming.musicBarScrubberWidth : "full",
+    musicBarStyle: incoming.musicBarStyle === "floating" ? "rounded"
+      : MUSIC_BAR_STYLES.includes(incoming.musicBarStyle) ? incoming.musicBarStyle : "zune",
+    musicBarDynamicColor: incoming.musicBarDynamicColor !== false,
+    musicBarPlayerDynamicColor: incoming.musicBarPlayerDynamicColor !== false,
+    musicBarPanelDynamicColor: incoming.musicBarPanelDynamicColor !== false,
+    musicBarBlendMode: PLAYER_BLEND_MODES.includes(incoming.musicBarBlendMode)
+      ? incoming.musicBarBlendMode : "normal",
+    musicBarPanelButtons: "compact",
+    musicBarRecentPanel: ["playlist", "cart", "activity", "settings"].includes(incoming.musicBarRecentPanel)
+      ? incoming.musicBarRecentPanel : "playlist",
+    musicBarSize: incoming.musicBarSize === "compact" ? "compact" : "standard",
+    musicBarVisualizer: incoming.musicBarVisualizer === "off" ? "off"
+      : normalizeVisualizerType(incoming.musicBarVisualizerType, incoming.musicBarVisualizer),
+    musicBarVisualizerType: normalizeVisualizerType(incoming.musicBarVisualizerType, incoming.musicBarVisualizer),
+    musicBarVisualizerOpacity: Math.round(Math.max(10, Math.min(400, Number(incoming.musicBarVisualizerOpacity) || 100))),
+    musicBarVisualizerWidth: normalizedVisualizerDimension(incoming.musicBarVisualizerWidth, 240, 3200),
+    musicBarVisualizerHeight: normalizedVisualizerDimension(incoming.musicBarVisualizerHeight, 24, 240),
+    musicBarVisualizerBlendMode: VISUALIZER_BLEND_MODES.includes(incoming.musicBarVisualizerBlendMode)
+      ? incoming.musicBarVisualizerBlendMode : "normal",
+    musicBarWidth: MUSIC_BAR_WIDTHS.includes(incoming.musicBarWidth) ? incoming.musicBarWidth : "default",
+    musicBarCustomWidth: Math.round(Math.max(480, Math.min(2000, Number(incoming.musicBarCustomWidth) || 900))),
+    musicBarBottomOffset: Math.round(Math.max(0, Math.min(160, Number(incoming.musicBarBottomOffset) || 0))),
+    dockChevronOffset: Math.max(0, Number(incoming.dockChevronOffset) || 0),
+    settingsDrawers: incoming.settingsDrawers && typeof incoming.settingsDrawers === "object"
+      ? { ...incoming.settingsDrawers } : {},
+    dj: { ...current.dj, ...(incoming.dj || {}) }
+  };
+}
+
+function settingsChanged(current, incoming) {
+  return Object.entries(incoming).some(([key, value]) => JSON.stringify(value) !== JSON.stringify(current[key]));
+}
+
+function applyOnboardingCompletionChange(r, changes) {
+  if (Number(changes[STORAGE_KEYS.ONBOARDING_COMPLETE]?.newValue) <= 0
+    || Number(runtimeState.onboardingCompletedVersion) > 0
+    || (r.$onboardingActive && !r.$onboardingReplay)) return;
+  runtimeState.onboardingCompletedVersion = ONBOARDING_COMPLETE;
+  runtimeState.onboardingStep = 0;
+  r.$onboardingActive = false;
+  r.$onboardingReplay = false;
+  if (r.$hubReady) r.$renderOnboarding();
+}
+
+function applyIncomingLayout(r, incomingLayout) {
+  if (!incomingLayout || (Number(incomingLayout.revision) || 0) < r.$layoutRevision) return;
+  const previousLayout = r.$savedLayoutState();
+  r.$applyPersistedLayout(incomingLayout);
+  const nextLayout = r.$savedLayoutState();
+  previousLayout.revision = 0;
+  nextLayout.revision = 0;
+  if (!r.$hubReady || JSON.stringify(previousLayout) === JSON.stringify(nextLayout)) return;
+  r.$applyLayoutMode();
+  r.$render();
+}
 
 function registerLifecycle1(r) {
 r.$scrubTarget = function scrubTarget() {
@@ -40,6 +156,7 @@ r.$seekToScrubTarget = async function seekToScrubTarget() {
         }
         return;
       }
+      if (r.$queueClassicPageSeek?.(target.fraction)) return;
       if (!target.duration) return;
       if (runtimeSeamless.enabled) {
         await r.$seamlessCommand(MESSAGES.SEAMLESS_SEEK, { currentTime: target.currentTime });
@@ -159,7 +276,9 @@ r.$initializeHeaderMount = function initializeHeaderMount() {
         if (menuBarShadow && observedHeaderShadow !== menuBarShadow) {
           shadowHeaderObserver?.disconnect();
           observedHeaderShadow = menuBarShadow;
-          shadowHeaderObserver = new MutationObserver(() => scheduleHeaderMount());
+          shadowHeaderObserver = new MutationObserver((records) => {
+            if (records.some((record) => headerMutationNeedsMount(record, r.$root))) scheduleHeaderMount();
+          });
           shadowHeaderObserver.observe(menuBarShadow, { childList: true, subtree: true });
         }
         const shadowFeedControl = menuBarShadow?.querySelector('a[aria-label="Feed"]') || null;
@@ -227,7 +346,9 @@ r.$initializeHeaderMount = function initializeHeaderMount() {
         r.$playerResizeObserver.observe(r.$player);
       }
       for (const delay of [100, 500, 1500]) window.setTimeout(scheduleHeaderMount, delay);
-      const headerObserver = new MutationObserver(scheduleHeaderMount);
+      const headerObserver = new MutationObserver((records) => {
+        if (records.some((record) => headerMutationNeedsMount(record, r.$root))) scheduleHeaderMount();
+      });
       const observedHeaderMountTargets = new WeakSet();
       function observeHeaderMountTargets() {
         if (!observedHeaderMountTargets.has(document.body)) {
@@ -252,6 +373,17 @@ function registerRuntimeStateRestore(r) {
 r.$restoreRuntimeState = function restoreRuntimeState({ saved, savedState, savedNowPlaying }) {
       const sessionQueue = savedNowPlaying;
       const useSessionQueue = Array.isArray(sessionQueue?.playlist);
+      r.$nowPlayingRevision = useSessionQueue ? Math.max(0, Number(sessionQueue?.revision) || 0) : 0;
+      r.$nowPlayingTransitionTrackKey = useSessionQueue ? String(sessionQueue?.transitionTrackKey || "") : "";
+      r.$nowPlayingTransitionExpiresAt = useSessionQueue ? Math.max(0, Number(sessionQueue?.transitionExpiresAt) || 0) : 0;
+      const storedActivity = normalizedActivity(savedState?.activity);
+      const repairCartActivity = Boolean(savedState) && savedState.activityCartEventsRepaired !== true;
+      const restoredActivity = repairCartActivity ? repairDuplicatedCartActivity(storedActivity) : storedActivity;
+      const legacyOnboardingState = Boolean(savedState)
+        && !Object.prototype.hasOwnProperty.call(savedState, "onboardingCompletedVersion");
+      const onboardingPermanentlyCompleted = Number(saved[STORAGE_KEYS.ONBOARDING_COMPLETE]) > 0
+        || Number(savedState?.onboardingCompletedVersion) > 0
+        || legacyOnboardingState;
       if (savedState) {
         r.$state = updateRuntimeState(r.$app.replaceState({
           ...runtimeState,
@@ -262,8 +394,14 @@ r.$restoreRuntimeState = function restoreRuntimeState({ saved, savedState, saved
           playlistMode: useSessionQueue
             ? sessionQueue?.playlistMode === "manual" ? "manual" : "browse"
             : savedState.playlistMode,
+          playlistShuffleEnabled: useSessionQueue
+            ? sessionQueue?.playlistShuffleEnabled === true
+            : savedState.playlistShuffleEnabled === true,
+          playlistShuffleOrder: useSessionQueue
+            ? Array.isArray(sessionQueue?.playlistShuffleOrder) ? sessionQueue.playlistShuffleOrder : []
+            : Array.isArray(savedState.playlistShuffleOrder) ? savedState.playlistShuffleOrder : [],
           savedPlaylists: r.$normalizeSavedPlaylists(savedState.savedPlaylists || runtimeState.savedPlaylists),
-          activity: (savedState.activity || []).filter((item) => item?.url),
+          activity: restoredActivity,
           appearance: {
             ...runtimeState.appearance,
             ...(savedState.appearance || {}),
@@ -280,18 +418,81 @@ r.$restoreRuntimeState = function restoreRuntimeState({ saved, savedState, saved
       if (!savedState && useSessionQueue) {
         runtimeState.playlist = r.$normalizePlaylist(sessionQueue?.playlist || []);
         runtimeState.playlistMode = sessionQueue?.playlistMode === "manual" ? "manual" : "browse";
+        runtimeState.playlistShuffleEnabled = sessionQueue?.playlistShuffleEnabled === true;
+        runtimeState.playlistShuffleOrder = Array.isArray(sessionQueue?.playlistShuffleOrder) ? sessionQueue.playlistShuffleOrder : [];
+      }
+      r.$setSharedStateBaseline(runtimeState);
+      if (repairCartActivity) {
+        r.$setSharedStateBaseline({ ...runtimeState, activity: storedActivity, activityCartEventsRepaired: false });
+        runtimeState.activityCartEventsRepaired = true;
+        runtimeSaveState();
+      }
+      if (legacyOnboardingState) {
+        runtimeState.onboardingCompletedVersion = ONBOARDING_COMPLETE;
+        runtimeState.onboardingStep = 0;
+        runtimeSaveState();
+      }
+      if (onboardingPermanentlyCompleted) {
+        runtimeState.onboardingCompletedVersion = ONBOARDING_COMPLETE;
+        runtimeState.onboardingStep = 0;
+        if (Number(saved[STORAGE_KEYS.ONBOARDING_COMPLETE]) <= 0) {
+          void r.$persistLocal({ [STORAGE_KEYS.ONBOARDING_COMPLETE]: ONBOARDING_COMPLETE });
+        }
       }
       r.$sessionNowPlayingLoaded = useSessionQueue;
+      r.$lastNowPlayingSignature = r.$nowPlayingSessionSignature();
+      runtimeState.onboardingCompletedVersion = Math.max(0, Number(runtimeState.onboardingCompletedVersion) || 0);
+      runtimeState.onboardingStep = Math.max(0, Math.min(10, Number(runtimeState.onboardingStep) || 0));
+      runtimeState.djToolsEnabled = runtimeState.djToolsEnabled !== false;
       runtimeState.playlistMode = runtimeState.playlistMode === "manual" ? "manual" : "browse";
-      runtimeState.scrubberStyle = runtimeState.scrubberStyle === "traditional" ? "traditional" : "waveform";
+      runtimeState.playlistShuffleEnabled = runtimeState.playlistShuffleEnabled === true;
+      runtimeState.playlistShuffleOrder = Array.isArray(runtimeState.playlistShuffleOrder)
+        ? runtimeState.playlistShuffleOrder.map(String).slice(0, MAX_PLAYLIST_ITEMS)
+        : [];
+      runtimeState.scrubberStyle = normalizeTimelineStyle(runtimeState.scrubberStyle);
+      runtimeState.scrubberHandleShape = SCRUBBER_HANDLE_SHAPES.includes(runtimeState.scrubberHandleShape)
+        ? runtimeState.scrubberHandleShape : "pill";
+      runtimeState.customScrubberHandle = normalizeCustomHandle(runtimeState.customScrubberHandle);
+      runtimeState.customTimeline = normalizeCustomTimeline(runtimeState.customTimeline);
+      runtimeState.customPlayerButtons = normalizeCustomPlayerButtons(runtimeState.customPlayerButtons);
+      runtimeState.musicBarTimelineColor = normalizedOptionalColour(runtimeState.musicBarTimelineColor);
+      runtimeState.musicBarHandleColor = normalizedOptionalColour(runtimeState.musicBarHandleColor);
+      runtimeState.musicBarControlsColor = normalizedOptionalColour(runtimeState.musicBarControlsColor);
+      runtimeState.musicBarPlayerColor = normalizedOptionalColour(runtimeState.musicBarPlayerColor);
+      runtimeState.retainTimelineColors = runtimeState.retainTimelineColors !== false;
+      runtimeState.scrubberHandleSize = normalizeHandleSize(runtimeState.scrubberHandleSize);
+      runtimeState.retainSvgHandleColors = runtimeState.retainSvgHandleColors === true;
+      runtimeState.retainPngHandleColors = runtimeState.retainPngHandleColors !== false;
+      runtimeState.musicBarScrubberWidth = MUSIC_BAR_SCRUBBER_WIDTHS.includes(runtimeState.musicBarScrubberWidth)
+        ? runtimeState.musicBarScrubberWidth : "full";
+      runtimeState.keepMusicBarAnalysisVisible = runtimeState.keepMusicBarAnalysisVisible === true;
+      runtimeState.musicBarStyle = runtimeState.musicBarStyle === "floating" ? "rounded"
+        : MUSIC_BAR_STYLES.includes(runtimeState.musicBarStyle) ? runtimeState.musicBarStyle : "zune";
+      runtimeState.musicBarDynamicColor = runtimeState.musicBarDynamicColor !== false;
+      runtimeState.musicBarPlayerDynamicColor = runtimeState.musicBarPlayerDynamicColor !== false;
+      runtimeState.musicBarPanelDynamicColor = runtimeState.musicBarPanelDynamicColor !== false;
+      runtimeState.musicBarBlendMode = PLAYER_BLEND_MODES.includes(runtimeState.musicBarBlendMode)
+        ? runtimeState.musicBarBlendMode : "normal";
+      runtimeState.musicBarPanelButtons = "compact";
+      runtimeState.musicBarRecentPanel = ["playlist", "cart", "activity", "settings"].includes(runtimeState.musicBarRecentPanel)
+        ? runtimeState.musicBarRecentPanel : "playlist";
       runtimeState.musicBarSize = runtimeState.musicBarSize === "compact" ? "compact" : "standard";
+      runtimeState.musicBarVisualizerType = normalizeVisualizerType(runtimeState.musicBarVisualizerType, runtimeState.musicBarVisualizer);
+      runtimeState.musicBarVisualizer = runtimeState.musicBarVisualizer === "off" ? "off" : runtimeState.musicBarVisualizerType;
+      runtimeState.musicBarVisualizerOpacity = Math.round(Math.max(10, Math.min(400, Number(runtimeState.musicBarVisualizerOpacity) || 100)));
+      runtimeState.musicBarVisualizerWidth = normalizedVisualizerDimension(runtimeState.musicBarVisualizerWidth, 240, 3200);
+      runtimeState.musicBarVisualizerHeight = normalizedVisualizerDimension(runtimeState.musicBarVisualizerHeight, 24, 240);
+      runtimeState.musicBarVisualizerBlendMode = VISUALIZER_BLEND_MODES.includes(runtimeState.musicBarVisualizerBlendMode)
+        ? runtimeState.musicBarVisualizerBlendMode : "normal";
       runtimeState.musicBarWidth = MUSIC_BAR_WIDTHS.includes(runtimeState.musicBarWidth) ? runtimeState.musicBarWidth : "default";
       runtimeState.musicBarCustomWidth = Math.round(Math.max(480, Math.min(2000, Number(runtimeState.musicBarCustomWidth) || 900)));
+      runtimeState.musicBarBottomOffset = Math.round(Math.max(0, Math.min(160, Number(runtimeState.musicBarBottomOffset) || 0)));
       runtimeState.appearance.applyToPage = Boolean(runtimeState.appearance.applyToPage);
       runtimeState.appearance.pageAware = !runtimeState.appearance.applyToPage;
       const storedModernReleasePages = runtimeState.appearance.modernReleasePages;
       runtimeState.appearance.modernReleasePages = Boolean(storedModernReleasePages);
-      if (storedModernReleasePages !== runtimeState.appearance.modernReleasePages) runtimeSaveState();
+      if (normalizeGlassAppearance(runtimeState.appearance)
+        || storedModernReleasePages !== runtimeState.appearance.modernReleasePages) runtimeSaveState();
       const hideShoppingCart = Boolean(runtimeState.appearance.hidePageCart || runtimeState.appearance.hideHeaderCart);
       runtimeState.appearance.hidePageCart = hideShoppingCart;
       runtimeState.appearance.hideHeaderCart = hideShoppingCart;
@@ -319,6 +520,12 @@ r.$restoreRuntimeState = function restoreRuntimeState({ saved, savedState, saved
       }
       if (!["current", "saved"].includes(runtimeState.playlistView)) runtimeState.playlistView = "current";
       if (!r.$tabs.some((tab) => tab.id === runtimeState.activeTab)) runtimeState.activeTab = "playlist";
+      if (!["index", "player", "tools", "appearance", "browsing", "onboarding", "privacy", "about"].includes(runtimeState.settingsView)) {
+        runtimeState.settingsView = "index";
+      }
+      if (typeof runtimeState.settingsSubView !== "string") {
+        runtimeState.settingsSubView = "index";
+      }
       if (!["floating", "docked"].includes(runtimeState.layoutMode)) runtimeState.layoutMode = "floating";
       if (!["left", "right"].includes(runtimeState.dockSide)) runtimeState.dockSide = "right";
       if (!Number.isFinite(Number(runtimeState.dockedWidth)) || Number(runtimeState.dockedWidth) < 320) runtimeState.dockedWidth = 420;
@@ -339,13 +546,13 @@ r.$init = async function init() {
       const earlyModernPageBootstrap = document.documentElement.dataset.bandkitModernBootstrap === "true"
         ? globalThis.BandKitModernPagesBootstrap
         : null;
-      const savedPromise = r.$storageGet([STORAGE_KEYS.STATE, STORAGE_KEYS.LAYOUT]);
+      const savedPromise = r.$storageGet([STORAGE_KEYS.STATE, STORAGE_KEYS.LAYOUT, STORAGE_KEYS.ONBOARDING_COMPLETE]);
       const nowPlayingPromise = r.$runtimeMessage({ type: MESSAGES.GET_NOW_PLAYING });
       const styleUrl = new URL(chrome.runtime.getURL("hub.css"));
       styleUrl.searchParams.set("v", chrome.runtime.getManifest().version);
       const modernStyleUrl = new URL(chrome.runtime.getURL("modern-release.css"));
       modernStyleUrl.searchParams.set("v", chrome.runtime.getManifest().version);
-      const hubCssPromise = fetch(styleUrl.href).then((response) => response.text());
+      const hubCssPromise = fetch(styleUrl.href).then((response) => response.text()).then((css) => css + HANDLE_OUTLINE_CSS);
       const modernCssPromise = earlyModernPageBootstrap
         ? Promise.resolve("")
         : fetch(modernStyleUrl.href).then((response) => response.text());
@@ -371,12 +578,19 @@ r.$init = async function init() {
       const headerMount = r.$initializeHeaderMount();
 
       if (r.$restoreRuntimeState({ saved, savedState, savedNowPlaying })) return;
+      r.$activateFirstRunOnboarding();
       await r.$syncSeamlessState();
       r.$applyAppearance();
       r.$syncTrackKeyVisibilityMode();
-      r.$syncPageActionLabelMode();
       r.$applyLayoutMode();
       r.$observePageActionSources();
+      document.addEventListener("click", (event) => {
+        const target = event.target instanceof Element
+          ? event.target.closest(".community-tabs a, .community-tabs button")
+          : null;
+        if (!target) return;
+        window.requestAnimationFrame(() => r.$applyModernReleaseLayout());
+      }, true);
       if ("ResizeObserver" in window) {
         new ResizeObserver(() => {
           r.$capturePanelLayout();
@@ -385,7 +599,7 @@ r.$init = async function init() {
       }
       r.$scanLivePlayer();
       r.$render();
-      void r.$refreshIncompletePlaylistMetadata();
+      r.$schedulePlaylistMetadataRefresh(0);
       r.$runPendingTrackAction();
       if (!r.$scanTimer && !r.$scanIdleCallback) r.$scheduleLivePlayerMaintenance();
       r.$seamlessSyncTimer = window.setInterval(() => void r.$syncSeamlessState(), 3000);
@@ -393,8 +607,11 @@ r.$init = async function init() {
         r.$lastPageScrollAt = Date.now();
       }, { passive: true });
       const resumePageRuntime = (event) => {
+        resumeVisualizer(r);
         void r.$syncSeamlessState();
         r.$injectPageDjToolsLink();
+        r.$syncPageAwareTheme?.();
+        r.$schedulePlaylistMetadataRefresh(0);
         if (!event.persisted) return;
         r.$applyAppearance();
         r.$scanLivePlayer();
@@ -406,9 +623,13 @@ r.$init = async function init() {
       };
       window.addEventListener("pageshow", resumePageRuntime);
       document.addEventListener("visibilitychange", () => {
+        if (document.hidden) r.$visualizerFrameQueue?.cancel();
         if (!document.hidden) {
+          resumeVisualizer(r);
           void r.$syncSeamlessState();
           r.$injectPageDjToolsLink();
+          r.$syncPageAwareTheme?.();
+          r.$schedulePlaylistMetadataRefresh(0);
           r.$scheduleLivePlayerMaintenance(120);
         }
       });
@@ -424,12 +645,15 @@ r.$init = async function init() {
         window.removeEventListener("pagehide", leavePageRuntime);
         window.clearTimeout(r.$scanTimer);
         window.clearTimeout(r.$playerEventScanTimer);
+        window.clearTimeout(r.$playlistMetadataRefreshTimer);
         if (r.$scanIdleCallback && "cancelIdleCallback" in window) window.cancelIdleCallback(r.$scanIdleCallback);
         window.clearInterval(r.$seamlessSyncTimer);
         window.clearTimeout(r.$layoutSaveTimer);
         window.clearTimeout(r.$feedHandoffTimer);
         window.cancelAnimationFrame(r.$playerSectionGeometryFrame);
+        r.$visualizerFrameQueue?.cancel();
         r.$playerResizeObserver?.disconnect();
+        r.$playerSpectrumResizeObserver?.disconnect();
         r.$pageActionsObserver?.disconnect();
         headerMount.headerObserver.disconnect();
         headerMount.shadowHeaderObserver()?.disconnect();
@@ -446,7 +670,6 @@ r.$init = async function init() {
             };
           }
         }
-        r.$saveLayoutState();
         r.$setResizeCursor("");
       });
       window.addEventListener("pagehide", leavePageRuntime);
@@ -457,12 +680,88 @@ r.$init = async function init() {
 
 export const registerLifecycle = [registerHeaderMount, registerRuntimeStateRestore, registerLifecycle1, registerLifecycle2];
 
+function setupScrubPreview(r) {
+  r.$scrubControl.addEventListener("pointermove", (event) => {
+    if (event.pointerType === "touch") return;
+    const rect = r.$scrubControl.getBoundingClientRect();
+    if (!rect.width) return;
+    const progress = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    r.$scrubPreviewActive = true;
+    r.$scrubControl.style.setProperty("--hub-scrub-preview-progress", `${(progress * 100).toFixed(2)}%`);
+    const duration = Number(r.$scrubDuration) || 0;
+    r.$currentTimeLabel.textContent = formatDuration(progress * duration);
+    r.$durationLabel.textContent = `−${formatDuration((1 - progress) * duration)}`;
+  });
+  r.$scrubControl.addEventListener("pointerleave", () => {
+    r.$scrubPreviewActive = false;
+    r.$syncScrubVisual();
+    r.$renderPlayer();
+  });
+}
+
+function createRuntimeMessageHandler(r) {
+  return (message, _sender, sendResponse) => {
+      if (message?.type === MESSAGES.PING) {
+        sendResponse({ ok: true, version: chrome.runtime.getManifest().version, ready: r.$hubReady, open: runtimeState.open, error: r.$startupError });
+        return false;
+      }
+      if (message?.type === MESSAGES.TOGGLE) r.$setOpen(!runtimeState.open);
+      if (message?.type === MESSAGES.OPEN) r.$setOpen(true);
+      if (message?.type === MESSAGES.SEAMLESS_STATE) r.$applySeamlessState(message.state);
+      if (message?.type === MESSAGES.VISUALIZER_STATE) {
+        r.$queueMusicBarVisualizerSignal({ ...(message.signal || {}), reactive: true });
+      }
+      if (message?.type === MESSAGES.NOW_PLAYING_STATE) {
+        const revision = Math.max(0, Number(message.revision) || 0);
+        if (revision < r.$nowPlayingRevision) { sendResponse({ ok: true, stale: true }); return false; }
+        const playlist = r.$normalizePlaylist(message.playlist);
+        const playlistMode = message.playlistMode === "manual" ? "manual" : "browse";
+        const playlistShuffleEnabled = message.playlistShuffleEnabled === true;
+        const playlistShuffleOrder = Array.isArray(message.playlistShuffleOrder) ? message.playlistShuffleOrder.map(String).slice(0, MAX_PLAYLIST_ITEMS) : [];
+        const transitionTrackKey = String(message.transitionTrackKey || "");
+        const transitionExpiresAt = Math.max(0, Number(message.transitionExpiresAt) || 0);
+        r.$nowPlayingTransitionTrackKey = transitionTrackKey;
+        r.$nowPlayingTransitionExpiresAt = transitionExpiresAt;
+        r.$nowPlayingRevision = revision;
+        if (JSON.stringify(playlist) !== JSON.stringify(runtimeState.playlist)
+          || playlistMode !== runtimeState.playlistMode
+          || playlistShuffleEnabled !== runtimeState.playlistShuffleEnabled
+          || JSON.stringify(playlistShuffleOrder) !== JSON.stringify(runtimeState.playlistShuffleOrder)) {
+          runtimeState.playlist = playlist;
+          runtimeState.playlistMode = playlistMode;
+          runtimeState.playlistShuffleEnabled = playlistShuffleEnabled;
+          runtimeState.playlistShuffleOrder = playlistShuffleOrder;
+          if (r.$isNowPlayingView()) r.$render();
+          else r.$renderPlayer();
+          r.$injectPlaylistButtons();
+        }
+        r.$lastNowPlayingSignature = r.$nowPlayingSessionSignature();
+      }
+      if (message?.type === MESSAGES.PLAYBACK_CLEARED
+        && !r.$savedPlaylistReplacementRequest
+        && Date.now() >= r.$savedPlaylistReplacementGuardUntil) {
+        r.$clearLocalPlaybackState({ persist: false });
+      }
+      if (message?.type === MESSAGES.WISHLIST_UPDATED) {
+        if (message.success !== false) r.$markWishlistTrack(message.key, message.active !== false);
+      }
+      if (message?.type === MESSAGES.RESTORE_CART) {
+        r.$restoreSavedCart(message.items)
+          .then(sendResponse)
+          .catch((error) => sendResponse({ ok: false, error: error.message || "Cart restoration failed." }));
+        return true;
+      }
+      sendResponse({ ok: true });
+      return false;
+  };
+}
+
 function setupLifecycle1(r) {
-r.$scrubSlider.addEventListener("pointerdown", () => r.$beginScrub(true));
+setupScrubPreview(r); r.$scrubSlider.addEventListener("pointerdown", () => r.$beginScrub(true));
 r.$scrubSlider.addEventListener("input", () => {
       r.$beginScrub();
       const target = r.$scrubTarget();
-      r.$currentTimeLabel.textContent = formatDuration(target.currentTime);
+      r.$currentTimeLabel.textContent = formatDuration(target.currentTime); r.$durationLabel.textContent = `−${formatDuration(Math.max(0, target.duration - target.currentTime))}`;
       r.$scrubSlider.setAttribute("aria-valuetext", `${formatDuration(target.currentTime)} of ${formatDuration(target.duration)}`);
       r.$syncScrubVisual();
       window.clearTimeout(r.$pendingSeekTimer);
@@ -488,72 +787,39 @@ r.$scrubSlider.addEventListener("pointercancel", () => {
 r.$scrubSlider.addEventListener("blur", () => {
       if (r.$scrubbing) void r.$finishScrub();
     });
-r.$runtimeMessageHandler = (message, _sender, sendResponse) => {
-      if (message?.type === MESSAGES.PING) {
-        sendResponse({ ok: true, version: chrome.runtime.getManifest().version, ready: r.$hubReady, open: runtimeState.open, error: r.$startupError });
-        return false;
-      }
-      if (message?.type === MESSAGES.TOGGLE) r.$setOpen(!runtimeState.open);
-      if (message?.type === MESSAGES.OPEN) r.$setOpen(true);
-      if (message?.type === MESSAGES.SEAMLESS_STATE) r.$applySeamlessState(message.state);
-      if (message?.type === MESSAGES.NOW_PLAYING_STATE) {
-        const playlist = r.$normalizePlaylist(message.playlist);
-        const playlistMode = message.playlistMode === "manual" ? "manual" : "browse";
-        if (JSON.stringify(playlist) !== JSON.stringify(runtimeState.playlist) || playlistMode !== runtimeState.playlistMode) {
-          runtimeState.playlist = playlist;
-          runtimeState.playlistMode = playlistMode;
-          if (runtimeState.activeTab === "playlist") r.$render();
-          else r.$renderPlayer();
-          r.$injectPlaylistButtons();
-        }
-      }
-      if (message?.type === MESSAGES.PLAYBACK_CLEARED) r.$clearLocalPlaybackState({ persist: false });
-      if (message?.type === MESSAGES.WISHLIST_UPDATED) {
-        r.$markWishlistTrack(message.key, message.success !== false);
-      }
-      if (message?.type === MESSAGES.RESTORE_CART) {
-        r.$restoreSavedCart(message.items)
-          .then(sendResponse)
-          .catch((error) => sendResponse({ ok: false, error: error.message || "Cart restoration failed." }));
-        return true;
-      }
-      sendResponse({ ok: true });
-      return false;
-    };
+r.$runtimeMessageHandler = createRuntimeMessageHandler(r);
 chrome.runtime.onMessage.addListener(r.$runtimeMessageHandler);
 r.$app.registerCleanup(() => chrome.runtime.onMessage.removeListener(r.$runtimeMessageHandler));
 chrome.storage.onChanged?.addListener((changes, area) => {
       if (area !== "local") return;
       const incomingLayout = changes[STORAGE_KEYS.LAYOUT]?.newValue;
-      if (incomingLayout && (Number(incomingLayout.revision) || 0) > r.$layoutRevision) {
-        r.$applyPersistedLayout(incomingLayout);
-        if (r.$hubReady) {
-          r.$applyLayoutMode();
-          r.$render();
-        }
-      }
+      applyIncomingLayout(r, incomingLayout);
+      applyOnboardingCompletionChange(r, changes);
       const incoming = changes[STORAGE_KEYS.STATE]?.newValue;
       if (!incoming) return;
+      const incomingCartIsNewer = (Number(incoming.cartSavedAt) || 0) >= (Number(runtimeState.cartSavedAt) || 0);
+      const cart = incomingCartIsNewer ? incoming.cart || [] : runtimeState.cart;
+      const cartSummary = incomingCartIsNewer ? incoming.cartSummary || null : runtimeState.cartSummary;
+      const cartSavedAt = incomingCartIsNewer ? incoming.cartSavedAt || null : runtimeState.cartSavedAt;
       const savedCarts = r.$cartAutosave.normalizeSavedCarts(incoming.savedCarts);
       const playlist = r.$sessionNowPlayingLoaded ? runtimeState.playlist : r.$normalizePlaylist(incoming.playlist);
       const playlistMode = r.$sessionNowPlayingLoaded
         ? runtimeState.playlistMode
         : incoming.playlistMode === "manual" ? "manual" : "browse";
+      const playlistShuffleEnabled = r.$sessionNowPlayingLoaded
+        ? runtimeState.playlistShuffleEnabled === true
+        : incoming.playlistShuffleEnabled === true;
+      const playlistShuffleOrder = r.$sessionNowPlayingLoaded
+        ? runtimeState.playlistShuffleOrder
+        : Array.isArray(incoming.playlistShuffleOrder) ? incoming.playlistShuffleOrder.map(String).slice(0, MAX_PLAYLIST_ITEMS) : [];
       const savedPlaylists = r.$normalizeSavedPlaylists(incoming.savedPlaylists);
       const backupIntroSeen = incoming.backupIntroSeen === true;
       const backupReminderDays = [0, 7, 14, 30].includes(Number(incoming.backupReminderDays))
         ? Number(incoming.backupReminderDays) : 7;
       const backupReminderSnoozedAt = incoming.backupReminderSnoozedAt || null;
       const lastBackupAt = incoming.lastBackupAt || null;
-      const autoAnalyzeTracks = incoming.autoAnalyzeTracks !== false;
-      const showTrackKeys = incoming.showTrackKeys !== false;
-      const pageActionLabels = Boolean(incoming.pageActionLabels);
-      const recordPlaylistMetadata = incoming.recordPlaylistMetadata !== false;
-      const showMusicBarAnalysis = incoming.showMusicBarAnalysis !== false;
-      const scrubberStyle = incoming.scrubberStyle === "traditional" ? "traditional" : "waveform";
-      const musicBarSize = incoming.musicBarSize === "compact" ? "compact" : "standard";
-      const musicBarWidth = MUSIC_BAR_WIDTHS.includes(incoming.musicBarWidth) ? incoming.musicBarWidth : "default";
-      const musicBarCustomWidth = Math.round(Math.max(480, Math.min(2000, Number(incoming.musicBarCustomWidth) || 900)));
+      const activity = normalizedActivity(incoming.activity);
+      const syncedSettings = normalizedCrossTabSettings(incoming, runtimeState);
       const appearance = {
         ...runtimeState.appearance,
         ...(incoming.appearance || {}),
@@ -563,43 +829,53 @@ chrome.storage.onChanged?.addListener((changes, area) => {
       };
       const incomingModernReleasePages = appearance.modernReleasePages;
       appearance.modernReleasePages = Boolean(incomingModernReleasePages);
-      const appearanceNeedsNormalization = incomingModernReleasePages !== appearance.modernReleasePages;
+      const appearanceNeedsNormalization = normalizeGlassAppearance(appearance)
+        || incomingModernReleasePages !== appearance.modernReleasePages;
       const appearanceChanged = JSON.stringify(appearance) !== JSON.stringify(runtimeState.appearance);
-      if (JSON.stringify(savedCarts) === JSON.stringify(runtimeState.savedCarts)
+      r.$setSharedStateBaseline({
+        ...runtimeState,
+        ...incoming,
+        ...syncedSettings,
+        cart, cartSavedAt, cartSummary,
+        savedPlaylists, savedCarts,
+        backupIntroSeen,
+        backupReminderDays,
+        backupReminderSnoozedAt,
+        lastBackupAt,
+        activity,
+        appearance
+      });
+      if (JSON.stringify(cart) === JSON.stringify(runtimeState.cart)
+        && cartSavedAt === runtimeState.cartSavedAt
+        && JSON.stringify(cartSummary) === JSON.stringify(runtimeState.cartSummary)
+        && JSON.stringify(savedCarts) === JSON.stringify(runtimeState.savedCarts)
         && JSON.stringify(playlist) === JSON.stringify(runtimeState.playlist)
         && playlistMode === runtimeState.playlistMode
+        && playlistShuffleEnabled === runtimeState.playlistShuffleEnabled
+        && JSON.stringify(playlistShuffleOrder) === JSON.stringify(runtimeState.playlistShuffleOrder)
         && JSON.stringify(savedPlaylists) === JSON.stringify(runtimeState.savedPlaylists)
-        && autoAnalyzeTracks === (runtimeState.autoAnalyzeTracks !== false)
-        && showTrackKeys === (runtimeState.showTrackKeys !== false)
-        && pageActionLabels === Boolean(runtimeState.pageActionLabels)
-        && recordPlaylistMetadata === (runtimeState.recordPlaylistMetadata !== false)
-        && showMusicBarAnalysis === (runtimeState.showMusicBarAnalysis !== false)
-        && scrubberStyle === runtimeState.scrubberStyle
-        && musicBarSize === runtimeState.musicBarSize
-        && musicBarWidth === runtimeState.musicBarWidth
-        && musicBarCustomWidth === runtimeState.musicBarCustomWidth
+        && !settingsChanged(runtimeState, syncedSettings)
         && backupIntroSeen === (runtimeState.backupIntroSeen === true)
         && backupReminderDays === Number(runtimeState.backupReminderDays)
         && backupReminderSnoozedAt === (runtimeState.backupReminderSnoozedAt || null)
         && lastBackupAt === (runtimeState.lastBackupAt || null)
+        && JSON.stringify(activity) === JSON.stringify(runtimeState.activity)
         && !appearanceChanged) return;
+      runtimeState.cart = cart;
+      runtimeState.cartSavedAt = cartSavedAt;
+      runtimeState.cartSummary = cartSummary;
       runtimeState.savedCarts = savedCarts;
       runtimeState.playlist = playlist;
       runtimeState.playlistMode = playlistMode;
+      runtimeState.playlistShuffleEnabled = playlistShuffleEnabled;
+      runtimeState.playlistShuffleOrder = playlistShuffleOrder;
       runtimeState.savedPlaylists = savedPlaylists;
       runtimeState.backupIntroSeen = backupIntroSeen;
       runtimeState.backupReminderDays = backupReminderDays;
       runtimeState.backupReminderSnoozedAt = backupReminderSnoozedAt;
       runtimeState.lastBackupAt = lastBackupAt;
-      runtimeState.autoAnalyzeTracks = autoAnalyzeTracks;
-      runtimeState.showTrackKeys = showTrackKeys;
-      runtimeState.pageActionLabels = pageActionLabels;
-      runtimeState.recordPlaylistMetadata = recordPlaylistMetadata;
-      runtimeState.showMusicBarAnalysis = showMusicBarAnalysis;
-      runtimeState.scrubberStyle = scrubberStyle;
-      runtimeState.musicBarSize = musicBarSize;
-      runtimeState.musicBarWidth = musicBarWidth;
-      runtimeState.musicBarCustomWidth = musicBarCustomWidth;
+      runtimeState.activity = activity;
+      Object.assign(runtimeState, syncedSettings);
       runtimeState.appearance = appearance;
       if (appearanceNeedsNormalization) runtimeSaveState();
       if (!runtimeState.savedCarts.some((snapshot) => snapshot.id === runtimeState.selectedSavedCartId)) {
@@ -609,10 +885,12 @@ chrome.storage.onChanged?.addListener((changes, area) => {
       else r.$renderPlayer();
       if (appearanceChanged) r.$applyAppearance();
       r.$syncTrackKeyVisibilityMode();
-      r.$syncPageActionLabelMode();
       r.$syncScrubberStyles();
-      r.$syncMusicBarSize();
+      r.$syncMusicBarStyle();
+      r.$syncMusicBarPanelButtons();
+      r.$syncMusicBarSize(); r.$syncMusicBarVisualizer();
       r.$syncMusicBarWidth();
+      r.$syncFrostedGlass(); r.$syncCornerStyle();
       r.$ensurePagePlayerWaveforms();
       r.$injectPageDjToolsLink();
       r.$injectPlaylistButtons();
@@ -625,6 +903,7 @@ r.$init().catch((error) => {
         r.$app.cleanup();
       } catch {}
       r.$root.remove();
+      r.$playerSurfaceHost?.remove(); r.$playerSurfaceObserver?.disconnect(); window.cancelAnimationFrame(r.$playerSurfaceFrame);
     });
 }
 

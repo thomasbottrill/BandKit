@@ -115,16 +115,16 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .deets:
 html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporters-toggle {
   align-self: start;
   background: transparent !important;
-  border: 1px solid var(--bandkit-release-line) !important;
-  border-radius: 999px !important;
+  border: 1px solid transparent !important;
+  border-radius: 4px !important;
   color: var(--bandkit-release-accent) !important;
   cursor: pointer;
-  font-size: 11px !important;
-  font-weight: 700;
+  font-size: 12px !important;
+  font-weight: 600;
   grid-column: 2;
   grid-row: 1;
-  min-height: 30px;
-  padding: 6px 12px !important;
+  padding: 6px 11px !important;
+  text-transform: capitalize;
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporters-toggle[hidden] {
@@ -133,8 +133,9 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-suppo
 
 html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporters-toggle:hover,
 html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-supporters-toggle:focus-visible {
-  background: var(--bandkit-release-accent-soft) !important;
-  border-color: var(--bandkit-release-accent) !important;
+  background: color-mix(in srgb, var(--bandkit-release-accent) 8%, var(--bandkit-release-surface)) !important;
+  border-color: transparent !important;
+  outline: 0;
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .writing {
@@ -269,8 +270,8 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .no-wri
 
 html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .more-thumbs {
   background: transparent;
-  border: 1px solid var(--bandkit-release-line);
-  border-radius: 999px;
+  border: 1px solid transparent;
+  border-radius: 4px;
   cursor: pointer;
   display: inline-block !important;
   font-size: 12px !important;
@@ -291,8 +292,9 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by[data-ba
 
 html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .more-thumbs:hover,
 html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by .more-thumbs:focus-visible {
-  background: var(--bandkit-release-accent-soft);
-  border-color: var(--bandkit-release-accent);
+  background: color-mix(in srgb, var(--bandkit-release-accent) 8%, var(--bandkit-release-surface));
+  border-color: transparent;
+  outline: 0;
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page .collected-by a,
@@ -317,7 +319,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn {
 html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container,
 html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn > .sidebar,
 html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn > #recommended {
-  background: var(--bandkit-release-surface-raised) !important;
+  background: var(--bandkit-release-surface) !important;
   border: 1px solid var(--bandkit-release-line) !important;
   border-radius: 8px;
   color: var(--bandkit-release-ink) !important;
@@ -347,7 +349,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purch
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list > .buyItem {
-  background: var(--bandkit-release-surface-raised) !important;
+  background: var(--bandkit-release-surface) !important;
   border: 1px solid transparent !important;
   border-radius: 8px;
   box-sizing: border-box;
@@ -362,7 +364,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purch
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list > .buyItem:is(:hover, :focus-within) {
-  background: var(--bandkit-release-surface-raised) !important;
+  background: var(--bandkit-release-surface) !important;
   border-color: var(--bandkit-release-line) !important;
   box-shadow: none;
   transform: none;
@@ -457,14 +459,14 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purch
   text-decoration: none !important;
 }
 
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-buy-control,
+html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn .bandkit-modern-purchase-list .bandkit-modern-buy-control,
 html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .following-actions-wrapper .follow-unfollow {
   align-items: center;
-  background: var(--bandkit-release-accent) !important;
-  border: 1px solid var(--bandkit-release-accent) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
   border-radius: 5px !important;
   column-gap: 10px;
-  color: var(--bandkit-release-on-accent) !important;
+  color: var(--bandkit-release-accent) !important;
   display: inline-flex !important;
   flex: 0 0 auto;
   flex-wrap: nowrap;
@@ -477,16 +479,25 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .follo
   padding: 8px 12px !important;
   row-gap: 2px;
   text-decoration: none !important;
-  transition: border-color 120ms ease;
+  transition: background-color 120ms ease, color 120ms ease;
 }
 
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-buy-control:is(:hover, :focus-visible),
-html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .following-actions-wrapper .follow-unfollow:is(:hover, :focus-visible) {
-  background: color-mix(in srgb, var(--bandkit-release-on-accent) 10%, var(--bandkit-release-accent)) !important;
-  border-color: color-mix(in srgb, var(--bandkit-release-on-accent) 22%, var(--bandkit-release-accent)) !important;
+html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn .bandkit-modern-purchase-list .bandkit-modern-buy-control {
+  border-color: transparent !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn .bandkit-modern-purchase-list .bandkit-modern-buy-control:is(:hover, :focus-visible, :active),
+html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .following-actions-wrapper .follow-unfollow:is(:hover, :focus-visible, :active) {
+  background: color-mix(in srgb, var(--bandkit-release-accent) 8%, var(--bandkit-release-surface)) !important;
+  border-color: transparent !important;
   box-shadow: none;
+  color: var(--bandkit-release-accent) !important;
   outline: 0;
   transform: none;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn .bandkit-modern-purchase-list .bandkit-modern-buy-control:is(:hover, :focus-visible, :active) {
+  border-color: transparent !important;
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-buy-label {
@@ -528,50 +539,14 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purch
   font-weight: 700;
 }
 
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .hd button.buy-link {
+html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn .bandkit-modern-purchase-list .hd button.buy-link {
   background: transparent !important;
   border: 0 !important;
+  box-shadow: none !important;
   color: var(--bandkit-release-ink) !important;
   min-height: 0;
   padding: 0 !important;
   text-align: left;
-}
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-gift-action {
-  display: flex !important;
-  flex: 0 0 42px;
-  margin: 0 0 0 auto !important;
-}
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .send-as-gift .bandkit-modern-gift-control {
-  align-items: center;
-  background: transparent !important;
-  border-color: transparent !important;
-  color: var(--bandkit-release-ink) !important;
-  display: inline-flex !important;
-  font-size: 0 !important;
-  height: 42px;
-  justify-content: center;
-  min-height: 42px;
-  padding: 0 !important;
-  width: 42px;
-}
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .send-as-gift .bandkit-modern-gift-control:is(:hover, :focus-visible) {
-  background: var(--bandkit-release-accent-soft) !important;
-  border-color: var(--bandkit-release-accent) !important;
-  color: var(--bandkit-release-accent) !important;
-  outline: 0;
-}
-
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .send-as-gift .bandkit-modern-gift-control::before {
-  background: currentColor;
-  content: "";
-  display: block;
-  height: 18px;
-  mask: var(--bandkit-gift-icon) center / contain no-repeat;
-  -webkit-mask: var(--bandkit-gift-icon) center / contain no-repeat;
-  width: 18px;
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .popupImageGallery {
@@ -887,7 +862,7 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_cont
 html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album {
   align-self: start;
   background: var(--bandkit-release-surface-raised) !important;
-  border: 1px solid var(--bandkit-release-line) !important;
+  border: 0 !important;
   border-radius: 8px;
   display: flex !important;
   flex-direction: column;
@@ -900,14 +875,12 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_cont
   padding: 0 !important;
   position: relative;
   box-shadow: none !important;
-  transition: border-color 140ms ease;
   width: auto !important;
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album:hover,
 html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album:focus-within,
 html[data-bandkit-modern-release="true"] body.tralbum-page #recommendations_container .recommended-album.selected {
-  border-color: var(--bandkit-release-accent) !important;
   box-shadow: none !important;
   transform: none !important;
   z-index: 2;
