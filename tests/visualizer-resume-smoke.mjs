@@ -31,6 +31,8 @@ sandbox.syncVisualizerFallback(r, false);
 assert.equal(painted.length, 1, "A genuinely missing FFT feed must retain the existing fallback");
 resumeVisualizer(r, now);
 live.isPlaying = false;
+sandbox.syncVisualizerFallback(r, true);
+assert.equal(painted.length, 1, "Track loading must hold the current FFT shape instead of painting a reset frame");
 sandbox.syncVisualizerFallback(r, false);
 assert.equal(painted.at(-1).reactive, false, "Pause must still settle immediately during the resume window");
 const lifecycle = readFileSync(new URL("../src/content/runtime/lifecycle.js", import.meta.url), "utf8");

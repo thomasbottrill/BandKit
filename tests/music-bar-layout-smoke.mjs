@@ -569,12 +569,18 @@ assert.doesNotMatch(source, /setAttribute\("aria-label", "Music bar visualizer"\
   "The visualizer toggle must not remain buried in the music-bar layout grid");
 assert.match(playerShellSource, /displayIsPlaying = Boolean\(audibleDiscover \|\| runtimeLive\.isPlaying\)/,
   "Playing state must cover Discover's own audible playback as well as Bandkit's runtime");
-assert.match(playerShellSource, /classList\.toggle\("is-playing", hasCurrentTrack && displayIsPlaying && !playbackLoading\)/,
-  "The ambient visualizer must animate only during active playback");
+assert.match(playerShellSource, /preserveVisualizerMotion = playbackLoading && r\.\$player\.classList\.contains\("is-playing"\)[\s\S]*?classList\.toggle\("is-playing", hasCurrentTrack && \(displayIsPlaying \|\| preserveVisualizerMotion\)\)/,
+  "An active visualizer must keep its animation state through a track handoff without making an idle load animate");
 assert.match(offscreenSource, /createAnalyser\(\)/, "The ambient visualizer must attach an analyser to the playback audio graph");
 assert.match(offscreenSource, /getByteFrequencyData/, "The ambient visualizer must sample live frequency energy");
-assert.match(offscreenSource, /fftSize: 4096[\s\S]*?maxDecibels: -6[\s\S]*?smoothingTimeConstant: 0\.08[\s\S]*?target > smoothedSpectrum\[index\] \? 0\.88 : 0\.28[\s\S]*?target > level \? 0\.68 : 0\.12/,
-  "The visualizer must sample on a stable 30fps cadence while retaining fast peak attack");
+assert.match(offscreenSource, /fftSize: 4096[\s\S]*?maxDecibels: -6[\s\S]*?smoothingTimeConstant: 0\.08[\s\S]*?fall = transitioning \? 0\.055 : 0\.28[\s\S]*?target > smoothedSpectrum\[index\] \? 0\.88 : fall[\s\S]*?target > level \? 0\.68 : transitioning \? 0\.045 : 0\.12/,
+  "The visualizer must retain fast peak attack and use a gentler decay only while sources are changing");
+assert.match(offscreenSource, /interval = \(playing && !audio\.ended\) \|\| transitioning \? ACTIVE_SAMPLE_INTERVAL_MS : IDLE_SAMPLE_INTERVAL_MS/,
+  "Track handoffs must retain the active animation cadence without making a genuine pause expensive");
+assert.match(offscreenSource, /visualizerHandoffUntil = Date\.now\(\) \+ 240[\s\S]*?status = "loading"/,
+  "A replacement track must retain a short visual handoff window while Chromium warms its new analyser buffer");
+assert.match(offscreenSource, /status = "playing";\s*visualizerHandoffUntil = Date\.now\(\) \+ 240/,
+  "The analyser warm-up window must restart when replacement playback actually begins");
 assert.match(offscreenSource, /ACTIVE_SAMPLE_INTERVAL_MS = 33[\s\S]*?nextSampleAt \+= interval[\s\S]*?setTimeout\(sample, Math\.max\(0, nextSampleAt - now\)\)/,
   "Analyzer deadlines must exclude sampling cost and avoid accumulated timer drift");
 assert.match(backgroundSource, /VISUALIZER_BROADCAST_INTERVAL_MS = 32[\s\S]*?function scheduleVisualizerBroadcast[\s\S]*?if \(visualizerBroadcastTimer \|\| visualizerBroadcastRunning \|\| !pendingVisualizerSignal\) return[\s\S]*?function flushVisualizerBroadcast[\s\S]*?pendingVisualizerSignal = null[\s\S]*?function queueVisualizerBroadcast[\s\S]*?pendingVisualizerSignal = signal/,

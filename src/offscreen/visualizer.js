@@ -44,8 +44,11 @@ function logarithmicSpectrum(values, ranges, output) {
   return output;
 }
 
-export function startVisualizerSignal({ analyser, audio, isPlaying }) {
+export function startVisualizerSignal({ analyser, audio, isPlaying, isTransitioning = () => false }) {
   let level = 0;
+  let bass = 0;
+  let mid = 0;
+  let high = 0;
   const frequencies = new Uint8Array(analyser.frequencyBinCount);
   const smoothedSpectrum = new Float32Array(SPECTRUM_BAND_COUNT);
   const ranges = spectrumBinRanges(frequencies.length, analyser.context?.sampleRate);
@@ -53,32 +56,38 @@ export function startVisualizerSignal({ analyser, audio, isPlaying }) {
   let nextSampleAt = performance.now();
   const sample = () => {
     const playing = isPlaying();
-    let bass = 0, mid = 0, high = 0;
+    const transitioning = isTransitioning();
     if (playing) {
       analyser.getByteFrequencyData(frequencies);
       bass = averageBins(frequencies, 1, Math.ceil(frequencies.length * 0.12));
       mid = averageBins(frequencies, Math.ceil(frequencies.length * 0.12), Math.ceil(frequencies.length * 0.46));
       high = averageBins(frequencies, Math.ceil(frequencies.length * 0.46), frequencies.length);
+    } else {
+      const bandFall = transitioning ? 0.06 : 0.32;
+      bass += (0 - bass) * bandFall;
+      mid += (0 - mid) * bandFall;
+      high += (0 - high) * bandFall;
     }
     if (playing) logarithmicSpectrum(frequencies, ranges, measuredSpectrum);
     else measuredSpectrum.fill(0);
     for (let index = 0; index < smoothedSpectrum.length; index += 1) {
       const target = measuredSpectrum[index];
-      smoothedSpectrum[index] += (target - smoothedSpectrum[index]) * (target > smoothedSpectrum[index] ? 0.88 : 0.28);
+      const fall = transitioning ? 0.055 : 0.28;
+      smoothedSpectrum[index] += (target - smoothedSpectrum[index]) * (target > smoothedSpectrum[index] ? 0.88 : fall);
     }
     const target = playing ? Math.min(1, bass * 0.5 + mid * 0.34 + high * 0.16) : 0;
-    level += (target - level) * (target > level ? 0.68 : 0.12);
+    level += (target - level) * (target > level ? 0.68 : transitioning ? 0.045 : 0.12);
     chrome.runtime.sendMessage({
       target: "background",
       type: MESSAGES.OFFSCREEN_VISUALIZER,
       signal: {
-        level, bass, mid, high, playing,
+        level, bass, mid, high, playing, transitioning,
         spectrum: Array.from(smoothedSpectrum, (value) => Math.round(value * 255))
       }
     }).catch(() => {});
     // Fixed deadlines exclude sampling cost and timer drift. After a stall,
     // skip missed samples rather than producing a burst of obsolete frames.
-    const interval = playing && !audio.ended ? ACTIVE_SAMPLE_INTERVAL_MS : IDLE_SAMPLE_INTERVAL_MS;
+    const interval = (playing && !audio.ended) || transitioning ? ACTIVE_SAMPLE_INTERVAL_MS : IDLE_SAMPLE_INTERVAL_MS;
     const now = performance.now();
     nextSampleAt += interval;
     if (nextSampleAt <= now) nextSampleAt = now + interval;

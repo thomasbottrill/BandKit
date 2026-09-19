@@ -43,8 +43,10 @@ const analyser = {
   }
 };
 const audio = { ended: false };
+let playing = true;
+let transitioning = false;
 
-startVisualizerSignal({ analyser, audio, isPlaying: () => true });
+startVisualizerSignal({ analyser, audio, isPlaying: () => playing, isTransitioning: () => transitioning });
 assert.equal(reads, 1, "The analyzer should be sampled immediately");
 assert.equal(messages.length, 1, "The first FFT profile should be broadcast immediately");
 assert.equal(messages[0].signal.spectrum.length, 320, "The broadcast FFT profile should contain 320 logarithmic bands");
@@ -64,6 +66,39 @@ assert.equal(scheduledDelay, 31, "The next deadline must retain the original sam
 samplingNow += 500;
 scheduledSample();
 assert.equal(scheduledDelay, 33, "After a stall skip obsolete samples instead of a zero-delay catch-up burst");
+
+const activeProfile = [...messages.at(-1).signal.spectrum];
+const activeEnergy = activeProfile.reduce((sum, value) => sum + value, 0);
+playing = false;
+transitioning = true;
+samplingNow += scheduledDelay;
+scheduledSample();
+const transitionSignal = messages.at(-1).signal;
+assert.equal(reads, 3, "A source transition should reuse the last FFT shape instead of reading detached audio");
+assert.equal(transitionSignal.playing, false);
+assert.equal(transitionSignal.transitioning, true, "Visualizer messages should identify a source handoff explicitly");
+assert.equal(scheduledDelay, 33, "Source handoffs should keep the active visualizer cadence");
+const transitionEnergy = transitionSignal.spectrum.reduce((sum, value) => sum + value, 0);
+assert.ok(transitionEnergy > 0 && transitionEnergy < activeEnergy,
+  "The prior spectrum should decay gently instead of dropping to a blank frame during a source handoff");
+
+playing = true;
+sourceBins.fill(0);
+samplingNow += scheduledDelay;
+scheduledSample();
+const warmupSignal = messages.at(-1).signal;
+assert.equal(reads, 4, "The replacement source should still be sampled during its analyser warm-up window");
+assert.equal(warmupSignal.transitioning, true);
+assert.equal(scheduledDelay, 31, "Warm-up reads should stay inside the same fixed 33ms deadline");
+assert.ok(warmupSignal.level > transitionSignal.level * 0.9,
+  "An empty first buffer from the replacement source must not collapse the carried visual energy");
+
+playing = false;
+transitioning = false;
+samplingNow += scheduledDelay;
+scheduledSample();
+assert.equal(messages.at(-1).signal.transitioning, false);
+assert.equal(scheduledDelay, 240, "A genuine pause should return the visualizer to its low-cost idle cadence");
 
 const { drawSpectrumAnalyzer } = await import(`../src/content/spectrum-renderer.js?smoke=${Date.now()}`);
 let now = 1000;

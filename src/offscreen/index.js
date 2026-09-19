@@ -69,6 +69,7 @@ let midEqNode = null;
 let highEqNode = null;
 let gainNode = null;
 let analyserNode = null;
+let visualizerHandoffUntil = 0;
 
 function currentTrack() { return queue[currentIndex] || null; }
 
@@ -211,7 +212,12 @@ async function ensureAudioGraph() {
       Object.assign(analyserNode, { fftSize: 4096, minDecibels: -105, maxDecibels: -6, smoothingTimeConstant: 0.08 });
       highEqNode.connect(analyserNode);
       analyserNode.connect(gainNode);
-      startVisualizerSignal({ analyser: analyserNode, audio, isPlaying: () => enabled && !audio.paused && !audio.ended && status !== "loading" });
+      startVisualizerSignal({
+        analyser: analyserNode,
+        audio,
+        isPlaying: () => enabled && !audio.paused && !audio.ended && status !== "loading",
+        isTransitioning: () => enabled && (status === "loading" || Date.now() < visualizerHandoffUntil)
+      });
     } else highEqNode.connect(gainNode);
     gainNode.connect(audioContext.destination);
     if (audioContext.state === "suspended") await audioContext.resume().catch(() => {});
@@ -639,6 +645,10 @@ async function loadTrack(index, currentTime = 0, autoplay = false, handoffStarte
   detectedKey = null;
   waveform = [];
   playbackError = "";
+  // Chromium can report the replacement media as playing one or two analyser
+  // samples before its FFT buffer contains the new audio. Keep the previous
+  // contour on its gentle handoff curve through that short warm-up window.
+  visualizerHandoffUntil = Date.now() + 240;
   status = "loading";
   prioritizePlayback();
   audio.pause();
@@ -675,6 +685,7 @@ async function loadTrack(index, currentTime = 0, autoplay = false, handoffStarte
       const started = await playForMediaRequest(mediaRequest, token);
       if (!started) return stateSnapshot();
       status = "playing";
+      visualizerHandoffUntil = Date.now() + 240;
     }
     void analyzeCurrentTrack();
   } catch (error) {

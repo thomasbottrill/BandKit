@@ -447,7 +447,8 @@ function applyMusicBarVisualizerSignal(r, signal = {}) {
   const values = reducedMotion
     ? { level: 0.16, bass: 0.16, mid: 0.16, high: 0.16, spectrum: new Array(64).fill(0.08) }
     : normalizedVisualizerSignal(signal);
-  const reactive = !reducedMotion && signal.playing !== false && signal.reactive !== false && values.spectrum.length > 0;
+  const reactive = !reducedMotion && (signal.playing !== false || signal.transitioning === true)
+    && signal.reactive !== false && values.spectrum.length > 0;
   const leftEnergy = values.level * 0.8 + values.bass * 0.2;
   const centreEnergy = values.level * 0.72 + values.mid * 0.28;
   const rightEnergy = values.level * 0.8 + values.high * 0.2;
@@ -487,7 +488,10 @@ function applyMusicBarVisualizerSignal(r, signal = {}) {
 }
 
 function syncVisualizerFallback(r, playbackLoading) {
-  if (!runtimeLive.isPlaying || playbackLoading) { r.$applyMusicBarVisualizerSignal({ reactive: false }); return; }
+  // Keep the last FFT shape alive while the offscreen player swaps sources.
+  // Its transition frames decay the signal smoothly at the active cadence.
+  if (playbackLoading) return;
+  if (!runtimeLive.isPlaying) { r.$applyMusicBarVisualizerSignal({ reactive: false }); return; }
   const lastSignalOrResume = Math.max(Number(r.$visualizerSignalAt || 0), Number(r.$visualizerResumeAt || 0));
   if (Date.now() - lastSignalOrResume <= 700 || !runtimeSeamless.waveform?.length) return;
   const index = Math.min(runtimeSeamless.waveform.length - 1,
@@ -611,7 +615,9 @@ r.$renderPlayer = function renderPlayer() {
         runtimeSaveState();
         r.$renderDjTools();
       }
-      const playbackLoading = !audibleDiscover && Boolean(pendingDiscoverTrack || presentation.retained || r.$discoverHandoffBusy || r.$discoverSwitchPendingDisable || (runtimeSeamless.enabled && runtimeSeamless.status === "loading") || pendingFeedLoading || pendingClassicLoading); r.$player.classList.toggle("is-playing", hasCurrentTrack && displayIsPlaying && !playbackLoading);
+      const playbackLoading = !audibleDiscover && Boolean(pendingDiscoverTrack || presentation.retained || r.$discoverHandoffBusy || r.$discoverSwitchPendingDisable || (runtimeSeamless.enabled && runtimeSeamless.status === "loading") || pendingFeedLoading || pendingClassicLoading);
+      const preserveVisualizerMotion = playbackLoading && r.$player.classList.contains("is-playing");
+      r.$player.classList.toggle("is-playing", hasCurrentTrack && (displayIsPlaying || preserveVisualizerMotion));
       syncVisualizerFallback(r, playbackLoading);
       r.$playButton.disabled = !hasCurrentTrack || playbackLoading;
       r.$playButton.setAttribute("aria-disabled", String(!hasCurrentTrack || playbackLoading));
