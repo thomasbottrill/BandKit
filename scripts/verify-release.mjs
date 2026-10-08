@@ -14,9 +14,13 @@ const files = new Set(entries);
 const allowedRuntimeFiles = new Set([
   "manifest.json",
   "THIRD_PARTY_NOTICES.md",
+  "analysis-worker.js",
   "background.js",
   "cart-autosave.js",
   "collection-playlists.css",
+  "component-reference.css",
+  "component-reference.html",
+  "component-reference.js",
   "content.js",
   "feed-redirect.js",
   "hub.css",
@@ -25,6 +29,7 @@ const allowedRuntimeFiles = new Set([
   "offscreen.html",
   "offscreen.js",
   "page-media-bridge.js",
+  "page-theme.css",
   "popup.css",
   "popup.html",
   "popup.js"
@@ -36,7 +41,7 @@ assert.ok(!entries.some((entry) => /^assets\/art-/.test(entry)), "Release must n
 assert.ok(!entries.some((entry) => entry.startsWith("dist/") || entry.startsWith(".git/")), "Release contains development output");
 assert.ok(!entries.some((entry) => entry.endsWith(".map")), "Release must not contain source maps");
 for (const entry of entries) {
-  assert.ok(allowedRuntimeFiles.has(entry) || /^assets\/(?:extension-icon-\d+\.png|icon-[a-z0-9-]+\.svg)$/.test(entry),
+  assert.ok(allowedRuntimeFiles.has(entry) || /^assets\/(?:extension-icon-\d+\.png|icon-[a-z0-9-]+\.svg|logo-type-3\.svg)$/.test(entry),
     `Unexpected release file: ${entry}`);
 }
 
@@ -75,7 +80,7 @@ const referencedAssets = new Set([
   ...Object.values(manifest.icons || {}),
   ...Object.values(manifest.action?.default_icon || {}),
   ...[...packagedText.matchAll(/assets\/(?:extension-icon-\d+\.png|icon-[a-z0-9-]+\.svg)/g)].map((match) => match[0]),
-  ...[...packagedText.matchAll(/(?<![a-z0-9/-])(icon-[a-z0-9-]+\.svg)/g)].map((match) => `assets/${match[1]}`)
+  ...[...packagedText.matchAll(/(?<![a-z0-9/-])((?:icon-[a-z0-9-]+|logo-type-3)\.svg)/g)].map((match) => `assets/${match[1]}`)
 ]);
 for (const entry of entries.filter((name) => name.startsWith("assets/"))) {
   assert.ok(referencedAssets.has(entry), `Release contains unreferenced asset: ${entry}`);
