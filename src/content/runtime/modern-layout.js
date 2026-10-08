@@ -1,10 +1,26 @@
-import { discoverGenrePalette } from "../discover-colours.js";
 import { runtimeState } from "./context.js";
-import { asset } from "../core.js";
+import { asset, removeStyleProperty, setStyleProperty } from "../core.js";
 import { accessibleControlPalette, accessibleScrubberPalette, colorString, contrast, luminance, mixColor, parseColor, readableColor } from "../color.js";
 import { BUILT_IN_THEMES } from "../state.js";
 import { appearanceVisualizerColourDefaults, resolvedVisualizerColors, visualizerThemeVariables } from "../visualizer-theme.js";
 import { registerModernReleaseLayout } from "./modern-release-layout.js";
+
+const BANDCAMP_BRAND_ACCENT = { r: 29, g: 160, b: 195, a: 1 };
+
+export function usesBandcampBrandVisualizer({
+  hostname = location.hostname,
+  pathname = location.pathname,
+  root = document
+} = {}) {
+  const normalizedHost = String(hostname || "").toLowerCase();
+  const normalizedPath = String(pathname || "/").replace(/\/+$/, "") || "/";
+  if (normalizedHost === "daily.bandcamp.com") return true;
+  if (normalizedHost !== "bandcamp.com") return false;
+  if (normalizedPath === "/" || /^\/(?:discover|radio)(?:\/|$)/.test(normalizedPath)) return true;
+  if (root.body?.classList?.contains("feed") || /\/feed$/.test(normalizedPath)) return true;
+  return Boolean(root.querySelector?.("#HomepageApp, #DiscoverApp, .discover-app, #fan-container, #collection-grid"));
+}
+
 function registerModernLayoutPurchases(r) {
 r.$prepareModernPurchaseActions = function prepareModernPurchaseActions(purchaseList) {
       for (const item of purchaseList.querySelectorAll(":scope > .buyItem")) {
@@ -19,25 +35,20 @@ r.$prepareModernPurchaseActions = function prepareModernPurchaseActions(purchase
           .map((entry) => ({
             ...entry,
             ariaLabel: entry.control.getAttribute("aria-label"),
-            title: entry.control.getAttribute("title"),
-            icon: entry.action.style.getPropertyValue("--bandkit-gift-icon"),
-            iconPriority: entry.action.style.getPropertyPriority("--bandkit-gift-icon")
+            title: entry.control.getAttribute("title")
           }));
         const restoreGiftControls = () => {
-          for (const { action, control, ariaLabel, title, icon, iconPriority } of giftEntries) {
+          for (const { action, control, ariaLabel, title } of giftEntries) {
             action.classList.remove("bandkit-modern-gift-action");
             control.classList.remove("bandkit-modern-gift-control");
             if (ariaLabel === null) control.removeAttribute("aria-label");
             else control.setAttribute("aria-label", ariaLabel);
             if (title === null) control.removeAttribute("title");
             else control.setAttribute("title", title);
-            if (icon) action.style.setProperty("--bandkit-gift-icon", icon, iconPriority);
-            else action.style.removeProperty("--bandkit-gift-icon");
           }
         };
         for (const { action, control } of giftEntries) {
           action.classList.add("bandkit-modern-gift-action");
-          action.style.setProperty("--bandkit-gift-icon", `url('${asset("icon-gift.svg")}')`);
           control.classList.add("bandkit-modern-gift-control");
           control.setAttribute("aria-label", "Send as gift");
           control.title = "Send as gift";
@@ -52,17 +63,16 @@ r.$prepareModernPurchaseActions = function prepareModernPurchaseActions(purchase
         mainAction.classList.add("bandkit-modern-buy-card");
         buyControl.classList.add("bandkit-modern-buy-control");
         const buyAriaLabel = buyControl.getAttribute("aria-label");
-        const isTrackPurchase = item.classList.contains("digital")
-          && r.$getBandcampPageData()?.tralbum?.current?.type === "track";
-        mainAction.classList.toggle("is-track-purchase", isTrackPurchase);
-        if (isTrackPurchase) buyControl.setAttribute("aria-label", "Buy");
+        const buyIcon = buyControl.style.getPropertyValue("--bandkit-buy-icon");
+        const buyIconPriority = buyControl.style.getPropertyPriority("--bandkit-buy-icon");
+        buyControl.style.setProperty("--bandkit-buy-icon", `url('${asset("icon-cart.svg")}')`);
         const labelNodes = [...buyControl.childNodes];
         const label = r.$createModernReleaseShell("span", "bandkit-modern-buy-label");
         buyControl.append(label);
         for (const node of labelNodes) r.$moveModernReleaseNode(node, label);
         const detailNodes = [...mainAction.children].filter((node) => node !== buyControl);
         const details = r.$createModernReleaseShell("span", "bandkit-modern-buy-details");
-        mainAction.append(details);
+        buyControl.append(details);
         for (const node of detailNodes) r.$moveModernReleaseNode(node, details);
         const discount = [...item.querySelectorAll(":scope > [class*='discount' i], :scope > .ft > [class*='discount' i]")]
           .find((node) => node !== mainAction && !mainAction.contains(node));
@@ -79,8 +89,9 @@ r.$prepareModernPurchaseActions = function prepareModernPurchaseActions(purchase
         for (const { action } of giftEntries) r.$moveModernReleaseNode(action, actionRow);
         r.$modernReleaseCleanups.push(() => {
           mainAction.classList.remove("bandkit-modern-buy-card");
-          mainAction.classList.remove("is-track-purchase");
           buyControl.classList.remove("bandkit-modern-buy-control");
+          if (buyIcon) buyControl.style.setProperty("--bandkit-buy-icon", buyIcon, buyIconPriority);
+          else buyControl.style.removeProperty("--bandkit-buy-icon");
           if (buyAriaLabel === null) buyControl.removeAttribute("aria-label");
           else buyControl.setAttribute("aria-label", buyAriaLabel);
           restoreGiftControls();
@@ -89,6 +100,7 @@ r.$prepareModernPurchaseActions = function prepareModernPurchaseActions(purchase
       }
     };
 }
+// eslint-disable-next-line max-lines-per-function -- Profile supporters and discography share one registration lifecycle.
 function registerModernLayoutSupporters(r) {
 r.$prepareModernSupporters = function prepareModernSupporters(releaseBody) {
       const supporters = document.querySelector(".middleColumn > .collected-by, .collected-by.tralbum.collectors");
@@ -213,27 +225,123 @@ r.$prepareModernDiscography = function prepareModernDiscography() {
       if (headingLink) headingLink.textContent = "Discography";
       const showMore = discography.querySelector(":scope > .showMore");
       const showMoreLink = showMore?.querySelector("a[href]");
-      const releaseItems = [...(discography.querySelector(":scope > ul")?.children || [])]
-        .filter((item) => item.matches("li"));
-      const extraReleases = releaseItems.slice(3);
+      const releaseList = discography.querySelector(":scope > ul");
+      const fetchedReleases = [];
+      const loadController = new AbortController();
+      let fullDiscographyLoaded = false;
+      let fullDiscographyFailed = false;
+      let fullDiscographyRequest = null;
       const moreLabel = showMoreLink?.textContent || "more releases...";
+      const releaseKey = (href) => {
+        try {
+          const url = new URL(href, location.href);
+          return `${url.origin}${url.pathname}`.replace(/\/$/, "");
+        } catch {
+          return String(href || "").split(/[?#]/, 1)[0].replace(/\/$/, "");
+        }
+      };
+      const createDiscographyRelease = (sourceItem) => {
+        const sourceLink = sourceItem.querySelector(":scope > a[href]");
+        const sourceImage = sourceLink?.querySelector(".art img, img");
+        const title = sourceLink?.querySelector(".title")?.textContent?.trim();
+        if (!sourceLink || !title) return null;
+        const item = document.createElement("li");
+        item.className = "gt3 bandkit-modern-discography-fetched";
+        const artwork = document.createElement("div");
+        const artworkLink = document.createElement("a");
+        artworkLink.className = "thumbthumb";
+        artworkLink.href = sourceLink.href;
+        const image = document.createElement("img");
+        image.src = sourceImage?.dataset.original || sourceImage?.src || "";
+        image.alt = "";
+        image.loading = "lazy";
+        artworkLink.append(image);
+        artwork.append(artworkLink);
+        const releaseTitle = document.createElement("div");
+        releaseTitle.className = "trackTitle";
+        const titleLink = document.createElement("a");
+        titleLink.href = sourceLink.href;
+        titleLink.textContent = title;
+        releaseTitle.append(titleLink);
+        item.append(artwork, releaseTitle);
+        return item;
+      };
+      const loadFullDiscography = () => {
+        if (fullDiscographyLoaded) return Promise.resolve();
+        if (fullDiscographyRequest) return fullDiscographyRequest;
+        fullDiscographyRequest = fetch(showMoreLink.href, {
+          credentials: "same-origin",
+          signal: loadController.signal
+        }).then((response) => {
+          if (!response.ok) throw new Error(`Discography request failed: ${response.status}`);
+          return response.text();
+        }).then((html) => {
+          const page = new DOMParser().parseFromString(html, "text/html");
+          const knownReleases = new Set([...releaseList.querySelectorAll(":scope > li a[href]")]
+            .map((link) => releaseKey(link.href)));
+          for (const sourceItem of page.querySelectorAll("#music-grid > li")) {
+            const sourceLink = sourceItem.querySelector(":scope > a[href]");
+            const key = releaseKey(sourceLink?.href);
+            if (!key || knownReleases.has(key)) continue;
+            const item = createDiscographyRelease(sourceItem);
+            if (!item) continue;
+            knownReleases.add(key);
+            fetchedReleases.push(item);
+            releaseList.append(item);
+          }
+          fullDiscographyLoaded = true;
+          fullDiscographyFailed = false;
+          discography.dataset.bandkitDiscographyLoaded = "true";
+        }).catch((error) => {
+          if (error?.name === "AbortError") return;
+          fullDiscographyFailed = true;
+          throw error;
+        }).finally(() => {
+          fullDiscographyRequest = null;
+          discography.removeAttribute("aria-busy");
+        });
+        return fullDiscographyRequest;
+      };
       const setExpanded = (expanded) => {
         discography.classList.toggle("bandkit-modern-discography-expanded", expanded);
         showMoreLink?.setAttribute("aria-expanded", String(expanded));
         if (showMoreLink) showMoreLink.textContent = expanded ? "fewer releases..." : moreLabel;
       };
-      const toggleExtraReleases = (event) => {
-        if (!extraReleases.length) return;
+      const toggleExtraReleases = async (event) => {
+        if (fullDiscographyFailed) return;
         event.preventDefault();
         event.stopImmediatePropagation();
-        setExpanded(!discography.classList.contains("bandkit-modern-discography-expanded"));
+        if (discography.classList.contains("bandkit-modern-discography-expanded")) {
+          const expandedToggleTop = showMoreLink?.getBoundingClientRect().top;
+          setExpanded(false);
+          if (Number.isFinite(expandedToggleTop)) {
+            const collapsedToggleTop = showMoreLink.getBoundingClientRect().top;
+            window.scrollBy(0, collapsedToggleTop - expandedToggleTop);
+          }
+          return;
+        }
+        if (!fullDiscographyLoaded) {
+          discography.setAttribute("aria-busy", "true");
+          if (showMoreLink) showMoreLink.textContent = "loading releases...";
+          try {
+            await loadFullDiscography();
+          } catch {
+            if (showMoreLink) showMoreLink.textContent = "open full discography...";
+            return;
+          }
+        }
+        setExpanded(true);
       };
       showMore?.classList.add("bandkit-modern-discography-more-link");
       showMoreLink?.addEventListener("click", toggleExtraReleases, true);
-      if (showMoreLink && extraReleases.length) setExpanded(false);
+      if (showMoreLink && releaseList) setExpanded(false);
       r.$modernReleaseCleanups.push(() => {
+        loadController.abort();
         showMoreLink?.removeEventListener("click", toggleExtraReleases, true);
+        fetchedReleases.forEach((item) => item.remove());
         discography.classList.remove("bandkit-modern-discography-expanded");
+        discography.removeAttribute("aria-busy");
+        delete discography.dataset.bandkitDiscographyLoaded;
         showMoreLink?.removeAttribute("aria-expanded");
         if (showMoreLink) showMoreLink.textContent = moreLabel;
         heading?.classList.remove("bandkit-modern-section-title");
@@ -458,12 +566,12 @@ r.$setModernReleasePalette = function setModernReleasePalette(palette) {
         "--bandkit-release-footer-on-accent": colorString(palette.footerOnAccent || palette.onAccent || palette.background),
         "--bandkit-release-scheme": palette.scheme
       };
-      for (const [name, value] of Object.entries(variables)) document.documentElement.style.setProperty(name, value);
+      for (const [name, value] of Object.entries(variables)) setStyleProperty(document.documentElement.style, name, value);
     };
 }
 
 function bandcampFeedPalette(palette) {
-  const accent = { r: 29, g: 160, b: 195, a: 1 };
+  const accent = { ...BANDCAMP_BRAND_ACCENT };
   const accentSoft = { ...accent, a: palette.scheme === "dark" ? 0.18 : 0.12 };
   return { ...palette, link: accent, accentSoft, raisedLink: accent, raisedAccentSoft: accentSoft };
 }
@@ -471,11 +579,10 @@ function bandcampFeedPalette(palette) {
 function pageAwareThemeSource(r) {
   const white = { r: 255, g: 255, b: 255, a: 1 };
   const black = { r: 17, g: 24, b: 39, a: 1 };
-  const genre = discoverGenrePalette();
-  const pageBackground = genre?.background || r.$firstComputedColor(["#pgBd", "#pgBdWrapper", ".page-bg", "body"], "backgroundColor") || white;
-  const pageText = genre?.text || r.$firstComputedColor([".primaryText", "#name-section .title", ".track-title", "#pgBd", "body"], "color") || black;
-  const pageSecondary = genre?.text || r.$firstComputedColor([".secondaryText", ".track-number", ".time", "body"], "color");
-  const pageAccent = genre?.accent || r.$firstComputedColor(["a.primaryText", ".download-link", ".buy-link", "#track_table a", "a"], "color") || { r: 29, g: 160, b: 195, a: 1 };
+  const pageBackground = r.$firstComputedColor(["#pgBd", "#pgBdWrapper", ".page-bg", "body"], "backgroundColor") || white;
+  const pageText = r.$firstComputedColor([".primaryText", "#name-section .title", ".track-title", "#pgBd", "body"], "color") || black;
+  const pageSecondary = r.$firstComputedColor([".secondaryText", ".track-number", ".time", "body"], "color");
+  const pageAccent = r.$firstComputedColor(["a.primaryText", ".download-link", ".buy-link", "#track_table a", "a"], "color") || { r: 29, g: 160, b: 195, a: 1 };
   const darkPage = luminance(pageBackground) < 0.34;
   const panelColor = mixColor(pageBackground, darkPage ? white : black, darkPage ? 0.07 : 0.045);
   panelColor.a = 1;
@@ -542,7 +649,7 @@ r.$clearModernReleasePalette = function clearModernReleasePalette() {
         "--bandkit-release-footer-line", "--bandkit-release-footer-accent", "--bandkit-release-footer-accent-soft",
         "--bandkit-release-footer-on-accent",
         "--bandkit-release-scheme"
-      ]) document.documentElement.style.removeProperty(name);
+      ]) removeStyleProperty(document.documentElement.style, name);
     };
 r.$applyModernReleaseLayout = function applyModernReleaseLayout() {
       const pageType = r.$modernBandcampPageType();
@@ -580,6 +687,7 @@ r.$firstComputedColor = function firstComputedColor(selectors, property) {
     };
 r.$setThemeVariables = function setThemeVariables(variables) {
       r.$pageActionThemeCache = null;
+      r.$spectrumColourCache = null;
       for (const [name, value] of Object.entries(variables)) {
         r.$host.style.setProperty(name, value);
         for (const button of document.querySelectorAll(".bandkit-discover-tracklist, .bandcamp-hub-page-dj, .bandcamp-hub-page-overflow, .bandcamp-hub-page-playlist, .bandcamp-hub-page-cart, .bandcamp-hub-page-buy, .bandkit-modern-release-actions, .inline_player .play_cell > a, #track_table .play-col > a, .bandkit-page-skip-control, #DiscoverApp .results-grid-item .image-container > .play-pause-button, #DiscoverApp .results-grid-item .image-container > .play-button, #DiscoverApp .focused-result > .artwork-play-button, #DiscoverApp .focused-result > .play-pause-button, #DiscoverApp .focused-result > .play-button, #DiscoverApp .discover-detail > .play-pause-button, #DiscoverApp .discover-detail > .play-button")) button.style.setProperty(name, value);
@@ -641,6 +749,8 @@ r.$accessibleSurfaceRole = function accessibleSurfaceRole(background, preferredT
     };
 r.$updateThemeFromPage = function updateThemeFromPage(source = pageAwareThemeSource(r)) {
       const { darkPage, pageAccent, pageSecondary, pageText, panelColor } = source;
+      const usesBandcampBrandPlayerAccent = usesBandcampBrandVisualizer()
+        && !runtimeState.appearance.applyToPage;
       // Keep every Bandkit surface in one colour context, but lift it just far
       // enough from the page to preserve the player and panel boundaries.
       const cardColor = panelColor;
@@ -661,8 +771,11 @@ r.$updateThemeFromPage = function updateThemeFromPage(source = pageAwareThemeSou
         ...BUILT_IN_THEMES,
         ...(runtimeState.appearance.savedThemes || [])
       ]);
+      const inheritedVisualizerColors = usesBandcampBrandPlayerAccent
+        ? [BANDCAMP_BRAND_ACCENT, BANDCAMP_BRAND_ACCENT, BANDCAMP_BRAND_ACCENT]
+        : [panelRole.accent, scrubberPalette.accent, mixColor(panelRole.accent, scrubberPalette.accent, 0.62)];
       const visualizerColors = resolvedVisualizerColors(
-        [panelRole.accent, scrubberPalette.accent, mixColor(panelRole.accent, scrubberPalette.accent, 0.62)],
+        inheritedVisualizerColors,
         runtimeState.appearance,
         themeVisualizerColours
       );
@@ -707,7 +820,7 @@ r.$updateThemeFromPage = function updateThemeFromPage(source = pageAwareThemeSou
         "--hub-wash": colorString(washColor)
       }; Object.assign(variables, visualizerThemeVariables(visualizerColors, darkPage));
       if (r.$modernBandcampPageType() === "feed" && !runtimeState.appearance.applyToPage) {
-        const feedAccent = colorString({ r: 29, g: 160, b: 195, a: 1 });
+        const feedAccent = colorString(BANDCAMP_BRAND_ACCENT);
         const feedAccentSoft = colorString({ r: 29, g: 160, b: 195, a: darkPage ? 0.22 : 0.12 });
         Object.assign(variables, {
           "--hub-accent": feedAccent,
@@ -725,6 +838,18 @@ r.$updateThemeFromPage = function updateThemeFromPage(source = pageAwareThemeSou
           ), darkPage)
         });
       }
+      /* Default Bandcamp pages do not provide a release palette. Keep the
+         Dynamic visualizer, timeline and handle on the same brand aqua even
+         when Zune or Dock samples a different accessible accent from the page.
+         Explicit timeline and handle overrides still win through their own
+         --hub-timeline-color and --hub-handle-color variables. */
+      if (usesBandcampBrandPlayerAccent) {
+        const brandAccent = colorString(BANDCAMP_BRAND_ACCENT);
+        variables["--hub-scrub-accent"] = brandAccent;
+        r.$player?.style.setProperty("--hub-scrub-accent", brandAccent);
+      } else {
+        r.$player?.style.removeProperty("--hub-scrub-accent");
+      }
       r.$setThemeVariables(variables);
       r.$pageAwareThemeSignature = source.signature;
     };
@@ -732,6 +857,7 @@ r.$updateThemeFromPage = function updateThemeFromPage(source = pageAwareThemeSou
 
 function registerModernLayout5(r) {
 r.$applySelectedTheme = function applySelectedTheme() {
+      r.$player?.style.removeProperty("--hub-scrub-accent");
       const accessible = r.$accessibleAppearanceTheme();
       const surface = accessible.panel;
       const accent = accessible.panelAccent;

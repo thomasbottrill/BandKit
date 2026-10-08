@@ -1,9 +1,15 @@
 import { createCollectionActionRow, setPageCardActionRow } from "../components/page-cards.js";
 import { createPageDjButton, createPageTrackPurchaseButton, createPageSearchPlayButton } from "../components/page-actions.js";
 import { runtimeSaveState, runtimeSeamless, runtimeState } from "./context.js";
-import { asset, portableBandcampUrl, resolvedTrackPageUrl, safeBandcampReleaseUrl, safeBandcampUrl } from "../core.js";
+import { asset, portableBandcampUrl, removeStyleProperty, resolvedTrackPageUrl, safeBandcampReleaseUrl, safeBandcampUrl, setAttributeValue, setStyleProperty } from "../core.js";
 import { MESSAGES } from "../../shared/contracts.js";
 import { cartActivityIdentity, mergeCartSnapshots, portableCartRestore } from "../cart-model.js";
+import { startPreparedPageTrack } from "./page-track-playback.js";
+
+// Bandcamp's cart answers briefly report fewer items; a real removal persists.
+const CART_SHRINK_CONFIRM_SCANS = 3;
+// Keep signed stream links briefly; a long-lived collection tab must refresh them.
+const COLLECTION_STREAM_TTL_MS = 5 * 60 * 1000;
 function registerPageActions1(r) {
 r.$maybeAnalyzePageTracks = function maybeAnalyzePageTracks() {
       if (runtimeState.djToolsEnabled === false) {
@@ -142,8 +148,13 @@ r.$feedTrackFromAction = function feedTrackFromAction(action) {
       const releaseLink = story.querySelector("a.item-link[href], a[href*='.bandcamp.com/album/'], a[href*='.bandcamp.com/track/']");
       let pageUrl = "";
       try {
-        const rawPageUrl = itemData.item_url || releaseLink?.href || "";
-        pageUrl = safeBandcampUrl(new URL(String(rawPageUrl).startsWith("//") ? `https:${rawPageUrl}` : rawPageUrl, location.href).href);
+        // A story whose release link has not hydrated keeps an empty href, which
+        // would otherwise resolve to the feed page itself.
+        const rawPageUrl = itemData.item_url || releaseLink?.getAttribute("href")?.trim() || "";
+        const resolved = rawPageUrl
+          ? new URL(rawPageUrl.startsWith("//") ? `https:${rawPageUrl}` : rawPageUrl, location.href).href
+          : "";
+        pageUrl = /\/album\/|\/track\//.test(resolved) ? safeBandcampUrl(resolved) : "";
       } catch {
         pageUrl = "";
       }
@@ -242,6 +253,7 @@ r.$syncRecommendationPlaybackUi = function syncRecommendationPlaybackUi() {
       }
     };
 r.$injectRecommendationActions = function injectRecommendationActions() {
+      const placements = [];
       for (const card of document.querySelectorAll("#recommendations_container .recommended-album")) {
         const track = r.$recommendationTrackFromCard(card);
         const artContainer = card.querySelector(".album-art-container");
@@ -263,21 +275,31 @@ r.$injectRecommendationActions = function injectRecommendationActions() {
         } else if (button.parentElement !== artContainer) {
           artContainer.append(button);
         }
+        // A recommended album is a release like any other, so its menu offers
+        // album destinations rather than the one track that was previewed.
+        button._bandkitReleaseTrack = track;
+        r.$bindReleaseAddPrefetch(button);
         r.$updatePagePlaylistButton(button, track);
         const label = `Add ${track.title} to Now Playing or a playlist`;
-        button.setAttribute("aria-label", label);
-        button.title = label;
-        if (playControl) {
-          const controlWidth = playControl.offsetWidth || 36;
-          const controlHeight = playControl.offsetHeight || 36;
-          button.style.left = `${playControl.offsetLeft + controlWidth + 6}px`;
-          button.style.top = `${playControl.offsetTop + Math.max(0, (controlHeight - 28) / 2)}px`;
-          button.style.removeProperty("bottom");
-        } else {
-          button.style.left = "8px";
-          button.style.top = "auto";
-          button.style.bottom = "8px";
+        setAttributeValue(button, "aria-label", label);
+        setAttributeValue(button, "title", label);
+        placements.push({ button, playControl });
+      }
+      // Measure every control before positioning any button. Interleaving the
+      // reads with the writes above costs one full page layout per card, which
+      // is the most expensive thing a playback update can do on a release page.
+      const measured = placements.map(({ button, playControl }) => playControl
+        ? {
+          button,
+          left: `${playControl.offsetLeft + (playControl.offsetWidth || 36) + 6}px`,
+          top: `${playControl.offsetTop + Math.max(0, ((playControl.offsetHeight || 36) - 28) / 2)}px`
         }
+        : { button, left: "8px", top: "auto", bottom: "8px" });
+      for (const { button, left, top, bottom } of measured) {
+        setStyleProperty(button.style, "left", left);
+        setStyleProperty(button.style, "top", top);
+        if (bottom) setStyleProperty(button.style, "bottom", bottom);
+        else removeStyleProperty(button.style, "bottom");
       }
       r.$syncRecommendationPlaybackUi();
     };
@@ -378,8 +400,39 @@ r.$collectionTrackFromCard = function collectionTrackFromCard(card) {
         url: ""
       };
     };
+// A collection or wishlist card carries no stream URL, so the first click has
+// to read the release page before anything can play. Reading it on hover makes
+// the click itself immediate, and the resolved URL is reused for the session.
+r.$prefetchCollectionStream = function prefetchCollectionStream(track) {
+      const key = track && r.$playlistTrackKey(track);
+      if (!key || r.$collectionStreamRequests.has(key)) return;
+      const cached = r.$collectionStreams.get(key);
+      if (cached && Date.now() - cached.at < COLLECTION_STREAM_TTL_MS) return;
+      r.$collectionStreamRequests.set(key, r.$runtimeMessage({
+        type: MESSAGES.RESOLVE_PLAYLIST_ITEMS,
+        items: [track]
+      }).then((response) => {
+        const item = response?.items?.[0];
+        const url = item && r.$isReusableStreamUrl(item.url) ? item.url : "";
+        if (url) r.$collectionStreams.set(key, { url, at: Date.now() });
+        return url;
+      }).catch(() => "").finally(() => r.$collectionStreamRequests.delete(key)));
+    };
+r.$collectionStreamUrl = function collectionStreamUrl(track) {
+      const key = track && r.$playlistTrackKey(track);
+      const cached = key ? r.$collectionStreams.get(key) : null;
+      return cached && Date.now() - cached.at < COLLECTION_STREAM_TTL_MS ? cached.url : "";
+    };
+r.$cacheCollectionStream = function cacheCollectionStream(track, item) {
+      const key = track && r.$playlistTrackKey(track);
+      if (key && item && r.$isReusableStreamUrl(item.url)) r.$collectionStreams.set(key, { url: item.url, at: Date.now() });
+    };
 r.$runNativeCollectionControl = function runNativeCollectionControl(control) {
       if (!control) return;
+      const activeCard = control.closest(".collection-item-container");
+      for (const card of document.querySelectorAll("#collection-items .collection-item-container, #wishlist-items .collection-item-container")) {
+        card.toggleAttribute("data-bandkit-native-collection-playing", card === activeCard);
+      }
       r.$releaseExplicitPlaybackClear();
       r.$collectionNativeFallbackUntil = Date.now() + 5000;
       r.$suppressCollectionControl = true;
@@ -392,37 +445,36 @@ r.$playCollectionCard = async function playCollectionCard(card, control) {
       const track = r.$collectionTrackFromCard(card);
       if (!track) return false;
       const request = ++r.$collectionHandoffRequest;
-      r.$showToast(`Preparing ${track.title}…`);
+      r.$discoverPlaybackRequest += 1;
+      r.$discoverPendingTrack = null;
+      const knownStream = r.$collectionStreamUrl(track);
+      if (!knownStream) r.$showToast(`Preparing ${track.title}…`);
       try {
-        const prepared = await r.$prepareExternalNowPlaying(track);
+        const prepared = await r.$prepareExternalNowPlaying(
+          knownStream ? { ...track, url: knownStream } : track,
+          [],
+          { trustProvidedStreams: Boolean(knownStream) }
+        );
         if (prepared.cancelled || prepared.capacity) return false;
         if (request !== r.$collectionHandoffRequest) return false;
         if (prepared.index < 0) throw new Error(prepared.error || "This collection item is not streamable.");
+        r.$cacheCollectionStream(track, prepared.queue[prepared.index]);
         r.$silenceNativePagePlayback();
-        const response = await r.$runtimeMessage({
-          type: MESSAGES.SEAMLESS_ENABLE,
-          queue: prepared.queue,
-          index: prepared.index,
-          currentTime: 0,
-          autoplay: true,
-          rate: runtimeState.dj.rate,
-          preservePitch: runtimeState.dj.preservePitch,
-          filterValue: runtimeState.dj.filterValue,
-          gainDb: runtimeState.dj.gainDb,
-          eqLowDb: runtimeState.dj.eqLowDb,
-          eqMidDb: runtimeState.dj.eqMidDb,
-          eqHighDb: runtimeState.dj.eqHighDb
-        });
-        if (!response?.ok) throw new Error(response?.error || "Bandkit could not start this collection item.");
+        const state = await startPreparedPageTrack(r, prepared, runtimeState.dj);
+        if (!state) return false;
         if (request !== r.$collectionHandoffRequest) return false;
         if (prepared.request !== r.$playlistPlayRequest) return false;
-        r.$applySeamlessState(response.state);
+        r.$cacheCollectionStream(track, state.track);
+        r.$applySeamlessState(state);
         return true;
       } catch {
         if (request !== r.$collectionHandoffRequest) return false;
         r.$showToast("Using Bandcamp's player for this item.");
-        if (runtimeSeamless.enabled) await r.$seamlessCommand(MESSAGES.SEAMLESS_DISABLE);
+        // Start Bandcamp's own player straight away. Stopping the seamless one
+        // only has to land before the native stream starts making sound, and
+        // waiting for that round trip first made the fallback feel broken.
         r.$runNativeCollectionControl(control);
+        if (runtimeSeamless.enabled) void r.$seamlessCommand(MESSAGES.SEAMLESS_DISABLE);
         return false;
       }
     };
@@ -436,7 +488,27 @@ r.$injectCollectionItemActions = function injectCollectionItemActions() {
         const downloadSource = card.querySelector('.bottom-owner-controls .redownload-item a[href*="/download"]');
         const titleDetails = card.querySelector(".collection-item-gallery-container .collection-title-details");
         const isWishlistItem = Boolean(card.closest('#wishlist-items .collection-grid[data-iswish="true"]'));
-        if (!track || !titleDetails || (!isWishlistItem && !downloadSource)) continue;
+        if (!track || !titleDetails) continue;
+
+        // Read the stream on hover so pressing play does not wait on a release
+        // page fetch first. Bound once per card: the sweeps rebuild controls,
+        // not the card itself.
+        if (card.dataset.bandkitStreamPrefetch !== "true") {
+          card.dataset.bandkitStreamPrefetch = "true";
+          const prefetchStream = () => r.$prefetchCollectionStream(r.$collectionTrackFromCard(card));
+          card.addEventListener("pointerenter", () => {
+            window.clearTimeout(card._bandkitStreamPrefetchTimer);
+            // A brief settle keeps a mouse sweep across the grid from reading
+            // every release page it passes over.
+            card._bandkitStreamPrefetchTimer = window.setTimeout(prefetchStream, 120);
+          }, { passive: true });
+          card.addEventListener("pointerleave", () => {
+            window.clearTimeout(card._bandkitStreamPrefetchTimer);
+          }, { passive: true });
+          card.addEventListener("focusin", prefetchStream);
+        }
+
+        if (!isWishlistItem && !downloadSource) continue;
 
         let actionRow = titleDetails.querySelector(":scope > .bandkit-collection-action-row");
         if (!actionRow) {
@@ -448,21 +520,32 @@ r.$injectCollectionItemActions = function injectCollectionItemActions() {
         let playlistButton = card.querySelector(".bandcamp-hub-page-playlist");
         if (!playlistButton) playlistButton = r.$createPagePlaylistButton();
         playlistButton.classList.add("is-collection-action");
-        playlistButton.classList.toggle("is-feed-compact-action", modernActions);
+        playlistButton.classList.toggle("is-feed-compact-action", !modernActions);
+        playlistButton.classList.toggle("is-discover-add-to", modernActions);
+        playlistButton.classList.toggle("bandkit-collection-overlay-action", modernActions);
         playlistButton.classList.remove("is-feed-add-to", "is-feed-sidebar-action");
         playlistButton._bandkitOwned = !isWishlistItem;
+        // A collection or wishlist card stands for the release it links to, so
+        // an album card offers album destinations instead of its featured
+        // track. The click resolves the track list before deciding.
+        playlistButton._bandkitReleaseTrack = track;
+        r.$bindReleaseAddPrefetch(playlistButton);
         r.$updatePagePlaylistButton(playlistButton, track);
         playlistButton.title = `Add ${track.title} to Now Playing or a playlist`;
-        if (playlistButton.parentElement !== actionRow) actionRow.append(playlistButton);
+        const art = card.querySelector(".collection-item-art-container");
+        const playlistHost = modernActions && art ? art : actionRow;
+        if (playlistButton.parentElement !== playlistHost) playlistHost.append(playlistButton);
 
         if (downloadSource) {
-          let downloadButton = actionRow.querySelector(".bandkit-collection-download-action");
+          let downloadButton = card.querySelector(".bandkit-collection-download-action");
           if (!downloadButton) {
             downloadButton = document.createElement("a");
             downloadButton.className = "bandkit-feed-purchase-action bandkit-collection-download-action";
             downloadButton.style.setProperty("--bandkit-feed-action-icon", `url('${asset("icon-downloads.svg")}')`);
-            actionRow.append(downloadButton);
           }
+          downloadButton.classList.toggle("bandkit-collection-overlay-action", modernActions);
+          const downloadHost = modernActions && art ? art : actionRow;
+          if (downloadButton.parentElement !== downloadHost) downloadHost.append(downloadButton);
           downloadButton.href = downloadSource.href;
           r.$setPageActionLabel(downloadButton, "Download");
           downloadButton.setAttribute("aria-label", `Download ${track.title}`);
@@ -472,15 +555,94 @@ r.$injectCollectionItemActions = function injectCollectionItemActions() {
     };
 }
 
+function registerDiscoverReleaseAddButton(r) {
+r.$applyDiscoverReleaseAddButton = function applyDiscoverReleaseAddButton(button, fallbackTrack) {
+      // Discover's release control stands for the whole release, matching the album
+      // page. Until the tracks resolve it falls back to the featured track, but
+      // keeps that track so a click can resolve the release rather than adding it.
+      const releaseTracks = r.$discoverRelease?.tracks || [];
+      button._bandkitRelease = releaseTracks.length > 0;
+      button._bandkitTracks = releaseTracks.length ? releaseTracks : null;
+      button._bandkitReleaseTitle = r.$discoverRelease?.album || fallbackTrack?.album || "this album";
+      button._bandkitReleaseTrack = fallbackTrack || releaseTracks[0] || null;
+      r.$bindReleaseAddPrefetch(button);
+      r.$updatePagePlaylistButton(button, releaseTracks[0] || fallbackTrack);
+      button.classList.add("is-discover-release-add");
+    };
+// Reading the release once on hover keeps the click's menu immediate.
+r.$bindReleaseAddPrefetch = function bindReleaseAddPrefetch(button) {
+      if (button._bandkitReleasePrefetchBound) return;
+      button._bandkitReleasePrefetchBound = true;
+      button.addEventListener("pointerenter", () => {
+        void r.$resolveFeedReleaseTracks(button._bandkitReleaseTrack);
+        r.$prefetchFeedPurchase(button._bandkitReleaseTrack?.releaseUrl || button._bandkitReleaseTrack?.pageUrl);
+      });
+    };
+// A feed story for an album must add that album, not its featured track, so the
+// cart and wishlist receive one album item the way the release page does. The
+// story only counts as a release once its own track list has resolved, so the
+// menu never offers an album action it cannot fulfil.
+r.$applyFeedReleaseAddButton = function applyFeedReleaseAddButton(button, story, track) {
+      button._bandkitFeedStory = story;
+      button._bandkitFeedTrack = track;
+      const releaseHost = story?.querySelector(".bandkit-discover-tracklist");
+      const releaseTracks = (releaseHost && r.$feedAlbumQueues?.get(releaseHost)) || [];
+      const isAlbumStory = /\/album\//.test(track.pageUrl || "");
+      const asRelease = isAlbumStory && releaseTracks.length > 0;
+      button._bandkitRelease = asRelease;
+      button._bandkitTracks = asRelease ? releaseTracks : null;
+      button._bandkitReleaseTitle = track.album || track.title || "this album";
+      r.$updatePagePlaylistButton(button, asRelease ? releaseTracks[0] : track);
+    };
+// The release control belongs beside Buy and Wishlist whenever a release is open,
+// not only while Bandcamp's own preview player happens to be visible. Discover
+// rebuilds those actions around a selection, so the resolved tracklist calls this
+// directly rather than relying on a sweep landing after the rebuild.
+r.$syncDiscoverReleaseAddControl = function syncDiscoverReleaseAddControl(fallbackTrack) {
+      const releaseActions = document.querySelector(".focused-result .release-buttons, .discover-detail .release-buttons");
+      const releaseTrack = r.$discoverRelease?.tracks?.[0] || fallbackTrack;
+      if (!releaseActions || !releaseTrack) return;
+      let button = releaseActions.querySelector(":scope > .bandcamp-hub-page-playlist.is-discover-add-to");
+      if (!button) {
+        button = r.$createPagePlaylistButton();
+        button.classList.add("is-discover-add-to");
+        releaseActions.append(button);
+      }
+      button.style.removeProperty("left");
+      button.style.removeProperty("top");
+      r.$applyDiscoverReleaseAddButton(button, releaseTrack);
+      // The selected release is whatever the focused result links to, which can
+      // already have moved on from the track list held in memory. Anchor the
+      // button to that URL so its click resolves the release actually on screen.
+      const releaseUrl = safeBandcampUrl(releaseActions.querySelector("a.buy-button[href]")?.href);
+      if (releaseUrl) button._bandkitReleaseTrack = { ...(releaseTrack || {}), pageUrl: releaseUrl, releaseUrl };
+    };
+}
+
+function registerFeedReleaseAddRefresh(r) {
+r.$refreshFeedReleaseAddButtons = function refreshFeedReleaseAddButtons() {
+      // A story is only known to be an album once its track list resolves, which
+      // lands after the action sweep has already marked the story scanned. Without
+      // this pass the control keeps offering the featured track alone.
+      for (const button of document.querySelectorAll(".story-innards .bandcamp-hub-page-playlist.is-feed-add-to")) {
+        const track = button._bandkitFeedTrack;
+        if (!track || button._bandkitRelease) continue;
+        r.$applyFeedReleaseAddButton(button, button._bandkitFeedStory, track);
+      }
+    };
+}
 function registerPageActionInjectionHelpers(r) {
 r.$injectFeedPageActions = function injectFeedPageActions({ incremental, onFeedPage }) {
       if (onFeedPage) {
+        r.$refreshFeedReleaseAddButtons();
         const modernActions = Boolean(runtimeState.appearance.modernReleasePages);
+        // Only the story action rows can carry a purchase control. Scanning
+        // every story link instead marked thousands of nodes on each sweep,
+        // which the page session replay then had to serialise.
+        const unscanned = incremental ? ":not([data-bandkit-feed-action-scanned])" : "";
         const feedControls = document.querySelectorAll([
-          `.story-innards a${incremental ? ":not([data-bandkit-feed-action-scanned])" : ""}`,
-          `.story-innards button${incremental ? ":not([data-bandkit-feed-action-scanned])" : ""}`,
-          `#sidebar .collection-item-container a${incremental ? ":not([data-bandkit-feed-action-scanned])" : ""}`,
-          `#sidebar .collection-item-container button${incremental ? ":not([data-bandkit-feed-action-scanned])" : ""}`
+          `.story-innards .tralbum-wrapper-collect-controls :is(a, button)${unscanned}`,
+          `#sidebar .collection-item-container .collect-item :is(a, button)${unscanned}`
         ].join(","));
         for (const purchaseAction of feedControls) {
           purchaseAction.dataset.bandkitFeedActionScanned = "true";
@@ -488,11 +650,13 @@ r.$injectFeedPageActions = function injectFeedPageActions({ incremental, onFeedP
           const track = r.$feedTrackFromAction(purchaseAction);
           if (!track) continue;
           const story = purchaseAction.closest(".story-innards, .story, .story-container, .new-release, .collection-item-container");
-          const existingButtons = [...(story?.querySelectorAll(".bandcamp-hub-page-playlist") || [])];
+          // Generated album rows own their own per-track add buttons; the story
+          // action row must never adopt or remove them.
+          const existingButtons = [...(story?.querySelectorAll(".bandcamp-hub-page-playlist:not(.is-track-action)") || [])];
           let button = existingButtons.find((candidate) => candidate.classList.contains("is-feed-add-to")) || existingButtons[0] || null;
           if (!button) button = r.$createPagePlaylistButton();
           button.classList.add("is-feed-add-to");
-          r.$updatePagePlaylistButton(button, track);
+          r.$applyFeedReleaseAddButton(button, story, track);
           for (const duplicate of existingButtons) {
             if (duplicate !== button) duplicate.remove();
           }
@@ -501,7 +665,7 @@ r.$injectFeedPageActions = function injectFeedPageActions({ incremental, onFeedP
           button.classList.toggle("is-feed-compact-action", modernActions);
           button.classList.toggle("is-feed-sidebar-action", modernActions && Boolean(sidebarCard));
           r.$setPageActionLabel(button, "Add");
-          button.title = `Add ${track.title} to Now Playing or a playlist`;
+          if (!button._bandkitRelease) button.title = `Add ${track.title} to Now Playing or a playlist`;
           purchaseAction.classList.toggle("bandkit-feed-purchase-action", modernActions);
           const purchaseLabel = /^pre[- ]?order$/i.test(r.$pageActionControlText(purchaseAction)) ? "Pre-order" : "Buy now";
           r.$setPageActionLabel(purchaseAction, purchaseLabel);
@@ -516,6 +680,22 @@ r.$injectFeedPageActions = function injectFeedPageActions({ incremental, onFeedP
               purchaseAction.href = target.href;
             }
           }
+          // The story's own control adds the release here instead of handing the
+          // listener to the release page, which only ever opened its buy panel.
+          if (!purchaseAction._bandkitCartBound) {
+            purchaseAction._bandkitCartBound = true;
+            purchaseAction.addEventListener("pointerenter", () => {
+              r.$prefetchFeedPurchase(purchaseAction._bandkitCartTrack?.releaseUrl || purchaseAction._bandkitCartTrack?.pageUrl);
+            });
+            purchaseAction.addEventListener("click", (event) => {
+              const requested = purchaseAction._bandkitCartTrack;
+              if (!requested) return;
+              event.preventDefault();
+              event.stopPropagation();
+              void r.$requestReleaseCartAdd(purchaseAction, requested);
+            });
+          }
+          purchaseAction._bandkitCartTrack = purchaseLabel === "Pre-order" ? null : track;
           const actionList = purchaseAction.closest("ul");
           setPageCardActionRow(actionList, modernActions, Boolean(sidebarCard));
           const hearMoreAction = [...(actionList?.querySelectorAll("a, button") || [])].find((control) => /^hear more$/i.test(r.$pageActionControlText(control)));
@@ -574,6 +754,7 @@ r.$injectFeedPageActions = function injectFeedPageActions({ incremental, onFeedP
     };
 r.$injectDiscoverPageActions = function injectDiscoverPageActions({ incremental, discover }) {
       if (document.querySelector("#DiscoverApp, .results-grid")) {
+        r.$syncDiscoverReleaseAddControl(discover?.track);
         const allDiscoverPlayControls = [...document.querySelectorAll([
           ".results-grid-item .image-container > .play-pause-button",
           ".results-grid-item .image-container > .play-button",
@@ -619,15 +800,26 @@ r.$injectDiscoverPageActions = function injectDiscoverPageActions({ incremental,
           } else if (button.parentElement !== parent) {
             parent.append(button);
           }
-          r.$updatePagePlaylistButton(button, cardTrack);
-          button.setAttribute("aria-label", `Add ${cardTrack.title} to Now Playing or a playlist`);
-          button.title = button.getAttribute("aria-label");
           const inReleaseActions = parent.matches(".release-buttons");
-          button.classList.toggle("is-discover-release-add", inReleaseActions);
           if (inReleaseActions) {
+            r.$applyDiscoverReleaseAddButton(button, cardTrack);
             button.style.removeProperty("left");
             button.style.removeProperty("top");
-          } else discoverButtonLayouts.push({ button, playControl });
+          } else {
+            button._bandkitRelease = false;
+            button._bandkitTracks = null;
+            // The grid control stands for whatever release its card links to.
+            // Hold the card track so a click resolves the album's track list
+            // instead of asking the cart for a track the album page cannot
+            // serve. Hovering resolves it ahead of the click.
+            button._bandkitReleaseTrack = cardTrack;
+            r.$bindReleaseAddPrefetch(button);
+            r.$updatePagePlaylistButton(button, cardTrack);
+            button.setAttribute("aria-label", `Add ${cardTrack.title} to Now Playing or a playlist`);
+            button.title = button.getAttribute("aria-label");
+            button.classList.remove("is-discover-release-add");
+            discoverButtonLayouts.push({ button, playControl });
+          }
         }
         // Measure every native control before writing any positions. Interleaving
         // offset reads with per-card style writes forced a full Discover layout
@@ -642,6 +834,12 @@ r.$injectDiscoverPageActions = function injectDiscoverPageActions({ incremental,
           button.style.left = `${left}px`;
           button.style.top = `${top}px`;
         }
+        // The generated tracklist owns its own row controls, so the shared sweep only
+        // keeps their themed colours in step with the rest of the page.
+        for (const control of document.querySelectorAll(".bandkit-discover-tracks .bandkit-discover-track-actions > *")) {
+          if (control._bandkitTrack) r.$updatePagePlaylistButton(control, control._bandkitTrack);
+          else r.$applyPageActionTheme(control);
+        }
         if (hasDeferredDiscoverControls) {
           r.$pageActionsDirty = true;
           r.$scheduleLivePlayerMaintenance(80);
@@ -651,7 +849,23 @@ r.$injectDiscoverPageActions = function injectDiscoverPageActions({ incremental,
 }
 
 function registerPageActions4(r) {
+// Page buttons are rebuilt from the same queue every time, so a burst of
+// playlist updates repeats identical work. Keep at most one sweep per frame,
+// and let a full request win over an incremental one queued beside it.
+r.$schedulePlaylistButtons = function schedulePlaylistButtons({ incremental = false } = {}) {
+      if (!incremental) r.$pendingPlaylistButtonsFull = true;
+      if (r.$playlistButtonsFrame) return;
+      r.$playlistButtonsFrame = window.requestAnimationFrame(() => {
+        const full = r.$pendingPlaylistButtonsFull === true;
+        r.$injectPlaylistButtons({ incremental: !full });
+      });
+    };
 r.$injectPlaylistButtons = function injectPlaylistButtons({ incremental = false } = {}) {
+      if (r.$playlistButtonsFrame) {
+        window.cancelAnimationFrame(r.$playlistButtonsFrame);
+        r.$playlistButtonsFrame = 0;
+      }
+      r.$pendingPlaylistButtonsFull = false;
       r.$pageActionsDirty = false;
       r.$ensurePageStyles();
       r.$injectHomeSalesActions();
@@ -681,6 +895,9 @@ r.$injectPlaylistButtons = function injectPlaylistButtons({ incremental = false 
       if (feed?.player) candidates.push(feed.player);
 
       for (const node of [...new Set(candidates)]) {
+        // Generated Discover and feed rows own their controls; skip them before
+        // any per-row metadata work.
+        if (node.matches?.(".track_row_view") && node.closest(".bandkit-discover-tracks")) continue;
         const itemData = r.$parseJsonAttribute(node, "data-item-json") || {};
         const title = itemData.featured_track_title || r.$elementText(node, [".track-title", ".title-text", ".player-info .title", ".fav-track-title", ".collection-item-title", ".title"]);
         const normalizedTitle = title.replace(/\s+/g, " ").trim().toLowerCase();
@@ -808,6 +1025,12 @@ r.$injectPlaylistButtons = function injectPlaylistButtons({ incremental = false 
         }
         button.classList.toggle("is-search-add-to", node.matches(".searchresult"));
         button.classList.toggle("is-modern-player-track-action", node.matches("section.floating-player .track-meta[streamurl]"));
+        // An album search result is a release too; its menu should offer the
+        // album rather than the track Bandcamp happened to feature.
+        if (node.matches(".searchresult") && /\/album\//.test(fallbackPageUrl)) {
+          button._bandkitReleaseTrack = track;
+          r.$bindReleaseAddPrefetch(button);
+        }
         r.$updatePagePlaylistButton(button, track);
       }
       r.$syncPageTypography();
@@ -862,6 +1085,11 @@ r.$queueCartArtistResolution = function queueCartArtistResolution(items) {
       });
     };
 r.$scanLiveCart = function scanLiveCart() {
+      // A page whose cart exists but has not loaded must be left alone. Reading
+      // the markup behind it yields rows without artwork or product identity,
+      // which then sit in the cart alongside the real ones.
+      r.$pageCartCommand("getAvailability");
+      if (r.$pageCartPresent && !r.$pageCartAvailable) return;
       const hasBridgedCart = Array.isArray(r.$bridgedCart);
       const releaseCandidates = (item) => Array.isArray(item?.releases) ? item.releases : [];
       const firstReleaseValue = (item, fields) => {
@@ -930,13 +1158,41 @@ r.$scanLiveCart = function scanLiveCart() {
           url: link
         };
       }).filter(Boolean);
-      const parsed = hasBridgedCart ? parsedFromBridge : parsedFromDom;
+      // Reading the cart out of the markup produces rows with no product
+      // identity: they cannot be bought, matched or removed, and they do not
+      // deduplicate against the real ones. Only a page with no cart of its own
+      // is allowed to fall back to it.
+      const parsed = hasBridgedCart ? parsedFromBridge : r.$pageCartPresent ? null : parsedFromDom;
+      if (!parsed) return;
       const observedItems = [...new Map(parsed.map((item) => [`${item.url}|${item.title}|${item.artist}`, item])).values()];
-      const protectedSnapshot = mergeCartSnapshots(runtimeState.cart, observedItems);
+      // Once Bandcamp's own cart is speaking it is the authority, so entries it
+      // has never confirmed and that carry no identity are dropped rather than
+      // protected beside real ones.
+      const identifiable = (item) => Boolean(item?.restore?.item_type)
+        && item?.restore?.item_id !== undefined
+        && item?.restore?.item_id !== null;
+      const knownItems = hasBridgedCart ? runtimeState.cart.filter(identifiable) : runtimeState.cart;
+      const protectedSnapshot = mergeCartSnapshots(knownItems, observedItems);
       const protectedItems = protectedSnapshot.items;
       const observedKeys = new Set(observedItems.map(cartActivityIdentity).filter(Boolean));
-      const missingItems = runtimeState.cart.filter((item) => item.unavailable !== true && !observedKeys.has(cartActivityIdentity(item)) && !r.$cartRemovalKeys?.has(cartActivityIdentity(item)));
+      const missingItems = knownItems.filter((item) => item.unavailable !== true && !observedKeys.has(cartActivityIdentity(item)) && !r.$cartRemovalKeys?.has(cartActivityIdentity(item)));
+      // Bandcamp reports a smaller cart for a moment while it answers a cart
+      // request, and a rejected one never settles back through this path at all.
+      // Taking that at face value would record the difference as a removal and
+      // save it, so a loss has to persist before Bandkit believes it.
+      const missingSignature = missingItems.map(cartActivityIdentity).filter(Boolean).sort().join("\n");
+      if (missingSignature && missingSignature === r.$cartShrinkSignature) r.$cartShrinkScans += 1;
+      else {
+        r.$cartShrinkSignature = missingSignature;
+        r.$cartShrinkScans = missingSignature ? 1 : 0;
+      }
+      // Only Bandcamp's own cart may shrink the stored one. A page reading the
+      // cart any other way can add to what Bandkit knows but never take away,
+      // so a partial or stale view can no longer look like a removal.
+      const lossConfirmed = !missingSignature
+        || (hasBridgedCart && r.$cartShrinkScans >= CART_SHRINK_CONFIRM_SCANS);
       const uniqueItems = observedItems;
+      const acceptedItems = lossConfirmed ? uniqueItems : protectedItems;
       r.$queueCartArtistResolution(protectedItems);
 
       const activityKeys = new Set(uniqueItems.map(cartActivityIdentity).filter(Boolean));
@@ -953,15 +1209,15 @@ r.$scanLiveCart = function scanLiveCart() {
       if (liveCartSignature === r.$lastLiveCartSignature) return;
       r.$lastLiveCartSignature = liveCartSignature;
       const summarySignature = JSON.stringify(nextSummary);
-      if (r.$cartAutosave.cartSignature(uniqueItems) === r.$cartAutosave.cartSignature(runtimeState.cart)
+      if (r.$cartAutosave.cartSignature(acceptedItems) === r.$cartAutosave.cartSignature(runtimeState.cart)
         && summarySignature === JSON.stringify(runtimeState.cartSummary || null)) return;
       const addedItems = cartActivityGrew && !suppressStartupHydration ? uniqueItems.filter((item) => {
         const key = cartActivityIdentity(item);
         return !previousActivityKeys.has(key) && !r.$cartRecoveryKeys?.has(key);
       }) : [];
-      const cartGrew = uniqueItems.length > runtimeState.cart.length;
+      const cartGrew = acceptedItems.length > knownItems.length;
       if (cartGrew) runtimeState.musicBarRecentPanel = "cart";
-      runtimeState.cart = uniqueItems;
+      runtimeState.cart = acceptedItems;
       runtimeState.cartSummary = nextSummary;
       runtimeState.cartSavedAt = Date.now();
       runtimeState.savedCarts = r.$cartAutosave.upsertAutoSavedCart(runtimeState.savedCarts, protectedSnapshot.partial ? protectedItems : runtimeState.cart, {
@@ -982,11 +1238,14 @@ r.$scanLiveCart = function scanLiveCart() {
       runtimeSaveState();
       r.$render();
       if (cartGrew) r.$showCompactPanelNotice("icon-cart.svg", "Added to Cart");
-      r.$recoverMissingCartItems(missingItems);
+      if (lossConfirmed) r.$recoverMissingCartItems(missingItems);
     };
 }
 
-export const registerPageActions = [registerPageActionInjectionHelpers, registerPageActions1, registerPageActions2, registerPageActions3, registerPageActions4, registerPageActions5];
+export const registerPageActions = [
+  registerDiscoverReleaseAddButton, registerFeedReleaseAddRefresh, registerPageActionInjectionHelpers,
+  registerPageActions1, registerPageActions2, registerPageActions3, registerPageActions4, registerPageActions5
+];
 function setupPageActions1(r) {
 r.$pageActionSourceSelector = [
       ".track_row_view",

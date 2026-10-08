@@ -1,7 +1,7 @@
 import { createPageWaveform, createPageTransportButton, createPagePlayhead } from "../components/page-playback.js";
-import { createPageMenuOption } from "../components/page-actions.js";
+import { createPageMenuOption, createPagePriceForm } from "../components/page-actions.js";
 import { runtimeLive, runtimeSeamless, runtimeState } from "./context.js";
-import { asset, formatDuration, safeBandcampUrl } from "../core.js";
+import { asset, formatDuration, safeBandcampUrl, setAttributeValue, setDatasetValue, setStyleProperty } from "../core.js";
 import { accessibleScrubberPalette, colorString, hexColor, luminance, parseColor } from "../color.js";
 import { applyTimelinePath, normalizeTimelineStyle } from "../timeline-styles.js";
 import { MESSAGES } from "../../shared/contracts.js";
@@ -12,6 +12,11 @@ function renderedStyleColour(element, property, pseudo = null) {
   const value = getComputedStyle(element, pseudo).getPropertyValue(property).trim();
   const parsed = parseColor(value);
   return value && value !== "none" && value !== "transparent" && parsed?.a !== 0 ? value : "";
+}
+
+function setCollectionPlaybackLabel(card, control, label) {
+  control?.setAttribute("aria-label", label);
+  card.querySelector(".item_link_play")?.setAttribute("aria-label", label);
 }
 
 function syncDiscoverPagePlaybackUi(r) {
@@ -34,15 +39,15 @@ function syncDiscoverPagePlaybackUi(r) {
       continue;
     }
     const isPlaying = Boolean(runtimeSeamless.isPlaying);
-    control.setAttribute("data-bandkit-playback-state", "true");
-    control.setAttribute("aria-label", isPlaying ? "Pause" : "Play");
-    control.setAttribute("aria-pressed", String(isPlaying));
-    control.dataset.bandkitLabel = isPlaying ? "Pause" : "Play";
+    setAttributeValue(control, "data-bandkit-playback-state", "true");
+    setAttributeValue(control, "aria-label", isPlaying ? "Pause" : "Play");
+    setAttributeValue(control, "aria-pressed", String(isPlaying));
+    setDatasetValue(control, "bandkitLabel", isPlaying ? "Pause" : "Play");
   }
 }
 
 function syncDiscoverTracklistPlaybackUi(r) {
-  const rows = [...document.querySelectorAll("#DiscoverApp .bandkit-discover-tracks .track_row_view")];
+  const rows = [...document.querySelectorAll(":is(#DiscoverApp, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view")];
   if (!rows.length) return;
   const native = r.$getDiscoverPlayerState?.();
   const titleMatches = (row, track) => r.$normalizedTrackTitle(row.querySelector(".track-title")?.textContent)
@@ -51,17 +56,20 @@ function syncDiscoverTracklistPlaybackUi(r) {
     const rowId = String(row.dataset.bandkitDiscoverTrackId || "");
     return (rowId && rowId === String(track.id || "")) || titleMatches(row, track);
   });
-  // Prefer the extension player only when it belongs to this focused release. A
-  // different Bandcamp tab can own the shared player while Discover's native
-  // preview is still the track visible in this panel.
+  // The native panel outranks the extension player only while it is genuinely
+  // audible, which covers a different Bandcamp tab owning the shared player. Its
+  // control keeps reading "Pause" for a track it already handed to Bandkit, so
+  // trusting the label alone strands that row on the pause glyph while a
+  // different row is playing. A silenced native row still marks the selection.
+  const audibleNative = r.$audibleNativeDiscover?.(native) || null;
   const seamlessRow = runtimeSeamless.enabled && rowFor(runtimeSeamless.track);
   const pendingRow = rowFor(r.$discoverPendingTrack);
   const nativeRow = rowFor(native?.track);
-  const activeRow = (native?.control?.getAttribute("aria-label") === "Pause" && nativeRow) || pendingRow || seamlessRow || nativeRow;
-  const isPlaying = activeRow === nativeRow && native?.control?.getAttribute("aria-label") === "Pause" ? true : activeRow === seamlessRow
+  const activeRow = (audibleNative && nativeRow) || pendingRow || seamlessRow || nativeRow;
+  const isPlaying = activeRow === nativeRow && audibleNative ? true : activeRow === seamlessRow
     ? Boolean(runtimeSeamless.isPlaying)
     : activeRow === nativeRow
-      ? Boolean(native?.isPlaying)
+      ? Boolean(audibleNative)
       : true;
   for (const row of rows) {
     const isCurrent = row === activeRow;
@@ -80,6 +88,53 @@ function syncDiscoverTracklistPlaybackUi(r) {
       else control.removeAttribute("data-bandkit-playback-state");
     }
   }
+}
+
+// Feed rows are owned by this sync; the page-wide player loop skips them so it
+// cannot clear their state (or pay for hundreds of rows on every scan).
+let feedTracklistActiveRows = new Map();
+
+function applyFeedRowPlaybackState(row, current, playing) {
+  row.classList.toggle("bandcamp-hub-current", current);
+  row.classList.toggle("bandcamp-hub-is-playing", current && playing);
+  const control = row.querySelector(".play_status");
+  const action = control?.closest("a, button, [role='button']") || control;
+  if (action) {
+    action.setAttribute("aria-label", current && playing ? "Pause" : `Play ${row.querySelector(".track-title")?.textContent || "track"}`);
+    action.setAttribute("aria-pressed", String(current && playing));
+  }
+  if (control) {
+    control.classList.toggle("playing", current && playing);
+    control.classList.toggle("paused", current && !playing);
+    if (current) control.setAttribute("data-bandkit-playback-state", "true");
+    else control.removeAttribute("data-bandkit-playback-state");
+  }
+}
+
+function syncFeedTracklistPlaybackUi(r) {
+  const hosts = document.querySelectorAll(".bandkit-feed-album .bandkit-discover-tracklist");
+  const targets = new Map();
+  const addTarget = (track, playing) => {
+    if (!track) return;
+    for (const host of hosts) {
+      const match = (r.$feedAlbumQueues?.get(host) || []).find((item) => r.$matchingQueueTrack([item], track)
+        || (track.id && String(item.id) === String(track.id)));
+      if (!match) continue;
+      const row = host.querySelector(`.track_row_view[data-bandkit-discover-track-id="${CSS.escape(String(match.id))}"]`);
+      if (row) targets.set(row, Boolean(playing));
+      break;
+    }
+  };
+  // The feed's own native control uses the story's featured track id, so the
+  // same id match keeps a row highlighted during the native handoff too.
+  if (runtimeSeamless.enabled && runtimeSeamless.track) addTarget(runtimeSeamless.track, runtimeSeamless.isPlaying);
+  if (r.$feedAlbumPendingTrack) addTarget(r.$feedAlbumPendingTrack, true);
+  else if (r.$pendingFeedTrackId) addTarget({ id: r.$pendingFeedTrackId }, false);
+  for (const row of feedTracklistActiveRows.keys()) {
+    if (!targets.has(row) && row.isConnected) applyFeedRowPlaybackState(row, false, false);
+  }
+  for (const [row, playing] of targets) applyFeedRowPlaybackState(row, true, playing);
+  feedTracklistActiveRows = targets;
 }
 
 function registerPagePlayerUi1(r) {
@@ -145,9 +200,11 @@ r.$classicTrackRowMatches = function classicTrackRowMatches(row, track, pageData
     };
 r.$clearBandKitPagePlaybackState = function clearBandKitPagePlaybackState() {
       for (const player of document.querySelectorAll(".inline_player, .track_row_view")) {
+        if (!player.matches(".inline_player") && player.closest(".bandkit-feed-album")) continue;
         player.classList.remove("bandcamp-hub-current", "bandcamp-hub-is-playing");
       }
       for (const control of document.querySelectorAll("[data-bandkit-playback-state]")) {
+        if (control.closest(".bandkit-feed-album")) continue;
         control.classList.remove("playing");
         control.classList.add("paused");
         control.removeAttribute("data-bandkit-playback-state");
@@ -171,6 +228,7 @@ r.$capturePagePlayerUi = function capturePagePlayerUi() {
         inlinePlayer?.querySelector(".nextbutton")
       ].filter(Boolean).map((element) => ({ element, hidden: element.classList.contains("hiddenelem") }));
       const visualControls = [...document.querySelectorAll(".inline_player .playbutton, .inline_player .play_status, .track_row_view .playbutton, .track_row_view .play_status")]
+        .filter((element) => !element.closest(".bandkit-feed-album"))
         .map((element) => ({
           element,
           playing: element.classList.contains("playing"),
@@ -242,18 +300,26 @@ r.$syncFeedPagePlaybackUi = function syncFeedPagePlaybackUi() {
       for (const card of feedCards) {
         card.removeAttribute("data-bandkit-feed-playback");
         const control = card.querySelector(".track_play_auxiliary");
+        const isCollectionCard = Boolean(card.closest("#collection-items, #wishlist-items"));
+        if (isCollectionCard && runtimeSeamless.enabled) card.removeAttribute("data-bandkit-native-collection-playing");
         control?.removeAttribute("aria-busy");
         const itemData = r.$parseJsonAttribute(card, "data-item-json") || {};
         const title = itemData.featured_track_title || r.$elementText(card, [".fav-track-title", ".fav-track-link", ".fav-track-static", ".collection-item-title", ".waypoint-item-title"]);
-        if (control && card.classList.contains("paused")) control.setAttribute("aria-label", `Play ${title || "track"}`);
+        if (card.classList.contains("paused") || (isCollectionCard && runtimeSeamless.enabled)) {
+          setCollectionPlaybackLabel(card, control, `Play ${title || "track"}`);
+        }
       }
       if (runtimeSeamless.enabled && runtimeSeamless.track) {
         const activeId = String(runtimeSeamless.track.id || "");
         for (const card of feedCards) {
-          if (String(card.dataset.trackid || "") !== activeId) continue;
+          const collectionTrack = card.closest("#collection-items, #wishlist-items") ? r.$collectionTrackFromCard?.(card) : null;
+          const matchesActive = collectionTrack
+            ? r.$matchingQueueTrack([collectionTrack], runtimeSeamless.track)
+            : String(card.dataset.trackid || "") === activeId;
+          if (!matchesActive) continue;
           card.setAttribute("data-bandkit-feed-playback", runtimeSeamless.isPlaying ? "playing" : "paused");
           const control = card.querySelector(".track_play_auxiliary");
-          control?.setAttribute("aria-label", runtimeSeamless.isPlaying ? `Pause ${runtimeSeamless.track.title || "track"}` : `Play ${runtimeSeamless.track.title || "track"}`);
+          setCollectionPlaybackLabel(card, control, runtimeSeamless.isPlaying ? `Pause ${runtimeSeamless.track.title || "track"}` : `Play ${runtimeSeamless.track.title || "track"}`);
         }
       }
       const pendingId = String(r.$pendingFeedTrackId || "");
@@ -268,12 +334,14 @@ r.$syncFeedPagePlaybackUi = function syncFeedPagePlaybackUi() {
         control?.setAttribute("aria-label", `Loading ${title || "track"}`);
       }
     };
+r.$syncFeedTracklistPlaybackUi = () => syncFeedTracklistPlaybackUi(r);
 r.$syncDiscoverPagePlaybackUi = () => syncDiscoverPagePlaybackUi(r);
 }
 
 function registerPagePlayerUi2(r) {
 r.$syncPagePlayerUi = function syncPagePlayerUi() {
       r.$syncFeedPagePlaybackUi();
+      r.$syncFeedTracklistPlaybackUi();
       r.$syncDiscoverPagePlaybackUi();
       r.$syncHomeSalesPlaybackUi?.();
       if (!runtimeSeamless.enabled) {
@@ -296,6 +364,8 @@ r.$syncPagePlayerUi = function syncPagePlayerUi() {
       document.body.classList.toggle("bandcamp-hub-remote-playing", Boolean(runtimeSeamless.isPlaying));
       if (inlineTitle && runtimeSeamless.track?.title) inlineTitle.textContent = runtimeSeamless.track.title;
       for (const player of document.querySelectorAll(".inline_player, .track_row_view")) {
+        // Generated feed rows are kept in step by the feed tracklist sync.
+        if (!player.matches(".inline_player") && player.closest(".bandkit-feed-album")) continue;
         const isInlinePlayer = player.matches(".inline_player");
         const isCurrent = isInlinePlayer || r.$classicTrackRowMatches(player, runtimeSeamless.track, pageData);
         player.classList.toggle("bandcamp-hub-current", isCurrent);
@@ -561,10 +631,13 @@ r.$syncPageScrubberContrast = function syncPageScrubberContrast(control) {
         || styles.getPropertyValue("--link-color")
       ) || r.$firstComputedColor(["a.primaryText", ".download-link", ".buy-link", "a"], "color") || { r: 29, g: 160, b: 195, a: 1 };
       const palette = accessibleScrubberPalette(preferredAccent, surface);
-      control.style.setProperty("--bandkit-scrub-accent", sharedPlayerAccent ? sharedAccentValue : colorString(palette.accent));
-      control.style.setProperty("--bandkit-scrub-remaining", parseColor(sharedRemainingValue) || hexColor(sharedRemainingValue, null) ? sharedRemainingValue : colorString(palette.remaining));
-      control.style.setProperty("--bandkit-scrub-surface", sharedSurfaceValue || colorString(palette.surface));
-      control.style.setProperty("--bandkit-scrub-halo", colorString(palette.halo, 0.62));
+      // These writes normally resolve to the colours already applied. Re-setting
+      // them re-dirties style, so the computed reads at the top of the next call
+      // pay for a full page recalculation.
+      setStyleProperty(control.style, "--bandkit-scrub-accent", sharedPlayerAccent ? sharedAccentValue : colorString(palette.accent));
+      setStyleProperty(control.style, "--bandkit-scrub-remaining", parseColor(sharedRemainingValue) || hexColor(sharedRemainingValue, null) ? sharedRemainingValue : colorString(palette.remaining));
+      setStyleProperty(control.style, "--bandkit-scrub-surface", sharedSurfaceValue || colorString(palette.surface));
+      setStyleProperty(control.style, "--bandkit-scrub-halo", colorString(palette.halo, 0.62));
     };
 r.$ensurePagePlayerWaveforms = function ensurePagePlayerWaveforms() {
       r.$ensurePageStyles();
@@ -616,10 +689,9 @@ r.$ensurePagePlayerWaveforms = function ensurePagePlayerWaveforms() {
 
 function registerPagePlayerUi4(r) {
 r.$ensurePageStyles = function ensurePageStyles() {
-      document.documentElement.style.setProperty("--bandkit-play-icon", `url('${asset("icon-play.svg")}')`);
-      document.documentElement.style.setProperty("--bandkit-pause-icon", `url('${asset("icon-pause.svg")}')`);
-      document.documentElement.style.setProperty("--bandkit-skip-icon", `url('${asset("icon-skip.svg")}')`);
-      document.documentElement.style.setProperty("--bandkit-close-icon", `url('${asset("icon-close.svg")}')`);
+      for (const [name, icon] of [["play", "icon-play.svg"], ["pause", "icon-pause.svg"], ["skip", "icon-skip.svg"], ["close", "icon-close.svg"]]) {
+        setStyleProperty(document.documentElement.style, `--bandkit-${name}-icon`, `url('${asset(icon)}')`);
+      }
       if (!document.querySelector("#bandcamp-hub-page-style")) {
         const pageStyle = document.createElement("style");
         pageStyle.id = "bandcamp-hub-page-style";
@@ -639,9 +711,9 @@ r.$ensurePageStyles = function ensurePageStyles() {
         pageStyle.textContent += `html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-sidebar-actions{align-items:center!important;display:flex!important;gap:4px!important;margin-top:8px!important}html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-sidebar-actions>li{align-items:center!important;display:flex!important;gap:4px!important;margin:0!important;padding:0!important}html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-sidebar-actions>li::before{display:none!important}html[data-bandkit-feed-page="true"] .collection-grid :is(.bandcamp-hub-page-playlist.is-feed-sidebar-action,.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action,.bandkit-feed-wishlist-action .wishlist-msg,.bandkit-feed-wishlist-action .wishlisted-msg>span:first-child){align-items:center!important;appearance:none;background:transparent!important;border:1px solid rgba(127,127,127,.35)!important;border-radius:4px!important;box-sizing:border-box!important;color:var(--link-color,#0687f5)!important;cursor:pointer!important;display:inline-flex!important;height:28px!important;justify-content:center!important;margin:0!important;padding:0!important;text-decoration:none!important;width:28px!important}html[data-bandkit-feed-page="true"] .collection-grid :is(.bandcamp-hub-page-playlist.is-feed-sidebar-action,.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action):hover,html[data-bandkit-feed-page="true"] .collection-grid :is(.bandcamp-hub-page-playlist.is-feed-sidebar-action,.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action):focus-visible,html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-wishlist-action :is(.wishlist-msg,.wishlisted-msg>span:first-child):hover,html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-wishlist-action :is(.wishlist-msg,.wishlisted-msg>span:first-child):focus-visible{background:rgba(6,135,245,.1)!important;border-color:currentColor!important;outline:0!important}html[data-bandkit-feed-page="true"] .collection-grid .bandcamp-hub-page-playlist.is-feed-sidebar-action{font-size:0!important}html[data-bandkit-feed-page="true"] .collection-grid .bandcamp-hub-page-playlist.is-feed-sidebar-action::before{display:block!important;height:16px!important;width:16px!important}html[data-bandkit-feed-page="true"] .collection-grid :is(.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action){font-size:0!important}html[data-bandkit-feed-page="true"] .collection-grid :is(.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action)::before{background:currentColor;content:"";display:block;height:16px;mask:var(--bandkit-feed-action-icon) center/contain no-repeat;-webkit-mask:var(--bandkit-feed-action-icon) center/contain no-repeat;width:16px}html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-wishlist-action .wishlist-msg>span,html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-wishlist-action .wishlisted-msg>span:first-child>span{display:none!important}html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-wishlist-action :is(.wishlist-msg,.wishlisted-msg>span:first-child)::before{background:currentColor;content:"";display:block;height:16px;mask:var(--bandkit-feed-wishlist-icon) center/contain no-repeat;-webkit-mask:var(--bandkit-feed-wishlist-icon) center/contain no-repeat;width:16px}html[data-bandkit-feed-page="true"] .collection-grid .bandkit-feed-wishlist-action .text{clip:rect(0 0 0 0)!important;clip-path:inset(50%)!important;height:1px!important;overflow:hidden!important;position:absolute!important;white-space:nowrap!important;width:1px!important}`;
         pageStyle.textContent += `html[data-bandkit-feed-page="true"] .bandkit-feed-action-row{align-items:center!important;display:flex!important;gap:4px!important;margin-top:8px!important}html[data-bandkit-feed-page="true"] .bandkit-feed-action-row>li{align-items:center!important;display:flex!important;gap:4px!important;margin:0!important;padding:0!important}html[data-bandkit-feed-page="true"] .bandkit-feed-action-row>li::before{display:none!important}html[data-bandkit-feed-page="true"] .bandkit-feed-action-row :is(.bandcamp-hub-page-playlist.is-feed-compact-action,.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action,.bandkit-feed-wishlist-control){align-items:center!important;appearance:none;background:transparent!important;border:1px solid rgba(127,127,127,.35)!important;border-radius:4px!important;box-sizing:border-box!important;color:var(--link-color,#0687f5)!important;cursor:pointer!important;display:inline-flex!important;font-size:0!important;height:28px!important;justify-content:center!important;line-height:0!important;margin:0!important;padding:0!important;text-decoration:none!important;width:28px!important}html[data-bandkit-feed-page="true"] .bandkit-feed-action-row :is(.bandcamp-hub-page-playlist.is-feed-compact-action,.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action,.bandkit-feed-wishlist-control):is(:hover,:focus-visible){background:rgba(6,135,245,.1)!important;border-color:currentColor!important;outline:0!important}html[data-bandkit-feed-page="true"] .bandkit-feed-action-row .bandcamp-hub-page-playlist.is-feed-compact-action::before{display:block!important;height:16px!important;width:16px!important}html[data-bandkit-feed-page="true"] .bandkit-feed-action-row :is(.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action)::before{background:currentColor;content:"";display:block;height:16px;mask:var(--bandkit-feed-action-icon) center/contain no-repeat;-webkit-mask:var(--bandkit-feed-action-icon) center/contain no-repeat;width:16px}html[data-bandkit-feed-page="true"] .bandkit-feed-action-row .bandkit-feed-wishlist-control>*{display:none!important}html[data-bandkit-feed-page="true"] .bandkit-feed-action-row .bandkit-feed-wishlist-control::before{background:currentColor;content:"";display:block;height:16px;mask:var(--bandkit-feed-wishlist-icon) center/contain no-repeat;-webkit-mask:var(--bandkit-feed-wishlist-icon) center/contain no-repeat;width:16px}`;
         pageStyle.textContent += `html[data-bandkit-feed-page="true"] :is(.collect-item.wishlisted .bandkit-feed-wishlist-action,.bandkit-feed-wishlist-action.wishlisted) .wishlist-msg.bandkit-feed-wishlist-control{display:none!important}html[data-bandkit-feed-page="true"] .bandkit-feed-wishlist-action{flex:0 0 auto!important;margin-left:4px!important}html[data-bandkit-feed-page="true"] .bandkit-feed-wishlist-action .wishlisted-msg{align-items:center!important;display:none!important;margin:0!important;padding:0!important}html[data-bandkit-feed-page="true"] :is(.collect-item.wishlisted .bandkit-feed-wishlist-action,.bandkit-feed-wishlist-action.wishlisted) .wishlisted-msg{display:flex!important}html[data-bandkit-feed-page="true"] .bandkit-feed-wishlist-action :is(.wishlist-msg.bandkit-feed-wishlist-control,.wishlisted-msg>.bandkit-feed-wishlist-control){background:transparent!important;border-color:transparent!important}html[data-bandkit-feed-page="true"] .bandkit-feed-wishlist-action .wishlisted-msg>.view{display:none!important}html[data-bandkit-feed-page="true"] :is(.collect-item.wishlisted .bandkit-feed-wishlist-action,.bandkit-feed-wishlist-action.wishlisted) .wishlisted-msg>.bandkit-feed-wishlist-control{background:transparent!important;border-color:transparent!important;color:#ff9c00!important}html[data-bandkit-feed-page="true"] :is(.collect-item.wishlisted .bandkit-feed-wishlist-action,.bandkit-feed-wishlist-action.wishlisted) .wishlisted-msg>.bandkit-feed-wishlist-control::before{mask-image:var(--bandkit-feed-wishlist-filled-icon)!important;-webkit-mask-image:var(--bandkit-feed-wishlist-filled-icon)!important}html[data-bandkit-feed-page="true"] body.feed :is(.collect-item.wishlisted .bandkit-feed-wishlist-action,.bandkit-feed-wishlist-action.wishlisted) .wishlisted-msg>.bandkit-feed-wishlist-control:is(:hover,:focus-visible){background:color-mix(in srgb,#ff9c00 14%,transparent)!important;border-color:#ff9c00!important}`;
-        pageStyle.textContent += `html[data-bandkit-feed-page="true"] body.feed :is(.bandkit-feed-action-row,.bandkit-feed-sidebar-actions) :is(.bandcamp-hub-page-playlist.is-feed-compact-action,.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action,.bandkit-feed-wishlist-control){background:transparent!important;border-color:transparent!important}html[data-bandkit-feed-page="true"] body.feed :is(.bandkit-feed-action-row,.bandkit-feed-sidebar-actions) :is(.bandcamp-hub-page-playlist.is-feed-compact-action,.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action,.bandkit-feed-wishlist-control):is(:hover,:focus-visible){background:rgba(6,135,245,.1)!important;border-color:currentColor!important}html[data-bandkit-feed-page="true"] body.feed .story-innards>.tralbum-wrapper-collect-controls .bandkit-feed-action-row{opacity:0!important;pointer-events:none!important;transition:opacity 120ms ease}html[data-bandkit-feed-page="true"] body.feed .story-innards:is(:hover,:focus-within)>.tralbum-wrapper-collect-controls .bandkit-feed-action-row{opacity:1!important;pointer-events:auto!important}html[data-bandkit-feed-page="true"] body.feed .story-innards:is(:hover,:focus-within) .bandkit-feed-action-row [data-bandkit-label]{gap:6px!important;padding-left:8px!important;padding-right:8px!important;width:auto!important}html[data-bandkit-feed-page="true"] body.feed .story-innards:is(:hover,:focus-within) .bandkit-feed-action-row [data-bandkit-label]>.bandkit-page-action-label{display:inline-block!important;font-family:var(--hub-font-family,"Helvetica Neue",Helvetica,Arial,sans-serif)!important;font-size:11px!important;font-weight:700!important;line-height:1.15!important;order:1;white-space:nowrap}`;
+        pageStyle.textContent += `html[data-bandkit-feed-page="true"] body.feed :is(.bandkit-feed-action-row,.bandkit-feed-sidebar-actions) :is(.bandcamp-hub-page-playlist.is-feed-compact-action,.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action,.bandkit-feed-wishlist-control){background:transparent!important;border-color:transparent!important}html[data-bandkit-feed-page="true"] body.feed :is(.bandkit-feed-action-row,.bandkit-feed-sidebar-actions) :is(.bandcamp-hub-page-playlist.is-feed-compact-action,.bandkit-feed-purchase-action,.bandkit-feed-hear-more-action,.bandkit-feed-wishlist-control):is(:hover,:focus-visible){background:rgba(6,135,245,.1)!important;border-color:currentColor!important}html[data-bandkit-feed-page="true"] body.feed .story-innards .tralbum-wrapper-collect-controls .bandkit-feed-action-row{opacity:0!important;pointer-events:none!important;transition:opacity 120ms ease}html[data-bandkit-feed-page="true"] body.feed .story-innards:is(:hover,:focus-within) .tralbum-wrapper-collect-controls .bandkit-feed-action-row{opacity:1!important;pointer-events:auto!important}html[data-bandkit-feed-page="true"] body.feed .story-innards:is(:hover,:focus-within) .bandkit-feed-action-row [data-bandkit-label]{gap:6px!important;padding-left:8px!important;padding-right:8px!important;width:auto!important}html[data-bandkit-feed-page="true"] body.feed .story-innards:is(:hover,:focus-within) .bandkit-feed-action-row [data-bandkit-label]>.bandkit-page-action-label{display:inline-block!important;font-family:var(--hub-font-family,"Helvetica Neue",Helvetica,Arial,sans-serif)!important;font-size:11px!important;font-weight:700!important;line-height:1.15!important;order:1;white-space:nowrap}`;
         pageStyle.textContent += `html[data-bandkit-modern-styling="true"][data-bandkit-collection-page="true"] .bandkit-collection-action-row{align-items:center!important;display:flex!important;gap:4px!important;margin-top:8px!important}html[data-bandkit-modern-styling="true"][data-bandkit-collection-page="true"] .bandkit-collection-action-row :is(.bandcamp-hub-page-playlist.is-feed-compact-action,.bandkit-collection-download-action){align-items:center!important;appearance:none;background:transparent!important;border:1px solid var(--bandkit-page-border,rgba(127,127,127,.35))!important;border-radius:4px!important;box-sizing:border-box!important;color:var(--bandkit-page-accent,var(--link-color,#0687f5))!important;cursor:pointer!important;display:inline-flex!important;font-size:0!important;height:28px!important;justify-content:center!important;line-height:0!important;margin:0!important;padding:0!important;text-decoration:none!important;width:28px!important}html[data-bandkit-modern-styling="true"][data-bandkit-collection-page="true"] .bandkit-collection-action-row :is(.bandcamp-hub-page-playlist.is-feed-compact-action,.bandkit-collection-download-action):is(:hover,:focus-visible){background:var(--bandkit-page-accent-soft,rgba(6,135,245,.1))!important;border-color:var(--bandkit-page-accent,currentColor)!important;outline:0!important}html[data-bandkit-modern-styling="true"][data-bandkit-collection-page="true"] .bandkit-collection-action-row .bandcamp-hub-page-playlist.is-feed-compact-action::before{display:block!important;height:16px!important;width:16px!important}html[data-bandkit-modern-styling="true"][data-bandkit-collection-page="true"] .bandkit-collection-download-action::before{background:currentColor;content:"";display:block;height:16px;mask:var(--bandkit-feed-action-icon) center/contain no-repeat;-webkit-mask:var(--bandkit-feed-action-icon) center/contain no-repeat;width:16px}html[data-bandkit-modern-styling="true"][data-bandkit-collection-page="true"] #collection-items .collection-grid[data-ismain="true"][data-iswish="false"] .bottom-owner-controls .redownload-item{display:none!important}`;
-        pageStyle.textContent += `html[data-bandkit-modern-styling="true"][data-bandkit-feed-page="true"] .story-innards>.story-body{padding-bottom:6px!important}html[data-bandkit-modern-styling="true"][data-bandkit-feed-page="true"] .story-innards>.tralbum-wrapper-collect-controls{margin-bottom:18px!important}html[data-bandkit-modern-styling="true"][data-bandkit-feed-page="true"] .story-innards>.tralbum-wrapper-collect-controls .bandkit-feed-action-row{margin-top:4px!important}`;
+        pageStyle.textContent += `html[data-bandkit-modern-styling="true"][data-bandkit-feed-page="true"] .story-innards>.story-body{padding-bottom:6px!important}html[data-bandkit-modern-styling="true"][data-bandkit-feed-page="true"] .story-innards .tralbum-wrapper-collect-controls{margin-bottom:18px!important}html[data-bandkit-modern-styling="true"][data-bandkit-feed-page="true"] .story-innards .tralbum-wrapper-collect-controls .bandkit-feed-action-row{margin-top:4px!important}`;
         pageStyle.textContent += `html[data-bandkit-modern-styling="true"][data-bandkit-feed-page="true"] .collection-item-container .play-icon{background:currentColor!important;border:0!important;color:#fff!important;height:24px!important;margin:13px!important;mask:var(--bandkit-play-icon) center/contain no-repeat!important;-webkit-mask:var(--bandkit-play-icon) center/contain no-repeat!important;width:24px!important}html[data-bandkit-modern-styling="true"][data-bandkit-feed-page="true"] .collection-item-container[data-bandkit-feed-playback="playing"] .play-icon{background:linear-gradient(90deg,currentColor 0 35%,transparent 35% 65%,currentColor 65% 100%)!important;height:24px!important;mask:none!important;-webkit-mask:none!important;width:18px!important}html[data-bandkit-modern-styling="true"][data-bandkit-feed-page="true"] .collection-item-container[data-bandkit-feed-playback="loading"] .play-icon{animation:bandkit-feed-loading-spin 700ms linear infinite!important;background:transparent!important;border:2px solid rgba(255,255,255,.4)!important;border-radius:50%!important;border-top-color:currentColor!important;box-sizing:border-box!important;height:20px!important;margin:15px!important;mask:none!important;-webkit-mask:none!important;width:20px!important}@media(prefers-reduced-motion:reduce){html[data-bandkit-modern-styling="true"][data-bandkit-feed-page="true"] .collection-item-container[data-bandkit-feed-playback="loading"] .play-icon{animation:none!important;border-color:currentColor!important;opacity:.7}}`;
         pageStyle.textContent += `#DiscoverApp :is(.results-grid-item .image-container>.play-pause-button,.results-grid-item .image-container>.play-button,.focused-result>.artwork-play-button,.focused-result>.play-pause-button,.focused-result>.play-button,.discover-detail>.play-pause-button,.discover-detail>.play-button,.bandcamp-hub-page-playlist.is-discover-add-to){align-items:center!important;appearance:none!important;background:var(--bandkit-page-card,var(--hub-card,#fff))!important;border:1px solid var(--bandkit-page-border,var(--hub-line,rgba(127,127,127,.35)))!important;border-radius:8px!important;box-shadow:0 1px 2px rgba(0,0,0,.12)!important;box-sizing:border-box!important;color:var(--bandkit-page-accent,var(--hub-accent,var(--link-color,#1da0c3)))!important;display:inline-flex!important;filter:none!important;height:36px!important;justify-content:center!important;margin:0!important;width:36px!important}#DiscoverApp :is(.results-grid-item .image-container>.play-pause-button,.results-grid-item .image-container>.play-button,.focused-result>.artwork-play-button,.focused-result>.play-pause-button,.focused-result>.play-button,.discover-detail>.play-pause-button,.discover-detail>.play-button,.bandcamp-hub-page-playlist.is-discover-add-to):is(:hover,:focus-visible){background:var(--bandkit-page-card,var(--hub-card,#fff))!important;background:color-mix(in srgb,var(--bandkit-page-accent,var(--hub-accent,#1da0c3)) 16%,var(--bandkit-page-card,var(--hub-card,#fff)))!important;border-color:var(--bandkit-page-accent,var(--hub-accent,var(--link-color,#1da0c3)))!important;filter:none!important;opacity:1!important;outline:0!important}#DiscoverApp :is(.results-grid-item .image-container>.play-pause-button,.results-grid-item .image-container>.play-button,.focused-result>.artwork-play-button,.focused-result>.play-pause-button,.focused-result>.play-button,.discover-detail>.play-pause-button,.discover-detail>.play-button):is(:hover,:focus-visible)>*{opacity:1!important}#DiscoverApp .results-grid-item .image-container>:is(.play-pause-button,.play-button){bottom:8px!important;left:8px!important;position:absolute!important}#DiscoverApp .results-grid-item .image-container>.bandcamp-hub-page-playlist.is-discover-add-to{bottom:8px!important;left:50px!important;right:auto!important;top:auto!important}#DiscoverApp .bandcamp-hub-page-playlist.is-discover-add-to{position:absolute!important;z-index:8}#DiscoverApp .bandcamp-hub-page-playlist.is-discover-add-to::before{height:16px!important;width:16px!important}#DiscoverApp .bandcamp-hub-page-playlist.is-discover-add-to.is-added{background:var(--bandkit-page-accent,var(--hub-accent,var(--link-color,#1da0c3)))!important;border-color:var(--bandkit-page-accent,var(--hub-accent,var(--link-color,#1da0c3)))!important;color:var(--bandkit-page-on-accent,var(--hub-on-accent,#fff))!important}`;
         pageStyle.textContent += `.results-grid-item .bandcamp-hub-page-playlist.is-discover-add-to{opacity:0;pointer-events:none;transition:opacity .12s ease}.results-grid-item:hover .bandcamp-hub-page-playlist.is-discover-add-to,.results-grid-item:focus-within .bandcamp-hub-page-playlist.is-discover-add-to,.results-grid-item .bandcamp-hub-page-playlist.is-discover-add-to:focus-visible{opacity:1;pointer-events:auto}`;
@@ -652,7 +724,7 @@ r.$ensurePageStyles = function ensurePageStyles() {
         pageStyle.textContent += `.bandkit-track-analysis{align-items:center;column-gap:6px;display:inline-grid;font-variant-numeric:tabular-nums;grid-template-columns:72px 28px minmax(48px,auto);margin-left:0;min-width:0;width:160px}.bandkit-track-analysis-bpm,.bandkit-track-analysis-camelot,.bandkit-track-analysis-key{text-align:left}.bandkit-track-analysis-pending{grid-column:1/-1;text-align:left}html[data-bandkit-show-track-keys="false"][data-bandkit-show-camelot="true"] .bandkit-track-analysis{grid-template-columns:72px 28px;width:106px}html[data-bandkit-show-track-keys="true"][data-bandkit-show-camelot="false"] .bandkit-track-analysis{grid-template-columns:72px minmax(48px,auto);width:126px}html[data-bandkit-show-track-keys="false"][data-bandkit-show-camelot="false"] .bandkit-track-analysis{grid-template-columns:72px;width:72px}html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis{align-items:center;column-gap:10px;display:grid!important;grid-template-columns:minmax(0,1fr) 52px 160px;white-space:nowrap;width:100%!important}html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis>a{display:block;min-width:0;overflow:hidden;width:100%}html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis .track-title{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis>.time{margin-left:0!important;text-align:right}html[data-bandkit-modern-release="true"][data-bandkit-show-track-keys="false"][data-bandkit-show-camelot="true"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis{grid-template-columns:minmax(0,1fr) 52px 106px}html[data-bandkit-modern-release="true"][data-bandkit-show-track-keys="true"][data-bandkit-show-camelot="false"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis{grid-template-columns:minmax(0,1fr) 52px 126px}html[data-bandkit-modern-release="true"][data-bandkit-show-track-keys="false"][data-bandkit-show-camelot="false"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis{grid-template-columns:minmax(0,1fr) 52px 72px}html[data-bandkit-modern-release="true"] body.tralbum-page .inline_player .bandkit-track-analysis.is-inline{margin-left:12px}@media(max-width:700px){html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis{column-gap:6px;grid-template-columns:minmax(0,1fr) 48px 142px}.bandkit-track-analysis{column-gap:4px;font-size:10px;grid-template-columns:64px 26px minmax(44px,auto);width:142px}html[data-bandkit-show-track-keys="false"][data-bandkit-show-camelot="true"] .bandkit-track-analysis{grid-template-columns:64px 26px;width:94px}html[data-bandkit-show-track-keys="true"][data-bandkit-show-camelot="false"] .bandkit-track-analysis{grid-template-columns:64px minmax(44px,auto);width:112px}html[data-bandkit-show-track-keys="false"][data-bandkit-show-camelot="false"] .bandkit-track-analysis{grid-template-columns:64px;width:64px}html[data-bandkit-modern-release="true"][data-bandkit-show-track-keys="false"][data-bandkit-show-camelot="true"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis{grid-template-columns:minmax(0,1fr) 48px 94px}html[data-bandkit-modern-release="true"][data-bandkit-show-track-keys="true"][data-bandkit-show-camelot="false"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis{grid-template-columns:minmax(0,1fr) 48px 112px}html[data-bandkit-modern-release="true"][data-bandkit-show-track-keys="false"][data-bandkit-show-camelot="false"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis{grid-template-columns:minmax(0,1fr) 48px 64px}}`;
         pageStyle.textContent += `.bandcamp-hub-page-buy{align-items:center;background:var(--hub-accent-soft,rgba(29,160,195,.12))!important;border:1px solid var(--hub-line,rgba(127,127,127,.35))!important;border-radius:999px!important;box-sizing:border-box;color:var(--hub-accent,var(--link-color,#1da0c3))!important;display:inline-flex!important;flex:0 0 24px;font-size:0!important;height:24px;justify-content:center;line-height:0!important;margin:0!important;overflow:hidden;padding:0!important;text-decoration:none!important;vertical-align:middle;width:24px!important}.bandcamp-hub-page-buy::before{background:currentColor;content:"";display:block;height:14px;mask:var(--hub-buy-icon) center/contain no-repeat;-webkit-mask:var(--hub-buy-icon) center/contain no-repeat;width:14px}.bandcamp-hub-page-buy:hover,.bandcamp-hub-page-buy:focus-visible{background:var(--hub-accent-soft,rgba(29,160,195,.12))!important;border-color:var(--hub-accent,var(--link-color,#1da0c3))!important;outline:0;text-decoration:none!important}`;
         pageStyle.textContent += `.track_row_view .bandkit-generated-track-buy{opacity:0;pointer-events:none}.track_row_view:hover .bandkit-generated-track-buy,.track_row_view:focus-within .bandkit-generated-track-buy,.bandkit-generated-track-buy:focus-visible{opacity:1;pointer-events:auto}`;
-        pageStyle.textContent += `.bandcamp-hub-page-playlist-menu{background:var(--hub-card,#fff);border:1px solid var(--hub-line,rgba(127,127,127,.35));border-radius:5px;box-shadow:0 8px 24px rgba(0,0,0,.22);box-sizing:border-box;color:var(--hub-ink,#111);font-family:var(--hub-font-family,"Helvetica Neue",Helvetica,Arial,sans-serif);min-width:180px;padding:4px;position:absolute;z-index:2147483647}.bandcamp-hub-page-playlist-menu button{align-items:center;background:transparent;border:0;border-radius:3px;color:inherit;cursor:pointer;display:flex;font-family:inherit;font-size:11px;gap:7px;line-height:1.3;padding:8px;text-align:left;text-decoration:none!important;width:100%}.bandcamp-hub-page-playlist-menu button:hover:not(:disabled),.bandcamp-hub-page-playlist-menu button:focus-visible{background:var(--hub-accent-soft,rgba(29,160,195,.12));color:var(--hub-accent,var(--link-color,#1da0c3));outline:0;text-decoration:none!important}.bandcamp-hub-page-playlist-menu button:disabled{color:var(--hub-faint,#9ca3af);cursor:default}.bandcamp-hub-page-playlist-menu .is-back{border-bottom:1px solid var(--hub-line,rgba(127,127,127,.35));color:var(--hub-muted,var(--hub-ink,#111));margin-bottom:3px}.bandcamp-hub-page-playlist-menu .bandkit-page-menu-icon{align-items:center;display:inline-flex;flex:0 0 14px;font-size:14px;height:14px;justify-content:center;line-height:14px;width:14px}.bandcamp-hub-page-playlist-menu .is-wishlist::before{background:currentColor;content:"";display:block;flex:0 0 14px;height:14px;mask:var(--bandkit-wishlist-option-icon) center/contain no-repeat;-webkit-mask:var(--bandkit-wishlist-option-icon) center/contain no-repeat;width:14px}.bandcamp-hub-page-playlist-menu .is-wishlist.is-active,.bandcamp-hub-page-playlist-menu .is-wishlist.is-active:is(:hover,:focus-visible){color:#ff9c00}.bandcamp-hub-page-playlist-menu-empty{color:var(--hub-faint,#9ca3af);font-family:inherit;font-size:10px;line-height:1.3;padding:8px}`;
+        pageStyle.textContent += `.bandcamp-hub-page-playlist-menu{background:var(--hub-card,#fff);border:1px solid var(--hub-line,rgba(127,127,127,.35));border-radius:5px;box-shadow:0 8px 24px rgba(0,0,0,.22);box-sizing:border-box;color:var(--hub-ink,#111);font-family:var(--hub-font-family,"Helvetica Neue",Helvetica,Arial,sans-serif);min-width:180px;padding:4px;position:absolute;z-index:2147483647}.bandcamp-hub-page-playlist-menu button{align-items:center;background:transparent;border:0;border-radius:3px;color:inherit;cursor:pointer;display:flex;font-family:inherit;font-size:11px;gap:7px;line-height:1.3;padding:8px;text-align:left;text-decoration:none!important;width:100%}.bandcamp-hub-page-playlist-menu button:hover:not(:disabled),.bandcamp-hub-page-playlist-menu button:focus-visible{background:var(--hub-accent-soft,rgba(29,160,195,.12));color:var(--hub-accent,var(--link-color,#1da0c3));outline:0;text-decoration:none!important}.bandcamp-hub-page-playlist-menu button:disabled{color:var(--hub-faint,#9ca3af);cursor:default}.bandcamp-hub-page-playlist-menu .is-back{border-bottom:1px solid var(--hub-line,rgba(127,127,127,.35));color:var(--hub-muted,var(--hub-ink,#111));margin-bottom:3px}.bandcamp-hub-page-playlist-menu .bandkit-page-menu-icon{align-items:center;display:inline-flex;flex:0 0 14px;font-size:14px;height:14px;justify-content:center;line-height:14px;width:14px}.bandcamp-hub-page-playlist-menu .is-wishlist::before{background:currentColor;content:"";display:block;flex:0 0 14px;height:14px;mask:var(--bandkit-wishlist-option-icon) center/contain no-repeat;-webkit-mask:var(--bandkit-wishlist-option-icon) center/contain no-repeat;width:14px}.bandcamp-hub-page-playlist-menu .is-wishlist.is-active,.bandcamp-hub-page-playlist-menu .is-wishlist.is-active:is(:hover,:focus-visible){color:#ff9c00}.bandcamp-hub-page-playlist-menu-empty{color:var(--hub-faint,#9ca3af);font-family:inherit;font-size:10px;line-height:1.3;padding:8px}.bandcamp-hub-page-playlist-menu-heading{color:var(--hub-muted,var(--hub-ink,#111));font-family:inherit;font-size:10px;font-weight:700;line-height:1.3;padding:8px 8px 4px}.bandkit-page-price-form{display:flex;flex-direction:column;gap:6px;padding:0 4px 4px}.bandkit-page-price-field{align-items:center;background:var(--hub-surface,var(--hub-card,#fff));border:1px solid var(--hub-line,rgba(127,127,127,.35));border-radius:3px;display:flex;gap:6px;padding:0 8px}.bandkit-page-price-currency{color:var(--hub-faint,#9ca3af);font-family:inherit;font-size:11px;font-weight:700}.bandkit-page-price-input{appearance:textfield;background:transparent;border:0;color:inherit;font-family:inherit;font-size:12px;font-weight:700;min-width:0;padding:8px 0;width:100%}.bandcamp-hub-page-playlist-menu .bandkit-page-price-form .bandkit-page-price-input:is(:focus,:focus-visible){box-shadow:none!important;outline:none!important}.bandkit-page-price-field:focus-within{border-color:var(--hub-line,rgba(127,127,127,.35))}.bandcamp-hub-page-playlist-menu .bandkit-page-price-submit{background:var(--hub-accent,var(--link-color,#1da0c3));color:var(--hub-on-accent,#fff);font-weight:700;justify-content:center}.bandcamp-hub-page-playlist-menu .bandkit-page-price-submit:is(:hover,:focus-visible){background:var(--hub-accent,var(--link-color,#1da0c3));color:var(--hub-on-accent,#fff);filter:brightness(1.08)}.bandcamp-hub-page-playlist-menu .bandkit-page-price-submit:disabled{cursor:default;filter:none;opacity:.45}`;
         pageStyle.textContent += `.bandcamp-hub-page-tools :is(.bandcamp-hub-page-playlist,.bandcamp-hub-page-cart,.bandcamp-hub-page-dj,.bandcamp-hub-page-overflow,.bandkit-page-skip-control),.bandcamp-hub-page-playlist.is-track-action,.bandcamp-hub-page-buy{border-radius:4px!important;box-shadow:none!important;transform:none!important}.bandcamp-hub-page-tools :is(.bandcamp-hub-page-playlist,.bandcamp-hub-page-cart,.bandcamp-hub-page-dj,.bandcamp-hub-page-overflow,.bandkit-page-skip-control):not(.is-active):not(.is-added){background:transparent!important;border-color:transparent!important}.bandcamp-hub-page-tools :is(.bandcamp-hub-page-playlist,.bandcamp-hub-page-cart,.bandcamp-hub-page-dj,.bandcamp-hub-page-overflow,.bandkit-page-skip-control):is(:hover,:focus-visible){background:var(--hub-accent-soft,rgba(29,160,195,.12))!important;border-color:var(--hub-accent,var(--link-color,#1da0c3))!important;box-shadow:none!important;transform:none!important}`;
         pageStyle.textContent += `section.floating-player .player-dialog .meta-wrapper-wide .track-meta>.bandcamp-hub-page-playlist.is-modern-player-track-action{align-self:center!important;background:transparent!important;border:1px solid var(--hub-line,rgba(127,127,127,.35))!important;border-radius:4px!important;box-shadow:none!important;flex:0 0 24px!important;height:24px!important;margin:0 0 0 auto!important;min-height:24px!important;opacity:1!important;padding:0!important;pointer-events:auto!important;position:static!important;width:24px!important}section.floating-player .player-dialog .meta-wrapper-wide .track-meta>.bandcamp-hub-page-playlist.is-modern-player-track-action::before{height:14px!important;width:14px!important}section.floating-player .player-dialog .meta-wrapper-wide .track-meta>.bandcamp-hub-page-playlist.is-modern-player-track-action:is(:hover,:focus-visible,.is-active,.is-added){background:var(--hub-accent-soft,rgba(29,160,195,.12))!important;border-color:var(--hub-accent,var(--link-color,#1da0c3))!important;outline:0!important}`;
         pageStyle.textContent += `.bandkit-page-action-label{display:none!important;pointer-events:none!important}.bandkit-page-action-label::after{content:attr(data-bandkit-label-text)}`;
@@ -785,8 +857,12 @@ r.$renderPagePlaylistMenu = function renderPagePlaylistMenu(selection, view = "d
         r.$pagePlaylistMenu.append(
           option(rootView === "release-actions" ? "← More actions" : isRelease ? "← Add album" : "← Add destination", () => r.$renderPagePlaylistMenu(selection, rootView), false, "is-back"),
           option(isRelease ? "＋ Add album to current cart" : isBatch ? "＋ Add all to current cart" : "＋ Add to current cart", () => {
+            const anchor = r.$pagePlaylistMenuAnchor;
             r.$closePagePlaylistMenu();
-            void r.$addTracksToCurrentCart(cartTracks, isRelease ? "a" : "t");
+            // A release whose price the buyer sets must ask for an amount here
+            // rather than silently committing to Bandcamp's minimum.
+            if (isRelease && albumTrack) void r.$requestReleaseCartAdd(anchor, albumTrack);
+            else void r.$addTracksToCurrentCart(cartTracks, "t");
           }, false, "is-prominent")
         );
         for (const snapshot of savedCarts) {
@@ -801,6 +877,25 @@ r.$renderPagePlaylistMenu = function renderPagePlaylistMenu(selection, view = "d
           empty.textContent = "No saved carts yet";
           r.$pagePlaylistMenu.append(empty);
         }
+      } else if (view === "name-your-price") {
+        const request = r.$pagePriceRequest || {};
+        const minimumPrice = Math.max(0, Number(request.minimumPrice) || 0);
+        const heading = document.createElement("div");
+        heading.className = "bandcamp-hub-page-playlist-menu-heading";
+        heading.textContent = minimumPrice > 0
+          ? `Name your price · ${r.$compactPagePrice(minimumPrice, request.currency, false)} minimum`
+          : "Name your price · any amount above zero";
+        const { form, input } = createPagePriceForm({
+          currency: request.currency || "USD",
+          minimumPrice,
+          suggested: minimumPrice,
+          onSubmit: (amount) => {
+            r.$closePagePlaylistMenu();
+            void r.$addReleaseToCart(request.track || firstTrack, amount);
+          }
+        });
+        r.$pagePlaylistMenu.append(heading, form);
+        window.setTimeout(() => input.focus(), 0);
       } else if (view === "release-actions") {
         const actions = [];
         if (r.$nativeGiftControl()) {

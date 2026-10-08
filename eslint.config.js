@@ -1,7 +1,7 @@
 const browserGlobals = Object.fromEntries([
   "AbortController", "Audio", "Blob", "CSS", "CustomEvent", "DOMParser", "Element",
   "Event", "File", "FileReader", "HTMLAudioElement", "HTMLCanvasElement", "HTMLElement",
-  "HTMLInputElement", "HTMLMediaElement", "MediaMetadata", "MediaSource", "MutationObserver",
+  "HTMLInputElement", "HTMLMediaElement", "IntersectionObserver", "MediaMetadata", "MediaSource", "MutationObserver",
   "ResizeObserver", "ShadowRoot", "URL", "URLSearchParams", "Window", "cancelAnimationFrame",
   "chrome", "clearInterval", "clearTimeout", "confirm", "console", "crypto", "document",
   "fetch", "getComputedStyle", "globalThis", "history", "location", "navigator", "performance",

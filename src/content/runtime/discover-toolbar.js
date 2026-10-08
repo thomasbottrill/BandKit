@@ -1,5 +1,3 @@
-import { discoverGenrePalette } from "../discover-colours.js";
-import { colorString, mixColor, luminance } from "../color.js";
 import { asset, createElement } from "../core.js";
 
 
@@ -47,22 +45,12 @@ function syncGenreColours(banner, chips) {
       if (property.startsWith("--v")) copiedGroup.style.setProperty(property, nativeStyle.getPropertyValue(property));
     }
   }
-  chips.setAttribute("aria-label", "Selected genres and subgenres");
 }
 
-function syncDiscoverSurfaces(r) {
-    const genrePalette = discoverGenrePalette();
-    const app = document.querySelector("#DiscoverApp");
-    app?.toggleAttribute("data-bandkit-discover-genre", Boolean(genrePalette));
-    if (app && genrePalette) {
-      const { background, text, accent } = genrePalette;
-      app.style.setProperty("--bandkit-discover-surface", colorString(mixColor(background, text, .07)));
-      app.style.setProperty("--bandkit-discover-ink", colorString(text));
-      app.style.setProperty("--bandkit-discover-muted", colorString(mixColor(text, background, .25)));
-      app.style.setProperty("--bandkit-discover-line", colorString(mixColor(background, text, .3)));
-      app.style.setProperty("--bandkit-discover-accent", colorString(luminance(accent) < .15 ? text : accent));
-    }
-    r.$syncPageAwareTheme?.();
+function syncDiscoverTheme(r) {
+  // Genre is filter state, not a page-theme source. Keep the active Bandkit
+  // theme in charge of the page, track list, and player surfaces.
+  r.$syncPageAwareTheme?.();
 }
 
 function syncFormatIcon(banner, button) {
@@ -71,14 +59,14 @@ function syncFormatIcon(banner, button) {
   const nativeIcon = selected?.querySelector("svg");
   if (!nativeIcon || button.dataset.formatIcon === key) return;
   const icon = nativeIcon.cloneNode(true);
-  icon.classList.add("bandkit-format-icon");
+  icon.classList.add("bandkit-format-icon", "bandkit-filter-leading-icon");
   icon.setAttribute("aria-hidden", "true");
   icon.removeAttribute("id");
   button.firstElementChild.replaceWith(icon);
   button.dataset.formatIcon = key;
 }
 
-function copySubgenreOptions(banner, selected, pending, schedule) {
+function copySubgenreOptions(banner, chips, selected, pending, schedule) {
   const nativeGroup = banner.querySelector(".subgenre-filter .subgenres");
   if (!nativeGroup) return null;
   const group = nativeGroup.cloneNode(true);
@@ -95,19 +83,20 @@ function copySubgenreOptions(banner, selected, pending, schedule) {
     const title = option.textContent.trim();
     if (selected.some((node) => node.textContent.trim() === title)) { option.remove(); continue; }
     option.tabIndex = 0;
-    if (pending.has(title)) {
-      option.setAttribute("aria-selected", "true");
-      option.setAttribute("aria-busy", "true");
-      option.classList.add("active");
-    }
+    // The optimistic selected chip replaces this suggestion until Bandcamp's
+    // slower route update has settled. Keeping both creates a duplicate label
+    // and lets the focused suggestion briefly retain a second visual state.
+    if (pending.has(title)) { option.remove(); continue; }
     const select = () => {
       if (pending.has(title)) return;
       const native = [...banner.querySelectorAll('.subgenre-filter [role="option"]')].find((node) => node.getAttribute("name") === name);
       if (!native) return;
-      pending.set(title, Date.now());
-      option.setAttribute("aria-selected", "true");
-      option.setAttribute("aria-busy", "true");
-      option.classList.add("active");
+      pending.set(title, { name, started: Date.now() });
+      option.remove();
+      const pendingChip = pendingSelectedChip(banner, title, pending, schedule);
+      const selectedGroup = chips.querySelector(".bandkit-discover-selected-chips");
+      if (selectedGroup) selectedGroup.append(pendingChip);
+      else chips.insertBefore(pendingChip, chips.querySelector(".bandkit-discover-native-subgenres"));
       native.click();
       schedule();
       window.setTimeout(schedule, 15050);
@@ -118,6 +107,65 @@ function copySubgenreOptions(banner, selected, pending, schedule) {
     });
   }
   return group;
+}
+
+function copyGenreOptions(banner, schedule) {
+  const nativeGroup = banner.querySelector(".genre-filter .genres");
+  if (!nativeGroup) return null;
+  const group = nativeGroup.cloneNode(true);
+  group.classList.add("bandkit-discover-native-genres");
+  group.removeAttribute("id");
+  group.querySelector(".list-box-label")?.remove();
+  const list = group.querySelector("ul");
+  list?.removeAttribute("id");
+  list?.removeAttribute("aria-labelledby");
+  list?.removeAttribute("aria-activedescendant");
+  list?.setAttribute("aria-label", "Genres");
+  for (const node of group.querySelectorAll("[id]")) node.removeAttribute("id");
+  for (const option of group.querySelectorAll('[role="option"]')) {
+    const name = option.getAttribute("name");
+    option.classList.remove("active");
+    option.tabIndex = 0;
+    const select = () => {
+      const native = [...banner.querySelectorAll('.genre-filter .genres [role="option"]')]
+        .find((node) => node.getAttribute("name") === name);
+      if (!native) return;
+      native.click();
+      schedule();
+    };
+    option.addEventListener("click", select);
+    option.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); }
+    });
+  }
+  return group;
+}
+
+function pendingSelectedChip(banner, title, pending, schedule) {
+  // Match Bandcamp's settled selected-chip classes and DOM order so the
+  // optimistic state never flashes at the larger default button size.
+  const chip = createElement("button", "g-button chip-button selected-tag sm icon-right bandkit-discover-pending-chip");
+  const remove = banner.querySelector(".selected-tags .selected-tag .close-x-icon")?.cloneNode(true)
+    || createElement("span", "bandkit-discover-chip-remove");
+  remove.classList.add("bandkit-discover-chip-remove");
+  remove.setAttribute("aria-hidden", "true");
+  chip.type = "button";
+  chip.setAttribute("aria-label", `Remove ${title} filter`);
+  chip.setAttribute("aria-busy", "true");
+  chip.append(remove, document.createTextNode(title));
+  chip.addEventListener("click", () => {
+    const item = pending.get(title);
+    pending.delete(title);
+    const native = [...banner.querySelectorAll('.subgenre-filter [role="option"]')]
+      .find((node) => node.getAttribute("name") === item?.name);
+    native?.click();
+    schedule();
+  });
+  return chip;
+}
+
+function hasChipContent(chips) {
+  return Boolean(chips?.querySelector('.selected-tag, [role="option"]'));
 }
 
 export function setupDiscoverToolbar(r) {
@@ -134,9 +182,7 @@ export function setupDiscoverToolbar(r) {
   let follow;
   let results;
   let opener;
-  let mode = "";
-  let chipSignature = "";
-  let selectedSignature = "";
+  let mode = "", chipSignature = "", selectedSignature = "";
   let scheduled = false;
   const pendingSubgenres = new Map();
   const setText = (node, text) => {
@@ -147,6 +193,7 @@ export function setupDiscoverToolbar(r) {
     mode = mode === next ? "" : next;
     opener = trigger || opener;
     banner.dataset.bandkitFilterPanel = mode;
+    if (chipRow) chipRow.hidden = mode === "tags" || !hasChipContent(chips);
     for (const [button, value] of [[add, "tags"], [formats, "formats"], [filters, "advanced"]]) {
       button.setAttribute("aria-expanded", String(mode === value));
     }
@@ -154,15 +201,15 @@ export function setupDiscoverToolbar(r) {
   };
   const button = (label, action, icon, disclosure = false) => {
     const node = createElement("button", "filter-button g-button sm outline icon-left bandkit-discover-filter-button");
-    const glyph = (name) => {
-      const span = createElement("span", "bandkit-filter-icon");
+    const glyph = (name, role) => {
+      const span = createElement("span", `bandkit-filter-icon ${role}`);
       span.setAttribute("aria-hidden", "true");
       span.style.setProperty("--bandkit-filter-icon", `url("${asset(name)}")`);
       return span;
     };
-    if (icon) node.append(glyph(icon));
+    if (icon) node.append(glyph(icon, "bandkit-filter-leading-icon"));
     node.append(createElement("span", "bandkit-filter-label", label));
-    if (disclosure) node.append(glyph("icon-chevron.svg"));
+    if (disclosure) node.append(glyph("icon-chevron.svg", "bandkit-filter-chevron"));
     node.type = "button";
     node.addEventListener("click", action);
     return node;
@@ -190,7 +237,7 @@ export function setupDiscoverToolbar(r) {
     chipRow.append(chips, nextChips);
     add = button("Add filter", () => show("tags", add), "icon-plus.svg", true);
     formats = button("All formats", () => show("formats", formats), "icon-now-playing.svg", true);
-    filters = button("Filters", () => show("advanced", filters), "icon-filter.svg", true);
+    filters = button("Refine", () => show("advanced", filters), "icon-filter.svg", true);
     filters.classList.add("bandkit-discover-advanced-filter");
     clear = button("Clear", () => banner.querySelector(".reset-filters")?.click());
     follow = button("Follow", () => banner.querySelector(".tag-search-wrapper .follow-button")?.click());
@@ -199,12 +246,11 @@ export function setupDiscoverToolbar(r) {
     results.setAttribute("role", "status");
     results.setAttribute("aria-live", "polite");
     results.setAttribute("aria-atomic", "true");
-    toolbar.append(add, formats, filters, clear, results, follow, chipRow);
+    toolbar.append(add, formats, filters, clear, results, follow);
     // Append to preserve Vue's existing native child order.
-    banner.append(toolbar);
+    banner.append(toolbar, chipRow);
     banner.classList.add("bandkit-compact-filters");
     banner.dataset.bandkitFilterPanel = "";
-
     banner.addEventListener("click", (event) => {
       if (event.target.closest('.category-filter [role="radio"]')) {
         show("formats", formats);
@@ -217,7 +263,7 @@ export function setupDiscoverToolbar(r) {
     mount();
     if (!banner || !toolbar?.isConnected) return;
     position();
-    syncDiscoverSurfaces(r);
+    syncDiscoverTheme(r);
     syncGenreColours(banner, chips);
     const nativeCount = document.querySelector("#DiscoverApp .result-count-display")?.textContent.trim() || "";
     setText(results, nativeCount.replace(/\d[\d,]*/, (number) => Number(number.replaceAll(",", "")).toLocaleString()));
@@ -225,17 +271,20 @@ export function setupDiscoverToolbar(r) {
     for (const control of toolbar.querySelectorAll("button")) control.classList.toggle("dark-mode", banner.classList.contains("dark-mode"));
     const selected = [...banner.querySelectorAll(".selected-tags .selected-tag")]
       .filter((node) => node.textContent.trim().toLowerCase() !== "all genres");
-    for (const [name, started] of pendingSubgenres) {
-      if (selected.some((node) => node.textContent.trim() === name) || Date.now() - started > 15000) pendingSubgenres.delete(name);
+    for (const [name, pending] of pendingSubgenres) {
+      if (selected.some((node) => node.textContent.trim() === name) || Date.now() - pending.started > 15000) pendingSubgenres.delete(name);
     }
     const suggestions = [...banner.querySelectorAll('.subgenre-filter [role="option"]')].filter((node) => node.getAttribute("aria-selected") !== "true");
+    const genres = selected.length ? [] : [...banner.querySelectorAll('.genre-filter .genres [role="option"]')];
     const nextSelectedSignature = selected.map((node) => node.textContent.trim()).join("|");
     if (mode === "tags" && selectedSignature !== nextSelectedSignature) show("tags", add);
     selectedSignature = nextSelectedSignature;
-    const signature = [...selected, ...suggestions].map((node) => node.textContent.trim()).join("|") + JSON.stringify([...pendingSubgenres.keys()]);
+    const signature = `${selected.length ? "contextual" : "genres"}:`
+      + [...selected, ...suggestions, ...genres].map((node) => node.textContent.trim()).join("|")
+      + JSON.stringify([...pendingSubgenres.keys()]);
     if (signature !== chipSignature) {
       chipSignature = signature;
-      chips.replaceChildren(...selected.map((native) => {
+      const selectedChips = selected.map((native) => {
         const title = native.textContent.trim();
         const chip = native.cloneNode(true);
         chip.removeAttribute("id");
@@ -245,12 +294,24 @@ export function setupDiscoverToolbar(r) {
         });
         chip.setAttribute("aria-label", `Remove ${title} filter`);
         return chip;
-      }));
-      const group = copySubgenreOptions(banner, selected, pendingSubgenres, schedule);
+      });
+      selectedChips.push(...[...pendingSubgenres.keys()].map((title) => pendingSelectedChip(banner, title, pendingSubgenres, schedule)));
+      chips.replaceChildren();
+      if (selectedChips.length) {
+        const selectedGroup = createElement("div", "bandkit-discover-selected-chips");
+        selectedGroup.setAttribute("role", "group");
+        selectedGroup.setAttribute("aria-label", "Selected genres and subgenres");
+        selectedGroup.append(...selectedChips);
+        chips.append(selectedGroup);
+      }
+      const group = selected.length
+        ? copySubgenreOptions(banner, chips, selected, pendingSubgenres, schedule)
+        : copyGenreOptions(banner, schedule);
       if (group) chips.append(group);
     }
+    chips.setAttribute("aria-label", selected.length ? "Selected genres and subgenres" : "Genres");
     syncGenreColours(banner, chips);
-    chipRow.hidden = !chips.children.length;
+    chipRow.hidden = mode === "tags" || !hasChipContent(chips);
     syncChipArrow();
     const category = banner.querySelector('.category-filter [aria-checked="true"]')?.textContent.trim() || "all categories";
     setText(formats, `${category === "all categories" ? "All formats" : category}`);
@@ -260,7 +321,7 @@ export function setupDiscoverToolbar(r) {
     const followed = banner.querySelector('.more-filters-row .right > button[aria-pressed="true"]');
     const count = Number(Boolean(location && location !== "artists from anywhere"))
       + Number(Boolean(time && time !== "fresh")) + Number(Boolean(followed));
-    setText(filters, `Filters${count ? ` (${count})` : ""}`);
+    setText(filters, `Refine${count ? ` (${count})` : ""}`);
     const sort = banner.querySelector(".sort-filter-dropdown > button")?.textContent.trim();
     clear.hidden = !selected.length && category === "all categories" && !count && (!sort || sort === "best-selling");
     const nativeFollow = banner.querySelector(".tag-search-wrapper .follow-button");
@@ -301,7 +362,7 @@ export function setupDiscoverToolbar(r) {
   if (app) new MutationObserver((records) => {
     if (records.some((record) => {
       const target = record.target.nodeType === 3 ? record.target.parentElement : record.target;
-      return !target?.closest?.(".bandkit-discover-toolbar")
+      return !target?.closest?.(".bandkit-discover-toolbar, .bandkit-discover-chip-row")
         && (target?.closest?.(".filters-banner, .breadcrumbs-bar, .result-count-display") || !toolbar?.isConnected);
     })) schedule();
   }).observe(app, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["aria-selected", "aria-checked", "aria-pressed", "disabled", "class"] });

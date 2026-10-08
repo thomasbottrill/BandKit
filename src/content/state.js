@@ -12,7 +12,7 @@ export const PAPER_DEFAULTS = Object.freeze({
 export const ONBOARDING_COMPLETE = 1;
 export const FEEDBACK_FORM_URL = "https://picturesque-minute-159.notion.site/26e59205570e82919346017f46d04630?pvs=105";
 export const FEEDBACK_LIST_URL = "https://picturesque-minute-159.notion.site/b2559205570e822baeb4014fae0d3f64?v=f8f59205570e82719f94084ecebb1869";
-export const SUPPORT_PAYMENT_URL = "https://buy.stripe.com/cNi00jgyeeifgIIdPU6Ri00";
+export const SUPPORT_PAYMENT_URL = "https://buy.stripe.com/28E00bgNT2se3GL1Vk3ZK00";
 export const SUPPORT_CONTACT_EMAIL = "lantana.softworks@gmail.com";
 export const MUSIC_BAR_WIDTHS = ["tight", "default", "wide", "full", "custom"];
 export const MUSIC_BAR_STYLES = ["docked", "zune", "rounded"];
@@ -161,7 +161,7 @@ export const defaultState = {
   musicBarWidth: "default",
   musicBarCustomWidth: 900,
   musicBarBottomOffset: 0,
-  dockChevronOffset: 0,
+  dockChevronGap: 0,
   appearance: {
     pageAware: true,
     applyToPage: false,
@@ -180,6 +180,7 @@ export const defaultState = {
     customThemeEditorMode: "simple",
     customAccent: "#1da0c3",
     customScrubAccent: null,
+    visualizerColourSource: "theme",
     customVisualizerColor1: null,
     customVisualizerColor2: null,
     customVisualizerColor3: null,
@@ -194,7 +195,7 @@ export const defaultState = {
     customSecondaryText: "#6b7280",
     savedThemes: [],
     visualThemes: [],
-    visualThemeId: null
+    visualThemeId: "dynamic"
   },
   dj: {
     open: false,

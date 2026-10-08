@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { defaultState, BUILT_IN_THEMES } from "../src/content/state.js";
-import { applyVisualTheme, captureVisualTheme, VISUAL_THEMES, visualThemeMatches } from "../src/content/visual-themes.js";
+import { applyVisualTheme, captureVisualTheme, DEFAULT_VISUAL_THEME, VISUAL_THEMES, visualThemeMatches } from "../src/content/visual-themes.js";
+
+assert.equal(DEFAULT_VISUAL_THEME.id, "dynamic");
+assert.equal(DEFAULT_VISUAL_THEME.label, "Dynamic");
 
 assert.equal(VISUAL_THEMES.length, 12);
 assert.equal(new Set(VISUAL_THEMES.map(theme => theme.label)).size, VISUAL_THEMES.length,
@@ -8,6 +11,9 @@ assert.equal(new Set(VISUAL_THEMES.map(theme => theme.label)).size, VISUAL_THEME
 assert.ok(VISUAL_THEMES.every(theme => !BUILT_IN_THEMES.some(palette => palette.label === theme.label)));
 assert.equal(new Set(VISUAL_THEMES.map(theme => JSON.stringify(theme.settings))).size, VISUAL_THEMES.length,
   "No two visual themes may resolve to the same settings");
+const burrow = VISUAL_THEMES.find(theme => theme.id === "burrow");
+assert.equal(burrow?.settings.musicBarVisualizerType, "spectrum",
+  "Burrow must use the Spectrum visualizer");
 for (const theme of VISUAL_THEMES) {
   const state = structuredClone(defaultState);
   Object.assign(state, { autoAnalyzeTracks: false, djToolsEnabled: false, openHomeToFeed: true,

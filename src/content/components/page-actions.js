@@ -87,3 +87,44 @@ export function createPageSearchPlayButton() {
   playButton.className = "bandkit-search-play";
   return playButton;
 }
+
+export function createPagePriceForm({ currency, minimumPrice, suggested, onSubmit }) {
+  // Bandcamp refuses a cart add priced at nothing — a free release goes through
+  // its download flow instead — so the form never offers an amount it cannot buy.
+  const floor = minimumPrice > 0 ? minimumPrice : 0.01;
+  const form = document.createElement("form");
+  form.className = "bandkit-page-price-form";
+  const field = document.createElement("label");
+  field.className = "bandkit-page-price-field";
+  const symbol = document.createElement("span");
+  symbol.className = "bandkit-page-price-currency";
+  symbol.textContent = currency;
+  const input = document.createElement("input");
+  input.type = "number";
+  input.className = "bandkit-page-price-input";
+  input.min = String(floor);
+  input.step = "0.01";
+  input.value = String(Math.max(floor, Number(suggested) || 0));
+  input.setAttribute("aria-label", `Amount to pay in ${currency}`);
+  field.append(symbol, input);
+  const submit = document.createElement("button");
+  submit.type = "submit";
+  submit.className = "bandkit-page-price-submit is-prominent";
+  submit.textContent = "Add to cart";
+  form.append(field, submit);
+  const syncSubmit = () => {
+    const amount = Number(input.value);
+    submit.disabled = !Number.isFinite(amount) || amount < floor;
+  };
+  input.addEventListener("input", syncSubmit);
+  syncSubmit();
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const amount = Number(input.value);
+    if (!Number.isFinite(amount) || amount < floor) return;
+    onSubmit(amount);
+  });
+  form.addEventListener("click", (event) => event.stopPropagation());
+  return { form, input };
+}

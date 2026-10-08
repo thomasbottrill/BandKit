@@ -201,3 +201,39 @@ export function resolvedCartItemPageUrl(track, requestedItemType = "t") {
     return "";
   }
 }
+
+/* Custom properties on a shared root inherit into every element beneath it, so
+   re-setting one invalidates style for the whole page even when the value has
+   not changed. Writing through these helpers keeps repeated syncs free: the
+   inline declaration is read directly, which never forces a recalculation. */
+export function setStyleProperty(style, property, value, priority = "") {
+  if (!style) return false;
+  if (style.getPropertyValue(property) === value && (style.getPropertyPriority?.(property) || "") === priority) return false;
+  style.setProperty(property, value, priority);
+  return true;
+}
+
+export function removeStyleProperty(style, property) {
+  if (!style || !style.getPropertyValue(property)) return false;
+  style.removeProperty(property);
+  return true;
+}
+
+export function setDatasetValue(element, key, value) {
+  if (!element || element.dataset[key] === value) return false;
+  element.dataset[key] = value;
+  return true;
+}
+
+export function setAttributeValue(element, name, value) {
+  if (!element) return false;
+  if (value === null || value === false) {
+    if (!element.hasAttribute(name)) return false;
+    element.removeAttribute(name);
+    return true;
+  }
+  const next = String(value);
+  if (element.getAttribute(name) === next) return false;
+  element.setAttribute(name, next);
+  return true;
+}

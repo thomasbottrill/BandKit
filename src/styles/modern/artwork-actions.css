@@ -20,6 +20,13 @@ html body #DiscoverApp .results-grid-item .image-container > .bandcamp-hub-page-
   left: 46px !important;
 }
 
+/* Native Discover only reveals the play control while the artwork itself is
+   hovered. Reveal it for the whole card so it appears together with the add
+   button whether the pointer is over the artwork or the text. */
+html body #DiscoverApp .results-grid-item:is(:hover, :focus-within) .image-container > :is(.play-pause-button, .play-button):not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c) {
+  opacity: 1 !important;
+}
+
 /* Keep the full-artwork hit target while presenting the glyph with the same
    compact circular action style used by Selling right now. */
 html body #HomepageApp :is(.playlist-card, .new-notable .tralbum-card) .image-container .play-pause-button.over-image {

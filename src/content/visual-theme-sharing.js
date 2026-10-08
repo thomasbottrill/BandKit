@@ -81,6 +81,7 @@ export function normalizePortableVisualTheme(value) {
     preset: "custom",
     customAccent: hex(source.customAccent, defaults.customAccent),
     customScrubAccent: optionalHex(source.customScrubAccent),
+    visualizerColourSource: source.visualizerColourSource === "custom" ? "custom" : "theme",
     customVisualizerColor1: optionalHex(source.customVisualizerColor1),
     customVisualizerColor2: optionalHex(source.customVisualizerColor2),
     customVisualizerColor3: optionalHex(source.customVisualizerColor3),

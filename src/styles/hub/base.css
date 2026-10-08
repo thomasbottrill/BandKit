@@ -75,16 +75,19 @@
 }
 
 /* Rounded preserves each component's intentional default shape. Square and
-   Custom use one shared treatment across the complete player/panel surface. */
+   Custom use one shared treatment across the complete player/panel surface.
+   The loading ring is excluded here rather than overridden afterwards: these
+   selectors carry four :not() clauses, so a later rule naming the spinner
+   directly is less specific and loses even when both are !important. */
 :host([data-corner-style="square"]) :is(.hub-panel, .hub-panel *, .hub-player, .hub-player *):not(.hub-player-art-link):not(.hub-player-art):not(.hub-button-icon):not(.hub-player-backdrop-glow),
-:host([data-corner-style="square"]) :is(.hub-panel, .hub-panel *, .hub-player, .hub-player *):not(.hub-player-art-link):not(.hub-player-art):not(.hub-button-icon):not(.hub-player-backdrop-glow)::before,
-:host([data-corner-style="square"]) :is(.hub-panel, .hub-panel *, .hub-player, .hub-player *):not(.hub-player-art-link):not(.hub-player-art):not(.hub-button-icon):not(.hub-player-backdrop-glow)::after {
+:host([data-corner-style="square"]) :is(.hub-panel, .hub-panel *, .hub-player, .hub-player *):not(.hub-player-art-link):not(.hub-player-art):not(.hub-button-icon):not(.hub-player-backdrop-glow):not(.hub-play-button.is-loading)::before,
+:host([data-corner-style="square"]) :is(.hub-panel, .hub-panel *, .hub-player, .hub-player *):not(.hub-player-art-link):not(.hub-player-art):not(.hub-button-icon):not(.hub-player-backdrop-glow):not(.hub-play-button.is-loading)::after {
   border-radius: 0 !important;
 }
 
 :host([data-corner-style="custom"]) :is(.hub-panel, .hub-panel *, .hub-player, .hub-player *):not(.hub-player-art-link):not(.hub-player-art):not(.hub-button-icon):not(.hub-player-backdrop-glow),
-:host([data-corner-style="custom"]) :is(.hub-panel, .hub-panel *, .hub-player, .hub-player *):not(.hub-player-art-link):not(.hub-player-art):not(.hub-button-icon):not(.hub-player-backdrop-glow)::before,
-:host([data-corner-style="custom"]) :is(.hub-panel, .hub-panel *, .hub-player, .hub-player *):not(.hub-player-art-link):not(.hub-player-art):not(.hub-button-icon):not(.hub-player-backdrop-glow)::after {
+:host([data-corner-style="custom"]) :is(.hub-panel, .hub-panel *, .hub-player, .hub-player *):not(.hub-player-art-link):not(.hub-player-art):not(.hub-button-icon):not(.hub-player-backdrop-glow):not(.hub-play-button.is-loading)::before,
+:host([data-corner-style="custom"]) :is(.hub-panel, .hub-panel *, .hub-player, .hub-player *):not(.hub-player-art-link):not(.hub-player-art):not(.hub-button-icon):not(.hub-player-backdrop-glow):not(.hub-play-button.is-loading)::after {
   border-radius: var(--hub-custom-corner-radius, 12px) !important;
 }
 
@@ -522,6 +525,17 @@ button {
   left: var(--hub-context-panel-left, 12px);
   right: auto;
   transform: none;
+}
+
+/* A theme preview reflows the music bar under the open panel. Pin the panel
+   where it already sits so browsing themes never slides it across the screen;
+   committing or leaving the preview releases it back to the live anchor. */
+:host([data-panel-position-hold]) .hub-panel {
+  bottom: var(--hub-panel-hold-bottom, auto) !important;
+  left: var(--hub-panel-hold-left, auto) !important;
+  right: auto !important;
+  top: auto !important;
+  transition: none;
 }
 
 .hub-panel.is-contextual[data-player-empty="true"][data-player-style="zune"][data-player-variant="rounded"][data-panel-buttons][data-visualizer] {

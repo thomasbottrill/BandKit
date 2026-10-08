@@ -36,7 +36,7 @@ ${selector}::before {
 }
 ${selector}::after {
   inset: 3px;
-  background: var(--hub-scrub-handle-fill, var(--bandkit-scrub-handle-fill, var(--hub-scrub-accent, var(--bandkit-scrub-accent)))) !important;
+  background: var(--hub-scrub-handle-fill, var(--hub-handle-color, var(--bandkit-scrub-handle-fill, var(--bandkit-handle-color, var(--hub-scrub-accent, var(--bandkit-scrub-accent)))))) !important;
   mask-image: var(--hub-scrub-handle-fill-mask, var(--bandkit-scrub-handle-fill-mask, var(--handle-outline-mask)));
   -webkit-mask-image: var(--hub-scrub-handle-fill-mask, var(--bandkit-scrub-handle-fill-mask, var(--handle-outline-mask)));
 }

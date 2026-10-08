@@ -82,7 +82,9 @@ r.$cartItemArt = function cartItemArt(item) {
 r.$renderCartItemCard = function renderCartItemCard(item, { removable = false, savedCart = null } = {}) {
       if (r.$isGenericCartArtist(item.artist)) r.$queueCartArtistResolution([item]);
       const card = createPanelMediaCard("hub-cart-item-card");
+      const belowMinimum = r.$cartBelowMinimumIds?.has(item.id) === true;
       card.classList.toggle("is-unavailable", item.unavailable === true);
+      card.classList.toggle("is-below-minimum", belowMinimum);
       const main = createElement("div", "hub-product-main");
       const artLink = r.$createPageLink("", item.url, "hub-art-link");
       artLink.setAttribute("aria-label", `Open ${item.title}`);
@@ -92,13 +94,16 @@ r.$renderCartItemCard = function renderCartItemCard(item, { removable = false, s
       const row = createElement("div", "hub-row-title");
       row.append(r.$createPageLink(item.title, item.url, "hub-cart-title hub-inline-link"), createElement("span", "hub-price", formatCartPrice(item.price, item.currency)));
       details.append(row);
-      if (!r.$isGenericCartArtist(item.artist)) {
-        details.append(r.$createPageLink(item.artist, r.$artistUrlFromPageUrl(item.url) || item.url, "hub-track-artist hub-inline-link"));
-      }
+      // Every cart card reads as title, artist, product type. A generic artist
+      // is still shown so the card keeps its shape while the real name resolves.
+      const artistName = r.$isGenericCartArtist(item.artist) ? "Bandcamp" : item.artist;
+      details.append(r.$createPageLink(artistName, r.$artistUrlFromPageUrl(item.url) || item.url, "hub-track-artist hub-inline-link"));
       const metaRow = createElement("div", "hub-row-title hub-product-meta-row");
       metaRow.append(createElement("span", "hub-meta", item.kind));
       if (item.unavailable === true) {
         metaRow.append(createElement("span", "hub-cart-item-status", "Unavailable"));
+      } else if (belowMinimum) {
+        metaRow.append(createElement("span", "hub-cart-item-status", "Below Bandcamp's minimum"));
       }
       if (removable || savedCart) {
         const remove = createElement("button", "hub-playlist-icon-button hub-cart-remove-button");

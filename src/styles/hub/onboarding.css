@@ -204,6 +204,29 @@
   to { opacity: .95; transform: translate3d(1%, 1px, 0) scaleX(1.04) scaleY(.98); }
 }
 
+.hub-onboarding-kit-mode {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  min-height: 34px;
+}
+
+.hub-onboarding-kit-mode-option {
+  background: transparent;
+  border: 0;
+  color: var(--hub-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  min-height: 30px;
+  padding: 4px 2px;
+}
+
+.hub-onboarding-kit-mode-option:is(:hover, :focus-visible) { color: var(--hub-card-accent); outline: 0; }
+.hub-onboarding-kit-mode-option.is-selected { color: var(--hub-ink); font-weight: 850; }
+.hub-onboarding-kit-mode-content { min-width: 0; }
+.hub-onboarding-kit-mode-content.is-theme { padding-top: 7px; }
 .hub-onboarding-kit-controls { display: grid; gap: 0 20px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
 .hub-onboarding-kit-choice {
@@ -225,20 +248,6 @@
 .hub-onboarding-kit-choice-copy span { color: var(--hub-muted); font-size: 13px; font-weight: 700; }
 .hub-onboarding-kit-choice-copy strong { color: currentColor; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.hub-onboarding-kit-control-group { align-items: center; display: grid; grid-template-columns: minmax(0, 1fr) 28px; min-width: 0; }
-.hub-onboarding-kit-control-group > .hub-onboarding-kit-choice { min-width: 0; }
-.hub-onboarding-kit-settings-button,
-.hub-onboarding-kit-settings-close { align-items: center; background: transparent; border: 0; border-radius: 4px; color: var(--hub-muted); cursor: pointer; display: inline-flex; justify-content: center; padding: 0; }
-.hub-onboarding-kit-settings-button { height: 28px; width: 28px; }
-.hub-onboarding-kit-settings-button svg { height: 15px; width: 15px; }
-.hub-onboarding-kit-settings-button:is(:hover, :focus-visible),
-.hub-onboarding-kit-settings-close:is(:hover, :focus-visible) { background: color-mix(in srgb, var(--hub-card-accent) 10%, transparent); color: var(--hub-card-accent); outline: 0; }
-.hub-onboarding-kit-settings-modal { background: var(--hub-card); border: 1px solid color-mix(in srgb, var(--hub-line) 35%, var(--hub-card)); border-radius: 8px; box-shadow: 0 14px 40px color-mix(in srgb, #000 20%, transparent); display: grid; gap: 6px; inset: 0; padding: 12px; position: absolute; z-index: 3; }
-.hub-onboarding-kit-settings-header { align-items: center; display: flex; justify-content: space-between; }
-.hub-onboarding-kit-settings-header h3 { color: var(--hub-ink); font-size: 13px; margin: 0; }
-.hub-onboarding-kit-settings-close { font-size: 20px; height: 28px; line-height: 1; width: 28px; }
-.hub-onboarding-kit-settings-body { align-content: start; display: grid; gap: 0 20px; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; }
-
 .hub-onboarding-kit-picker-selection { align-items: center; background: transparent; border: 0; color: var(--hub-ink); cursor: pointer; display: grid; font: inherit; grid-template-columns: minmax(0, 1fr) 12px; min-height: 44px; min-width: 0; padding: 6px 2px; text-align: left; width: 100%; }
 .hub-onboarding-kit-picker-selection:is(:hover, :focus-visible),
 .hub-onboarding-kit-picker-selection.is-open { color: var(--hub-card-accent); outline: 0; }
@@ -250,6 +259,7 @@
 .hub-onboarding-kit-selection-value > .hub-scrub-handle-preview { flex: 0 0 24px; }
 .hub-onboarding-kit-selection-value > :is(.hub-player-design-preview, .hub-visualizer-style-preview, .hub-option-icon-preview) { flex: 0 0 auto; }
 .hub-onboarding-kit-selection-value > .hub-blend-mode-preview { flex-basis: 22px; }
+.hub-onboarding-theme-palette { flex: 0 0 58px; width: 58px; }
 .hub-onboarding-layer .hub-theme-combobox-chevron { margin-left: 0; }
 .hub-onboarding-picker-options { background: var(--hub-panel); border: 1px solid color-mix(in srgb, var(--hub-line) 20%, var(--hub-panel)); border-radius: 5px; box-sizing: border-box; contain: layout paint; display: grid; gap: 2px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 4px; pointer-events: auto; position: fixed; z-index: 4; }
 .hub-onboarding-picker-options[hidden] { display: none; }
@@ -259,13 +269,16 @@
 .hub-onboarding-picker-option:has(> .hub-visualizer-style-preview) { grid-template-columns: 84px minmax(0, 1fr); }
 .hub-onboarding-picker-option:has(> .hub-option-icon-preview) { grid-template-columns: 28px minmax(0, 1fr); }
 .hub-onboarding-picker-option:has(> .hub-blend-mode-preview) { grid-template-columns: 22px minmax(0, 1fr); }
+.hub-onboarding-picker-option:has(> .hub-theme-option-palette) { grid-template-columns: 58px minmax(0, 1fr); }
+.hub-onboarding-picker-option.has-option-trailing { grid-template-columns: minmax(0, 1fr) 18px; }
+.hub-onboarding-picker-option.has-option-trailing:has(> .hub-theme-option-palette) { grid-template-columns: 58px minmax(0, 1fr) 18px; }
 .hub-onboarding-picker-option > svg { color: currentColor; height: 20px; width: 76px; }
 .hub-onboarding-picker-option:is(:hover, :focus-visible) { background: transparent; color: var(--hub-card-accent); outline: 0; }
 .hub-onboarding-picker-option.is-selected { color: var(--hub-card-accent); }
 .hub-onboarding-picker-option-label { font-size: 13px; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hub-onboarding-picker-options:has(.hub-onboarding-picker-option:is(:hover, :focus-visible)) .hub-onboarding-picker-option:not(:hover, :focus-visible) { opacity: .38; }
 
-.hub-onboarding-kit-config { display: grid; gap: 5px; min-width: 0; position: relative; }
+.hub-onboarding-kit-config { display: grid; gap: 7px; min-width: 0; position: relative; }
 .hub-onboarding-kit-handle-selection { align-items: center; background: transparent; border: 0; color: var(--hub-ink); cursor: pointer; display: grid; font: inherit; grid-template-columns: minmax(0, 1fr) 12px; min-height: 44px; min-width: 0; padding: 6px 2px; text-align: left; width: 100%; }
 .hub-onboarding-kit-handle-selection:is(:hover, :focus-visible),
 .hub-onboarding-kit-handle-selection.is-open { color: var(--hub-card-accent); outline: 0; }
@@ -285,7 +298,6 @@
 @media (max-width: 700px) {
   .hub-onboarding-dialog.is-kit-step { width: min(390px, calc(100vw - 24px)); }
   .hub-onboarding-kit-controls { grid-template-columns: 1fr; }
-  .hub-onboarding-kit-settings-body { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 460px) {

@@ -1,4 +1,8 @@
 import { resolveDiscoverRelease } from "./discover-release.js";
+import { fetchArtworkDataUrl } from "./artwork.js";
+import { addItemsToCartRemotely, removeItemFromCartRemotely } from "./cart-delegate.js";
+import { cartMinimumFor, loadCurrencyMinimums } from "./currency-minimums.js";
+import { resolveFeedStreams } from "./feed-streams.js";
 import { MESSAGES, STORAGE_KEYS } from "../shared/contracts.js";
 import { nowPlayingQueueSignature } from "../shared/now-playing-session.js";
 import { createVisualizerDelivery } from "./visualizer-delivery.js";
@@ -150,6 +154,20 @@ function sanitizeTrack(track) {
 }
 
 
+// Bandcamp will not accept a collection add below the per-currency minimum its
+// own buy dialog enforces, so report those items rather than letting checkout
+// fail on them later with a "price has changed" error.
+async function resolveCartMinimums(items) {
+  const minimums = await loadCurrencyMinimums();
+  return (Array.isArray(items) ? items.slice(0, 200) : []).map((item) => {
+    const floor = cartMinimumFor(minimums, item?.currency, item?.itemType);
+    const unitPrice = Math.max(0, Number(item?.unitPrice) || 0);
+    return Number.isFinite(floor) && floor > 0 && unitPrice < floor
+      ? { id: String(item?.id || ""), minimum: floor }
+      : null;
+  }).filter(Boolean);
+}
+
 async function resolveCartMetadata(items) {
   const requests = new Map();
   const readMetadata = (url) => {
@@ -175,6 +193,7 @@ async function resolveCartMetadata(items) {
         const bandCurrency = html.match(/\bdata-band-currency=(['"])([A-Z]{3})\1/i)?.[2] || "";
         const cartAttribute = html.match(/\bdata-cart=(['"])([\s\S]*?)\1/i)?.[2] || "";
         let currency = String(current?.currency || current?.currency_code || bandCurrency).toUpperCase();
+        const minimums = await loadCurrencyMinimums();
         if (!currency && cartAttribute) {
           try {
             const cart = JSON.parse(cartAttribute
@@ -191,6 +210,10 @@ async function resolveCartMetadata(items) {
           itemType,
           minimumPrice: Number.isFinite(minimumPrice) && minimumPrice >= 0 ? minimumPrice : null,
           currency: /^[A-Z]{3}$/.test(currency) ? currency : "",
+          // Bandcamp's own floor for adding this release to a collection. A
+          // name-your-price amount below it produces a cart that only fails
+          // when the listener reaches checkout.
+          cartMinimum: cartMinimumFor(minimums, currency, itemType),
           purchaseStatus,
           priceIsMinimum: current?.is_set_price !== 1
         };
@@ -218,7 +241,7 @@ async function resolvePlaylistItems(items) {
         let lastError;
         for (let attempt = 0; attempt < 2; attempt += 1) {
           try {
-            const response = await fetch(pageUrl, { credentials: "omit", redirect: "follow" });
+            const response = await fetch(pageUrl, { credentials: "omit", redirect: "follow", signal: globalThis.AbortSignal.timeout(12_000) });
             if (!response.ok) throw new Error(`Bandcamp returned ${response.status}`);
             const html = await response.text();
             return {
@@ -575,23 +598,25 @@ function scheduleBandcampTabLifecycleCheck() {
   return check;
 }
 
+async function closeOffscreenDocument() {
+  const contexts = await chrome.runtime.getContexts({
+    contextTypes: ["OFFSCREEN_DOCUMENT"],
+    documentUrls: [chrome.runtime.getURL(OFFSCREEN_PATH)]
+  });
+  if (!contexts.length) return;
+  try {
+    await chrome.runtime.sendMessage({ target: "offscreen", type: MESSAGES.OFFSCREEN_DISABLE });
+    await chrome.offscreen.closeDocument();
+  } catch {
+    // The offscreen document may already be closing.
+  }
+}
+
 async function handlePlaybackRequest(message, sender) {
   if (!isBandcampUrl(sender.url)) throw new Error("Playback requests are only accepted from Bandcamp pages.");
 
   if (message.type === MESSAGES.DELETE_ALL_DATA) {
-    const offscreenUrl = chrome.runtime.getURL(OFFSCREEN_PATH);
-    const contexts = await chrome.runtime.getContexts({
-      contextTypes: ["OFFSCREEN_DOCUMENT"],
-      documentUrls: [offscreenUrl]
-    });
-    if (contexts.length) {
-      try {
-        await chrome.runtime.sendMessage({ target: "offscreen", type: MESSAGES.OFFSCREEN_DISABLE });
-        await chrome.offscreen.closeDocument();
-      } catch {
-        // The offscreen document may be closing while data is cleared.
-      }
-    }
+    await closeOffscreenDocument();
     await playbackStateUpdates.catch(() => {});
     await Promise.all([
       chrome.storage.local.clear(),
@@ -601,12 +626,18 @@ async function handlePlaybackRequest(message, sender) {
     return { ok: true };
   }
 
+  if (message.type === MESSAGES.FETCH_ARTWORK) return { ok: true, dataUrl: await fetchArtworkDataUrl(message.url) };
+
   if (message.type === MESSAGES.RESOLVE_CART_ITEMS) {
     return { ok: true, items: await resolveSavedCartItems(message.items) };
   }
 
   if (message.type === MESSAGES.RESOLVE_CART_METADATA) {
     return { ok: true, items: await resolveCartMetadata(message.items) };
+  }
+
+  if (message.type === MESSAGES.RESOLVE_CART_MINIMUMS) {
+    return { ok: true, belowMinimum: await resolveCartMinimums(message.items) };
   }
 
   if (message.type === MESSAGES.RESOLVE_COLLECTION_MEMBERSHIP) {
@@ -616,6 +647,12 @@ async function handlePlaybackRequest(message, sender) {
   if (message.type === MESSAGES.RESOLVE_DISCOVER_RELEASE) {
     return { ok: true, release: await resolveDiscoverRelease(message.pageUrl) };
   }
+
+  if (message.type === MESSAGES.CART_ADD_REMOTE) return addItemsToCartRemotely(message);
+
+  if (message.type === MESSAGES.CART_REMOVE_REMOTE) return removeItemFromCartRemotely(message);
+
+  if (message.type === MESSAGES.RESOLVE_FEED_STREAMS) return { ok: true, streams: await resolveFeedStreams(message.items) };
 
   if (message.type === MESSAGES.RESOLVE_PLAYLIST_ITEMS) {
     return { ok: true, items: await resolvePlaylistItems(message.items) };
@@ -769,6 +806,7 @@ async function handlePlaybackRequest(message, sender) {
     MESSAGES.SEAMLESS_PREVIOUS,
     MESSAGES.SEAMLESS_SEEK,
     MESSAGES.SEAMLESS_SET_RATE,
+    MESSAGES.SEAMLESS_SET_MUTED,
     MESSAGES.SEAMLESS_SET_DJ,
     MESSAGES.SEAMLESS_SCRATCH,
     MESSAGES.SEAMLESS_SET_LOOP,
@@ -783,6 +821,7 @@ async function handlePlaybackRequest(message, sender) {
     currentTime: Math.max(0, Number(message.currentTime) || 0),
     rate: Math.max(0.35, Math.min(2, Number(message.rate) || 1)),
     preservePitch: message.preservePitch !== false,
+    muted: message.muted === true,
     filterValue: Math.max(-1, Math.min(1, Number(message.filterValue) || 0)),
     gainDb: Math.max(-30, Math.min(6, Number(message.gainDb) || 0)),
     eqLowDb: Math.max(-12, Math.min(12, Number(message.eqLowDb) || 0)),

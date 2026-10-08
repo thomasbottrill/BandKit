@@ -10,6 +10,7 @@ import { applyVisualTheme, captureVisualTheme, DEFAULT_VISUAL_THEME, MAX_VISUAL_
 import { MAX_VISUAL_THEME_FILE_SIZE, parseVisualThemeDocument, portableVisualThemeDocument } from "../visual-theme-sharing.js";
 import { createNamedSaveAction } from "./custom-theme-settings.js";
 import { runtimeSaveState, runtimeState } from "./context.js";
+import { createDynamicThemeInfo } from "../theme-option-markers.js";
 
 const titleCase = value => String(value).replaceAll("-", " ").replace(/\b\w/g, letter => letter.toUpperCase());
 const playerNames = { docked: "Dock", zune: "Fade", rounded: "Float" };
@@ -154,7 +155,7 @@ function appendSavedThemeManagement(r, content) {
   remove.addEventListener("click", () => {
     if (!window.confirm(`Delete the saved theme “${saved.label}”? Your current appearance will stay as it is.`)) return;
     appearance.visualThemes = savedVisualThemes(appearance).filter(theme => theme.id !== saved.id);
-    appearance.visualThemeId = null;
+    appearance.visualThemeId = "dynamic";
     runtimeSaveState(); r.$render(); r.$showToast(`Deleted theme “${saved.label}”`);
   });
   actions.append(rename, remove);
@@ -224,10 +225,14 @@ function createThemeOptionPreview(r, applyValue) {
         if (!snapshot) return;
         applyVisualTheme(runtimeState, snapshot);
         snapshot = null;
+        r.$releasePanelPositionHold?.();
         syncVisualTheme(r);
         return;
       }
       snapshot ??= captureVisualTheme(runtimeState);
+      // Options like Player and Size reflow the music bar, which would drag the
+      // open panel with it. Pin the panel for the preview and release it after.
+      r.$holdPanelPosition?.();
       applyValue(value);
       syncVisualTheme(r);
     },
@@ -235,6 +240,7 @@ function createThemeOptionPreview(r, applyValue) {
       snapshot = null;
       applyValue(value);
       commitVisualEdit(r, message);
+      r.$releasePanelPositionHold?.();
     }
   };
 }
@@ -261,6 +267,8 @@ function appendThemeBreakdown(r, content) {
     renderPreview: value => value === "dynamic" ? createThemeSourcePreview("match")
       : value === "custom" ? createButtonIcon("icon-settings.svg")
         : palettePreview(paletteValues(palettes.find(palette => palette.id === value))),
+    renderTrailing: value => value === "dynamic" ? createDynamicThemeInfo()
+      : value === "custom" ? createButtonIcon("icon-settings.svg") : null,
     onPreview: colourPreview.preview,
     onChange: (value, label) => colourPreview.commit(value, `${label} colours enabled`)
   });
@@ -363,22 +371,23 @@ export function createVisualThemeSettings(r) {
   const savedThemes = savedVisualThemes(runtimeState.appearance);
   const savedIds = new Set(savedThemes.map(theme => theme.id));
   const themes = [...VISUAL_THEMES, ...savedThemes];
-  const active = themes.find(theme => theme.id === runtimeState.appearance.visualThemeId);
-  const unchanged = active && visualThemeMatches(runtimeState, active);
-  // With no theme applied, show "None" rather than "Custom" so the picker says
-  // what is actually in effect and offers the way back to it.
-  const cleared = !active && visualThemeMatches(runtimeState, DEFAULT_VISUAL_THEME);
-  const current = { ...captureVisualTheme(runtimeState), id: "current", label: "Custom" };
   const selectable = [DEFAULT_VISUAL_THEME, ...themes];
-  const options = [current, ...selectable];
+  const storedBaseId = runtimeState.appearance.visualThemeId === "none"
+    ? "dynamic" : runtimeState.appearance.visualThemeId;
+  const active = selectable.find(theme => theme.id === storedBaseId) || DEFAULT_VISUAL_THEME;
+  const unchanged = visualThemeMatches(runtimeState, active);
+  const current = { ...captureVisualTheme(runtimeState), id: "current", label: "Custom" };
+  const options = unchanged ? selectable : [current, ...selectable];
   // Mirrors the palette picker: a heading line per section, saved work last.
   const themeGroup = id => savedIds.has(id) ? "saved"
-    : ["current", "none"].includes(id) ? "custom" : "bandkit";
+    : id === "current" ? "custom" : "bandkit";
   let snapshot = null;
   let previewId = null;
   const restore = () => {
     if (!snapshot) return;
-    applyVisualTheme(runtimeState, snapshot); snapshot = null; previewId = null; syncVisualTheme(r);
+    applyVisualTheme(runtimeState, snapshot); snapshot = null; previewId = null;
+    r.$releasePanelPositionHold?.();
+    syncVisualTheme(r);
   };
   r.$restoreVisualThemePreview = restore;
   // Playback and activity can save while a menu is hovered. Only persist the
@@ -388,11 +397,17 @@ export function createVisualThemeSettings(r) {
   };
   const picker = createSettingsPicker({
     ariaLabel: "Visual theme", className: "hub-visual-theme-picker",
-    value: unchanged ? active.id : cleared ? "none" : "current",
+    value: unchanged ? active.id : "current",
     options: options.map(theme => ({ value: theme.id, label: theme.label, group: themeGroup(theme.id) })),
     groups: [["custom", "Custom"], ["bandkit", "Themes"], ["saved", "Saved"]],
     renderPreview: (id, context) => themePreview(options.find(theme => theme.id === id), context),
     renderTrailing: id => {
+      if (id === "dynamic") return createDynamicThemeInfo();
+      if (id === "current") {
+        const basedOn = createElement("span", "hub-visual-theme-based-on", `Based on ${active.label}`);
+        basedOn.setAttribute("aria-label", `Based on ${active.label}`);
+        return basedOn;
+      }
       if (!savedIds.has(id)) return null;
       const marker = createButtonIcon("icon-settings.svg");
       marker.classList.add("hub-visual-theme-saved-marker");
@@ -408,22 +423,31 @@ export function createVisualThemeSettings(r) {
         settings: Object.fromEntries(VISUAL_SETTING_KEYS.map(key => [key, structuredClone(runtimeState[key])])),
         appearance: Object.fromEntries(VISUAL_APPEARANCE_KEYS.map(key => [key, structuredClone(runtimeState.appearance[key])])) };
       previewId = id;
+      // Pin the panel before the theme reflows the music bar under it, so the
+      // preview shows the look without the panel chasing the new geometry.
+      r.$holdPanelPosition?.();
       applyVisualTheme(runtimeState, selectable.find(theme => theme.id === id)); syncVisualTheme(r);
     },
     onChange: id => {
       if (id === "current") {
-        restore(); runtimeState.appearance.visualThemeId = null;
-        runtimeSaveState(); r.$render(); r.$showToast("Custom theme enabled"); return;
+        restore(); return;
       }
       const theme = selectable.find(item => item.id === id);
       snapshot = null; previewId = null;
       applyVisualTheme(runtimeState, theme);
-      runtimeState.appearance.visualThemeId = id === "none" ? null : id;
-      syncVisualTheme(r); runtimeSaveState(); r.$render();
-      r.$showToast(id === "none" ? "Theme removed" : `Applied “${theme.label}”`);
+      runtimeState.appearance.visualThemeId = id;
+      syncVisualTheme(r);
+      // Release only after the committed theme is in place so the panel glides
+      // from where it was held to the anchor that theme actually wants.
+      r.$releasePanelPositionHold?.();
+      runtimeSaveState(); r.$render();
+      r.$showToast(`Applied “${theme.label}”`);
     }
   });
-  const row = createSettingsRow({ copy: createSettingsRowCopy("Theme", "A complete look: colours, player, controls and effects."), control: picker.element });
+  const themeDescription = unchanged
+    ? "A complete look: colours, player, controls and effects."
+    : `Custom theme based on ${active.label}. Save it to keep this combination.`;
+  const row = createSettingsRow({ copy: createSettingsRowCopy("Theme", themeDescription), control: picker.element });
   disclosure.content.append(row);
   appendSavedThemeManagement(r, disclosure.content);
   appendThemeBreakdown(r, disclosure.content);

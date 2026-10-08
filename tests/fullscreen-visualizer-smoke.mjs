@@ -39,8 +39,8 @@ const css = fs.readFileSync(new URL("../src/styles/hub/fullscreen-visualizer.css
 assert.doesNotMatch(menuSource, /Experimental|experimental/, "fullscreen visualizer menu action should not carry an experimental label");
 assert.match(menuSource, /hub-visualizer-menu-action[\s\S]*?<span>Visualizer<\/span>`;/,
   "fullscreen visualizer menu action should only contain the shared icon and label");
-assert.match(css, /\.hub-visualizer-menu-action\s*\{[^}]*gap:\s*var\(--hub-control-gap\);[^}]*height:\s*34px;[^}]*padding:\s*0 8px;[^}]*font-size:\s*11px;/s,
-  "fullscreen visualizer menu action should match the other labeled menu controls");
+assert.match(css, /\.hub-visualizer-menu-action,\s*\.hub-pip-menu-action\s*\{[^}]*gap:\s*var\(--hub-control-gap\);[^}]*height:\s*34px;[^}]*padding:\s*0 8px;[^}]*font-size:\s*11px;/s,
+  "fullscreen visualizer and mini player menu actions should match the other labeled menu controls");
 assert.match(css, /\.hub-visualizer-exit\s*\{[^}]*width:\s*48px;[^}]*height:\s*48px;[^}]*border:\s*0;[^}]*border-radius:\s*0;/s,
   "fullscreen visualizer exit should keep its hit area without a circular outline");
 const runtimeLive = { isPlaying: false };

@@ -484,6 +484,20 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #bio-container .follo
 
 html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn .bandkit-modern-purchase-list .bandkit-modern-buy-control {
   border-color: transparent !important;
+  column-gap: 7px;
+  margin-inline-start: -8px !important;
+  padding-inline: 8px !important;
+}
+
+html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn .bandkit-modern-purchase-list .bandkit-modern-buy-control::before {
+  background: currentColor;
+  content: "";
+  display: block;
+  flex: 0 0 auto;
+  height: 18px;
+  mask: var(--bandkit-buy-icon) center / contain no-repeat;
+  -webkit-mask: var(--bandkit-buy-icon) center / contain no-repeat;
+  width: 18px;
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn .bandkit-modern-purchase-list .bandkit-modern-buy-control:is(:hover, :focus-visible, :active),
@@ -501,37 +515,31 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn .bandkit
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-buy-label {
+  font-size: 0;
   line-height: 1.2;
   white-space: nowrap;
 }
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-buy-card.is-track-purchase .bandkit-modern-buy-label {
-  font-size: 0;
-}
-html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-buy-card.is-track-purchase .bandkit-modern-buy-label::after {
-  content: "Buy";
-  font-size: 12px;
-}
 html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-buy-details {
   align-items: baseline;
-  color: var(--bandkit-release-muted);
+  color: currentColor;
   display: inline-flex;
   flex: 0 1 auto;
   flex-wrap: nowrap;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  gap: 2px 4px;
+  gap: 2px 3px;
   line-height: 1.25;
   text-align: left;
   white-space: nowrap;
 }
 html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-buy-details :is(.base-text-color, .buyItemExtra, [class*="discount" i]) {
-  color: var(--bandkit-release-muted) !important;
+  color: currentColor !important;
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .bandkit-modern-buy-details .buyItemExtra {
-  font-size: 11px;
-  font-weight: 600;
-  opacity: .82;
+  font-size: inherit;
+  font-weight: inherit;
+  opacity: 1;
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-purchase-list .buyFullDiscography .bandkit-modern-buy-details [class*="discount" i] {
@@ -749,24 +757,20 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #rightColumn .sidebar
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page #discography ul {
-  display: grid;
-  gap: 14px;
-  grid-auto-columns: 120px;
-  grid-auto-flow: column;
+  display: grid !important;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 0 !important;
-  overflow-x: auto;
-  overscroll-behavior-inline: contain;
+  overflow: visible;
   padding: 3px 2px 8px !important;
-  scroll-snap-type: inline proximity;
-  scrollbar-width: thin;
+  width: 100% !important;
 }
 
 html[data-bandkit-modern-release="true"] body.tralbum-page #discography li {
   box-sizing: border-box;
   margin: 0 !important;
   min-width: 0;
-  scroll-snap-align: start;
-  width: 120px !important;
+  width: auto !important;
 }
 html[data-bandkit-modern-release="true"] body.tralbum-page #discography img {
   display: block;

@@ -1,0 +1,11 @@
+/* Source of the mini player's Picture-in-Picture window. It must stay in the
+   document to play, but the floating window is its only visible surface. */
+.hub-pip-video {
+  bottom: 0;
+  height: 1px;
+  left: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: fixed;
+  width: 1px;
+}

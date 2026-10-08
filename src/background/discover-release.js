@@ -13,7 +13,7 @@ export async function resolveDiscoverRelease(value) {
   const cached = releases.get(pageUrl);
   if (cached && cached.expires > Date.now()) return cached.promise;
   const promise = (async () => {
-    const response = await fetch(pageUrl, { credentials: "omit" });
+    const response = await fetch(pageUrl, { credentials: "omit", signal: globalThis.AbortSignal.timeout(12_000) });
     if (!response.ok) throw new Error(`Bandcamp returned ${response.status}`);
     const html = await response.text();
     const data = tralbumDataFromHtml(html);

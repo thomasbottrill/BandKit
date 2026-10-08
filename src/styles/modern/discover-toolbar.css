@@ -15,7 +15,7 @@ html:has(#DiscoverApp) { scrollbar-gutter: stable; }
 }
 #DiscoverApp .bandkit-discover-toolbar {
   grid-row: 1;
-  grid-column: 1;
+  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -34,8 +34,8 @@ html:has(#DiscoverApp) { scrollbar-gutter: stable; }
 }
 #DiscoverApp .bandkit-discover-result-count[hidden] { display: none; }
 #DiscoverApp .bandkit-discover-toolbar .bandkit-discover-filter-button {
-  background: transparent;
-  border: 0;
+  background: transparent !important;
+  border: 1px solid transparent !important;
   border-radius: 4px;
   color: inherit;
   min-height: 30px;
@@ -47,8 +47,11 @@ html:has(#DiscoverApp) { scrollbar-gutter: stable; }
 }
 #DiscoverApp .bandkit-discover-toolbar button[hidden] { display: none !important; }
 #DiscoverApp .bandkit-discover-toolbar button:is(:hover, :focus-visible, [aria-expanded="true"]) {
-  background: transparent;
-  color: var(--hub-accent, var(--bandkit-page-accent, #1da0c3));
+  background: color-mix(in srgb, var(--bandkit-page-surface-text, currentColor) 12%, transparent) !important;
+  color: inherit;
+}
+#DiscoverApp .bandkit-discover-toolbar button[aria-expanded="true"] {
+  color: var(--hub-accent, var(--bandkit-page-accent, #1da0c3)) !important;
 }
 #DiscoverApp .bandkit-discover-toolbar button:focus-visible { outline: 2px solid var(--hub-accent, #1da0c3); outline-offset: 2px; }
 #DiscoverApp :has(> .bandkit-discover-toolbar) > :is(.tag-search-wrapper, .genre-filter, .category-filter) { display: none !important; }
@@ -88,8 +91,8 @@ html:has(#DiscoverApp) { scrollbar-gutter: stable; }
   #DiscoverApp .filters-banner:has(> .bandkit-discover-toolbar) { padding: 8px 12px; gap: 8px; grid-template-columns: 1fr; }
   #DiscoverApp :has(> .bandkit-discover-toolbar) > .more-filters-row { grid-row: 2; grid-column: 1; }
   #DiscoverApp :has(> .bandkit-discover-toolbar) > .tag-search-wrapper,
-  #DiscoverApp :has(> .bandkit-discover-toolbar) > .category-filter { grid-row: 3; }
-  #DiscoverApp :has(> .bandkit-discover-toolbar) > .genre-filter { grid-row: 4; }
+  #DiscoverApp :has(> .bandkit-discover-toolbar) > .category-filter { grid-row: 2; }
+  #DiscoverApp :has(> .bandkit-discover-toolbar) > .genre-filter { grid-row: 3; }
 }
 
 /* Share native filter theming; keep both sides readable in every page theme. */
@@ -112,6 +115,16 @@ html:has(#DiscoverApp) { scrollbar-gutter: stable; }
   mask: var(--bandkit-filter-icon) center / contain no-repeat;
   -webkit-mask: var(--bandkit-filter-icon) center / contain no-repeat;
 }
+#DiscoverApp .bandkit-discover-toolbar .bandkit-filter-leading-icon { display: none !important; }
+#DiscoverApp .bandkit-discover-toolbar .bandkit-filter-chevron {
+  transition: transform 160ms ease;
+}
+#DiscoverApp .bandkit-discover-toolbar .bandkit-discover-filter-button[aria-expanded="true"] > .bandkit-filter-chevron {
+  transform: rotate(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  #DiscoverApp .bandkit-discover-toolbar .bandkit-filter-chevron { transition: none; }
+}
 html #DiscoverApp .filters-banner:has(> .bandkit-discover-toolbar) {
   background: var(--bandkit-page-surface, #f5f5f5) !important;
   background: color-mix(in srgb, var(--bandkit-page-surface, #f5f5f5) 94%, transparent) !important;
@@ -125,7 +138,6 @@ html #DiscoverApp .filters-banner:has(> .bandkit-discover-toolbar).dark-mode {
 
 /* Native genre updates replace banner classes; the mounted toolbar is the stable anchor. */
 #DiscoverApp .filters-banner:has(> .bandkit-discover-toolbar) { grid-template-columns: minmax(0, 1fr); }
-#DiscoverApp .bandkit-discover-toolbar { grid-column: 1 / -1; }
 #DiscoverApp .bandkit-discover-filter-chips {
   display: flex;
   align-items: center;
@@ -143,9 +155,6 @@ html #DiscoverApp .filters-banner:has(> .bandkit-discover-toolbar).dark-mode {
 #DiscoverApp .bandkit-discover-filter-chips > * { flex: 0 0 auto; white-space: nowrap; }
 #DiscoverApp .filters-banner:has(> .bandkit-discover-toolbar) > .more-filters-row { display: none !important; }
 #DiscoverApp .filters-banner:has(> .bandkit-discover-toolbar)[data-bandkit-filter-panel="advanced"] > .more-filters-row { display: flex !important; }
-#DiscoverApp .filters-banner:has(> .bandkit-discover-toolbar)[data-bandkit-filter-panel="tags"] > .genre-filter {
-  display: block !important;
-}
 #DiscoverApp .filters-banner:has(> .bandkit-discover-toolbar) .genre-filter > .horizontal-scroll-row {
   width: 100% !important;
   max-width: none !important;
@@ -156,24 +165,36 @@ html #DiscoverApp .filters-banner:has(> .bandkit-discover-toolbar).dark-mode {
 /* Subgenres already accompany the selected chip in the full-width second row. */
 #DiscoverApp .filters-banner:has(> .bandkit-discover-toolbar) .genre-filter > .subgenre-filter { display: none !important; }
 
-/* Genre identity comes from Bandcamp's current palette, including on custom page themes. */
-html #DiscoverApp .filters-banner:has(> .bandkit-discover-toolbar)[data-bandkit-genre-colours] {
-  background: var(--bandkit-genre-gradient) !important;
-}
-html #DiscoverApp .filters-banner[data-bandkit-genre-colours] .bandkit-discover-filter-chips {
+/* Genre identity is local to the genre strip; the active page theme continues
+   to own the sticky toolbar, results, track list, and music bar. */
+html #DiscoverApp .filters-banner[data-bandkit-genre-colours] .bandkit-discover-selected-chips {
   background: var(--bandkit-genre-secondary) !important;
   color: var(--bandkit-genre-on-secondary) !important;
-  padding: var(--bandkit-genre-chip-gap, 6px);
-  border-radius: calc(8px + var(--bandkit-genre-chip-gap, 6px));
+  padding: 8px;
+  border-radius: 14px;
+}
+#DiscoverApp .bandkit-discover-selected-chips {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
 }
 
 #DiscoverApp .bandkit-discover-chip-row {
   display: flex;
   align-items: center;
-  flex: 0 0 100%;
-  order: 1;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin-top: 8px;
   min-width: 0;
   width: 100%;
+}
+#DiscoverApp .filters-banner:has(> .bandkit-discover-toolbar):is(
+  [data-bandkit-filter-panel="formats"],
+  [data-bandkit-filter-panel="advanced"]
+) > .bandkit-discover-chip-row { grid-row: 3; }
+#DiscoverApp .filters-banner:has(> .bandkit-discover-toolbar)[data-bandkit-filter-panel="tags"] > .bandkit-discover-chip-row {
+  display: none !important;
 }
 #DiscoverApp .bandkit-discover-chip-row[hidden] { display: none !important; }
 #DiscoverApp .bandkit-discover-chip-row .bandkit-discover-filter-chips {
@@ -195,17 +216,69 @@ html #DiscoverApp .filters-banner[data-bandkit-genre-colours] .bandkit-discover-
 #DiscoverApp .bandkit-discover-chips-next .bandkit-filter-label { display: none; }
 #DiscoverApp .bandkit-discover-chips-next:disabled { opacity: .3; cursor: default; }
 html #DiscoverApp .filters-banner[data-bandkit-genre-colours] .bandkit-discover-chip-row {
-  background: var(--bandkit-genre-secondary);
-  color: var(--bandkit-genre-on-secondary);
-  --bandkit-genre-chip-gap: 6px;
-  /* Concentric corners: native chip radius plus the surrounding inset. */
-  border-radius: calc(8px + var(--bandkit-genre-chip-gap));
+  background: transparent;
 }
+html #DiscoverApp .filters-banner[data-bandkit-genre-colours] .bandkit-discover-selected-chips > .selected-tag {
+  --g-button-background-color: var(--bandkit-genre-primary);
+  --g-button-border-color: var(--bandkit-genre-primary);
+  --g-button-text-color: var(--bandkit-genre-on-primary);
+  background: var(--bandkit-genre-primary) !important;
+  border-color: var(--bandkit-genre-primary) !important;
+  color: var(--bandkit-genre-on-primary) !important;
+}
+html #DiscoverApp .filters-banner[data-bandkit-filter-panel="tags"] .genre-filter [role="option"][aria-selected="true"] {
+  --g-button-background-color: var(--bandkit-option-colour);
+  --g-button-border-color: var(--bandkit-option-colour);
+  --g-button-text-color: var(--bandkit-option-text);
+  background: var(--bandkit-option-colour) !important;
+  border-color: var(--bandkit-option-colour) !important;
+  color: var(--bandkit-option-text) !important;
+}
+html #DiscoverApp .filters-banner[data-bandkit-filter-panel="tags"][data-bandkit-genre-colours] .genre-filter .selected-tags {
+  background: var(--bandkit-genre-secondary) !important;
+  border-radius: calc(8px + var(--bandkit-genre-chip-gap, 6px)) !important;
+  color: var(--bandkit-genre-on-secondary) !important;
+}
+html #DiscoverApp .filters-banner[data-bandkit-filter-panel="tags"][data-bandkit-genre-colours] .genre-filter .selected-tags > .selected-tag {
+  --g-button-background-color: var(--bandkit-genre-primary);
+  --g-button-border-color: var(--bandkit-genre-primary);
+  --g-button-text-color: var(--bandkit-genre-on-primary);
+  background: var(--bandkit-genre-primary) !important;
+  border-color: var(--bandkit-genre-primary) !important;
+  color: var(--bandkit-genre-on-primary) !important;
+}
+#DiscoverApp .bandkit-discover-pending-chip {
+  align-items: center;
+  display: inline-flex;
+  font-size: 14px;
+  line-height: 22px;
+  min-height: 36px;
+  text-decoration: none !important;
+}
+#DiscoverApp .bandkit-discover-chip-remove {
+  display: block;
+  position: relative;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+}
+#DiscoverApp .bandkit-discover-chip-remove::before,
+#DiscoverApp .bandkit-discover-chip-remove::after {
+  background: currentColor;
+  content: "";
+  height: 1.5px;
+  left: 3px;
+  position: absolute;
+  top: 9px;
+  width: 12px;
+}
+#DiscoverApp .bandkit-discover-chip-remove::before { transform: rotate(45deg); }
+#DiscoverApp .bandkit-discover-chip-remove::after { transform: rotate(-45deg); }
 
 /* Keep the native list box and option styling intact inside our scroll region. */
-#DiscoverApp .bandkit-discover-native-subgenres { flex: 0 0 auto; min-width: 0; }
-#DiscoverApp .bandkit-discover-native-subgenres ul { display: flex; flex-wrap: nowrap; width: max-content; margin: 0; }
-#DiscoverApp .bandkit-discover-native-subgenres [role="option"] { flex: 0 0 auto; }
+#DiscoverApp :is(.bandkit-discover-native-genres, .bandkit-discover-native-subgenres) { flex: 0 0 auto; min-width: 0; }
+#DiscoverApp :is(.bandkit-discover-native-genres, .bandkit-discover-native-subgenres) ul { display: flex; flex-wrap: nowrap; width: max-content; margin: 0; }
+#DiscoverApp :is(.bandkit-discover-native-genres, .bandkit-discover-native-subgenres) [role="option"] { flex: 0 0 auto; }
 #DiscoverApp .bandkit-discover-toolbar .bandkit-format-icon {
   width: 18px;
   height: 18px;
@@ -214,7 +287,7 @@ html #DiscoverApp .filters-banner[data-bandkit-genre-colours] .bandkit-discover-
 }
 
 /* Preserve the same inset when a custom radius replaces native chip corners. */
-html[data-bandkit-modern-styling="true"][data-bandkit-corner-style="custom"] body #DiscoverApp :is(.bandkit-discover-chip-row, .bandkit-discover-filter-chips):not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c) {
+html[data-bandkit-modern-styling="true"][data-bandkit-corner-style="custom"] body #DiscoverApp :is(.bandkit-discover-chip-row, .bandkit-discover-filter-chips, .genre-filter .selected-tags):not(#bandkit-page-corner-a):not(#bandkit-page-corner-b):not(#bandkit-page-corner-c) {
   border-radius: calc(var(--bandkit-page-corner-radius, 12px) + var(--bandkit-genre-chip-gap, 6px)) !important;
 }
 

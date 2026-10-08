@@ -25,6 +25,9 @@ export function appearanceVisualizerColourDefaults(appearance, themes = []) {
 }
 
 export function resolvedVisualizerColors(baseColors, appearance, themeColors = baseColors) {
+  if (appearance?.visualizerColourSource === "custom") {
+    return baseColors.map((colour, index) => appearance?.[`customVisualizerColor${index + 1}`] || themeColors[index] || colour);
+  }
   return baseColors.map((colour, index) => {
     const override = appearance?.[`customVisualizerColor${index + 1}`];
     const themeColour = themeColors[index];

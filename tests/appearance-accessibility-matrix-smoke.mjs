@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
-import { readContentSource, readHubStyles, readModernStyles } from "./support/source.mjs";
+import { readContentSource, readHubStyles, readModernStyles, readPageStyles } from "./support/source.mjs";
 import { themeVisualizerColors } from "../src/content/visualizer-theme.js";
 
-const source = readContentSource().replaceAll("r.$", "");
+// The page theme moved into its own document_start stylesheet; its rules are
+// still Bandkit's shipped styling, so they stay in scope for these checks.
+const source = `${readContentSource().replaceAll("r.$", "")}\n${readPageStyles()}`;
 const pageCss = readModernStyles();
 const hubCss = readHubStyles();
 

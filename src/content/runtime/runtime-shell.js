@@ -1,6 +1,6 @@
 import { createMusicBarPanelButton, createSectionTab, createPanelShortcut, createMusicBarShortcut } from "../components/section-navigation.js";
 import { runtimeLive, runtimeSaveState, runtimeState, updateRuntimeLive, updateRuntimeSaveState, updateRuntimeSeamless, updateRuntimeState } from "./context.js";
-import { asset, createElement, enableRangeReset, resolvedTrackPageUrl, safeBandcampReleaseUrl, safeBandcampUrl } from "../core.js";
+import { asset, createElement, enableRangeReset, removeStyleProperty, resolvedTrackPageUrl, safeBandcampReleaseUrl, safeBandcampUrl, setDatasetValue, setStyleProperty } from "../core.js";
 import { MUSIC_BAR_SCRUBBER_WIDTHS, MUSIC_BAR_STYLES, MUSIC_BAR_WIDTHS, PLAYER_BLEND_MODES, SCRUBBER_HANDLE_SHAPES, VISUALIZER_BLEND_MODES, defaultState, normalizeVisualizerType, normalizeHandleSize } from "../state.js";
 import { scrubberHandleMask, setHandleImageStyles } from "../custom-scrub-handle.js";
 import { applyTimelinePath, normalizeTimelineStyle } from "../timeline-styles.js";
@@ -27,8 +27,9 @@ function applyMusicBarWidth(r, width, customWidth) {
   });
 }
 function setOptionalColour(style, property, value) {
-  if (/^#[\da-f]{6}$/i.test(String(value || ""))) style.setProperty(property, value);
-  else style.removeProperty(property);
+  return /^#[\da-f]{6}$/i.test(String(value || ""))
+    ? setStyleProperty(style, property, value)
+    : removeStyleProperty(style, property);
 }
 function registerRuntimeShellPlayer(r) {
 r.$canonicalBandcampFeedUrl = function canonicalBandcampFeedUrl(value) {
@@ -65,6 +66,16 @@ r.$openFeedFromBandcampHome = function openFeedFromBandcampHome() {
 r.$pageMediaCommand = function pageMediaCommand(action, details = {}) {
       document.dispatchEvent(new CustomEvent("bandkit:media-command", { detail: { action, ...details } }));
     };
+r.$pageCartCommand = function pageCartCommand(action, details = {}) {
+      document.dispatchEvent(new CustomEvent("bandkit:cart-command", { detail: { action, ...details } }));
+    };
+r.$pageCartIsAvailable = function pageCartIsAvailable() {
+      // Bandcamp loads its cart bundle after the page settles, so ask the page
+      // world again rather than trusting a flag captured before it was ready.
+      // The answer comes back on the same tick.
+      r.$pageCartCommand("getAvailability");
+      return r.$pageCartAvailable === true;
+    };
 r.$syncPlayerPageSpace = function syncPlayerPageSpace() {
       if (r.$visualizerFullscreen) return;
       const pageFooter = document.querySelector("#page-footer, #pgFt, page-footer, .full-page-app-wrapper > footer");
@@ -82,24 +93,26 @@ r.$syncPlayerPageSpace = function syncPlayerPageSpace() {
       const playerBottomGap = Math.max(0, Math.ceil(window.innerHeight - playerRect.bottom));
       const reservedHeight = `${playerHeight + playerBottomGap}px`;
       const discoverReservedHeight = `${playerHeight + playerBottomGap + 16}px`;
-      r.$playerSpacer.style.setProperty("height", reservedHeight, "important");
-      r.$playerSpacer.style.setProperty("flex-basis", reservedHeight, "important");
+      setStyleProperty(r.$playerSpacer.style, "height", reservedHeight, "important");
+      setStyleProperty(r.$playerSpacer.style, "flex-basis", reservedHeight, "important");
       const discoverDetail = document.querySelector("#DiscoverApp .focused-result");
       if (discoverDetail) {
         if (r.$discoverPlayerSpacer.parentElement !== discoverDetail) discoverDetail.append(r.$discoverPlayerSpacer);
-        r.$discoverPlayerSpacer.style.setProperty("height", discoverReservedHeight, "important");
-        r.$discoverPlayerSpacer.style.setProperty("flex-basis", discoverReservedHeight, "important");
-        discoverDetail.style.setProperty("scroll-padding-bottom", discoverReservedHeight);
+        setStyleProperty(r.$discoverPlayerSpacer.style, "height", discoverReservedHeight, "important");
+        setStyleProperty(r.$discoverPlayerSpacer.style, "flex-basis", discoverReservedHeight, "important");
+        setStyleProperty(discoverDetail.style, "scroll-padding-bottom", discoverReservedHeight);
       } else {
         r.$discoverPlayerSpacer.remove();
       }
-      document.documentElement.style.setProperty("--bandkit-player-reserved-height", reservedHeight);
-      document.documentElement.style.scrollPaddingBottom = reservedHeight;
-      pageFlowParent.style.setProperty("scroll-padding-bottom", reservedHeight);
+      setStyleProperty(document.documentElement.style, "--bandkit-player-reserved-height", reservedHeight);
+      setStyleProperty(document.documentElement.style, "scroll-padding-bottom", reservedHeight);
+      setStyleProperty(pageFlowParent.style, "scroll-padding-bottom", reservedHeight);
     };
 r.$buildScrubWaveform = function buildScrubWaveform(signature, width) {
       const { pixelWidth } = applyTimelinePath(r.$scrubWaveform, signature, width, runtimeState.scrubberStyle, runtimeState.customTimeline, runtimeState.retainTimelineColors);
-      r.$scrubWaveformStyle = normalizeTimelineStyle(runtimeState.scrubberStyle);
+      r.$scrubWaveformStyle = runtimeState.scrubberStyle === "custom"
+        ? `custom\u0000${runtimeState.customTimeline?.name || ""}\u0000${runtimeState.retainTimelineColors}`
+        : normalizeTimelineStyle(runtimeState.scrubberStyle);
       r.$scrubWaveformSignature = signature;
       r.$scrubWaveformWidth = pixelWidth;
     };
@@ -109,7 +122,14 @@ r.$refreshScrubWaveform = function refreshScrubWaveform(force = false, observedW
       const signature = pendingTrackId
         ? `${pendingTrackId}\u0000${pendingTrack?.title || ""}\u0000${pendingTrack?.artist || ""}`
         : `${runtimeLive.title || ""}\u0000${runtimeLive.artist || ""}\u0000${runtimeLive.pageUrl || ""}`;
-      const sameStyle = runtimeState.scrubberStyle !== "custom" && r.$scrubWaveformStyle === normalizeTimelineStyle(runtimeState.scrubberStyle);
+      // An imported timeline is redrawn from its own image, so the selected
+      // style alone cannot say whether it is still current. Track the artwork
+      // and its colour mode too: measuring the control below forces a page
+      // layout, which is the one thing worth avoiding on an unchanged bar.
+      const styleKey = runtimeState.scrubberStyle === "custom"
+        ? `custom\u0000${runtimeState.customTimeline?.name || ""}\u0000${runtimeState.retainTimelineColors}`
+        : normalizeTimelineStyle(runtimeState.scrubberStyle);
+      const sameStyle = r.$scrubWaveformStyle === styleKey;
       if (!force && sameStyle && signature === r.$scrubWaveformSignature) return;
       const width = Math.max(80, Math.round(observedWidth || r.$scrubControl.getBoundingClientRect().width));
       if (sameStyle && signature === r.$scrubWaveformSignature && Math.abs(width - r.$scrubWaveformWidth) < 4) return;
@@ -138,24 +158,33 @@ r.$syncScrubberStyles = function syncScrubberStyles() {
       setOptionalColour(r.$host.style, "--hub-handle-color", runtimeState.musicBarHandleColor);
       setOptionalColour(document.documentElement.style, "--bandkit-timeline-color", runtimeState.musicBarTimelineColor);
       setOptionalColour(document.documentElement.style, "--bandkit-handle-color", runtimeState.musicBarHandleColor);
-      r.$host.style.setProperty("--hub-scrub-handle-size", handleSize);
-      document.documentElement.style.setProperty("--bandkit-scrub-handle-size", handleSize);
-      r.$player.dataset.scrubHandleShape = handleShape;
-      r.$host.dataset.scrubHandleShape = handleShape;
-      r.$host.style.setProperty("--hub-scrub-handle-mask", handleMask);
+      setStyleProperty(r.$host.style, "--hub-scrub-handle-size", handleSize);
+      setStyleProperty(document.documentElement.style, "--bandkit-scrub-handle-size", handleSize);
+      setDatasetValue(r.$player, "scrubHandleShape", handleShape);
+      setDatasetValue(r.$host, "scrubHandleShape", handleShape);
+      setStyleProperty(r.$host.style, "--hub-scrub-handle-mask", handleMask);
       setHandleImageStyles(r.$host.style, "--hub-scrub-handle", handleShape, runtimeState.customScrubberHandle, runtimeState.retainSvgHandleColors, runtimeState.retainPngHandleColors);
-      document.documentElement.dataset.bandkitScrubHandle = handleShape;
-      document.documentElement.style.setProperty("--bandkit-scrub-handle-mask", handleMask);
+      setDatasetValue(document.documentElement, "bandkitScrubHandle", handleShape);
+      setStyleProperty(document.documentElement.style, "--bandkit-scrub-handle-mask", handleMask);
       setHandleImageStyles(document.documentElement.style, "--bandkit-scrub-handle", handleShape, runtimeState.customScrubberHandle, runtimeState.retainSvgHandleColors, runtimeState.retainPngHandleColors);
       if (r.$pageDjHost) {
-        r.$pageDjHost.dataset.scrubHandleShape = handleShape;
-        r.$pageDjHost.style.setProperty("--hub-scrub-handle-mask", handleMask);
-        r.$pageDjHost.style.setProperty("--hub-scrub-handle-size", handleSize);
+        setDatasetValue(r.$pageDjHost, "scrubHandleShape", handleShape);
+        setStyleProperty(r.$pageDjHost.style, "--hub-scrub-handle-mask", handleMask);
+        setStyleProperty(r.$pageDjHost.style, "--hub-scrub-handle-size", handleSize);
         setHandleImageStyles(r.$pageDjHost.style, "--hub-scrub-handle", handleShape, runtimeState.customScrubberHandle, runtimeState.retainSvgHandleColors, runtimeState.retainPngHandleColors);
       }
-      r.$player.dataset.scrubberWidth = width;
+      setDatasetValue(r.$player, "scrubberWidth", width);
       r.$scrubControl.classList.toggle("is-traditional", traditional);
-      if (r.$scrubWaveform) r.$refreshScrubWaveform(true);
+      // Rebuilding the timeline measures the control, and a measurement after
+      // any style write pays for a full page recalculation. Only the settings
+      // that shape the timeline can invalidate it, so compare them first and
+      // leave the ordinary playback path free of forced layout entirely.
+      const timelineSignature = [runtimeState.scrubberStyle, traditional, handleShape,
+        runtimeState.customTimeline?.name || "", runtimeState.retainTimelineColors].join("\u0000");
+      if (r.$scrubWaveform && timelineSignature !== r.$scrubTimelineSignature) {
+        r.$scrubTimelineSignature = timelineSignature;
+        r.$refreshScrubWaveform(true);
+      }
       for (const control of document.querySelectorAll(".bandkit-page-scrub-control")) {
         control.classList.toggle("is-traditional", traditional);
       }
@@ -174,10 +203,10 @@ r.$syncMusicBarSize = function syncMusicBarSize() {
         || r.$host.style.getPropertyValue("--hub-dock-visualizer-clearance") !== clearance
         || r.$host.style.getPropertyValue("--hub-player-offset") !== `${bottomOffset}px`;
       r.$player.classList.toggle("is-compact", compact);
-      r.$host.style.setProperty("--hub-player-height", nextHeight);
-      r.$host.style.setProperty("--hub-dock-visualizer-clearance", clearance);
-      r.$host.style.setProperty("--hub-player-offset", `${bottomOffset}px`);
-      r.$host.style.setProperty("--hub-player-bottom-gap", `${bottomOffset}px`);
+      setStyleProperty(r.$host.style, "--hub-player-height", nextHeight);
+      setStyleProperty(r.$host.style, "--hub-dock-visualizer-clearance", clearance);
+      setStyleProperty(r.$host.style, "--hub-player-offset", `${bottomOffset}px`);
+      setStyleProperty(r.$host.style, "--hub-player-bottom-gap", `${bottomOffset}px`);
       if (changed) window.requestAnimationFrame(r.$syncPlayerPageSpace);
     };
 r.$syncMusicBarVisualizer = function syncMusicBarVisualizer() {
@@ -192,13 +221,15 @@ r.$syncMusicBarVisualizer = function syncMusicBarVisualizer() {
       runtimeState.musicBarVisualizer = mode; runtimeState.musicBarVisualizerType = type; runtimeState.musicBarVisualizerOpacity = opacity;
       runtimeState.musicBarVisualizerWidth = width; runtimeState.musicBarVisualizerHeight = height; runtimeState.musicBarVisualizerBlendMode = blendMode;
       const displayMode = mode === "off" && !r.$visualizerFullscreen ? "off" : normalizeVisualizerType(r.$visualizerPreviewType, type);
-      r.$player.dataset.visualizer = displayMode; r.$panel.dataset.visualizer = displayMode; r.$player.style.setProperty("--hub-visualizer-opacity", String(Math.min(1, opacity / 100))); r.$player.style.setProperty("--hub-visualizer-idle-opacity", String(Math.min(0.24, (opacity / 100) * 0.34)));
-      if (width === "auto") r.$playerVisualizer?.style.removeProperty("width");
-      else r.$playerVisualizer?.style.setProperty("width", `${width}px`);
-      if (height === "auto") r.$playerVisualizer?.style.removeProperty("height");
-      else r.$playerVisualizer?.style.setProperty("height", `${height}px`);
+      setDatasetValue(r.$player, "visualizer", displayMode); setDatasetValue(r.$panel, "visualizer", displayMode);
+      setStyleProperty(r.$player.style, "--hub-visualizer-opacity", String(Math.min(1, opacity / 100)));
+      setStyleProperty(r.$player.style, "--hub-visualizer-idle-opacity", String(Math.min(0.24, (opacity / 100) * 0.34)));
+      if (width === "auto") removeStyleProperty(r.$playerVisualizer?.style, "width");
+      else setStyleProperty(r.$playerVisualizer?.style, "width", `${width}px`);
+      if (height === "auto") removeStyleProperty(r.$playerVisualizer?.style, "height");
+      else setStyleProperty(r.$playerVisualizer?.style, "height", `${height}px`);
       for (const property of ["--hub-visualizer-blend-mode", "--hub-spectrum-blend-mode"]) {
-        r.$player.style.setProperty(property, blendMode);
+        setStyleProperty(r.$player.style, property, blendMode);
       }
       r.$syncMusicBarSize();
     };
@@ -388,7 +419,7 @@ r.$runPendingTrackAction = function runPendingTrackAction() {
       };
       tryAction();
     };
-r.$openBandcampCheckout = function openBandcampCheckout() {
+r.$openBandcampCheckout = async function openBandcampCheckout() {
       const unavailableItems = runtimeState.cart.filter((item) => item.unavailable === true);
       if (unavailableItems.length) {
         runtimeState.open = true; runtimeState.activeTab = "cart"; runtimeState.cartView = "current";
@@ -396,6 +427,17 @@ r.$openBandcampCheckout = function openBandcampCheckout() {
         r.$showToast(`${unavailableItems.length} unavailable cart item${unavailableItems.length === 1 ? " needs" : "s need"} to be removed before checkout.`);
         return;
       }
+      const belowMinimum = await r.$cartItemsBelowMinimum();
+      if (belowMinimum.length) {
+        r.$cartBelowMinimumIds = new Set(belowMinimum.map((entry) => entry.id));
+        runtimeState.open = true; runtimeState.activeTab = "cart"; runtimeState.cartView = "current";
+        r.$render();
+        r.$showToast(belowMinimum.length === 1
+          ? `“${belowMinimum[0].title || "One cart item"}” is priced below Bandcamp's minimum. Remove it and add it again with a valid amount.`
+          : `${belowMinimum.length} cart items are priced below Bandcamp's minimum. Remove them and add them again with valid amounts.`);
+        return;
+      }
+      r.$cartBelowMinimumIds = null;
       if (r.$activateNativeCheckout()) { r.$showToast("Opening Bandcamp checkout…"); return; }
       const itemPage = runtimeState.cart.map((item) => safeBandcampUrl(item.url)).find(Boolean);
       const target = new URL(itemPage || "https://bandcamp.com/");
@@ -710,8 +752,23 @@ r.$discoverHandoffBusy = false;
 r.$discoverHandoffTrackKey = "";
 r.$discoverHandoffPending = false;
 r.$discoverSwitchPendingDisable = false;
-r.$feedHandoffBusy = false;
+r.$feedHandoffRequest = 0;
 r.$feedHandoffTrackId = "";
+r.$feedHandoffStartedAt = 0;
+r.$pageCartAvailable = false;
+r.$pageCartPresent = false;
+r.$feedPurchases = new Map();
+r.$feedPurchaseRequests = new Map();
+r.$pagePriceRequest = null;
+r.$cartShrinkSignature = "";
+r.$cartShrinkScans = 0;
+r.$feedReleaseTracks = new Map();
+r.$feedReleaseRequests = new Map();
+r.$feedStreams = new Map();
+r.$collectionStreams = new Map();
+r.$collectionStreamRequests = new Map();
+r.$feedStreamPrefetches = new Set();
+r.$feedStreamsRefreshedAt = 0;
 r.$mutedFeedAudio = null;
 r.$mutedFeedAudioWasMuted = false;
 r.$mutedFeedTrackId = "";

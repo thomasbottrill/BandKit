@@ -475,17 +475,24 @@ Object.assign(window.fixtureScenarios, {
     const secondControl = document.querySelector('.collection-item-container[data-trackid="second-track"] .track_play_auxiliary');
     firstControl?.click();
     await new Promise((resolve) => setTimeout(resolve, 20));
+    firstControl?.closest(".collection-item-container")?.classList.add("playing");
+    firstControl?.setAttribute("aria-label", "Pause Honey Be");
     secondControl?.click();
     await new Promise((resolve) => setTimeout(resolve, 320));
     const enableMessages = window.fixtureRuntimeMessages.filter((message) => message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE");
     const activeTrack = enableMessages.at(-1)?.queue?.[enableMessages.at(-1)?.index];
     const queueTitles = window.fixtureStored.bandcampHubState?.playlist?.map((item) => item.title).join(",") || "";
+    const playbackUiReset = firstControl?.getAttribute("aria-label")?.startsWith("Play")
+      && firstControl?.closest(".collection-item-container")?.dataset.bandkitFeedPlayback !== "playing"
+      && secondControl?.getAttribute("aria-label")?.startsWith("Pause")
+      && secondControl?.closest(".collection-item-container")?.dataset.bandkitFeedPlayback === "playing";
     document.title = enableMessages.length === 1
       && activeTrack?.title === "Second Track"
       && queueTitles === "Second Track"
       && window.fixtureStored.bandcampHubState?.playlistMode === "browse"
+      && playbackUiReset
       ? "PASS: rapid collection switch keeps latest request fixture"
-      : `FAIL: rapid collection switch ${enableMessages.length}/${activeTrack?.title || "none"}/${queueTitles || "empty"}`;
+      : `FAIL: rapid collection switch ${enableMessages.length}/${activeTrack?.title || "none"}/${queueTitles || "empty"}/ui:${playbackUiReset}`;
     return;
   },
   async "last-item-clear"(root) {

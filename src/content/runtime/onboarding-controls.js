@@ -1,12 +1,14 @@
 import { attachMenuKeyNavigation, attachMenuTriggerKeyNavigation } from "../menu-keyboard.js";
 import { runtimeSaveState, runtimeState } from "./context.js";
-import { createButtonIcon, createElement, createPanelCaret } from "../core.js";
+import { createElement, createPanelCaret } from "../core.js";
 import { colorString, hexColor, luminance, parseColor, readableColor } from "../color.js";
-import { MUSIC_BAR_STYLES, PLAYER_BLEND_MODES, SCRUBBER_HANDLE_SHAPES } from "../state.js";
+import { BUILT_IN_THEMES, MUSIC_BAR_STYLES, SCRUBBER_HANDLE_SHAPES } from "../state.js";
 import { scrubberHandleMask, setHandleImageStyles } from "../custom-scrub-handle.js";
 import { applyMusicBarStylePreset } from "../music-bar-settings.js";
 import { TIMELINE_STYLES, normalizeTimelineStyle, createTimelinePreview } from "../timeline-styles.js";
-import { createBlendModePreview, createPlayerDesignPreview, createSurfacePreview } from "../settings-option-previews.js";
+import { createPlayerDesignPreview, createSurfacePreview } from "../settings-option-previews.js";
+import { applyVisualTheme, captureVisualTheme, DEFAULT_VISUAL_THEME, VISUAL_THEMES } from "../visual-themes.js";
+import { createDynamicThemeInfo } from "../theme-option-markers.js";
 
 const HANDLE_LABELS = Object.freeze({
   pill: "Pill",
@@ -22,13 +24,9 @@ const HANDLE_LABELS = Object.freeze({
 });
 
 export const ONBOARDING_MENU_KEYS = Object.freeze([
-  "$onboardingHandleMenu", "$onboardingTimelineMenu", "$onboardingPlayerBlendMenu",
-  "$onboardingPlayerStyleMenu", "$onboardingSurfaceMenu"
+  "$onboardingHandleMenu", "$onboardingTimelineMenu",
+  "$onboardingPlayerStyleMenu", "$onboardingSurfaceMenu", "$onboardingThemeMenu", "$onboardingPaletteMenu"
 ]);
-
-function blendModeLabel(value) {
-  return value.split("-").map((part) => `${part[0].toUpperCase()}${part.slice(1)}`).join(" ");
-}
 
 export function removeOnboardingMenus(r) {
   for (const key of ONBOARDING_MENU_KEYS) {
@@ -92,7 +90,7 @@ export function syncOnboardingContrast(r) {
 }
 
 function createOnboardingPicker(r, rerender, {
-  label, value, options: definitions, menuKey, className = "", renderPreview, onPreview, onRestore, onChange
+  label, value, options: definitions, menuKey, className = "", renderPreview, renderTrailing, onPreview, onRestore, onChange
 }) {
   let committedValue = value;
   let previewing = false;
@@ -131,6 +129,11 @@ function createOnboardingPicker(r, rerender, {
     option.setAttribute("aria-selected", String(definition.value === value));
     if (renderPreview) option.append(renderPreview(definition.value));
     option.append(createElement("span", "hub-onboarding-picker-option-label", definition.label));
+    const trailing = renderTrailing?.(definition.value);
+    if (trailing) {
+      option.append(trailing);
+      option.classList.add("has-option-trailing");
+    }
     option.addEventListener("pointerenter", () => preview(definition.value));
     option.addEventListener("focus", () => preview(definition.value));
     option.addEventListener("pointerleave", restore);
@@ -275,22 +278,6 @@ function createOnboardingTimelinePicker(r, rerender) {
   });
 }
 
-function createOnboardingBlendPicker(r, rerender) {
-  const committed = PLAYER_BLEND_MODES.includes(runtimeState.musicBarBlendMode) ? runtimeState.musicBarBlendMode : "normal";
-  const sync = () => r.$syncMusicBarStyle?.();
-  return createOnboardingPicker(r, rerender, {
-    label: "Glass blend",
-    value: committed,
-    options: PLAYER_BLEND_MODES.map((value) => ({ value, label: blendModeLabel(value) })),
-    menuKey: "$onboardingPlayerBlendMenu",
-    className: "hub-onboarding-kit-player-blend-selection",
-    renderPreview: createBlendModePreview,
-    onPreview: (value) => { runtimeState.musicBarBlendMode = value; sync(); },
-    onRestore: () => { runtimeState.musicBarBlendMode = committed; sync(); },
-    onChange: (value) => { runtimeState.musicBarBlendMode = value; sync(); }
-  });
-}
-
 function createOnboardingPlayerStylePicker(r, rerender) {
   const selected = runtimeState.musicBarStyle === "floating" ? "rounded"
     : MUSIC_BAR_STYLES.includes(runtimeState.musicBarStyle) ? runtimeState.musicBarStyle : "zune";
@@ -331,9 +318,187 @@ function createOnboardingSurfacePicker(r, rerender) {
   });
 }
 
+function syncOnboardingVisualTheme(r) {
+  r.$spectrumColourCache = null;
+  r.$applyAppearance?.();
+  r.$syncScrubberStyles?.();
+  r.$syncMusicBarStyle?.();
+  r.$syncMusicBarPanelButtons?.();
+  r.$syncMusicBarSize?.();
+  r.$syncMusicBarVisualizer?.();
+  r.$syncMusicBarWidth?.();
+  r.$syncFrostedGlass?.();
+  r.$syncCornerStyle?.();
+  r.$refreshScrubWaveform?.(true);
+  r.$renderPlayer?.();
+  syncOnboardingContrast(r);
+}
+
+function createOnboardingThemePreview(theme) {
+  const palette = createElement("span", "hub-theme-option-palette hub-onboarding-theme-palette");
+  palette.setAttribute("aria-hidden", "true");
+  for (const key of ["customAccent", "customPageBackground", "customPageSurface", "customText"]) {
+    const swatch = createElement("span", "hub-theme-option-swatch");
+    swatch.style.backgroundColor = theme?.appearance?.[key] || "transparent";
+    palette.append(swatch);
+  }
+  return palette;
+}
+
+function createOnboardingThemePicker(r, rerender) {
+  const themes = [DEFAULT_VISUAL_THEME, ...VISUAL_THEMES];
+  const selectedId = themes.some(theme => theme.id === runtimeState.appearance.visualThemeId)
+    ? runtimeState.appearance.visualThemeId : "dynamic";
+  let previewSnapshot = null;
+  const apply = (id) => {
+    const theme = themes.find(item => item.id === id) || DEFAULT_VISUAL_THEME;
+    applyVisualTheme(runtimeState, theme);
+    syncOnboardingVisualTheme(r);
+  };
+  const restore = () => {
+    if (!previewSnapshot) return;
+    applyVisualTheme(runtimeState, previewSnapshot);
+    previewSnapshot = null;
+    syncOnboardingVisualTheme(r);
+  };
+  return createOnboardingPicker(r, rerender, {
+    label: "Theme",
+    value: selectedId,
+    options: themes.map(theme => ({ value: theme.id, label: theme.label })),
+    menuKey: "$onboardingThemeMenu",
+    className: "hub-onboarding-kit-theme-selection",
+    renderPreview: id => createOnboardingThemePreview(themes.find(theme => theme.id === id)),
+    renderTrailing: id => id === "dynamic" ? createDynamicThemeInfo() : null,
+    onPreview: (id) => {
+      previewSnapshot ??= captureVisualTheme(runtimeState);
+      apply(id);
+    },
+    onRestore: restore,
+    onChange: (id) => {
+      previewSnapshot = null;
+      apply(id);
+      runtimeState.appearance.visualThemeId = id;
+    }
+  });
+}
+
+function onboardingPaletteValues(palette) {
+  return {
+    customAccent: palette.accent,
+    customScrubAccent: palette.scrubAccent || palette.accent,
+    customVisualizerColor1: palette.visualizerColors?.[0] || null,
+    customVisualizerColor2: palette.visualizerColors?.[1] || null,
+    customVisualizerColor3: palette.visualizerColors?.[2] || null,
+    customSurface: palette.card || palette.surface,
+    customPanelLinked: false,
+    customCard: palette.card || palette.surface,
+    customContentLinked: false,
+    customPageBackground: palette.background || palette.surface,
+    customPageSurface: palette.pageSurface || palette.surface,
+    customNavbar: palette.navbar || palette.surface,
+    customText: palette.text,
+    customSecondaryText: palette.secondaryText
+  };
+}
+
+function currentOnboardingPalette() {
+  const appearance = runtimeState.appearance;
+  return {
+    id: "current",
+    label: "Current",
+    accent: appearance.customAccent,
+    scrubAccent: appearance.customScrubAccent,
+    surface: appearance.customSurface,
+    card: appearance.customCard,
+    background: appearance.customPageBackground,
+    pageSurface: appearance.customPageSurface,
+    navbar: appearance.customNavbar,
+    text: appearance.customText,
+    secondaryText: appearance.customSecondaryText,
+    visualizerColors: [appearance.customVisualizerColor1, appearance.customVisualizerColor2, appearance.customVisualizerColor3]
+  };
+}
+
+function createOnboardingPalettePicker(r, rerender) {
+  const appearance = runtimeState.appearance;
+  const palettes = [...BUILT_IN_THEMES, ...(appearance.savedThemes || [])];
+  const current = currentOnboardingPalette();
+  const hasPreset = palettes.some(palette => palette.id === appearance.preset);
+  const selectedId = appearance.pageAware ? "dynamic" : hasPreset ? appearance.preset : "current";
+  const definitions = [
+    { value: "dynamic", label: "Dynamic" },
+    ...(selectedId === "current" ? [{ value: "current", label: "Current" }] : []),
+    ...palettes.map(palette => ({ value: palette.id, label: palette.label }))
+  ];
+  let previewSnapshot = null;
+  const paletteFor = id => id === "current" ? current : palettes.find(palette => palette.id === id);
+  const apply = (id) => {
+    if (id === "dynamic") Object.assign(appearance, { pageAware: true, applyToPage: false });
+    else {
+      const palette = paletteFor(id);
+      if (!palette) return;
+      Object.assign(appearance, {
+        pageAware: false,
+        applyToPage: true,
+        preset: id === "current" ? "custom" : id,
+        visualizerColourSource: "theme"
+      }, onboardingPaletteValues(palette));
+    }
+    syncOnboardingVisualTheme(r);
+  };
+  const restore = () => {
+    if (!previewSnapshot) return;
+    Object.assign(appearance, previewSnapshot);
+    previewSnapshot = null;
+    syncOnboardingVisualTheme(r);
+  };
+  return createOnboardingPicker(r, rerender, {
+    label: "Palette",
+    value: selectedId,
+    options: definitions,
+    menuKey: "$onboardingPaletteMenu",
+    className: "hub-onboarding-kit-palette-selection",
+    renderPreview: id => id === "dynamic"
+      ? createOnboardingThemePreview(DEFAULT_VISUAL_THEME)
+      : createOnboardingThemePreview({ appearance: onboardingPaletteValues(paletteFor(id) || current) }),
+    renderTrailing: id => id === "dynamic" ? createDynamicThemeInfo() : null,
+    onPreview: (id) => {
+      previewSnapshot ??= structuredClone(appearance);
+      apply(id);
+    },
+    onRestore: restore,
+    onChange: (id) => {
+      previewSnapshot = null;
+      apply(id);
+    }
+  });
+}
+
+function createOnboardingModeSwitch(r, mode) {
+  const tabs = createElement("div", "hub-onboarding-kit-mode");
+  tabs.setAttribute("role", "tablist");
+  tabs.setAttribute("aria-label", "Appearance setup");
+  for (const [value, label] of [["theme", "Theme"], ["custom", "Custom"]]) {
+    const tab = createElement("button", `hub-onboarding-kit-mode-option${mode === value ? " is-selected" : ""}`, label);
+    tab.type = "button";
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-selected", String(mode === value));
+    tab.addEventListener("click", () => {
+      if (r.$onboardingKitMode === value) return;
+      removeOnboardingMenus(r);
+      r.$onboardingKitMode = value;
+      r.$render();
+    });
+    tabs.append(tab);
+  }
+  return tabs;
+}
+
 export function createKitControls(r) {
   const config = createElement("div", "hub-onboarding-kit-config");
-  const grid = createElement("div", "hub-onboarding-kit-controls");
+  const mode = r.$onboardingKitMode === "custom" ? "custom" : "theme";
+  const content = createElement("div", "hub-onboarding-kit-mode-content");
+  content.setAttribute("role", "tabpanel");
   const rerender = () => {
     r.$applyAppearance?.();
     runtimeSaveState();
@@ -356,59 +521,21 @@ export function createKitControls(r) {
     button.setAttribute("aria-checked", String(enabled));
     return button;
   };
-  const withSettings = (control, kind, label) => {
-    const group = createElement("div", "hub-onboarding-kit-control-group");
-    const settings = createElement("button", "hub-onboarding-kit-settings-button");
-    settings.type = "button";
-    settings.setAttribute("aria-label", `${label} settings`);
-    settings.title = `${label} settings`;
-    settings.append(createButtonIcon("icon-settings.svg"));
-    settings.addEventListener("click", () => {
-      r.$onboardingKitSettings = kind;
-      r.$render();
-    });
-    group.append(control, settings);
-    return group;
-  };
-  // The tour tunes the player only. Palette, corners and visualiser are whole-kit
-  // appearance choices and stay in Settings, where the full controls live.
-  grid.append(
-    createOnboardingPlayerStylePicker(r, rerender),
-    withSettings(createOnboardingSurfacePicker(r, rerender), "surface", "Surface"),
-    toggle("DJ tools", runtimeState.djToolsEnabled !== false, () => r.$setDjToolsEnabled(runtimeState.djToolsEnabled === false)),
-    createOnboardingTimelinePicker(r, rerender),
-    createOnboardingHandlePicker(r, rerender)
-  );
-  config.append(grid);
-  if (r.$onboardingKitSettings) {
-    const titles = { surface: "Surface" };
-    const modal = createElement("section", "hub-onboarding-kit-settings-modal");
-    modal.setAttribute("role", "dialog");
-    modal.setAttribute("aria-modal", "true");
-    modal.setAttribute("aria-label", `${titles[r.$onboardingKitSettings]} settings`);
-    const header = createElement("header", "hub-onboarding-kit-settings-header");
-    header.append(createElement("h3", "", titles[r.$onboardingKitSettings]));
-    const close = createElement("button", "hub-onboarding-kit-settings-close", "×");
-    close.type = "button";
-    close.setAttribute("aria-label", "Close settings");
-    close.addEventListener("click", () => { r.$onboardingKitSettings = null; r.$render(); });
-    header.append(close);
-    const body = createElement("div", "hub-onboarding-kit-settings-body");
-    if (r.$onboardingKitSettings === "surface") {
-      body.append(
-        toggle("Dynamic colour", runtimeState.musicBarDynamicColor !== false, () => {
-          runtimeState.musicBarDynamicColor = runtimeState.musicBarDynamicColor === false;
-          if (runtimeState.musicBarDynamicColor) {
-            runtimeState.musicBarPlayerDynamicColor = true;
-            runtimeState.musicBarPanelDynamicColor = true;
-          }
-        }),
-        createOnboardingBlendPicker(r, rerender)
-      );
-    }
-    modal.append(header, body);
-    config.append(modal);
-    window.requestAnimationFrame(() => close.focus({ preventScroll: true }));
+  if (mode === "theme") {
+    content.classList.add("is-theme");
+    content.append(createOnboardingThemePicker(r, rerender));
+  } else {
+    const grid = createElement("div", "hub-onboarding-kit-controls");
+    grid.append(
+      createOnboardingPlayerStylePicker(r, rerender),
+      createOnboardingSurfacePicker(r, rerender),
+      toggle("DJ tools", runtimeState.djToolsEnabled !== false, () => r.$setDjToolsEnabled(runtimeState.djToolsEnabled === false)),
+      createOnboardingTimelinePicker(r, rerender),
+      createOnboardingHandlePicker(r, rerender),
+      createOnboardingPalettePicker(r, rerender)
+    );
+    content.append(grid);
   }
+  config.append(createOnboardingModeSwitch(r, mode), content);
   return config;
 }

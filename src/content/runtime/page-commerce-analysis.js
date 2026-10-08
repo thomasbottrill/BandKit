@@ -26,9 +26,34 @@ r.$openPagePlaylistMenu = function openPagePlaylistMenu(anchor, selection, view 
 r.$createPagePlaylistButton = function createPagePlaylistButton(tagName = "button") {
       const button = createPageAddButton(tagName);
       r.$applyPageActionTheme(button);
-      button.addEventListener("click", (event) => {
+      button.addEventListener("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
+        // A feed story whose track list has not loaded still stands for its
+        // album, so resolve it before deciding this is a single-track control.
+        if (!button._bandkitTracks?.length && button._bandkitFeedTrack) {
+          const tracks = await r.$resolveFeedReleaseTracks(button._bandkitFeedTrack);
+          if (tracks.length) {
+            button._bandkitRelease = true;
+            button._bandkitTracks = tracks;
+          }
+        }
+        // A Discover control stands for the release behind its card, and that
+        // release may still be loading or may have changed since the button was
+        // built. Resolve it against the button's own release URL so an album is
+        // never added as its featured track, and a stale track list from the
+        // previously selected album is never used.
+        if (button._bandkitReleaseTrack) {
+          const tracks = await r.$resolveFeedReleaseTracks(button._bandkitReleaseTrack);
+          if (tracks.length) {
+            button._bandkitRelease = true;
+            button._bandkitTracks = tracks;
+            button._bandkitReleaseTitle = button._bandkitReleaseTrack.album || button._bandkitReleaseTrack.title;
+          } else if (button._bandkitRelease) {
+            button._bandkitRelease = false;
+            button._bandkitTracks = null;
+          }
+        }
         if (button._bandkitTracks?.length) {
           r.$openPagePlaylistMenu(button, {
             type: button._bandkitRelease ? "bandkit-release" : "bandkit-track-batch",
@@ -321,6 +346,15 @@ r.$pageAnalysisLabel = function pageAnalysisLabel(result) {
 r.$renderPageAnalysisLabel = function renderPageAnalysisLabel(label, result, analyzing = false, track = null) {
   const ownsDeepAnalysis = Boolean(r.$deepAnalysisButton && label.contains(r.$deepAnalysisButton));
   if (ownsDeepAnalysis && r.$deepAnalysisRequest) { r.$updateDeepAnalysisButton(r.$deepAnalysisButton, track); return; }
+  // Every playback update re-runs this for each row, but a row's badges only
+  // change when its own analysis does. Rebuilding regardless discards and
+  // recreates the same spans across the whole tracklist on every track change.
+  const signature = JSON.stringify([analyzing, r.$pageAnalysisTrackKey?.(track) || "",
+    result?.bpm ?? null, result?.key ?? null, result?.bpmUncertain ?? null, result?.keyUncertain ?? null,
+    result?.bpmUnavailable ?? null, result?.keyUnavailable ?? null, result?.error || "",
+    runtimeState.showTrackKeys !== false, runtimeState.showCamelotNotation === true]);
+  if (label.dataset.bandkitAnalysisSignature === signature) return;
+  label.dataset.bandkitAnalysisSignature = signature;
   label.replaceChildren();
       const parts = analyzing ? null : r.$pageAnalysisParts(result); const deepAnalyzing = false;
       label.classList.toggle("is-analyzing", analyzing); label.classList.toggle("is-deep-analyzing", deepAnalyzing);
@@ -381,6 +415,9 @@ r.$syncPageTrackAnalysisUi = function syncPageTrackAnalysisUi() {
       const queue = r.$buildSeamlessQueue();
       const trackInfo = r.$getBandcampPageData()?.tralbum?.trackinfo || [];
       for (const [index, row] of [...document.querySelectorAll(".track_row_view")].entries()) {
+        // Feed album rows carry their own analysis labels, kept in step by the
+        // feed runtime rather than this page-wide pass.
+        if (row.closest(".bandkit-feed-album")) continue;
         const title = r.$elementText(row, [".track-title", ".title"]);
         const trackNumber = Number((row.getAttribute("rel") || "").match(/(?:^|[&;\s])tracknum=(\d+)/i)?.[1] || 0);
         const sourceTrack = row.dataset.bandkitDiscoverTrackId
@@ -393,7 +430,9 @@ r.$syncPageTrackAnalysisUi = function syncPageTrackAnalysisUi() {
         const analysisLayout = row.querySelector(".title-col .title");
         if (!text) {
           label?.remove();
-          analysisLayout?.classList.remove("bandkit-has-track-analysis");
+          // Keep the duration in the same grid column as analyzed rows even
+          // when this track has no purchasable/streamable source to analyze.
+          analysisLayout?.classList.add("bandkit-has-track-analysis");
           continue;
         }
         if (!label) {
@@ -428,13 +467,16 @@ r.$syncPageTrackAnalysisUi = function syncPageTrackAnalysisUi() {
       if (r.$isNowPlayingView?.() && r.$content?.querySelector(".hub-playlist-stack")) {
         r.$syncCurrentPlaylistAnalysisUi?.();
       }
+      // Feed album rows keep their own labels, keyed to the same analysis map.
+      r.$syncFeedTrackAnalysisUi?.();
     };
 r.$syncActivePageTrackAnalysis = function syncActivePageTrackAnalysis() {
       if (runtimeState.djToolsEnabled === false) return false;
       const bpm = Number(runtimeSeamless.detectedBpm);
       if (!runtimeSeamless.enabled || runtimeSeamless.bpmStatus !== "ready"
         || !runtimeSeamless.track || !Number.isFinite(bpm) || bpm <= 0) return false;
-      const pageTrack = r.$matchingQueueTrack(r.$buildSeamlessQueue(), runtimeSeamless.track);
+      const pageTrack = r.$matchingQueueTrack(r.$buildSeamlessQueue(), runtimeSeamless.track)
+        || r.$feedAlbumTrackForSeamless?.(runtimeSeamless.track);
       if (!pageTrack) return false;
       const mapKey = r.$pageAnalysisTrackKey(pageTrack);
       const result = {

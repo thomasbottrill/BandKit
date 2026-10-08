@@ -515,33 +515,33 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-relea
   border-top: 1px solid var(--bandkit-release-line) !important;
   grid-column: 1 / -1;
   width: 100% !important;
-}#DiscoverApp .bandkit-discover-tracks, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table {
   border-collapse: collapse !important;
   color: var(--bandkit-release-ink) !important;
   display: table !important;
   margin: 16px 0 0 !important;
   table-layout: fixed;
   width: 100% !important;
-}#DiscoverApp .bandkit-discover-tracks .track_row_view, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view {
   background: var(--bandkit-release-surface) !important;
   border-bottom: 1px solid var(--bandkit-release-line) !important;
   height: 43px !important;
   transition: background-color 140ms ease;
-}#DiscoverApp .bandkit-discover-tracks .track_row_view:is(:hover, :focus-within), html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view:is(:hover, :focus-within) {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view:is(:hover, :focus-within), html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view:is(:hover, :focus-within) {
   background: color-mix(in srgb, var(--bandkit-release-accent) 6%, var(--bandkit-release-surface)) !important;
   box-shadow: none;
-}#DiscoverApp .bandkit-discover-tracks .track_row_view:last-child, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view:last-child {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view:last-child, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view:last-child {
   border-bottom: 0 !important;
-}#DiscoverApp .bandkit-discover-tracks td, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table td {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks td, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table td {
   color: var(--bandkit-release-ink) !important;
   padding-bottom: 7px !important;
   padding-top: 7px !important;
   vertical-align: middle !important;
-}#DiscoverApp .bandkit-discover-tracks .play-col, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play-col {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .play-col, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play-col {
   padding-left: 8px !important;
   padding-right: 8px !important;
   width: 32px !important;
-}#DiscoverApp .bandkit-discover-tracks .play-col > a, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play-col > a {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .play-col > a, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play-col > a {
   align-items: center;
   aspect-ratio: 1;
   background: transparent !important;
@@ -558,27 +558,27 @@ html[data-bandkit-modern-release="true"] body.tralbum-page .bandkit-modern-relea
   outline: 0 !important;
   padding: 0 !important;
   width: 24px !important;
-}#DiscoverApp .bandkit-discover-tracks .play-col > a:is(:hover, :focus-visible), html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play-col > a:is(:hover, :focus-visible) {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .play-col > a:is(:hover, :focus-visible), html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play-col > a:is(:hover, :focus-visible) {
   background: color-mix(in srgb, var(--hub-accent, var(--bandkit-release-accent)) 8%, var(--bandkit-release-surface)) !important;
   border-color: transparent !important;
   box-shadow: none !important;
   color: var(--hub-accent, var(--bandkit-release-accent)) !important;
   outline: 0 !important;
   transform: none !important;
-}#DiscoverApp .bandkit-discover-tracks .track_row_view.bandcamp-hub-is-playing .play-col > a[aria-pressed="true"]:is(:hover, :focus-visible), #DiscoverApp .bandkit-discover-tracks .track_row_view:has(.play_status.playing) .play-col > a[aria-pressed="true"]:is(:hover, :focus-visible), html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view.bandcamp-hub-is-playing .play-col > a[aria-pressed="true"]:is(:hover, :focus-visible),
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view.bandcamp-hub-is-playing .play-col > a[aria-pressed="true"]:is(:hover, :focus-visible), :is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view:has(.play_status.playing) .play-col > a[aria-pressed="true"]:is(:hover, :focus-visible), html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view.bandcamp-hub-is-playing .play-col > a[aria-pressed="true"]:is(:hover, :focus-visible),
 html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view:has(.play_status.playing) .play-col > a[aria-pressed="true"]:is(:hover, :focus-visible) {
   border-color: transparent !important;
   outline: 0 !important;
-}#DiscoverApp .bandkit-discover-tracks .track_row_view.bandkit-modern-track-unplayable .play-col > a, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view.bandkit-modern-track-unplayable .play-col > a {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view.bandkit-modern-track-unplayable .play-col > a, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view.bandkit-modern-track-unplayable .play-col > a {
   display: none !important;
-}#DiscoverApp .bandkit-discover-tracks .play_status, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_status {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .play_status, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_status {
   background: none !important; color: inherit !important;
   border: 0 !important;
   display: block !important;
   height: 100% !important;
   position: relative;
   width: 100% !important;
-}#DiscoverApp .bandkit-discover-tracks .play_status::before, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_status::before {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .play_status::before, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_status::before {
   background: currentColor;
   border: 0;
   content: "";
@@ -591,35 +591,35 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_r
   transform: translate(-50%, -50%);
   transition: transform 120ms ease;
   width: 16px;
-}#DiscoverApp .bandkit-discover-tracks .play-col > a:is(:hover, :focus-visible) .play_status::before, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play-col > a:is(:hover, :focus-visible) .play_status::before {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .play-col > a:is(:hover, :focus-visible) .play_status::before, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play-col > a:is(:hover, :focus-visible) .play_status::before {
   transform: translate(-50%, -50%) scale(1.08);
-}#DiscoverApp .bandkit-discover-tracks .play_status::after, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_status::after {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .play_status::after, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_status::after {
   content: none !important;
-}#DiscoverApp .bandkit-discover-tracks .play_status.playing::before, #DiscoverApp .bandkit-discover-tracks .track_row_view.bandcamp-hub-is-playing .play_status::before, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_status.playing::before,
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .play_status.playing::before, :is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view.bandcamp-hub-is-playing .play_status::before, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .play_status.playing::before,
 html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view.bandcamp-hub-is-playing .play_status::before {
   mask-image: var(--bandkit-pause-icon);
   -webkit-mask-image: var(--bandkit-pause-icon);
-}#DiscoverApp .bandkit-discover-tracks .track-number-col, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track-number-col {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track-number-col, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track-number-col {
   width: 28px !important;
-}#DiscoverApp .bandkit-discover-tracks .track_number, #DiscoverApp .bandkit-discover-tracks .time, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_number,
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_number, :is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .time, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_number,
 html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .time {
   color: var(--bandkit-release-muted) !important;
   font-size: 12px !important;
-}#DiscoverApp .bandkit-discover-tracks .title-col, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .title-col, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col {
   min-width: 0;
   width: auto !important;
-}#DiscoverApp .bandkit-discover-tracks .title-col .title, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col .title {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .title-col .title, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col .title {
   align-items: center;
   display: flex;
   gap: 8px;
   min-width: 0;
   width: 100% !important;
-}#DiscoverApp .bandkit-discover-tracks .title-col .title > a, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col .title > a {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .title-col .title > a, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col .title > a {
   display: block;
   min-width: 0;
   overflow: hidden;
   width: 100%;
-}#DiscoverApp .bandkit-discover-tracks .track-title, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track-title {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track-title, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track-title {
   color: var(--bandkit-release-ink) !important;
   display: block;
   font-size: 13px !important;
@@ -627,29 +627,58 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .time {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}#DiscoverApp .bandkit-discover-tracks .title-col .time, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col .time {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .title-col .time, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col .time {
   margin-left: auto;
   white-space: nowrap;
-}#DiscoverApp .bandkit-discover-tracks .info-col, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .info-col {
+}
+/* The rescan control overlays the analysis readout, so it must not widen the
+   analysis column and shift durations away from rows that cannot be analyzed. */
+html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis {
+  grid-template-columns: minmax(0, 1fr) 52px 160px !important;
+}
+html[data-bandkit-modern-release="true"][data-bandkit-show-track-keys="false"][data-bandkit-show-camelot="true"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis {
+  grid-template-columns: minmax(0, 1fr) 52px 106px !important;
+}
+html[data-bandkit-modern-release="true"][data-bandkit-show-track-keys="true"][data-bandkit-show-camelot="false"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis {
+  grid-template-columns: minmax(0, 1fr) 52px 126px !important;
+}
+html[data-bandkit-modern-release="true"][data-bandkit-show-track-keys="false"][data-bandkit-show-camelot="false"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis {
+  grid-template-columns: minmax(0, 1fr) 52px 72px !important;
+}
+@media (max-width: 700px) {
+  html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis {
+    grid-template-columns: minmax(0, 1fr) 48px 142px !important;
+  }
+  html[data-bandkit-modern-release="true"][data-bandkit-show-track-keys="false"][data-bandkit-show-camelot="true"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis {
+    grid-template-columns: minmax(0, 1fr) 48px 94px !important;
+  }
+  html[data-bandkit-modern-release="true"][data-bandkit-show-track-keys="true"][data-bandkit-show-camelot="false"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis {
+    grid-template-columns: minmax(0, 1fr) 48px 112px !important;
+  }
+  html[data-bandkit-modern-release="true"][data-bandkit-show-track-keys="false"][data-bandkit-show-camelot="false"] body.tralbum-page #track_table .title-col .title.bandkit-has-track-analysis {
+    grid-template-columns: minmax(0, 1fr) 48px 64px !important;
+  }
+}
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .info-col, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .info-col {
   display: none !important;
-}#DiscoverApp .bandkit-discover-tracks .download-col, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .download-col, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col {
   box-sizing: border-box;
   padding: 7px 8px !important;
   text-align: right !important;
   white-space: nowrap;
   width: 104px !important;
-}#DiscoverApp .bandkit-discover-tracks .download-col .dl_link, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .dl_link {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .download-col .dl_link, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .dl_link {
   align-items: center;
   display: flex !important;
   gap: 4px;
   justify-content: flex-end;
   width: 100% !important;
-}#DiscoverApp .bandkit-discover-tracks .download-col a, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col a {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .download-col a, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col a {
   color: var(--hub-accent, var(--bandkit-release-accent)) !important;
   font-size: 11px !important;
   font-weight: 600;
   text-decoration: none !important;
-}#DiscoverApp .bandkit-discover-tracks .download-col :is(.bandcamp-hub-page-playlist.is-track-action, .bandcamp-hub-page-buy), html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col :is(.bandcamp-hub-page-playlist.is-track-action, .bandcamp-hub-page-buy) {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .download-col :is(.bandcamp-hub-page-playlist.is-track-action, .bandcamp-hub-page-buy), html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col :is(.bandcamp-hub-page-playlist.is-track-action, .bandcamp-hub-page-buy) {
   background: transparent !important;
   border: 1px solid transparent !important;
   border-radius: 4px !important;
@@ -660,13 +689,13 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .time {
   max-height: 24px !important;
   min-height: 24px !important;
   vertical-align: middle !important;
-}#DiscoverApp .bandkit-discover-tracks .download-col .bandcamp-hub-page-playlist.is-track-action, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .bandcamp-hub-page-playlist.is-track-action {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .download-col .bandcamp-hub-page-playlist.is-track-action, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .bandcamp-hub-page-playlist.is-track-action {
   margin-left: 4px !important;
   margin-right: 0 !important;
   max-width: 24px !important;
   min-width: 24px !important;
   width: 24px !important;
-}#DiscoverApp .bandkit-discover-tracks .download-col .bandcamp-hub-page-buy, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .bandcamp-hub-page-buy {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .download-col .bandcamp-hub-page-buy, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .bandcamp-hub-page-buy {
   flex: 0 0 auto !important;
   font-size: 11px !important;
   line-height: 1 !important;
@@ -675,27 +704,27 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .time {
   overflow: visible !important;
   padding: 0 8px !important;
   width: auto !important;
-}#DiscoverApp .bandkit-discover-tracks .track_row_view .download-col .bandcamp-hub-page-buy, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view .download-col .bandcamp-hub-page-buy {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view .download-col .bandcamp-hub-page-buy, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view .download-col .bandcamp-hub-page-buy {
   opacity: 0 !important;
   pointer-events: none !important;
-}#DiscoverApp .bandkit-discover-tracks .track_row_view:is(:hover, :focus-within) .download-col .bandcamp-hub-page-buy, #DiscoverApp .bandkit-discover-tracks .track_row_view .download-col .bandcamp-hub-page-buy:focus-visible, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view:is(:hover, :focus-within) .download-col .bandcamp-hub-page-buy,
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view:is(:hover, :focus-within) .download-col .bandcamp-hub-page-buy, :is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view .download-col .bandcamp-hub-page-buy:focus-visible, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view:is(:hover, :focus-within) .download-col .bandcamp-hub-page-buy,
 html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .track_row_view .download-col .bandcamp-hub-page-buy:focus-visible {
   opacity: 1 !important;
   pointer-events: auto !important;
-}#DiscoverApp .bandkit-discover-tracks .download-col .bandcamp-hub-page-buy::before, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .bandcamp-hub-page-buy::before {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .download-col .bandcamp-hub-page-buy::before, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .bandcamp-hub-page-buy::before {
   content: none !important;
   display: none !important;
-}#DiscoverApp .bandkit-discover-tracks .download-col .bandcamp-hub-page-buy.is-download-action, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .bandcamp-hub-page-buy.is-download-action {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .download-col .bandcamp-hub-page-buy.is-download-action, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .bandcamp-hub-page-buy.is-download-action {
   font-size: 0 !important;
   max-width: 24px !important;
   min-width: 24px !important;
   overflow: hidden !important;
   padding: 0 !important;
   width: 24px !important;
-}#DiscoverApp .bandkit-discover-tracks .download-col .bandcamp-hub-page-buy.is-download-action::before, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .bandcamp-hub-page-buy.is-download-action::before {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .download-col .bandcamp-hub-page-buy.is-download-action::before, html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col .bandcamp-hub-page-buy.is-download-action::before {
   content: "" !important;
   display: block !important;
-}#DiscoverApp .bandkit-discover-tracks .download-col :is(.bandcamp-hub-page-playlist.is-track-action, .bandcamp-hub-page-buy):is(:hover, :focus-visible), html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col :is(.bandcamp-hub-page-playlist.is-track-action, .bandcamp-hub-page-buy):is(:hover, :focus-visible) {
+}:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .download-col :is(.bandcamp-hub-page-playlist.is-track-action, .bandcamp-hub-page-buy):is(:hover, :focus-visible), html[data-bandkit-modern-release="true"] body.tralbum-page #track_table .download-col :is(.bandcamp-hub-page-playlist.is-track-action, .bandcamp-hub-page-buy):is(:hover, :focus-visible) {
   background: color-mix(in srgb, var(--hub-accent, var(--bandkit-release-accent)) 8%, var(--hub-card, var(--bandkit-release-surface))) !important;
   border-color: transparent !important;
 }
@@ -787,7 +816,8 @@ html[data-bandkit-modern-release="true"] body.tralbum-page #discography > .bandk
   width: auto !important;
 }
 
-html[data-bandkit-modern-release="true"] body.tralbum-page #discography.bandkit-modern-discography-expanded > ul > li.gt3 {
+html[data-bandkit-modern-release="true"] body.tralbum-page #discography > ul > li:nth-child(-n + 4),
+html[data-bandkit-modern-release="true"] body.tralbum-page #discography.bandkit-modern-discography-expanded > ul > li {
   display: block !important;
 }
 

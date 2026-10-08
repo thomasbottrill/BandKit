@@ -9,6 +9,7 @@ import { normalizeCustomTimeline } from "../custom-timeline.js";
 import { normalizeCustomPlayerButtons } from "../custom-player-buttons.js";
 import { normalizeTimelineStyle } from "../timeline-styles.js";
 import { headerMutationNeedsMount } from "./header-mutations.js";
+import { applyHeaderScrollBehavior } from "./header-scroll.js";
 import { resumeVisualizer } from "../visualizer-frame.js";
 
 function normalizeGlassAppearance(appearance) {
@@ -17,6 +18,13 @@ function normalizeGlassAppearance(appearance) {
   appearance.glassTransparency = Math.round(Math.max(0, Math.min(70, Number(appearance.glassTransparency) || 0)));
   appearance.glassBlur = Math.round(Math.max(0, Math.min(30, Number(appearance.glassBlur) || 0)));
   return previous.some((value, index) => value !== [appearance.frostedGlass, appearance.glassTransparency, appearance.glassBlur][index]);
+}
+
+function normalizeVisualThemeAppearance(appearance) {
+  const previous = [appearance.visualizerColourSource, appearance.visualThemeId];
+  appearance.visualizerColourSource = appearance.visualizerColourSource === "custom" ? "custom" : "theme";
+  if (!appearance.visualThemeId || appearance.visualThemeId === "none") appearance.visualThemeId = "dynamic";
+  return previous.some((value, index) => value !== [appearance.visualizerColourSource, appearance.visualThemeId][index]);
 }
 
 function normalizedVisualizerDimension(value, min, max) {
@@ -85,7 +93,7 @@ function normalizedCrossTabSettings(incoming, current) {
     musicBarWidth: MUSIC_BAR_WIDTHS.includes(incoming.musicBarWidth) ? incoming.musicBarWidth : "default",
     musicBarCustomWidth: Math.round(Math.max(480, Math.min(2000, Number(incoming.musicBarCustomWidth) || 900))),
     musicBarBottomOffset: Math.round(Math.max(0, Math.min(160, Number(incoming.musicBarBottomOffset) || 0))),
-    dockChevronOffset: Math.max(0, Number(incoming.dockChevronOffset) || 0),
+    dockChevronGap: Math.max(0, Number(incoming.dockChevronGap) || 0),
     settingsDrawers: incoming.settingsDrawers && typeof incoming.settingsDrawers === "object"
       ? { ...incoming.settingsDrawers } : {},
     dj: { ...current.dj, ...(incoming.dj || {}) }
@@ -209,7 +217,7 @@ r.$initializeHeaderMount = function initializeHeaderMount() {
       ].join(",");
       function syncNativeHeaderCart(nav) {
         const cartShortcut = r.$headerShortcuts.querySelector('[data-tab="cart"]');
-        cartShortcut.hidden = false;
+        if (cartShortcut.hidden) cartShortcut.hidden = false;
         const roots = [
           nav,
           document.querySelector("#menubar-wrapper"),
@@ -224,12 +232,19 @@ r.$initializeHeaderMount = function initializeHeaderMount() {
         const nativeCarts = [...new Set([...labelledNativeCarts, ...iconNativeCarts])]
           .filter((control) => !r.$root.contains(control));
         const hideHeaderCart = Boolean(runtimeState.appearance.hideHeaderCart);
+        // Rewriting these attributes when nothing changed re-dirties style after
+        // the launcher's computed-colour read, which forces the next header
+        // synchronisation to recalculate the whole header again.
         for (const nativeCart of nativeCarts) {
-          nativeCart.setAttribute("data-bandkit-native-cart", "");
-          nativeCart.toggleAttribute("hidden", hideHeaderCart);
+          if (!nativeCart.hasAttribute("data-bandkit-native-cart")) nativeCart.setAttribute("data-bandkit-native-cart", "");
+          if (nativeCart.hasAttribute("hidden") !== hideHeaderCart) nativeCart.toggleAttribute("hidden", hideHeaderCart);
           const nativeCartWrapper = nativeCart.closest("li");
-          nativeCartWrapper?.setAttribute("data-bandkit-native-cart-wrapper", "");
-          nativeCartWrapper?.toggleAttribute("hidden", hideHeaderCart);
+          if (nativeCartWrapper && !nativeCartWrapper.hasAttribute("data-bandkit-native-cart-wrapper")) {
+            nativeCartWrapper.setAttribute("data-bandkit-native-cart-wrapper", "");
+          }
+          if (nativeCartWrapper && nativeCartWrapper.hasAttribute("hidden") !== hideHeaderCart) {
+            nativeCartWrapper.toggleAttribute("hidden", hideHeaderCart);
+          }
           if (nativeCart.dataset.bandkitCartBound) continue;
           nativeCart.dataset.bandkitCartBound = "true";
           nativeCart.addEventListener("click", (event) => {
@@ -270,9 +285,29 @@ r.$initializeHeaderMount = function initializeHeaderMount() {
           extensionStackingAncestor.style.setProperty("z-index", "2147483646", "important");
         }
       }
+      const ROOT_HEADER_CSS = "align-items:center;display:flex;height:100%;list-style:none;margin:0;padding:0";
+      const LAUNCHER_HEADER_CLASSES = ["is-header", "is-modern-header", "is-floating"];
+      // style.cssText reads back normalised, so the applied layout is tracked
+      // separately rather than compared against the source string.
+      let appliedRootLayout = "";
+      function applyRootHeaderLayout(layout) {
+        // display:flex stands in for the whole declaration: if a native header
+        // swap wiped the inline style, the sentinel is gone and it is rewritten.
+        if (appliedRootLayout === layout && r.$root.style.display === "flex") return;
+        appliedRootLayout = layout;
+        r.$root.style.cssText = ROOT_HEADER_CSS;
+      }
+      function syncLauncherHeaderClasses(active) {
+        for (const className of LAUNCHER_HEADER_CLASSES) {
+          const shouldHave = active.includes(className);
+          if (r.$launcher.classList.contains(className) !== shouldHave) r.$launcher.classList.toggle(className, shouldHave);
+        }
+      }
       function mountLauncherInHeader({ allowFloating = false } = {}) {
         const pageFeedControl = document.querySelector('ul[role="menubar"] a[aria-label="Feed"], .menu-items a[aria-label="Feed"]');
         const menuBarShadow = document.querySelector("menu-bar")?.shadowRoot || null;
+        applyHeaderScrollBehavior(document);
+        applyHeaderScrollBehavior(menuBarShadow);
         if (menuBarShadow && observedHeaderShadow !== menuBarShadow) {
           shadowHeaderObserver?.disconnect();
           observedHeaderShadow = menuBarShadow;
@@ -287,40 +322,40 @@ r.$initializeHeaderMount = function initializeHeaderMount() {
         const modernNav = feedControl?.closest("ul");
         const legacyNav = document.querySelector("#user-nav");
         if (modernNav && feedItem?.parentElement === modernNav) {
-          r.$root.style.cssText = "align-items:center;display:flex;height:100%;list-style:none;margin:0;padding:0";
-          r.$root.className = "bandkit-menu-item";
-          r.$root.setAttribute("role", "none");
+          applyRootHeaderLayout("modern");
+          if (r.$root.className !== "bandkit-menu-item") r.$root.className = "bandkit-menu-item";
+          if (r.$root.getAttribute("role") !== "none") r.$root.setAttribute("role", "none");
           if (feedItem.nextElementSibling !== r.$root) feedItem.after(r.$root);
           syncExtensionStackingAncestor();
-          r.$launcher.classList.remove("is-floating");
-          r.$launcher.classList.add("is-header", "is-modern-header");
+          syncLauncherHeaderClasses(["is-header", "is-modern-header"]);
+          // Every write above is guarded so that a launcher which is already
+          // mounted leaves style clean, and this computed read stays cheap
+          // instead of forcing a full header style recalculation each frame.
           const nativeIcon = feedControl.querySelector("svg");
           const nativeIconStyle = nativeIcon ? getComputedStyle(nativeIcon) : null;
           const nativeColor = nativeIconStyle?.fill && nativeIconStyle.fill !== "none"
             ? nativeIconStyle.fill
             : nativeIconStyle?.stroke || getComputedStyle(feedControl).color;
-          r.$launcher.style.color = nativeColor;
+          if (r.$launcher.style.color !== nativeColor) r.$launcher.style.color = nativeColor;
           syncNativeHeaderCart(modernNav);
           return true;
         }
         if (legacyNav) {
-          r.$root.style.cssText = "align-items:center;display:flex;height:100%;list-style:none;margin:0;padding:0";
-          r.$root.className = "";
-          r.$root.removeAttribute("role");
+          applyRootHeaderLayout("legacy");
+          if (r.$root.className !== "") r.$root.className = "";
+          if (r.$root.hasAttribute("role")) r.$root.removeAttribute("role");
           if (r.$root.parentElement !== legacyNav) legacyNav.prepend(r.$root);
           syncExtensionStackingAncestor();
-          r.$launcher.style.removeProperty("color");
-          r.$launcher.classList.remove("is-floating", "is-modern-header");
-          r.$launcher.classList.add("is-header");
+          if (r.$launcher.style.color) r.$launcher.style.removeProperty("color");
+          syncLauncherHeaderClasses(["is-header"]);
           syncNativeHeaderCart(legacyNav);
           return true;
         }
         if (allowFloating) {
-          document.body.append(r.$root);
+          if (r.$root.parentElement !== document.body) document.body.append(r.$root);
           syncExtensionStackingAncestor();
-          r.$launcher.style.removeProperty("color");
-          r.$launcher.classList.remove("is-header", "is-modern-header");
-          r.$launcher.classList.add("is-floating");
+          if (r.$launcher.style.color) r.$launcher.style.removeProperty("color");
+          syncLauncherHeaderClasses(["is-floating"]);
           syncNativeHeaderCart(null);
         }
         return false;
@@ -491,7 +526,10 @@ r.$restoreRuntimeState = function restoreRuntimeState({ saved, savedState, saved
       runtimeState.appearance.pageAware = !runtimeState.appearance.applyToPage;
       const storedModernReleasePages = runtimeState.appearance.modernReleasePages;
       runtimeState.appearance.modernReleasePages = Boolean(storedModernReleasePages);
-      if (normalizeGlassAppearance(runtimeState.appearance)
+      const normalizedGlassAppearance = normalizeGlassAppearance(runtimeState.appearance);
+      const normalizedVisualThemeAppearance = normalizeVisualThemeAppearance(runtimeState.appearance);
+      if (normalizedGlassAppearance
+        || normalizedVisualThemeAppearance
         || storedModernReleasePages !== runtimeState.appearance.modernReleasePages) runtimeSaveState();
       const hideShoppingCart = Boolean(runtimeState.appearance.hidePageCart || runtimeState.appearance.hideHeaderCart);
       runtimeState.appearance.hidePageCart = hideShoppingCart;
@@ -651,6 +689,9 @@ r.$init = async function init() {
         window.clearTimeout(r.$layoutSaveTimer);
         window.clearTimeout(r.$feedHandoffTimer);
         window.cancelAnimationFrame(r.$playerSectionGeometryFrame);
+        window.cancelAnimationFrame(r.$playerRenderFrame);
+        window.cancelAnimationFrame(r.$panelRenderFrame);
+        window.cancelAnimationFrame(r.$playlistButtonsFrame);
         r.$visualizerFrameQueue?.cancel();
         r.$playerResizeObserver?.disconnect();
         r.$playerSpectrumResizeObserver?.disconnect();
@@ -731,9 +772,9 @@ function createRuntimeMessageHandler(r) {
           runtimeState.playlistMode = playlistMode;
           runtimeState.playlistShuffleEnabled = playlistShuffleEnabled;
           runtimeState.playlistShuffleOrder = playlistShuffleOrder;
-          if (r.$isNowPlayingView()) r.$render();
-          else r.$renderPlayer();
-          r.$injectPlaylistButtons();
+          if (r.$isNowPlayingView()) r.$schedulePanelRender();
+          else r.$schedulePlayerRender();
+          r.$schedulePlaylistButtons();
         }
         r.$lastNowPlayingSignature = r.$nowPlayingSessionSignature();
       }
@@ -741,6 +782,28 @@ function createRuntimeMessageHandler(r) {
         && !r.$savedPlaylistReplacementRequest
         && Date.now() >= r.$savedPlaylistReplacementGuardUntil) {
         r.$clearLocalPlaybackState({ persist: false });
+      }
+      if (message?.type === MESSAGES.CART_ADD_ITEMS) {
+        // Stay silent until Bandcamp's cart has actually loaded here, so the
+        // caller keeps waiting instead of recording a failure.
+        if (!r.$pageCartIsAvailable()) return false;
+        void r.$sendCartRestore(message.items).then((result) => {
+          // The caller has no cart of its own to read, so hand back the cart
+          // this tab just wrote. Without it the caller's panel keeps showing
+          // the cart as it was before the add and the action looks like it
+          // did nothing.
+          r.$scanLiveCart();
+          sendResponse({ ...result, cart: runtimeState.cart, cartSummary: runtimeState.cartSummary });
+        });
+        return true;
+      }
+      if (message?.type === MESSAGES.CART_REMOVE_ITEM) {
+        if (!r.$pageCartIsAvailable()) return false;
+        void r.$sendCartRemove(message.item).then((result) => {
+          r.$scanLiveCart();
+          sendResponse({ ...result, cart: runtimeState.cart, cartSummary: runtimeState.cartSummary });
+        });
+        return true;
       }
       if (message?.type === MESSAGES.WISHLIST_UPDATED) {
         if (message.success !== false) r.$markWishlistTrack(message.key, message.active !== false);
@@ -829,7 +892,10 @@ chrome.storage.onChanged?.addListener((changes, area) => {
       };
       const incomingModernReleasePages = appearance.modernReleasePages;
       appearance.modernReleasePages = Boolean(incomingModernReleasePages);
-      const appearanceNeedsNormalization = normalizeGlassAppearance(appearance)
+      const normalizedIncomingGlass = normalizeGlassAppearance(appearance);
+      const normalizedIncomingVisualTheme = normalizeVisualThemeAppearance(appearance);
+      const appearanceNeedsNormalization = normalizedIncomingGlass
+        || normalizedIncomingVisualTheme
         || incomingModernReleasePages !== appearance.modernReleasePages;
       const appearanceChanged = JSON.stringify(appearance) !== JSON.stringify(runtimeState.appearance);
       r.$setSharedStateBaseline({

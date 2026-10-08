@@ -104,27 +104,34 @@ assert.match(css, /hub-onboarding-playhead \{ from \{ left: 0%; \} to \{ left: 1
 assert.match(css, /hub-onboarding-visualizer[\s\S]*?scaleY\(\.55\)[\s\S]*?scaleY\(\.98\)/,
   "the sample visualizer must visibly react");
 
-for (const option of ["Style", "Surface", "DJ tools", "Timeline"]) {
+for (const option of ["Theme", "Custom", "Style", "Surface", "DJ tools", "Timeline", "Palette"]) {
   assert(onboarding.includes(`\"${option}\"`), `the compact coachmark configurator must retain ${option}`);
 }
 assert.match(onboarding, /setAttribute\("aria-label", `Handle: \$\{HANDLE_LABELS\[selected\]\}`\)/,
   "the compact coachmark configurator must retain the scrub handle picker");
-// The tour tunes the player only: palette, corners and visualiser are whole-kit
-// appearance choices that deliberately stay in Settings with their full controls.
-for (const settingsOnly of ["Theme", "Corners", "Visualiser"]) {
+// Corners and visualiser remain whole-kit choices with their full controls in Settings.
+for (const settingsOnly of ["Corners", "Visualiser"]) {
   assert(!onboarding.includes(`label: "${settingsOnly}"`),
     `${settingsOnly} is a whole-kit choice and must not reappear in the onboarding configurator`);
 }
 assert.match(onboarding, /function createOnboardingPlayerStylePicker[\s\S]*?value:\s*"docked", label:\s*"Dock"[\s\S]*?value:\s*"zune", label:\s*"Fade"[\s\S]*?value:\s*"rounded", label:\s*"Float"[\s\S]*?applyMusicBarStylePreset\(r, value\)/,
   "the onboarding configurator must offer Dock, Fade and Float player styles");
-assert.match(onboarding, /function createKitControls[\s\S]*?hub-onboarding-kit-settings-button[\s\S]*?\$onboardingKitSettings = kind[\s\S]*?hub-onboarding-kit-settings-modal/,
-  "secondary onboarding controls must open from contextual settings buttons instead of a global advanced section");
+assert.doesNotMatch(onboarding, /hub-onboarding-kit-settings-button|hub-onboarding-kit-settings-modal|\$onboardingKitSettings = kind/,
+  "the kit configurator must expose its pickers directly instead of hiding them behind a settings button");
 assert.match(onboarding, /card\.style\.bottom = "auto";[\s\S]*?card\.style\.top/,
   "ordinary coachmark positioning must release the temporary bottom anchor");
 assert.match(css, /\.hub-onboarding-body\s*\{[^}]*overflow-x:\s*hidden;[^}]*overflow-y:\s*auto;/s,
   "onboarding disclosures and portalled selectors must never create a horizontal body scrollbar");
-assert.match(onboarding, /grid\.append\(\s*createOnboardingPlayerStylePicker\(r, rerender\),\s*withSettings\(createOnboardingSurfacePicker\(r, rerender\), "surface", "Surface"\),\s*toggle\("DJ tools"[\s\S]*?createOnboardingTimelinePicker\(r, rerender\),\s*createOnboardingHandlePicker\(r, rerender\)\s*\);/,
-  "timeline and handle must open direct selectors while only contextual controls keep settings buttons");
+assert.match(onboarding, /createOnboardingModeSwitch[\s\S]*?\[\["theme", "Theme"\], \["custom", "Custom"\]\][\s\S]*?role", "tab"/,
+  "Make it yours must offer a clear Theme or Custom choice");
+assert.match(onboarding, /\$onboardingKitMode = "theme"/,
+  "each onboarding run must open Make it yours on the streamlined Theme choice");
+assert.match(onboarding, /if \(mode === "theme"\)[\s\S]*?createOnboardingThemePicker[\s\S]*?else \{[\s\S]*?createOnboardingPlayerStylePicker[\s\S]*?createOnboardingPalettePicker/,
+  "Theme must stay streamlined while Custom exposes the detailed player controls and palette");
+assert.match(onboarding, /function createOnboardingPalettePicker[\s\S]*?BUILT_IN_THEMES[\s\S]*?label: "Palette"[\s\S]*?onPreview[\s\S]*?onRestore/,
+  "Custom must reuse the real colour palettes with live previews");
+assert.match(onboarding, /function createOnboardingThemePicker[\s\S]*?DEFAULT_VISUAL_THEME[\s\S]*?VISUAL_THEMES[\s\S]*?onPreview[\s\S]*?onRestore/,
+  "the Theme path must provide live previews and restore uncommitted choices");
 assert.match(onboarding, /SCRUBBER_HANDLE_SHAPES\.filter\(\(value\) => value !== "custom"\)/,
   "the onboarding handle selector must omit Custom");
 assert.doesNotMatch(onboarding, /\$onboardingKitSettings === "(?:style|theme|timeline|handle)"/,
@@ -139,8 +146,8 @@ assert.match(onboarding, /if \(renderPreview\) valueWrap\.append\(renderPreview\
   "the selected timeline must retain its visual preview in the main field");
 assert.match(onboarding, /function createOnboardingPlayerStylePicker[\s\S]*?renderPreview: createPlayerDesignPreview/,
   "the onboarding player Style field and modal must share the design previews");
-assert.match(onboarding, /function createOnboardingBlendPicker[\s\S]*?renderPreview: createBlendModePreview/,
-  "the onboarding blend fields and modals must share the Lucide blend previews");
+assert.match(onboarding, /function createOnboardingSurfacePicker[\s\S]*?renderPreview: createSurfacePreview/,
+  "the onboarding Surface field and modal must share the surface previews");
 assert.match(onboarding, /valueWrap\.append\(createOnboardingHandlePreview\(selected\)/,
   "the selected handle, including Butterfly, must retain its visual preview in the main field");
 assert.match(onboarding, /function syncOnboardingContrast[\s\S]*?luminance\(panel\) < 0\.34[\s\S]*?dataset\.scheme/,
@@ -149,8 +156,16 @@ assert.match(onboarding, /"--hub-card-ink": colorString\(ink\)[\s\S]*?"--hub-car
   "nested production menus in onboarding must inherit the readable coachmark card roles at rest");
 assert.match(onboarding, /\$activateFirstRunOnboarding[\s\S]*?onboardingStep\) \|\| 0\) === 0[\s\S]*?appearance\.pageAware = true[\s\S]*?appearance\.applyToPage = false/,
   "a genuinely new onboarding run must begin in Dynamic without overwriting a resumed selection");
+assert.match(onboarding, /appearance\.visualThemeId = "dynamic"/,
+  "a genuinely new onboarding run must explicitly select the Dynamic theme");
+assert.match(onboarding, /renderTrailing: id => id === "dynamic" \? createDynamicThemeInfo\(\) : null/g,
+  "Dynamic must carry its information marker in both onboarding theme menus");
 assert.match(css, /hub-onboarding-kit-choice-copy span[^}]*font-size:\s*13px[\s\S]*?hub-onboarding-kit-picker-selection-copy > span:first-child[^}]*font-size:\s*13px/,
   "onboarding fields must use the same readable control scale as Settings");
+assert.match(css, /\.hub-onboarding-kit-mode\s*\{[^}]*display:\s*flex;[^}]*gap:\s*18px;/s,
+  "Theme and Custom must use a quiet inline text row rather than a segmented box");
+assert.doesNotMatch(css, /\.hub-onboarding-kit-mode\s*\{[^}]*background:/s,
+  "the Theme and Custom row must not introduce a separate control surface");
 assert.match(css, /\.hub-onboarding-kit-choice\s*\{[^}]*background:\s*transparent;[^}]*border:\s*0;/s,
   "Tune your Bandkit controls must be quiet text rows without card backing");
 assert.match(onboarding, /choice:\s*"backup"[\s\S]*?\$runBackupAction\(action, r\.\$savePortableBackup\)/,
@@ -225,8 +240,8 @@ assert.match(onboarding, /stepIndex === STEPS\.length - 1[\s\S]*?hub-onboarding-
   "the final wrap-up step must show the Bandkit logo");
 assert.match(css, /@media \(max-width: 700px\)/);
 assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
-assert.match(onboarding, /r\.\$onboardingKitSettings === "surface"[\s\S]*?Dynamic colour[\s\S]*?createOnboardingBlendPicker/,
-  "Tune your Bandkit must progressively disclose surface settings in a focused modal");
+assert.doesNotMatch(onboarding, /Dynamic colour|createOnboardingBlendPicker/,
+  "dynamic colour is on by default, so the tour must not ask about it or the glass blend behind it");
 assert.match(onboarding, /createOnboardingHandlePicker[\s\S]*?hub-onboarding-handle-option[\s\S]*?createOnboardingHandlePreview/,
   "the onboarding handle control must expose a preview dropdown");
 assert.match(css, /hub-onboarding-dialog:hover \.hub-onboarding-secondary-navigation[\s\S]*?hub-onboarding-secondary-navigation:focus-within/,

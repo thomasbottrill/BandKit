@@ -1,19 +1,20 @@
 import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState } from "./context.js";
-import { discoverGenrePalette } from "../discover-colours.js";
 import { resolvePlayerPresentation } from "../player-presentation.js";
 import { syncCustomPlayerButtons } from "../custom-player-buttons.js";
 import { syncPaperSurface } from "../paper-surface.js";
-import { asset, createButtonIcon, formatDuration, resolveImage, safeBandcampReleaseUrl, safeBandcampUrl } from "../core.js";
+import { asset, createButtonIcon, formatDuration, removeStyleProperty, resolveImage, safeBandcampReleaseUrl, safeBandcampUrl, setDatasetValue, setStyleProperty } from "../core.js";
 import { MAX_PLAYLIST_ITEMS } from "../state.js";
 import { MESSAGES } from "../../shared/contracts.js";
 import { playerAlbumLabel } from "./player-metadata.js";
 import { drawSpectrumAnalyzer } from "../spectrum-renderer.js";
 import { flowingColour } from "../visualizer-colour-field.js";
 import { createVisualizerFrameQueue } from "../visualizer-frame.js";
+import { registerFeedCart } from "./feed-cart.js";
+import { registerFeedStreams } from "./feed-streams.js";
 import { registerPlayerHandoffs } from "./player-handoffs.js";
 import { syncPlayerSurface } from "./player-surface.js";
 import { syncVisualizerSurface } from "./visualizer-surface.js";
-import { syncDockChevron } from "./dock-chevron.js";
+import { dockChevronGeometry, syncDockChevron } from "./dock-chevron.js";
 import { readableColor } from "../color.js";
 import { syncFullscreenVisualizerGlass } from "./fullscreen-visualizer.js";
 const VISUALIZER_BLOOM_INTERVAL_MS = 96;
@@ -242,10 +243,6 @@ function renderedShadowTargetAt(element, x, y) {
 }
 
 function renderedPageSurfaceAt(r, x, y) {
-  // Genre backgrounds are gradients, which the flat-colour sampler skips.
-  // All dynamic player variants share this surface source.
-  const genre = discoverGenrePalette();
-  if (genre) return genre.background;
   const layers = document.elementsFromPoint(Math.max(0, Math.min(window.innerWidth - 1, x)), Math.max(0, Math.min(window.innerHeight - 1, y)));
   const extensionLayers = new Set([r.$root, r.$host]);
   for (let node = r.$root; node;) {
@@ -424,11 +421,11 @@ function normalizedCornerStyle() {
 function syncCornerStyle(r) {
   const { radius, style } = normalizedCornerStyle();
   runtimeState.appearance.cornerStyle = style; runtimeState.appearance.customCornerRadius = radius;
-  r.$host.dataset.cornerStyle = style; r.$host.style.setProperty("--hub-custom-corner-radius", `${radius}px`);
-  document.documentElement.dataset.bandkitCornerStyle = style;
-  if (style === "rounded") document.documentElement.style.removeProperty("--bandkit-page-corner-radius");
-  else document.documentElement.style.setProperty("--bandkit-page-corner-radius", style === "square" ? "0px" : `${radius}px`);
-  if (r.$pageDjHost) { r.$pageDjHost.dataset.cornerStyle = style; r.$pageDjHost.style.setProperty("--hub-custom-corner-radius", `${radius}px`); }
+  setDatasetValue(r.$host, "cornerStyle", style); setStyleProperty(r.$host.style, "--hub-custom-corner-radius", `${radius}px`);
+  setDatasetValue(document.documentElement, "bandkitCornerStyle", style);
+  if (style === "rounded") removeStyleProperty(document.documentElement.style, "--bandkit-page-corner-radius");
+  else setStyleProperty(document.documentElement.style, "--bandkit-page-corner-radius", style === "square" ? "0px" : `${radius}px`);
+  if (r.$pageDjHost) { setDatasetValue(r.$pageDjHost, "cornerStyle", style); setStyleProperty(r.$pageDjHost.style, "--hub-custom-corner-radius", `${radius}px`); }
   r.$syncPageCornerShadowRoots?.();
 }
 
@@ -544,13 +541,15 @@ r.$syncPlayerSectionGeometry = function syncPlayerSectionGeometry() {
         r.$player.style.setProperty("--hub-zune-sections-right", `${Math.round(zuneSectionsRight)}px`);
       }
       const sectionRect = r.$playerSections.getBoundingClientRect();
-      const sectionCenter = docked
-        ? window.innerWidth - 16 - panelWidth / 2 - playerRect.left
+      const dockChevron = docked ? dockChevronGeometry(playerRect, contentRect) : null;
+      const sectionCenter = dockChevron
+        ? dockChevron.center
         : contextual
           ? sectionRect.left + sectionRect.width / 2 - playerRect.left
           : panelCenter - playerRect.left;
       const sectionWidth = contextual ? sectionRect.width : 48;
-      if (!empty) syncDockChevron(r, sectionCenter);
+      if (dockChevron) r.$dockChevronMaxGap = dockChevron.maxGap;
+      if (!empty) syncDockChevron(r, sectionCenter, docked);
       const anchorCenter = playerRect.left + sectionCenter;
       const maxPanelLeft = Math.max(12, window.innerWidth - panelWidth - 12);
       const panelLeft = contextual ? Math.max(12, Math.min(maxPanelLeft, anchorCenter - panelWidth / 2)) : null;
@@ -561,7 +560,7 @@ r.$syncPlayerSectionGeometry = function syncPlayerSectionGeometry() {
         : contentRect?.width ? contentRect.left + Math.min(48, contentRect.height / 2) - playerRect.left : null;
       const contentLeft = contentRect?.width ? contentRect.left - playerRect.left : null;
       const contentRight = contentRect?.width ? contentRect.right - playerRect.left : null;
-      const signature = `${Math.round(sectionCenter)}|${Math.round(sectionWidth)}|${panelLeft === null ? "docked" : Math.round(panelLeft)}|${zuneActionsX === null ? "none" : Math.round(zuneActionsX)}|${zuneSectionsRight === null ? "none" : Math.round(zuneSectionsRight)}|${contentLeft === null ? "none" : Math.round(contentLeft)}|${contentRight === null ? "none" : Math.round(contentRight)}`;
+      const signature = `${Math.round(sectionCenter)}|${dockChevron ? Math.round(Number(runtimeState.dockChevronGap) || 0) : "none"}|${Math.round(sectionWidth)}|${panelLeft === null ? "docked" : Math.round(panelLeft)}|${zuneActionsX === null ? "none" : Math.round(zuneActionsX)}|${zuneSectionsRight === null ? "none" : Math.round(zuneSectionsRight)}|${contentLeft === null ? "none" : Math.round(contentLeft)}|${contentRight === null ? "none" : Math.round(contentRight)}`;
       if (signature === r.$playerSectionGeometrySignature) return;
       r.$playerSectionGeometrySignature = signature;
       r.$player.style.setProperty("--hub-sections-center-x", `${Math.round(sectionCenter)}px`);
@@ -587,12 +586,43 @@ r.$schedulePlayerSectionGeometry = function schedulePlayerSectionGeometry() {
       if (r.$playerSectionGeometryFrame) return;
       r.$playerSectionGeometryFrame = window.requestAnimationFrame(r.$syncPlayerSectionGeometry);
     };
+// Theme previews reflow the music bar under an open panel, which would drag
+// the panel's anchor across the screen. Hold it where the listener put it for
+// the length of the preview and release it back to the live anchor after.
+r.$holdPanelPosition = function holdPanelPosition() {
+      if (r.$panelPositionHeld) return;
+      const rect = r.$panel.getBoundingClientRect();
+      if (!rect.width) return;
+      r.$panelPositionHeld = true;
+      r.$host.style.setProperty("--hub-panel-hold-left", `${Math.round(rect.left)}px`);
+      r.$host.style.setProperty("--hub-panel-hold-bottom", `${Math.round(Math.max(0, window.innerHeight - rect.bottom))}px`);
+      r.$host.setAttribute("data-panel-position-hold", "true");
+    };
+r.$releasePanelPositionHold = function releasePanelPositionHold() {
+      if (!r.$panelPositionHeld) return;
+      r.$panelPositionHeld = false;
+      r.$host.removeAttribute("data-panel-position-hold");
+      r.$host.style.removeProperty("--hub-panel-hold-left");
+      r.$host.style.removeProperty("--hub-panel-hold-bottom");
+    };
 window.addEventListener("scroll", r.$schedulePlayerSectionGeometry, { passive: true });
 window.addEventListener("resize", r.$schedulePlayerSectionGeometry, { passive: true });
 }
 
 function registerPlayerShell1(r) {
+// Playback state arrives in bursts: a track switch alone sends the loading,
+// metadata, rate, play, and analysis updates within a few hundred milliseconds.
+// Painting the bar once per frame keeps those bursts off the visualizer's
+// animation frames while still showing the newest state on the next one.
+r.$schedulePlayerRender = function schedulePlayerRender() {
+      if (r.$playerRenderFrame) return;
+      r.$playerRenderFrame = window.requestAnimationFrame(() => r.$renderPlayer());
+    };
 r.$renderPlayer = function renderPlayer() {
+      if (r.$playerRenderFrame) {
+        window.cancelAnimationFrame(r.$playerRenderFrame);
+        r.$playerRenderFrame = 0;
+      }
       r.$syncMusicBarStyle(); r.$syncMusicBarPanelButtons(); r.$syncMusicBarSize();
       r.$syncMusicBarVisualizer(); r.$syncMusicBarWidth(); r.$syncFrostedGlass();
       r.$syncCornerStyle(); r.$syncScrubberStyles();
@@ -600,7 +630,10 @@ r.$renderPlayer = function renderPlayer() {
       r.$schedulePlayerSectionGeometry();
       const pending = pendingPlayerState(r); const { pendingClassicLoading, pendingClassicSeek, pendingClassicTrack, pendingFeedLoading, pendingFeedSeek, pendingFeedState } = pending;
       const nativeDiscover = r.$getDiscoverPlayerState?.();
-      const audibleDiscover = nativeDiscover?.control?.getAttribute("aria-label") === "Pause" && !r.$discoverTrackPlaybackActive ? nativeDiscover : null;
+      // A native preview that Bandkit has already taken over is not audible, and
+      // treating it as pending pins the scrub readout to zero for the rest of the
+      // track, undoing every seek.
+      const audibleDiscover = r.$audibleNativeDiscover?.(nativeDiscover) || null;
       const pendingDiscoverTrack = audibleDiscover?.track || r.$discoverPendingTrack;
       const displayIsPlaying = Boolean(audibleDiscover || runtimeLive.isPlaying);
       const candidateTrack = pendingDiscoverTrack || pendingFeedState?.track || pendingClassicTrack || runtimeLive;
@@ -952,4 +985,4 @@ r.$loadModernPlaylistQueue = async function loadModernPlaylistQueue(modern) {
     };
 }
 
-export const registerPlayerShell = [registerPlayerPresentation, registerPlayerShell1, registerPlayerShell2, ...registerPlayerHandoffs];
+export const registerPlayerShell = [registerPlayerPresentation, registerPlayerShell1, registerPlayerShell2, registerFeedStreams, registerFeedCart, ...registerPlayerHandoffs];

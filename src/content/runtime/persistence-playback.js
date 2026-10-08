@@ -61,7 +61,7 @@ function portableSettings(value = runtimeState) {
     musicBarWidth: value.musicBarWidth,
     musicBarCustomWidth: value.musicBarCustomWidth,
     musicBarBottomOffset: value.musicBarBottomOffset,
-    dockChevronOffset: value.dockChevronOffset,
+    dockChevronGap: value.dockChevronGap,
     layoutMode: value.layoutMode,
     dockSide: value.dockSide,
     dockedWidth: value.dockedWidth,
@@ -724,7 +724,9 @@ r.$prepareExternalNowPlaying = async function prepareExternalNowPlaying(track, s
           window.setTimeout(() => {
             if (prepareRequest !== r.$playlistPlayRequest) return;
             if (r.$isNowPlayingView()) r.$render();
-            r.$injectPlaylistButtons();
+            // A track switch never changes what the page action rows show, so
+            // only the unscanned controls need a pass here.
+            r.$schedulePlaylistButtons({ incremental: true });
           }, 0);
           return { queue, index, error: "", request: prepareRequest, usedFreshStreams: true };
         }

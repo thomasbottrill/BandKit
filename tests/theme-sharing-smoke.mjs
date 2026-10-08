@@ -77,6 +77,14 @@ assert.deepEqual(appearanceVisualizerColourDefaults(linkedAppearance, [visualize
   "Visualizer settings should expose the selected theme's three source colours");
 assert.deepEqual(resolvedVisualizerColors(["#010101", "#020202", "#030303"], linkedAppearance, visualizerTheme.visualizerColors), ["#010101", "#020202", "#abcdef"],
   "Theme-matching values should stay linked while genuine visualizer overrides replace either curated or dynamic colours");
+assert.deepEqual(resolvedVisualizerColors(["#010101", "#020202", "#030303"], {
+  ...linkedAppearance,
+  visualizerColourSource: "custom",
+  customVisualizerColor1: "#112233",
+  customVisualizerColor2: "#445566",
+  customVisualizerColor3: "#778899"
+}, visualizerTheme.visualizerColors), visualizerTheme.visualizerColors,
+"An explicit Custom source must keep fixed colours even when they happen to equal the theme palette");
 
 assert.throws(() => context.parse("not json"), /not valid JSON/);
 assert.throws(() => context.parse(JSON.stringify({ ...validPayload, version: 2 })), /not a supported Bandkit palette/);
@@ -163,10 +171,13 @@ assert.match(source, /customVisualizerColor1: null,[\s\S]*?customVisualizerColor
 assert.match(visualizerSettingsSource, /"Visualizer"[\s\S]*?Colour 1[\s\S]*?Colour 2[\s\S]*?Colour 3/, "Custom themes should expose the three editable colours below a concise Visualizer heading");
 assert.match(settingsCss, /\.hub-visualizer-colours\.is-theme-settings \.hub-visualizer-colour-row\s*\{[^}]*margin-left:\s*14px;/s, "Advanced visualizer colours should be indented below their heading");
 assert.match(source, /createControlsColourOverrides\(r\)[\s\S]*?playerColourGroup\.append\([\s\S]*?visualizerColours\.group,[\s\S]*?playerColourOverrides\.playback,[\s\S]*?playerColourOverrides\.handle,[\s\S]*?createCustomScrubColourSetting/, "Advanced custom colours should group visualizer, playback, handle and timeline colours under Player");
-assert.match(source, /createCustomVisualizerColourSettings\(r, \{ variant: "player" \}\)[\s\S]*?createSettingsDisclosure\("Colour", "", "player-visualiser-colours"\)[\s\S]*?colourDisclosure\.content\.append\(visualizerColours\.group\)/, "Player Visualizer settings should place the shared three-colour editor behind a nested Colour disclosure");
-assert.match(visualizerSettingsSource, /playerSettings \? "Theme colour"[\s\S]*?playerSettings \? "Reset to theme"/, "Player colour overrides should expose their theme link and reset action");
+assert.match(source, /createCustomVisualizerColourSettings\(r, \{ variant: "player" \}\)[\s\S]*?createSettingsDisclosure\("Colour", colourDescription, "player-visualiser-colours"\)[\s\S]*?colourDisclosure\.content\.append\(visualizerColours\.group\)/, "Player Visualizer settings should place the shared colour-source editor behind a nested Colour disclosure");
+assert.match(visualizerSettingsSource, /ariaLabel: "Visualiser colour source"[\s\S]*?value: "theme", label: "Follow theme"[\s\S]*?value: "custom", label: "Custom"/, "Visualizer colours must explicitly choose between theme inheritance and custom values");
+assert.match(visualizerSettingsSource, /visualizerColourSource = source === "custom"[\s\S]*?renderedVisualizerColours\(r, defaults\)[\s\S]*?customVisualizerColor/, "Choosing Custom must freeze the currently resolved visualizer colours");
+assert.match(visualizerSettingsSource, /source === "custom" \? "Custom visualiser colours enabled" : "Visualiser now follows the theme"/, "Changing visualizer colour source must explain the resulting inheritance state");
 assert.match(visualizerSettingsSource, /querySelectorAll\(`\[data-theme-colour=[\s\S]*?syncAll\(\);[\s\S]*?\$applyAppearance\(\)/, "Both visualizer colour editors should synchronize before applying the shared appearance state");
 assert.match(settingsCss, /\.hub-visualizer-colours \.hub-visualizer-colour-row,\s*\.hub-theme-colour-row\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto;/s, "Theme and player visualizer colours should follow the shared aligned settings-row layout");
+assert.match(settingsCss, /\.hub-visualizer-colour-row\[hidden\]\s*\{[^}]*display:\s*none;/s, "Inherited visualizer colours must stay hidden despite the shared grid row display");
 assert.match(settingsCss, /\.hub-visualizer-colour-disclosure > \.hub-settings-disclosure-trigger\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) var\(--hub-settings-control-tail-width\);[^}]*min-height:\s*46px;/s, "The nested Colour heading should share the same right-hand control tail as the other settings rows");
 assert.match(settingsCss, /\.hub-visualizer-colour-disclosure > \.hub-settings-disclosure-trigger \.hub-settings-disclosure-chevron\s*\{[^}]*opacity:\s*0\.72;[^}]*transform:\s*rotate\(0deg\);[\s\S]*?\.hub-visualizer-colour-disclosure\.is-open > \.hub-settings-disclosure-trigger \.hub-settings-disclosure-chevron\s*\{[^}]*transform:\s*rotate\(180deg\);/s, "The Colour caret should point down while closed and rotate upward while open");
 assert.match(settingsCss, /\.hub-visualizer-colour-control\s*\{[^}]*margin-right:\s*8px;/s, "Visualizer colour controls should share the compact right-hand inset");

@@ -1,6 +1,6 @@
 import { attachMenuKeyNavigation, attachMenuTriggerKeyNavigation } from "../menu-keyboard.js";
 import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState } from "./context.js";
-import { asset, createButtonIcon, createElement, escapeHtml, formatCartPrice, portableBandcampUrl, resolvedCartItemPageUrl, resolvedTrackPageUrl, safeBandcampUrl } from "../core.js";
+import { asset, createButtonIcon, createElement, escapeHtml, formatCartPrice, portableBandcampUrl, removeStyleProperty, resolvedCartItemPageUrl, resolvedTrackPageUrl, safeBandcampUrl, setStyleProperty } from "../core.js";
 import { MESSAGES } from "../../shared/contracts.js";
 import { cartActivityIdentity, parseCartBackup, portableCartItem } from "../cart-model.js";
 import { registerLayoutCartRendering } from "./layout-cart-rendering.js";
@@ -14,6 +14,9 @@ r.$applyAppearance = function applyAppearance() {
       r.$applyModernReleaseLayout();
       if (runtimeState.appearance.pageAware) r.$updateThemeFromPage();
       else r.$applySelectedTheme();
+      // Theme variables and this readiness flag are committed in the same task,
+      // so the visualizer never paints its bootstrap palette between them.
+      r.$player.dataset.themeReady = "true";
       r.$applyNativeCartVisibility();
       r.$applyNativePlayerVisibility();
       r.$ensurePagePlayerWaveforms();
@@ -41,13 +44,13 @@ r.$setShadowCartElementVisibility = function setShadowCartElementVisibility(elem
       }
       element.toggleAttribute("hidden", hidden);
       if (hidden) {
-        element.style.setProperty("display", "none", "important");
+        setStyleProperty(element.style, "display", "none", "important");
         return;
       }
       const value = element.dataset.bandkitDisplayValue || "";
       const priority = element.dataset.bandkitDisplayPriority || "";
-      if (value) element.style.setProperty("display", value, priority);
-      else element.style.removeProperty("display");
+      if (value) setStyleProperty(element.style, "display", value, priority);
+      else removeStyleProperty(element.style, "display");
     };
 r.$applyShadowHeaderCartVisibility = function applyShadowHeaderCartVisibility(hidden) {
       const menuShadow = document.querySelector("menu-bar")?.shadowRoot;
@@ -58,9 +61,14 @@ r.$applyShadowHeaderCartVisibility = function applyShadowHeaderCartVisibility(hi
         visibilityStyle.id = "bandkit-native-header-cart-style";
         menuShadow.append(visibilityStyle);
       }
-      visibilityStyle.textContent = hidden
+      // Replacing a stylesheet re-parses it and invalidates style for the whole
+      // document. Header synchronisation runs on every page mutation, so an
+      // unconditional write here restyles the page hundreds of times during a
+      // track change. Only write when the rule itself changes.
+      const visibilityCss = hidden
         ? `li.cart,li[data-bandkit-native-cart-wrapper],button[aria-label="Cart"],button[data-bandkit-native-cart]{display:none!important}`
         : "";
+      if (visibilityStyle.textContent !== visibilityCss) visibilityStyle.textContent = visibilityCss;
       const candidates = menuShadow.querySelectorAll('li.cart, li[data-bandkit-native-cart-wrapper], button[aria-label="Cart"], button[data-bandkit-native-cart]');
       for (const candidate of candidates) r.$setShadowCartElementVisibility(candidate, hidden);
     };
@@ -407,15 +415,50 @@ r.$restoreSavedCart = async function restoreSavedCart(items, { fallbackTrack = n
       const failed = result.failed?.length || 0;
       const summary = result.error
         ? result.error
-        : `Restored ${result.added || 0}; ${result.alreadyPresent || 0} already present${failed ? `; ${failed} could not be restored` : ""}.`;
+        : result.added === 0 && result.alreadyPresent > 0
+          ? "Already in your Bandcamp cart."
+          : `Restored ${result.added || 0}; ${result.alreadyPresent || 0} already present${failed ? `; ${failed} could not be restored` : ""}.`;
       r.$showToast(summary);
       return { ok: !result.error, ...result, summary };
     };
 }
 function registerLayoutCart3(r) {
+r.$adoptRemoteCart = function adoptRemoteCart(remote) {
+      // A borrowed release tab owns Bandcamp's real cart. When it hands one
+      // back, take it: a page without a cart of its own would otherwise keep
+      // showing the cart as it was before the add or removal, which reads as
+      // "nothing happened" even though Bandcamp did exactly what was asked.
+      if (!Array.isArray(remote?.cart)) return;
+      const known = new Map(runtimeState.cart.map((item) => [cartActivityIdentity(item), item]));
+      runtimeState.cart = remote.cart.map((item) => {
+        const local = known.get(cartActivityIdentity(item));
+        return local && r.$isGenericCartArtist(item.artist) && !r.$isGenericCartArtist(local.artist)
+          ? { ...item, artist: local.artist }
+          : item;
+      });
+      runtimeState.cartSummary = remote.cartSummary || null;
+      runtimeState.cartSavedAt = Date.now();
+      runtimeSaveState();
+      r.$render();
+    };
 r.$addResolvedItemsToCart = async function addResolvedItemsToCart(sourceItems) {
       const resolved = await r.$runtimeMessage({ type: MESSAGES.RESOLVE_CART_ITEMS, items: sourceItems });
       if (!resolved?.ok) return { ok: false, error: resolved?.error || "Could not inspect the saved cart items." };
+      // Pages without Bandcamp's cart bundle borrow a release page in the
+      // background instead of sending the listener away from this one.
+      if (!r.$pageCartIsAvailable()) {
+        const remote = await r.$runtimeMessage({
+          type: MESSAGES.CART_ADD_REMOTE,
+          items: resolved.items,
+          url: resolved.items.find((item) => item?.restore?.url || item?.url)?.restore?.url || ""
+        });
+        r.$adoptRemoteCart(remote);
+        return { added: 0, alreadyPresent: 0, failed: [], ...remote };
+      }
+      return r.$sendCartRestore(resolved.items);
+    };
+r.$sendCartRestore = async function sendCartRestore(resolvedItems) {
+      const resolved = { items: Array.isArray(resolvedItems) ? resolvedItems : [] };
       const requestId = `restore-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const result = await new Promise((resolve) => {
         const timeout = window.setTimeout(() => {
@@ -435,7 +478,13 @@ r.$addResolvedItemsToCart = async function addResolvedItemsToCart(sourceItems) {
       });
       return result;
     };
+}
+function registerLayoutCartRecovery(r) {
 r.$recoverMissingCartItems = function recoverMissingCartItems(items) {
+      // Recovery is a safety net, not something the listener asked for, so it
+      // only ever runs where Bandcamp's own cart is present. Borrowing a tab for
+      // it would let a transient reading start a restore that opens more tabs.
+      if (!r.$pageCartIsAvailable()) return;
       const missingItems = Array.isArray(items) ? items : [];
       if (!missingItems.length) {
         r.$cartRecoverySignature = "";
@@ -525,6 +574,20 @@ r.$addTracksToSavedCart = async function addTracksToSavedCart(tracks, snapshotId
 r.$addTracksToCurrentCart = async function addTracksToCurrentCart(tracks, requestedItemType = "t") {
       const items = await r.$cartItemsForTracks(tracks, requestedItemType);
       if (!items.length) return;
+      // A name-your-price item cannot go into the cart at nothing; Bandcamp
+      // only accepts it at or above its per-currency collection minimum. Send
+      // the listener to the release instead of creating a cart that fails at
+      // checkout. The album flow asks for an amount up front; this covers the
+      // track paths, which have no prompt of their own.
+      const unpriced = items.filter((item) => ["a", "t"].includes(item.restore?.item_type)
+        && !(Number(item.restore?.unit_price) > 0));
+      if (unpriced.length) {
+        r.$showToast(unpriced.length === 1
+          ? `“${unpriced[0].title}” is name-your-price. Set an amount on its Bandcamp page to add it.`
+          : `${unpriced.length} name-your-price items need an amount before they can be added.`);
+        void r.$openTrackAction(unpriced[0], "cart");
+        return { ok: false, error: "This item needs a price before it can be added." };
+      }
       const fallbackTrack = requestedItemType === "t" && Array.isArray(tracks) && tracks.length === 1 ? tracks[0] : null;
       const result = await r.$restoreSavedCart(items, { fallbackTrack });
       if (requestedItemType !== "a" || result.ok || !result.error) return result;
@@ -535,8 +598,28 @@ r.$addTracksToCurrentCart = async function addTracksToCurrentCart(tracks, reques
       return { ...result, openedPurchase: true };
     };
 r.$removeLiveCartItem = async function removeLiveCartItem(item) {
-      const requestId = `remove-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const removalKey = cartActivityIdentity(item);
+      r.$cartRemovalKeys ||= new Set();
+      if (removalKey) r.$cartRemovalKeys.add(removalKey);
+      // Without Bandcamp's cart bundle the removal borrows a release page the
+      // same way an add does, so the cart stays editable away from a release.
+      if (!r.$pageCartIsAvailable()) {
+        const remote = await r.$runtimeMessage({
+          type: MESSAGES.CART_REMOVE_REMOTE,
+          item: item.restore || item,
+          url: item.restore?.url || item.url || ""
+        });
+        window.setTimeout(() => r.$cartRemovalKeys?.delete(removalKey), 1000);
+        r.$adoptRemoteCart(remote);
+        return { removed: false, ...remote };
+      }
+      return r.$sendCartRemove(item, removalKey);
+    };
+r.$sendCartRemove = async function sendCartRemove(item, removalKey = cartActivityIdentity(item)) {
+      const requestId = `remove-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      // Cart protection treats a removed item as one to restore, so hold the key
+      // here as well: a borrowed tab runs its own sweep and would otherwise put
+      // the item straight back.
       r.$cartRemovalKeys ||= new Set();
       if (removalKey) r.$cartRemovalKeys.add(removalKey);
       return new Promise((resolve) => {
@@ -603,6 +686,31 @@ r.$createPlaylistMenuOption = function createPlaylistMenuOption(label, onClick, 
       }
       option.addEventListener("click", onClick);
       return option;
+    };
+}
+
+function registerLayoutCartMinimums(r) {
+r.$cartItemsBelowMinimum = async function cartItemsBelowMinimum() {
+      // Bandcamp's checkout rejects a cart item whose amount is below the
+      // minimum its own buy dialog enforces, and reports it as a price change.
+      // Ask the background for the per-currency floor so checkout can say what
+      // is wrong here instead of sending the listener to an error page.
+      const items = runtimeState.cart.filter((item) => ["a", "t"].includes(item?.restore?.item_type));
+      if (!items.length) return [];
+      const response = await r.$runtimeMessage({
+        type: MESSAGES.RESOLVE_CART_MINIMUMS,
+        items: items.map((item) => ({
+          id: item.id,
+          itemType: item.restore?.item_type,
+          currency: item.currency,
+          unitPrice: Number(item.restore?.unit_price ?? item.price) || 0
+        }))
+      }).catch(() => null);
+      const belowMinimum = Array.isArray(response?.belowMinimum) ? response.belowMinimum : [];
+      return belowMinimum.map((entry) => ({
+        ...entry,
+        title: items.find((item) => item.id === entry.id)?.title || ""
+      }));
     };
 }
 
@@ -801,5 +909,5 @@ r.$removeSavedCartItem = function removeSavedCartItem(snapshot, item) {
 
 export const registerLayoutCart = [
   registerLayoutCart1, registerLayoutCart2, registerLayoutCartActivity, registerLayoutCart2b,
-  registerLayoutCart3, registerLayoutCart4, registerLayoutCartRendering, registerLayoutCart6
+  registerLayoutCart3, registerLayoutCartRecovery, registerLayoutCartMinimums, registerLayoutCart4, registerLayoutCartRendering, registerLayoutCart6
 ];

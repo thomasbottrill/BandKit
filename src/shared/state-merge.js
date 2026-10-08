@@ -49,7 +49,7 @@ export const CONCURRENT_SETTING_KEYS = Object.freeze([
   "musicBarWidth",
   "musicBarCustomWidth",
   "musicBarBottomOffset",
-  "dockChevronOffset"
+  "dockChevronGap"
 ]);
 
 function mergeChangedValue(baseline, localState, latestState, key) {

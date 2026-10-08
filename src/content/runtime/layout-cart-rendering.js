@@ -1,6 +1,7 @@
 import { runtimeLive, runtimeState } from "./context.js";
 import { asset, createElement, resolvedTrackPageUrl } from "../core.js";
 import { openFullscreenVisualizer } from "./fullscreen-visualizer.js";
+import { createPictureInPictureMenuAction } from "./picture-in-picture.js";
 
 function deferNowPlayingShuffleRefresh(r) {
   if (runtimeState.activeTab !== "playlist" || runtimeState.playlistView !== "current" || !r.$nowPlayingShuffleInteractionActive) return false;
@@ -37,9 +38,20 @@ r.$renderPlayerMoreActions = function renderPlayerMoreActions() {
         visualize.innerHTML = `<span class="hub-button-icon" style="--hub-icon:url('${asset("icon-image.svg")}')" aria-hidden="true"></span><span>Visualizer</span>`;
         visualize.addEventListener("click", () => openFullscreenVisualizer(r));
         r.$playerMoreMenu.append(visualize);
+        createPictureInPictureMenuAction(r);
       }
     };
+// The panel is rebuilt from whole state, so several playback messages in one
+// burst produce identical output. Collapse them onto a single frame.
+r.$schedulePanelRender = function schedulePanelRender() {
+      if (r.$panelRenderFrame) return;
+      r.$panelRenderFrame = window.requestAnimationFrame(() => r.$render());
+    };
 r.$render = function render() {
+      if (r.$panelRenderFrame) {
+        window.cancelAnimationFrame(r.$panelRenderFrame);
+        r.$panelRenderFrame = 0;
+      }
       r.$restoreVisualThemePreview?.();
       const panelHidden = !runtimeState.open;
       if (!panelHidden) r.$cancelCompactPanelFocusRelease?.();

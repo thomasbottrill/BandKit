@@ -43,6 +43,10 @@
   padding: 0;
 }
 
+.hub-settings-detail .hub-visualizer-colour-source-row {
+  min-height: 42px;
+}
+
 .hub-settings-detail .hub-visualizer-colour-disclosure {
   margin: 0;
 }
@@ -76,6 +80,10 @@
 
 .hub-visualizer-colour-row {
   color: var(--hub-muted);
+}
+
+.hub-visualizer-colours .hub-visualizer-colour-row[hidden] {
+  display: none;
 }
 
 .hub-visualizer-colour-control {

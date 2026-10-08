@@ -6,9 +6,12 @@ const source = readContentSource();
 const css = readHubStyles();
 const modernCss = readModernStyles();
 const liveScanningSource = fs.readFileSync(new URL("../src/content/runtime/live-scanning.js", import.meta.url), "utf8");
+const dockChevronSource = fs.readFileSync(new URL("../src/content/runtime/dock-chevron.js", import.meta.url), "utf8");
 const playerShellSource = ["player-shell.js", "player-handoffs.js"].map((file) => (
   fs.readFileSync(new URL(`../src/content/runtime/${file}`, import.meta.url), "utf8")
 )).join("\n");
+const layoutCartSource = fs.readFileSync(new URL("../src/content/runtime/layout-cart.js", import.meta.url), "utf8");
+const modernLayoutSource = fs.readFileSync(new URL("../src/content/runtime/modern-layout.js", import.meta.url), "utf8");
 const djPlaybackSource = fs.readFileSync(new URL("../src/content/runtime/dj-playback.js", import.meta.url), "utf8");
 const spectrumRendererSource = ["visualizer-colour-field.js", "spectrum-renderer.js"].map(file => fs.readFileSync(new URL(`../src/content/${file}`, import.meta.url), "utf8")).join("\n");
 const runtimeShellSource = ["runtime-shell.js", "runtime-dom-shell.js", "../components/music-bar.js", "../components/section-navigation.js"].map((file) => (
@@ -27,6 +30,7 @@ const offscreenSource = ["index.js", "visualizer.js"].map((file) => (
 )).join("\n");
 const pageActionsSource = fs.readFileSync(new URL("../src/content/runtime/page-actions.js", import.meta.url), "utf8");
 const appearanceSource = fs.readFileSync(new URL("../src/content/runtime/appearance.js", import.meta.url), "utf8");
+const cornerMutationsSource = fs.readFileSync(new URL("../src/content/runtime/corner-mutations.js", import.meta.url), "utf8");
 const playerSurfaceSource = fs.readFileSync(new URL("../src/content/runtime/player-surface.js", import.meta.url), "utf8");
 const collectionPlaylistCss = fs.readFileSync(new URL("../src/styles/modern/collection-playlists.css", import.meta.url), "utf8");
 
@@ -98,7 +102,7 @@ assert.match(css, /@keyframes hub-compact-panel-notice[\s\S]*?translateX\(-140%\
 assert.match(css, /@keyframes hub-compact-panel-caret-notice[\s\S]*?translateX\(140%\)[\s\S]*?translateX\(-140%\)[\s\S]*?translateX\(0\)/, "The compact caret must reset invisibly on the left and return by moving right");
 assert.ok(fs.existsSync(new URL("../assets/icon-panel-caret.svg", import.meta.url)), "The compact panel caret asset must be bundled");
 assert.match(source, /playlist\.push[\s\S]*?if \(added\) state\.musicBarRecentPanel = "playlist"/, "Adding to Now Playing must make it the recent compact destination");
-assert.match(source, /uniqueItems\.length > state\.cart\.length[\s\S]*?musicBarRecentPanel = "cart"/, "Adding to the cart must make it the recent compact destination");
+assert.match(source, /acceptedItems\.length > knownItems\.length[\s\S]*?musicBarRecentPanel = "cart"/, "Adding to the cart must make it the recent compact destination");
 assert.match(css, /data-panel-buttons="compact"[^}]*\.hub-compact-panel-button\s*\{[^}]*display:\s*inline-flex;/s, "Compact mode must show one music-bar panel button");
 assert.match(css, /\.hub-panel\[data-panel-buttons="compact"\] \.hub-panel-shortcuts\s*\{[^}]*display:\s*grid;/s, "Compact mode must expose four destinations at the bottom of the panel");
 assert.doesNotMatch(css, /\.hub-panel\[data-panel-buttons="compact"\]\[data-player-empty="true"\] \.hub-panel-shortcuts\s*\{[^}]*display:\s*none;/s,
@@ -243,6 +247,17 @@ assert.match(css, /\.hub-dynamic-color-options\s*\{[^}]*display:\s*grid;[^}]*mar
   "Dynamic Player and Panel controls must remain a divider-free dependent group");
 assert.match(css, /\.hub-settings-dependent-options > \.hub-player-setting-row,[\s\S]*?\.hub-settings-dependent-row,[\s\S]*?padding-inline-start:\s*16px;/s,
   "Dependent settings must use one consistent child indent");
+
+// A dependent row that hides itself must actually disappear: the shared row
+// grid sets display, which outranks the user agent's [hidden] rule.
+assert.match(css, /\.hub-player-setting-row\[hidden\],\s*\.hub-settings-detail \.hub-settings-row\[hidden\] \{\s*display: none;/,
+  "Settings rows must honour [hidden] so dependent controls stay out of sight");
+assert.match(musicBarSettingsSource, /const custom = musicBarWidth\.value === "custom";\s*customMusicBarWidthRow\.hidden = !custom;/,
+  "The custom width row must only appear while the Custom width option is selected");
+assert.match(musicBarSettingsSource, /r\.\$syncMusicBarWidthSetting = \(\) => \{[\s\S]*?musicBarWidth\.setValue\(runtimeState\.musicBarWidth, false\);[\s\S]*?syncCustomWidthVisibility\(\);/,
+  "Resizing the music bar must move the open settings page onto Custom so its row is reachable");
+assert.match(liveScanningSource, /const syncWidthSetting = \(\) => r\.\$syncMusicBarWidthSetting\?\.\(\);/,
+  "The resize handles must sync the width setting through the settings control, not stale selectors");
 assert.match(musicBarSettingsSource, /hub-visualizer-enabled-options hub-settings-dependent-options[\s\S]*?enabledOptions\.hidden = !enabled[\s\S]*?enabledOptions\.hidden = !active/,
   "Disabled visualisers must conceal their dependent controls until enabled");
 assert.match(runtimeShellSource, /player\.dataset\.dynamicColor = dynamicColor && runtimeState\.musicBarPlayerDynamicColor !== false[\s\S]*?panel\.dataset\.dynamicColor = dynamicColor && runtimeState\.musicBarPanelDynamicColor !== false/,
@@ -313,8 +328,10 @@ assert.match(interactionGuardsSource, /scheduleCompactPanelFocusRelease[\s\S]*?s
   "A pointer-closed compact panel must release restored focus five seconds after mouseout");
 assert.match(source, /sectionRect = playerSections\.getBoundingClientRect\(\)[\s\S]*?sectionRect\.left \+ sectionRect\.width \/ 2 - playerRect\.left/,
   "Contextual panels must use the launcher's rendered center after preset layout resolves");
-assert.match(source, /sectionCenter = docked[\s\S]*?window\.innerWidth - 16 - panelWidth \/ 2 - playerRect\.left[\s\S]*?: contextual[\s\S]*?: panelCenter - playerRect\.left;/,
-  "Docked panel controls must use their stable right-edge anchor while floating and Zune launchers use their rendered position");
+assert.match(source, /dockChevron = docked \? dockChevronGeometry\(playerRect, contentRect\) : null;[\s\S]*?sectionCenter = dockChevron[\s\S]*?\? dockChevron\.center[\s\S]*?: contextual[\s\S]*?: panelCenter - playerRect\.left;/,
+  "Docked panel controls must anchor beside the music bar content while floating and Zune launchers use their rendered position");
+assert.match(dockChevronSource, /contentRect\.right - playerRect\.left \+ DOCK_CHEVRON_CLEARANCE \+ half/,
+  "The docked chevron must rest just past the timeline instead of at the viewport edge");
 assert.match(source, /anchorCenter = playerRect\.left \+ sectionCenter[\s\S]*?anchorCenter - panelWidth \/ 2/, "Floating contextual panels must center on their music-bar control");
 assert.match(source, /maxPanelLeft = Math\.max\(12, window\.innerWidth - panelWidth - 12\)/, "Floating contextual panels must stay inside the viewport");
 assert.match(css, /\.hub-panel\.is-contextual\[data-player-style="zune"\]\s*\{[^}]*left:\s*var\(--hub-context-panel-left, 12px\);[^}]*right:\s*auto;/s,
@@ -333,7 +350,8 @@ assert.doesNotMatch(liveScanningSource.match(/function bindFloatingPlayerResize[
   "Completing a floating-bar resize must not rerender track metadata");
 assert.match(runtimeShellSource, /ResizeObserver[\s\S]*?refreshScrubWaveform\(true, entries\[0\]\?\.contentRect\.width \|\| 0\)/,
   "The waveform must rebuild to preserve its spacing while the floating bar is resizing");
-assert.match(liveScanningSource, /reservedWidth: 0/, "Current music-bar styles must resize their visible content directly without a retired shell allowance");
+assert.match(liveScanningSource, /reservedWidth: runtimeState\.musicBarStyle === "docked" \? 112 : 0/,
+  "Only the docked bar reserves room, so its timeline stops before it reaches the dock chevron");
 assert.match(css, /\.hub-player-resize-handle\s*\{[^}]*bottom:\s*0;[^}]*cursor:\s*ew-resize[^}]*top:\s*0;[^}]*width:\s*16px;/s, "The floating bar resize grips must cover the full left and right edges");
 assert.match(css, /data-player-style="zune"\]\[data-player-variant="rounded"\] \.hub-player-resize-handle\s*\{[^}]*display:\s*block;/s, "Rounded music bars must expose the same horizontal resize grips");
 assert.match(css, /data-player-style="docked"\] \.hub-player-resize-handle,[\s\S]*?data-player-style="zune"\] \.hub-player-resize-handle\s*\{[^}]*display:\s*block;[^}]*pointer-events:\s*auto;/s, "Docked and Zune music bars must expose interactive horizontal resize grips");
@@ -368,8 +386,8 @@ assert.match(musicBarSettingsSource, /createScrubbablePercentage[\s\S]*?input\.a
 assert.match(musicBarSettingsSource, /event\.key === "Enter"[\s\S]*?commitTypedValue\(\)[\s\S]*?input\.select\(\)/,
   "Typed opacity values must commit when Enter is pressed");
 assert.match(source, /createAppearanceSettings[\s\S]*?createCornerStyleSetting\(r\)/, "Corner styling must live in Appearance settings");
-assert.match(playerShellSource, /function syncCornerStyle[\s\S]*?dataset\.cornerStyle = style[\s\S]*?--hub-custom-corner-radius/, "Corner changes must update one shared player and panel design token");
-assert.match(playerShellSource, /dataset\.bandkitCornerStyle = style[\s\S]*?--bandkit-page-corner-radius/, "Corner changes must also update the page-wide corner mode and custom radius token");
+assert.match(playerShellSource, /function syncCornerStyle[\s\S]*?setDatasetValue\(r\.\$host, "cornerStyle", style\)[\s\S]*?--hub-custom-corner-radius/, "Corner changes must update one shared player and panel design token");
+assert.match(playerShellSource, /setDatasetValue\(document\.documentElement, "bandkitCornerStyle", style\)[\s\S]*?--bandkit-page-corner-radius/, "Corner changes must also update the page-wide corner mode and custom radius token");
 assert.match(pageActionsSource, /\$pageDjHost = inlineHost;[\s\S]*?\$syncCornerStyle\?\.\(\)/, "Page DJ tools must inherit the shared corner mode when their shadow surface mounts");
 assert.match(css, /data-corner-style="square"[\s\S]*?\.hub-panel[\s\S]*?\.hub-player[\s\S]*?border-radius:\s*0\s*!important/, "Square mode must remove rounding throughout both Bandkit surfaces");
 assert.match(css, /data-corner-style="custom"[\s\S]*?--hub-custom-corner-radius[\s\S]*?!important/, "Custom mode must apply the chosen radius throughout both Bandkit surfaces");
@@ -378,7 +396,19 @@ assert.match(modernCss, /data-bandkit-modern-styling="true"\]\[data-bandkit-corn
 assert.match(modernCss, /data-bandkit-modern-styling="true"\]\[data-bandkit-corner-style="custom"\][\s\S]*?--bandkit-page-corner-radius[\s\S]*?!important/, "Custom mode must apply its shared radius throughout modern Bandcamp pages");
 assert.match(collectionPlaylistCss, /:host-context\(html\[data-bandkit-modern-styling="true"\]\[data-bandkit-corner-style="square"\]\)[\s\S]*?border-radius:\s*0\s*!important/, "Square mode must reach Bandcamp's shadow-DOM playlist cards");
 assert.match(collectionPlaylistCss, /:host-context\(html\[data-bandkit-modern-styling="true"\]\[data-bandkit-corner-style="custom"\]\)[\s\S]*?--bandkit-page-corner-radius/, "Custom mode must reach Bandcamp's shadow-DOM playlist cards");
-assert.match(appearanceSource, /function syncPageCornerShadowRoots[\s\S]*?host\.shadowRoot[\s\S]*?data-bandkit-page-corners[\s\S]*?data-bandkit-corner-style="square"[\s\S]*?data-bandkit-corner-style="custom"[\s\S]*?--bandkit-page-corner-radius/, "Page corner modes must be injected into every reachable Bandcamp shadow root");
+assert.match(appearanceSource, /\$pageCornerStyleText = `[\s\S]*?data-bandkit-corner-style="square"[\s\S]*?data-bandkit-corner-style="custom"[\s\S]*?--bandkit-page-corner-radius/, "Page corner modes must carry both square and custom treatments and the shared radius token");
+assert.match(appearanceSource, /function stylePageCornerRoot[\s\S]*?data-bandkit-page-corners[\s\S]*?\$pageCornerStyleText[\s\S]*?shadow\.append\(style\)/, "Page corner modes must be injected into every reachable Bandcamp shadow root");
+assert.match(cornerMutationsSource, /function collectShadowRoots[\s\S]*?host\.shadowRoot[\s\S]*?roots\.push\(shadow\)[\s\S]*?scan\(shadow\)/, "Shadow-root discovery must still recurse through nested shadow roots");
+// Rescanning the whole document on every mutation was a measured album-page
+// cost, so discovery must stay incremental and skip already-styled roots.
+assert.match(cornerMutationsSource, /if \(styled\?\.has\(shadow\)\) continue;/, "Shadow-root discovery must skip roots it has already styled");
+assert.match(appearanceSource, /function syncPageCornerShadowRootsIn[\s\S]*?collectShadowRoots\(node/, "Mutation-driven corner syncing must walk only the inserted subtrees");
+assert.match(appearanceSource, /\$schedulePageCornerShadowSync = function[\s\S]*?collectCornerMutationRoots\(records[\s\S]*?if \(queued\.length\) r\.\$syncPageCornerShadowRootsIn\(queued\)/, "Scheduled corner syncing must consume the queued subtrees rather than rescanning the document");
+// A shadow root attached to an element already in the document produces no
+// childList mutation, so eventual discovery must survive the incremental path.
+assert.match(appearanceSource, /\$PAGE_CORNER_RESCAN_INTERVAL_MS = \d+/, "Incremental corner syncing must keep a bounded full-rescan safety net");
+assert.match(appearanceSource, /if \(due \|\| !queued\.length\) r\.\$syncPageCornerShadowRoots\(\)/, "The bounded rescan must still run alongside queued subtrees");
+assert.match(appearanceSource, /addEventListener\("visibilitychange", syncOnVisible\)/, "A tab shown after being hidden must rediscover shadow roots that animation frames could not");
 assert.match(appearanceSource, /data-bandkit-corner-style="square"[\s\S]*?:not\(\.hub-play-button\.is-loading\)::after[\s\S]*?data-bandkit-corner-style="custom"[\s\S]*?:not\(\.hub-play-button\.is-loading\)::after/, "Shadow-root corner propagation must not flatten the playback progress ring");
 assert.match(appearanceSource, /:not\(\.hub-player-art-link\):not\(\.hub-player-art\)/, "Generic shadow-root corner propagation must leave edge-aware player artwork clipping intact");
 assert.match(appearanceSource, /:not\(\.hub-button-icon\)/, "Generic shadow-root corner propagation must not distort masked button glyphs");
@@ -509,7 +539,7 @@ assert.match(musicBarSettingsSource, /input\.addEventListener\("dblclick"[\s\S]*
   "Visualizer dimensions must reset to Auto on double-click");
 assert.match(musicBarSettingsSource, /ariaLabel: "Visualizer blend mode"[\s\S]*?VISUALIZER_BLEND_MODES\.includes\(nextBlendMode\)/,
   "The Visualizer section must expose a validated blend-mode picker");
-assert.match(runtimeShellSource, /musicBarVisualizerWidth[\s\S]*?style\.setProperty\("width", `\$\{width\}px`\)[\s\S]*?style\.setProperty\("height", `\$\{height\}px`\)[\s\S]*?--hub-spectrum-blend-mode/,
+assert.match(runtimeShellSource, /musicBarVisualizerWidth[\s\S]*?setStyleProperty\(r\.\$playerVisualizer\?\.style, "width", `\$\{width\}px`\)[\s\S]*?setStyleProperty\(r\.\$playerVisualizer\?\.style, "height", `\$\{height\}px`\)[\s\S]*?--hub-spectrum-blend-mode/,
   "Visualizer dimension and blend-mode overrides must be applied to the live visualizer");
 assert.match(settingsPickerSource, /hub-settings-picker[\s\S]*?renderPreview[\s\S]*?hub-settings-combobox-preview[\s\S]*?role", "listbox"/,
   "All Player dropdowns must use the icon-capable settings picker");
@@ -637,6 +667,16 @@ assert.match(css, /\.hub-player-visualizer::before\s*\{[^}]*transform:\s*transla
   "The ambient visualizer bloom must sit low in the music bar");
 assert.match(css, /--hub-visualizer-cool:\s*var\(--hub-visualizer-color-3,[\s\S]*?--hub-visualizer-hot:\s*var\(--hub-visualizer-color-2,[\s\S]*?--hub-visualizer-warm:\s*var\(--hub-visualizer-color-1,/,
   "Every ambient glow colour must use the active theme's visualizer palette with linked fallbacks");
+assert.match(css, /\.hub-player:not\(\[data-theme-ready="true"\]\) \.hub-player-visualizer\s*\{[^}]*opacity:\s*0 !important;/s,
+  "The visualizer must remain hidden until its final theme variables are ready");
+assert.match(runtimeShellSource, /r\.\$player\.dataset\.themeReady = "false";/,
+  "The visualizer must begin behind its appearance-readiness gate");
+assert.match(layoutCartSource, /r\.\$applyAppearance = function applyAppearance\(\) \{[\s\S]*?r\.\$player\.dataset\.themeReady = "true";/,
+  "Appearance application must reveal the visualizer only after final theme variables are set");
+assert.match(modernLayoutSource, /r\.\$spectrumColourCache = null;[\s\S]*?for \(const \[name, value\] of Object\.entries\(variables\)\)/,
+  "Applying final theme variables must invalidate any bootstrap spectrum colours");
+assert.match(spectrumRendererSource, /colour\("--hub-visualizer-color-1", "#1da0c3"\)[\s\S]*?colour\("--hub-visualizer-color-2", "#1da0c3"\)[\s\S]*?colour\("--hub-visualizer-color-3", "#1da0c3"\)/,
+  "The renderer's defensive startup palette must be monochrome rather than multicoloured");
 assert.match(visualizerThemeSource, /"--hub-visualizer-color-1"[\s\S]*?"--hub-visualizer-color-2"[\s\S]*?"--hub-visualizer-color-3"/,
   "Theme application must provide the visualizer's three connected colours");
 assert.match(css, /prefers-reduced-motion:\s*reduce[\s\S]*?\.hub-player-visualizer::before\s*\{[^}]*animation:\s*none;/,
@@ -808,7 +848,7 @@ assert.match(settingsPickerSource, /role", "combobox"[\s\S]*?role", "listbox"[\s
   "Scrub-handle settings must use the visual accessible picker rather than a text-only select");
 assert.match(css, /\.hub-settings-disclosure:has\(:is\(\.hub-theme-picker, \.hub-settings-picker\)\.is-open\)\s*\{[^}]*overflow:\s*visible;/s,
   "The scrub-handle list must escape its disclosure card without being clipped");
-assert.match(runtimeShellSource, /SCRUBBER_HANDLE_SHAPES\.includes\(runtimeState\.scrubberHandleShape\)[\s\S]*?host\.dataset\.scrubHandleShape = handleShape[\s\S]*?--hub-scrub-handle-mask[\s\S]*?documentElement\.dataset\.bandkitScrubHandle = handleShape[\s\S]*?--bandkit-scrub-handle-mask/,
+assert.match(runtimeShellSource, /SCRUBBER_HANDLE_SHAPES\.includes\(runtimeState\.scrubberHandleShape\)[\s\S]*?setDatasetValue\(r\.\$host, "scrubHandleShape", handleShape\)[\s\S]*?--hub-scrub-handle-mask[\s\S]*?setDatasetValue\(document\.documentElement, "bandkitScrubHandle", handleShape\)[\s\S]*?--bandkit-scrub-handle-mask/,
   "The selected handle artwork must reach the shadow UI and Bandcamp page players");
 assert.match(css, /\.hub-scrub-playhead::before,[\s\S]*?\.hub-scrub-playhead::after[\s\S]*?mask:\s*var\(--hub-scrub-handle-mask\)[\s\S]*?\.hub-scrub-playhead::before\s*\{[^}]*background:\s*var\(--hub-scrub-surface\);[\s\S]*?\.hub-scrub-playhead::after\s*\{[^}]*background:\s*var\(--hub-handle-color, var\(--hub-scrub-accent\)\);[^}]*inset:\s*4px;/s,
   "Every music-bar handle shape must preserve the stronger surface outline and inset accent layer");
@@ -844,7 +884,7 @@ for (const shape of ["star-4", "star-5", "star-6"]) assert.ok(
   fs.existsSync(new URL(`../assets/icon-scrub-${shape}-rounded.svg`, import.meta.url)),
   `${shape} must have rounded artwork for rounded interface settings`
 );
-assert.match(runtimeShellSource, /MUSIC_BAR_SCRUBBER_WIDTHS\.includes\(runtimeState\.musicBarScrubberWidth\)[\s\S]*?player\.dataset\.scrubberWidth = width/,
+assert.match(runtimeShellSource, /MUSIC_BAR_SCRUBBER_WIDTHS\.includes\(runtimeState\.musicBarScrubberWidth\)[\s\S]*?setDatasetValue\(r\.\$player, "scrubberWidth", width\)/,
   "The player must expose the persisted timeline width as a styling state");
 assert.match(source, /Choose how far the music bar timeline extends[\s\S]*?Music bar timeline width[\s\S]*?\{ value: "small", label: "Small" \}[\s\S]*?\{ value: "default", label: "Medium" \}[\s\S]*?\{ value: "full", label: "Full" \}/,
   "Player settings must expose Small, Medium and Full timeline widths");
@@ -904,7 +944,7 @@ assert.match(css, /\.hub-player-more-button\[aria-expanded="true"\]:is\(:hover, 
   "An open overflow trigger must remain surface-free while hovered or focused");
 assert.match(css, /\.hub-dj-player-button:hover,[\s\S]*?background:\s*transparent;[\s\S]*?border-color:\s*transparent;[\s\S]*?color:\s*var\(--hub-accent\);[\s\S]*?\.hub-dj-player-button\.is-active\s*\{[^}]*background:\s*transparent;[^}]*border-color:\s*transparent;/,
   "The DJ control must use only its accent glyph on hover and while active");
-assert.match(css, /\.hub-player-more-menu \.hub-queue-action\.is-labeled\s*\{[^}]*background:\s*transparent;[^}]*border-color:\s*transparent;[^}]*border-radius:\s*3px;/s,
+assert.match(css, /\.hub-player-more-menu :is\(\.hub-queue-action\.is-labeled, \.hub-visualizer-menu-action, \.hub-pip-menu-action\)\s*\{[^}]*background:\s*transparent;[^}]*border-color:\s*transparent;[^}]*border-radius:\s*3px;/s,
   "Overflow actions must render as menu rows rather than outlined buttons");
 assert.match(css, /\.hub-player-more-menu\s*\{[^}]*background:\s*var\(--hub-card\);[^}]*border:\s*1px solid color-mix\(in srgb, var\(--hub-line\) 20%, var\(--hub-card\)\);[^}]*box-shadow:\s*none;[^}]*color:\s*var\(--hub-ink\);/s,
   "The music-bar ellipsis menu must use a subtle themed boundary without elevation");
@@ -913,7 +953,7 @@ assert.match(css, /\.hub-playlist-destination-menu\s*\{[^}]*background:\s*var\(-
 assert.match(css, /\.hub-toolbar-actions-menu\s*\{[^}]*background:\s*var\(--hub-card\);[^}]*border:\s*1px solid color-mix\(in srgb, var\(--hub-line\) 20%, var\(--hub-card\)\);[^}]*color:\s*var\(--hub-ink\);/s,
   "Panel toolbar ellipsis menus must use the same themed menu surface and foreground");
 assert.doesNotMatch(css, /var\(--hub-text\)/, "Menus must not depend on the retired hub text token");
-assert.match(css, /\.hub-player-more-menu \.hub-queue-action\.is-labeled:hover:not\(:disabled\),[\s\S]*?background:\s*var\(--hub-accent-soft\);[\s\S]*?border-color:\s*transparent;/,
+assert.match(css, /\.hub-player-more-menu :is\(\.hub-queue-action\.is-labeled, \.hub-visualizer-menu-action, \.hub-pip-menu-action\):hover:not\(:disabled\),[\s\S]*?background:\s*var\(--hub-accent-soft\);[\s\S]*?border-color:\s*transparent;/,
   "Overflow menu rows must retain a clear hover and keyboard-focus state without an outline");
 assert.match(css, /\.hub-player-more-menu \.hub-playlist-destination-menu\s*\{[^}]*bottom:\s*auto;[^}]*left:\s*calc\(100% \+ 6px\);[^}]*right:\s*auto;[^}]*top:\s*-6px;/s,
   "Music-bar submenus must open to the right with their top edges aligned by default");

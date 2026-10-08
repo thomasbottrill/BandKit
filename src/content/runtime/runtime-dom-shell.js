@@ -35,6 +35,23 @@ document.addEventListener("bandkit:media-state", (event) => {
         r.$silenceNativePagePlayback();
       }
     });
+document.addEventListener("bandkit:feed-track-state", (event) => {
+      const tracks = Array.isArray(event.detail?.tracks) ? event.detail.tracks : [];
+      for (const track of tracks) {
+        const trackId = String(track?.trackId || "");
+        if (!trackId || !r.$isReusableStreamUrl(track?.url)) continue;
+        const known = r.$feedStreams.get(trackId);
+        r.$feedStreams.set(trackId, {
+          url: String(track.url),
+          resolvedUrl: known?.url === String(track.url) ? known.resolvedUrl || "" : "",
+          duration: Number(track.duration) || 0
+        });
+      }
+    });
+document.addEventListener("bandkit:cart-availability", (event) => {
+      r.$pageCartAvailable = event.detail?.available === true;
+      r.$pageCartPresent = event.detail?.present === true;
+    });
 document.addEventListener("bandkit:cart-state", (event) => {
       const bridged = normalizeBridgedCart(event.detail);
       if (!bridged) return;
@@ -43,6 +60,7 @@ document.addEventListener("bandkit:cart-state", (event) => {
       r.$scanLiveCart();
     });
 r.$pageMediaCommand("getState");
+r.$pageCartCommand("getAvailability");
 }
 
 function setupRuntimeElements(r) {
@@ -70,6 +88,7 @@ r.$launcher.append(r.$launcherIcon);
 r.$panel = createPanelShell();
 const musicBar = createMusicBar();
 r.$player = musicBar.player;
+r.$player.dataset.themeReady = "false";
 r.$djDrawer = musicBar.djDrawer;
 r.$headerShortcuts = musicBar.headerShortcuts;
 r.$playerSections = musicBar.playerSections;

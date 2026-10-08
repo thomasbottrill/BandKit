@@ -1,51 +1,52 @@
+const cartFields = [
+  "id", "local_id", "item_type", "item_id", "item_title", "item_title2", "releases", "band_id",
+  "artist_name", "unit_price", "currency", "quantity", "option_id", "option_name",
+  "discount_id", "discount_type", "url", "art_id", "image_id",
+  "album_art_id", "item_art_id", "item_art_url", "art_url", "band_name", "band_title",
+  "selling_band_name", "artist", "artist_title", "album_title",
+  "license_id", "associated_license_id", "is_paypalable"
+];
+const releaseFields = [
+  "item_type", "item_id", "title", "item_title", "album_title", "artist", "artist_name",
+  "band_name", "band_title", "selling_band_name", "artist_title", "url", "art_id", "image_id",
+  "album_art_id", "item_art_id", "item_art_url", "art_url"
+];
+
+function releaseData(releases) {
+  const source = Array.isArray(releases)
+    ? releases
+    : releases && typeof releases === "object" ? Object.values(releases) : [];
+  return source.flatMap((release) => Array.isArray(release) ? release : [release]).slice(0, 25).map((release) => {
+    const data = {};
+    for (const field of releaseFields) {
+      const value = release?.[field];
+      if (["string", "number", "boolean"].includes(typeof value) || value === null) data[field] = value;
+    }
+    return data;
+  }).filter((release) => Object.keys(release).length);
+}
+
+function cartItemData(item) {
+  const data = {};
+  for (const field of cartFields) {
+    const value = item?.[field];
+    if (field === "releases") data.releases = releaseData(value);
+    else if (["string", "number", "boolean"].includes(typeof value) || value === null) data[field] = value;
+  }
+  const nativeRow = [item?.local_id, item?.id]
+    .filter((value) => value !== undefined && value !== null && value !== "")
+    .map((value) => document.getElementById(`sidecart_item_${value}`))
+    .find(Boolean);
+  data.unavailable = Boolean(
+    item?.unavailable
+    || item?.is_unavailable
+    || /no longer available/i.test(nativeRow?.textContent || "")
+  );
+  return data;
+}
+
 export function installCartBridge() {
   let lastCartSignature = "";
-  const cartFields = [
-    "id", "local_id", "item_type", "item_id", "item_title", "item_title2", "releases", "band_id",
-    "artist_name", "unit_price", "currency", "quantity", "option_id", "option_name",
-    "discount_id", "discount_type", "url", "art_id", "image_id",
-    "album_art_id", "item_art_id", "item_art_url", "art_url", "band_name", "band_title",
-    "selling_band_name", "artist", "artist_title", "album_title",
-    "license_id", "associated_license_id", "is_paypalable"
-  ];
-  const releaseFields = [
-    "item_type", "item_id", "title", "item_title", "album_title", "artist", "artist_name",
-    "band_name", "band_title", "selling_band_name", "artist_title", "url", "art_id", "image_id",
-    "album_art_id", "item_art_id", "item_art_url", "art_url"
-  ];
-
-  function releaseData(releases) {
-    const source = Array.isArray(releases)
-      ? releases
-      : releases && typeof releases === "object" ? Object.values(releases) : [];
-    return source.flatMap((release) => Array.isArray(release) ? release : [release]).slice(0, 25).map((release) => {
-      const data = {};
-      for (const field of releaseFields) {
-        const value = release?.[field];
-        if (["string", "number", "boolean"].includes(typeof value) || value === null) data[field] = value;
-      }
-      return data;
-    }).filter((release) => Object.keys(release).length);
-  }
-
-  function cartItemData(item) {
-    const data = {};
-    for (const field of cartFields) {
-      const value = item?.[field];
-      if (field === "releases") data.releases = releaseData(value);
-      else if (["string", "number", "boolean"].includes(typeof value) || value === null) data[field] = value;
-    }
-    const nativeRow = [item?.local_id, item?.id]
-      .filter((value) => value !== undefined && value !== null && value !== "")
-      .map((value) => document.getElementById(`sidecart_item_${value}`))
-      .find(Boolean);
-    data.unavailable = Boolean(
-      item?.unavailable
-      || item?.is_unavailable
-      || /no longer available/i.test(nativeRow?.textContent || "")
-    );
-    return data;
-  }
 
   function checkoutCurrency() {
     const savedCard = window.Sidecart?.saved_card || {};
@@ -63,8 +64,35 @@ export function installCartBridge() {
     return typeof window.ClientPrefs?.currency === "string" ? window.ClientPrefs.currency : null;
   }
 
+  let lastCartAvailable = "";
+
+  function cartIsReady() {
+    // Bandcamp fills cart_items asynchronously and flags the wait with
+    // `initing`. The empty array it starts with is not an empty cart.
+    return typeof window.Sidecart?.add_to_cart === "function"
+      && Array.isArray(window.Sidecart?.cart_items)
+      && window.Sidecart.initing !== true;
+  }
+
+  function emitCartAvailability() {
+    // Bandcamp only ships its cart bundle on release pages, so pages like the
+    // feed have no cart API at all. Say so once rather than letting every cart
+    // action discover it by failing. "present but not ready" is its own answer:
+    // the page has a cart worth waiting for, so nothing should read the markup
+    // underneath it in the meantime.
+    const available = cartIsReady();
+    const present = typeof window.Sidecart === "object" && window.Sidecart !== null;
+    const signature = `${available}:${present}`;
+    if (signature === lastCartAvailable) return;
+    lastCartAvailable = signature;
+    document.dispatchEvent(new CustomEvent("bandkit:cart-availability", { detail: { available, present } }));
+  }
+
   function emitCart(force = false) {
-    if (!window.Sidecart || !Array.isArray(window.Sidecart.cart_items)) return;
+    emitCartAvailability();
+    // Reporting a cart that has not loaded would tell Bandkit every item had
+    // just been removed, and Bandkit saves what it is told.
+    if (!cartIsReady()) return;
     const items = window.Sidecart.cart_items.map(cartItemData);
     const subtotal = items.length === 0 ? 0 : Number(window.Sidecart.subtotal);
     const additionalContribution = window.Sidecart.has_additional_contribution ? Number(window.Sidecart.additional_contribution_total) : 0;
@@ -93,6 +121,17 @@ export function installCartBridge() {
 
   function cartItemKey(item) {
     return [item.item_type, item.item_id, item.option_id ?? "", item.discount_id ?? ""].join(":");
+  }
+
+  // Bandcamp refuses a collection add below the per-currency minimum it shows
+  // in its own buy dialog, and a cart item under it only surfaces as a "price
+  // has changed" failure at checkout. This is the last gate before the add, so
+  // every path through Bandkit is covered, not just the ones that prompt.
+  function cartMinimum(item) {
+    if (!["a", "t"].includes(item?.item_type)) return 0;
+    const info = window.CurrencyData?.info?.[item?.currency];
+    const minimum = item.item_type === "t" ? Number(info?.small_min_price) : Number(info?.medium_min_price);
+    return Number.isFinite(minimum) && minimum > 0 ? minimum : 0;
   }
 
   function waitForCartChange(check, timeout = 10000) {
@@ -161,6 +200,14 @@ export function installCartBridge() {
           result.failed.push({ title: entry?.title || "Bandcamp item", reason: "missing exact product metadata" });
           continue;
         }
+        const minimum = cartMinimum(item);
+        if (minimum > 0 && Math.max(0, Number(item.unit_price) || 0) < minimum) {
+          result.failed.push({
+            title: entry?.title || item.item_title || "Bandcamp item",
+            reason: `Bandcamp's minimum for this item is ${minimum} ${item.currency || ""}`.trim()
+          });
+          continue;
+        }
         if (window.Sidecart.cart_items.some((candidate) => cartItemKey(candidate) === key)) {
           result.alreadyPresent += 1;
           continue;
@@ -195,6 +242,10 @@ export function installCartBridge() {
     if (event.detail?.action === "restore") void restoreCart(event.detail);
     if (event.detail?.action === "remove") void removeCartItem(event.detail);
     if (event.detail?.action === "getState") emitCart(true);
+    if (event.detail?.action === "getAvailability") {
+      lastCartAvailable = null;
+      emitCartAvailability();
+    }
   });
   window.setInterval(emitCart, 800);
 }

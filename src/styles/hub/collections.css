@@ -663,6 +663,15 @@
   position: relative;
 }
 
+/* Panel cards inherit a 1px border from .hub-card that they only ever paint as
+   transparent, and border-box sizing then takes those 2px out of the fixed 64px
+   height, cropping the bottom of the structural artwork. Drop the width so the
+   card measures what it declares; states that need a visible edge draw an inset
+   outline instead. */
+.hub-panel-card.hub-compact-media-card {
+  border-width: 0;
+}
+
 .hub-playlist-track.hub-compact-media-card {
   gap: 10px;
   grid-template-columns: 64px minmax(0, 1fr) auto;
@@ -709,7 +718,8 @@
 }
 
 .hub-playlist-track.is-drag-target {
-  border-color: var(--hub-accent);
+  outline: 1px solid var(--hub-accent);
+  outline-offset: -1px;
   position: relative;
 }
 

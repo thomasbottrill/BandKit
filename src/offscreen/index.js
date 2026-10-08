@@ -1,9 +1,10 @@
 import { MESSAGES } from "../shared/contracts.js";
 import { createAnalysisCache } from "./analysis-cache.js";
 import { createTrackAudioDecoder } from "./analysis.js";
+import { createAnalysisGate } from "./analysis-gate.js";
 import { createAnalysisWorkerClient } from "./analysis-worker-client.js";
 import { installOffscreenEvents } from "./events.js";
-import { interruptedPlay, waitForMediaMetadata } from "./progressive.js";
+import { interruptedPlay, startMediaPlayback, waitForMediaMetadata } from "./progressive.js";
 import { compensatedHandoffTime, finiteNumber, gainFromDb, trackKey as stableTrackKey } from "./utils.js";
 import { startVisualizerSignal } from "./visualizer.js";
 import { createStateSender, updateMediaSessionState } from "./state.js";
@@ -361,6 +362,9 @@ async function analyzeCurrentTrack(force = false, deep = false) {
 
 const TRACK_ANALYSIS_CONCURRENCY = 1;
 
+// Bounds fetch/decode to one track at a time across every in-flight request.
+const analysisGate = createAnalysisGate();
+
 const decodeTrackAnalysisAudio = createTrackAudioDecoder({
   analysisFetchControllers,
   playbackPriorityControllers
@@ -379,6 +383,14 @@ async function analyzeTrack(track, force = false, deep = false) {
       key: cached.key
     };
   }
+  const run = () => decodeAndAnalyzeTrack(track, key, deep);
+  // A forced re-analysis must not adopt an in-flight unforced result.
+  return force
+    ? analysisGate.runExclusive(run)
+    : analysisGate.share(`${key}:${deep ? "deep" : "quick"}`, run);
+}
+
+async function decodeAndAnalyzeTrack(track, key, deep) {
   const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
   if (!AudioContextClass) throw new Error("Web Audio analysis is unavailable.");
   let buffer;
@@ -521,7 +533,7 @@ async function playForMediaRequest(request, token = loadToken) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     if (request !== mediaRequestToken || token !== loadToken) return false;
     try {
-      await audio.play();
+      await startMediaPlayback(audio);
       if (request !== mediaRequestToken || token !== loadToken) {
         if (!enabled) audio.pause();
         return false;
@@ -896,6 +908,11 @@ async function handleCommand(message) {
 
   if (message.type === MESSAGES.OFFSCREEN_SEEK) {
     return seekToTime(message.currentTime);
+  }
+
+  if (message.type === MESSAGES.OFFSCREEN_SET_MUTED) {
+    audio.muted = message.muted === true;
+    return stateSnapshot();
   }
 
   if (message.type === MESSAGES.OFFSCREEN_SET_RATE) {

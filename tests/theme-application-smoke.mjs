@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
-import { readContentSource } from "./support/source.mjs";
+import { readContentSource, readPageStyles } from "./support/source.mjs";
+import { removeStyleProperty, setStyleProperty } from "../src/content/core.js";
 
-const source = readContentSource();
+// The page theme moved into its own document_start stylesheet; its rules are
+// still Bandkit's shipped styling, so they stay in scope for these checks.
+const source = `${readContentSource()}\n${readPageStyles()}`;
 const shadowHeaderThemeCss = source.match(/const SHADOW_HEADER_THEME_CSS = `([\s\S]*?)`;/)?.[1] || "";
 const hubBaseCss = fs.readFileSync(new URL("../src/styles/hub/base.css", import.meta.url), "utf8");
 
@@ -61,7 +64,14 @@ const context = vm.createContext({
   }),
   luminance: () => 0.2,
   colorString: (color) => color?.name || String(color),
-  document: { documentElement: { style: { setProperty: (name, value) => properties.set(name, value) } } }
+  document: { documentElement: { style: {
+    getPropertyValue: (name) => properties.get(name) ?? "",
+    getPropertyPriority: () => "",
+    setProperty: (name, value) => properties.set(name, value),
+    removeProperty: (name) => properties.delete(name)
+  } } },
+  setStyleProperty,
+  removeStyleProperty
 });
 vm.runInContext([
   extractFunction("themedModernReleasePalette"),
@@ -110,6 +120,12 @@ assert.match(source, /html\[data-bandkit-page-theme="true"\] \.menu-bar \.search
   "the current light-DOM homepage search results must use the selected navbar palette");
 assert.match(source, /html\[data-bandkit-page-theme="true"\] :is\(#HomepageApp, body\) \.menu-bar \.search-instant-inline \.results \.tab\.active\s*\{[\s\S]*?background:\s*var\(--bandkit-page-navbar-accent\)\s*!important;[\s\S]*?color:\s*var\(--bandkit-page-navbar-on-accent\)\s*!important;/,
   "the current homepage search category must use an accessible accent pair");
+assert.match(source, /:is\(#menubar-wrapper, \.menubar-wrapper, \.bandcamp-menubar, \.menu-bar, header\[role="banner"\]\)\s*\{[\s\S]*?background:\s*var\(--bandkit-page-navbar\)\s*!important;[\s\S]*?background-image:\s*none\s*!important;[\s\S]*?color:\s*var\(--bandkit-page-navbar-text\)\s*!important;/,
+  "the Bandcamp header must remain theme-owned instead of inheriting a genre background");
+assert.match(source, /html\[data-bandkit-page-theme="true"\] #DiscoverApp \.menu-bar > nav\s*\{[\s\S]*?background:\s*var\(--bandkit-page-navbar\)\s*!important;[\s\S]*?background-image:\s*none\s*!important;/,
+  "fixed themes must override Discover's genre gradient on the header's inner nav layer");
+assert.doesNotMatch(source, /html(?!\[data-bandkit-page-theme="true"\])[^\n{]*#DiscoverApp \.menu-bar > nav\s*\{[^}]*background:/,
+  "Dynamic mode must remain free to use Bandcamp's genre-responsive header background");
 assert.match(source, /#HomepageApp \.discover-tags \.g-pill\s*\{[\s\S]*?background:\s*var\(--bandkit-page-card\)\s*!important;[\s\S]*?border:\s*1px solid var\(--bandkit-page-card-border\)\s*!important;[\s\S]*?color:\s*var\(--bandkit-page-card-text\)\s*!important;/,
   "Home genre and location pills must use a complete contrast-corrected card colour pair");
 assert.match(source, /#HomepageApp \.discover-tags \.g-pill:is\(:hover, :focus-visible\)\s*\{[\s\S]*?border-color:\s*var\(--bandkit-page-card-accent\)\s*!important;[\s\S]*?color:\s*var\(--bandkit-page-card-text\)\s*!important;/,
@@ -388,5 +404,22 @@ assert.equal(shadowCollectionProperties.size, 0, "Match-page mode must clear the
 assert.equal(shadowHeaderStyleRemoved, true, "Match-page mode must remove the injected shadow header theme");
 assert.equal(shadowFooterProperties.size, 0, "Match-page mode must restore the native shadow footer palette");
 assert.equal(shadowFooterStyleRemoved, true, "Match-page mode must remove the injected shadow footer theme");
+
+// A navigation used to paint Bandcamp's own palette until the runtime started
+// at document_idle and injected the theme. The rules now ship with the
+// extension at document_start, and the runtime only has to keep the colours
+// they read from fresh enough for the next page to replay.
+const manifest = JSON.parse(fs.readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));
+const earlyScript = manifest.content_scripts.find((entry) => entry.js?.includes("modern-pages-bootstrap.js"));
+assert.equal(earlyScript?.run_at, "document_start", "The page theme must be in place before Bandcamp paints");
+assert.ok(earlyScript.css?.includes("page-theme.css"), "The page theme stylesheet must ship with that early injection");
+assert.ok(earlyScript.css.indexOf("page-theme.css") > earlyScript.css.indexOf("modern-release.css"),
+  "The page theme keeps the precedence it had when the runtime appended it after the modern stylesheet");
+assert.doesNotMatch(source, /id = "bandkit-bandcamp-theme"/,
+  "Nothing may reintroduce the runtime style injection the early stylesheet replaced");
+assert.match(source, /cacheBandcampPageTheme\(true, variables\)/,
+  "Resolved colours must be cached so the next navigation can replay them");
+assert.match(source, /cacheBandcampPageTheme\(false, \{\}\)/,
+  "Turning page theming off must be cached too, so it is not replayed");
 
 console.log("Cross-page theme application checks passed.");

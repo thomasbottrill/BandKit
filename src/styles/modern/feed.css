@@ -36,7 +36,9 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #dash-container {
   align-items: start;
   display: grid !important;
-  gap: 32px;
+  /* One rhythm in both directions: the gutter between the story column and the
+     sidebar matches the 20px that separates the cards stacked inside them. */
+  gap: 20px;
   grid-template-columns: minmax(0, 1fr) 300px;
   min-height: 1px;
   width: 100% !important;
@@ -267,6 +269,23 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   transform: translate(-50%, -50%);
 }
 
+/* The artwork's play control stays out of the way until the artwork itself is
+   hovered or focused; touch devices keep it visible. */
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards .tralbum-art-container .play-button {
+  opacity: 0 !important;
+  transition: opacity 120ms ease;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards .tralbum-art-container:is(:hover, :focus-within) .play-button {
+  opacity: 1 !important;
+}
+
+@media (hover: none) {
+  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards .tralbum-art-container .play-button {
+    opacity: 1 !important;
+  }
+}
+
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .collection-item-container[data-bandkit-feed-playback="playing"] .play-icon {
   margin: 13px 15px !important;
 }
@@ -338,6 +357,284 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story .tralbum-owners .deets {
   margin-top: 12px !important;
   width: 100% !important;
+}
+
+/* Album stories put the release name, hover actions and generated list in the
+   main column, with the artwork and owners strip in a 280px side column. */
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .tralbum-wrapper {
+  column-gap: 24px;
+  grid-template-columns: minmax(0, 1fr) 280px;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .tralbum-wrapper > .bandkit-feed-album-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .tralbum-wrapper > .tralbum-wrapper-col1 {
+  display: block !important;
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  min-width: 0;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-feed-album-side > .tralbum-wrapper-col2 {
+  border-top: 0;
+  margin: 0 !important;
+  padding-top: 0;
+  width: auto !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .tralbum-owners .collected-by {
+  display: block;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .tralbum-owners .deets {
+  margin-top: 8px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .tralbum-owners .no-writing {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  /* Bandcamp pulls this row left to offset avatar padding we already removed. */
+  margin: 0 !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .tralbum-owners .fan.pic {
+  margin: 0 !important;
+}
+
+/* The story's icon row sits under the release name; the analysis control joins
+   it as another icon while the chevron pins to its trailing edge. */
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .tralbum-details > .tralbum-wrapper-collect-controls {
+  margin: 0 0 14px !important;
+  padding: 0 !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-feed-action-row {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-feed-action-row {
+  gap: 10px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-feed-action-row > li {
+  gap: 10px !important;
+}
+
+/* Square icons with a fixed generous gap, so revealing the row never resizes
+   the buttons or changes the spacing. */
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-feed-action-row [data-bandkit-label] {
+  gap: 0 !important;
+  max-width: 28px !important;
+  min-width: 28px !important;
+  padding: 0 !important;
+  width: 28px !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-feed-action-row [data-bandkit-label] > .bandkit-page-action-label {
+  display: none !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-feed-chevron-item {
+  margin-left: auto !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-feed-analyze-tracks {
+  align-items: center;
+  appearance: none;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: var(--bandkit-feed-accent) !important;
+  cursor: pointer;
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  width: 28px;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-feed-analyze-tracks::before {
+  background: currentColor;
+  content: "";
+  display: block;
+  height: 16px;
+  mask: var(--bandkit-feed-analyze-icon) center / contain no-repeat;
+  -webkit-mask: var(--bandkit-feed-analyze-icon) center / contain no-repeat;
+  width: 16px;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-feed-analyze-tracks:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--bandkit-feed-accent) 9%, var(--bandkit-feed-card, #fff)) !important;
+  border-color: transparent !important;
+  color: var(--bandkit-feed-accent) !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-feed-analyze-tracks:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* Analysis swaps the glyph for the same progress ring the player uses. */
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-feed-analyze-tracks.is-analyzing::before {
+  display: none !important;
+}
+
+@keyframes bandkit-feed-analyze-spin {
+  to { transform: rotate(360deg); }
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-feed-analyze-tracks.is-analyzing::after {
+  animation: bandkit-feed-analyze-spin 700ms linear infinite;
+  border: 2px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: 50%;
+  border-top-color: currentColor;
+  box-sizing: border-box;
+  content: "";
+  display: block;
+  height: 15px;
+  width: 15px;
+}
+
+/* Un-analysed rows offer a compact per-track analyze control on row intent,
+   styled like the row's own Buy and Add controls but icon only. */
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-discover-tracks .title-col .bandkit-feed-track-analyze {
+  align-items: center;
+  appearance: none;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: var(--hub-accent, var(--bandkit-release-accent)) !important;
+  cursor: pointer;
+  display: inline-flex;
+  grid-column: 2;
+  grid-row: 1;
+  height: 24px;
+  justify-content: center;
+  margin: 0;
+  opacity: 0;
+  padding: 0;
+  pointer-events: none;
+  transition: background-color 140ms ease, border-color 140ms ease, opacity 100ms ease;
+  width: 24px;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-discover-tracks .title-col .bandkit-feed-track-analyze::before {
+  background: currentColor;
+  content: "";
+  display: block;
+  height: 14px;
+  mask: var(--bandkit-feed-analyze-icon) center / contain no-repeat;
+  -webkit-mask: var(--bandkit-feed-analyze-icon) center / contain no-repeat;
+  width: 14px;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-discover-tracks .track_row_view:is(:hover, :focus-within) .bandkit-feed-track-analyze,
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-discover-tracks .bandkit-feed-track-analyze:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-discover-tracks .bandkit-feed-track-analyze:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--hub-accent, var(--bandkit-release-accent)) 8%, var(--hub-card, var(--bandkit-release-surface))) !important;
+  border-color: transparent !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-discover-tracks .bandkit-feed-track-analyze.is-analyzing::before {
+  display: none !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-discover-tracks .bandkit-feed-track-analyze.is-analyzing::after {
+  animation: bandkit-feed-analyze-spin 700ms linear infinite;
+  border: 2px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: 50%;
+  border-top-color: currentColor;
+  box-sizing: border-box;
+  content: "";
+  display: block;
+  height: 14px;
+  width: 14px;
+}
+
+@media (hover: none) {
+  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-discover-tracks .bandkit-feed-track-analyze {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-feed-tracklist-toggle {
+  align-items: center;
+  appearance: none;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: var(--bandkit-feed-accent) !important;
+  cursor: pointer;
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  width: 28px;
+}
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-feed-tracklist-toggle::before {
+  background: currentColor;
+  content: "";
+  display: block;
+  height: 16px;
+  mask: var(--bandkit-tracklist-chevron) center / contain no-repeat;
+  -webkit-mask: var(--bandkit-tracklist-chevron) center / contain no-repeat;
+  transition: transform 140ms ease;
+  width: 16px;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-feed-tracklist-toggle:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--bandkit-feed-accent) 9%, var(--bandkit-feed-card, #fff)) !important;
+  border-color: transparent !important;
+  color: var(--bandkit-feed-accent) !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-feed-tracklist-toggle[aria-expanded="true"]::before {
+  transform: rotate(180deg);
+}
+
+/* Bandcamp's story table paints a dotted cell border on top of every row; the
+   shared divider rules already colour the separators like the section. */
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .bandkit-discover-tracks :is(tr, td) {
+  border-top: 0 !important;
+}
+
+@media (max-width: 1180px) {
+  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .tralbum-wrapper > .bandkit-feed-album-side {
+    display: contents;
+  }
+
+  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .tralbum-wrapper > .bandkit-feed-album-side > .tralbum-art-container {
+    order: 1;
+  }
+
+  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .tralbum-wrapper > .tralbum-wrapper-col1 {
+    order: 2;
+  }
+
+  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story-innards.bandkit-feed-album .tralbum-wrapper > .bandkit-feed-album-side > .tralbum-wrapper-col2 {
+    display: none !important;
+    order: 3;
+  }
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .story :is(.collection-item-title, .artist-name) {
@@ -434,10 +731,12 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   display: none !important;
 }
 
+/* The sidebar releases share the story column's 20px rhythm: an 8px track gap
+   plus the 6px row inset leaves exactly 20px between neighbouring artworks. */
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar #new-releases-vm,
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed #sidebar .collection-grid {
   display: grid !important;
-  gap: 14px !important;
+  gap: 8px !important;
   grid-template-columns: minmax(0, 1fr);
   justify-items: stretch !important;
   margin: 0 !important;
@@ -450,15 +749,16 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   border: 0 !important;
   border-radius: 8px !important;
   box-shadow: none !important;
+  align-content: start !important;
   color: var(--bandkit-release-ink) !important;
   display: grid !important;
-  gap: 5px 12px;
+  gap: 0 12px;
   grid-template-columns: 88px minmax(0, 1fr);
   margin: 0 !important;
   max-width: none !important;
   outline: 0 !important;
   overflow: hidden !important;
-  padding: 10px !important;
+  padding: 6px !important;
   transition: background-color 120ms ease;
   width: 100% !important;
 }
@@ -685,6 +985,20 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   background: color-mix(in srgb, var(--bandkit-feed-accent) 9%, var(--bandkit-feed-card, #fff)) !important;
   border-color: transparent !important;
   color: var(--bandkit-feed-accent) !important;
+}
+
+/* Wishlisted feed rows mirror the album page: amber control, amber hover wash. */
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .bandkit-feed-album .bandkit-feed-action-row .wishlisted-msg > .bandkit-feed-wishlist-control {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: #ff9c00 !important;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .bandkit-feed-album .bandkit-feed-action-row .wishlisted-msg > .bandkit-feed-wishlist-control:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, #ff9c00 10%, var(--bandkit-feed-card, #fff)) !important;
+  border-color: transparent !important;
+  color: #ff9c00 !important;
+  outline: 0 !important;
 }
 
 @media (max-width: 1180px) {

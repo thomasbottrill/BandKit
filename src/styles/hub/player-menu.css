@@ -93,7 +93,7 @@
   right: calc(100% + 6px);
 }
 
-.hub-player-more-menu .hub-queue-action.is-labeled {
+.hub-player-more-menu :is(.hub-queue-action.is-labeled, .hub-visualizer-menu-action, .hub-pip-menu-action) {
   background: transparent;
   border-color: transparent;
   border-radius: 3px;
@@ -102,8 +102,8 @@
   padding: 0 8px;
 }
 
-.hub-player-more-menu .hub-queue-action.is-labeled:hover:not(:disabled),
-.hub-player-more-menu .hub-queue-action.is-labeled:focus-visible {
+.hub-player-more-menu :is(.hub-queue-action.is-labeled, .hub-visualizer-menu-action, .hub-pip-menu-action):hover:not(:disabled),
+.hub-player-more-menu :is(.hub-queue-action.is-labeled, .hub-visualizer-menu-action, .hub-pip-menu-action):focus-visible {
   background: var(--hub-accent-soft);
   border-color: transparent;
   color: var(--hub-accent);

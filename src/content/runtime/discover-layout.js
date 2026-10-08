@@ -38,7 +38,11 @@ export function setupDiscoverLayout() {
       bannerResize.observe(banner);
       observedBanner = banner;
     }
-    const stickyTop = Math.max(66, Math.ceil(banner?.getBoundingClientRect().bottom || 0) + 12);
+    const headerBottom = [".menu-bar-container", "#content", ".breadcrumbs-bar:not(.hidden)"]
+      .map((selector) => document.querySelector(`#DiscoverApp ${selector}`)?.getBoundingClientRect())
+      .filter((rect) => rect && rect.height > 0 && rect.top < 180 && rect.bottom > 0)
+      .reduce((bottom, rect) => Math.max(bottom, Math.ceil(rect.bottom)), 0);
+    const stickyTop = Math.max(66, headerBottom + 12, Math.ceil(banner?.getBoundingClientRect().bottom || 0) + 12);
     const stickyValue = `${stickyTop}px`;
     if (panel.style.getPropertyValue("--bandkit-discover-sticky-top") !== stickyValue) {
       panel.style.setProperty("--bandkit-discover-sticky-top", stickyValue);

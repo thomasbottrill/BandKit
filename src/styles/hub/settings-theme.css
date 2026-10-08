@@ -38,6 +38,13 @@
   width: 16px;
 }
 
+.hub-theme-option-info {
+  color: currentColor;
+  height: 16px;
+  opacity: .72;
+  width: 16px;
+}
+
 .hub-theme-custom-icon {
   color: var(--hub-accent);
   height: 14px;
@@ -63,6 +70,11 @@
 .hub-visual-theme-saved-marker {
   height: 13px;
   width: 13px;
+}
+.hub-visual-theme-based-on {
+  color: var(--hub-muted);
+  font-size: 10px;
+  white-space: nowrap;
 }
 .hub-visual-theme-preview {
   width: 112px;

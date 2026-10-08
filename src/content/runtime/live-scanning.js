@@ -454,18 +454,7 @@ function bindFloatingPlayerResize(r) {
       applyResizeWidth();
     });
   };
-  const syncWidthSetting = () => {
-    const select = r.$content.querySelector('select[aria-label="Music bar width"]');
-    const input = r.$content.querySelector('input[aria-label="Custom music bar width in pixels"]');
-    if (select) select.value = "custom";
-    if (!input) return;
-    input.value = String(runtimeState.musicBarCustomWidth);
-    input.hidden = false;
-    const control = input.closest(".hub-settings-width-control");
-    control?.classList.add("is-custom");
-    const unit = control?.querySelector(".hub-settings-unit");
-    if (unit) unit.hidden = false;
-  };
+  const syncWidthSetting = () => r.$syncMusicBarWidthSetting?.();
   const finishResize = (event) => {
     if (!resizing || (event?.pointerId !== undefined && event.pointerId !== resizing.pointerId)) return;
     const activeResize = resizing;
@@ -497,7 +486,10 @@ function bindFloatingPlayerResize(r) {
         pointerId: event.pointerId,
         startX: event.clientX,
         width: rect.width,
-        reservedWidth: 0,
+        // Docked content is centred, so the widening timeline eats the same
+        // space on both sides. Reserve the chevron's resting slot on each side
+        // so the bar stops growing before it reaches the menu.
+        reservedWidth: runtimeState.musicBarStyle === "docked" ? 112 : 0,
         pendingCustomWidth: runtimeState.musicBarCustomWidth,
         moved: false
       };
@@ -514,7 +506,7 @@ function bindFloatingPlayerResize(r) {
       const minShellWidth = 480 + resizing.reservedWidth;
       const maxShellWidth = Math.max(minShellWidth, Math.min(2000 + resizing.reservedWidth, window.innerWidth - 24));
       const direction = resizing.edge === "left" ? -1 : 1;
-      const requestedWidth = resizing.width + deltaX * direction * 2;
+      const requestedWidth = resizing.width + resizing.reservedWidth + deltaX * direction * 2;
       const shellWidth = Math.max(minShellWidth, Math.min(maxShellWidth, requestedWidth));
       resizing.pendingCustomWidth = Math.round(shellWidth - resizing.reservedWidth);
       scheduleResizeWidth();
@@ -626,6 +618,17 @@ for (const handle of r.$panel.querySelectorAll(".hub-resize-handle")) {
         else r.$capturePanelLayout();
       });
     }
+const feedIntent = (event) => {
+      if (!(event.target instanceof Element)) return;
+      if (!document.body.classList.contains("feed") && !/\/feed\/?$/.test(location.pathname)) return;
+      const control = event.target.closest(".track_play_auxiliary");
+      const trackId = control?.dataset.trackid || control?.closest("[data-trackid]")?.dataset.trackid || "";
+      // Hovering or focusing a story is the earliest reliable sign it is about
+      // to be played, so resolve its stream while the pointer is still moving.
+      if (trackId) void r.$prefetchFeedStream(trackId);
+    };
+document.addEventListener("pointerover", feedIntent, true);
+document.addEventListener("focusin", feedIntent, true);
 document.addEventListener("click", (event) => {
       if (!(event.target instanceof Element)) return;
       const onFeedPage = document.body.classList.contains("feed") || /\/feed\/?$/.test(location.pathname);
@@ -674,6 +677,7 @@ document.addEventListener("click", (event) => {
       }
       r.$syncFeedPagePlaybackUi();
       r.$renderPlayer();
+      void r.$prefetchFeedStream(clickedTrackId);
       r.$muteFeedAudioForHandoff(clickedTrackId);
       r.$scheduleFeedHandoff(clickedTrackId);
       const nativeAudio = r.$getAudio();
@@ -721,8 +725,11 @@ document.addEventListener("click", (event) => {
         if (!requestedTrack) return;
         event.preventDefault();
         event.stopImmediatePropagation();
-        const controlsCurrentTrack = runtimeSeamless.enabled && Boolean(r.$matchingQueueTrack([requestedTrack], runtimeSeamless.track || {}));
+        const controlsCurrentTrack = runtimeSeamless.enabled && runtimeSeamless.status !== "error"
+          && Boolean(r.$matchingQueueTrack([requestedTrack], runtimeSeamless.track || {}));
         if (controlsCurrentTrack) {
+          r.$collectionHandoffRequest += 1;
+          r.$playlistPlayRequest += 1;
           void r.$seamlessCommand(MESSAGES.SEAMLESS_PLAY_PAUSE);
         } else {
           void r.$playCollectionCard(card, collectionControl);
@@ -751,7 +758,8 @@ document.addEventListener("click", (event) => {
           r.$pendingFeedSeekTrackId = "";
         }
         if (clickedTrackId) r.$pendingFeedTrackId = clickedTrackId;
-        if (r.$feedHandoffBusy && clickedTrackId && clickedTrackId !== r.$feedHandoffTrackId) {
+        const inFlightTrackId = r.$feedHandoffInFlight();
+        if (clickedTrackId && inFlightTrackId && clickedTrackId !== inFlightTrackId) {
           r.$playlistPlayRequest += 1;
         }
         if (clickedTrackId) r.$scheduleFeedHandoff(clickedTrackId);

@@ -1,30 +1,61 @@
-#DiscoverApp .bandkit-discover-tracklist {
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracklist {
   --bandkit-release-ink: var(--bandkit-page-text, var(--hub-ink, #222));
   --bandkit-release-muted: var(--bandkit-page-muted, var(--hub-muted, #777));
   --bandkit-release-line: var(--bandkit-page-border, var(--hub-line, #ddd));
   --bandkit-release-surface: var(--bandkit-page-card, var(--hub-card, #fff));
   --bandkit-release-accent: var(--bandkit-page-accent, var(--hub-accent, #1da0c3));
+  /* Rows are a surface derived from the section colour; the dividers stay in the
+     section colour so the list reads as rows stacked on the section itself. */
+  --bandkit-release-row: color-mix(in srgb, var(--bandkit-release-surface) 94%, var(--bandkit-release-ink));
+  --bandkit-release-divider: var(--bandkit-release-surface);
   flex: 0 0 auto;
   min-width: 0;
   width: 100%;
 }
-#DiscoverApp .bandkit-discover-tracks { margin: 8px 0 16px !important; }
-#DiscoverApp .bandkit-discover-tracks .title-col .title {
+/* Dynamic feed cards stay white, so their expanded track lists should read as
+   a quiet inset surface rather than inheriting the heavier global page card.
+   Keep the shared :is() selector's ID-level specificity: its #DiscoverApp
+   branch counts even when the matching branch is a feed album card. */
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"][data-bandkit-page-theme="false"] body.feed :is(#DiscoverApp, .story-innards.bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracklist {
+  --bandkit-release-row: #f7f7f7;
+  --bandkit-release-divider: #ffffff;
+}
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view {
+  background: var(--bandkit-release-row) !important;
+  border-bottom-color: var(--bandkit-release-divider) !important;
+}
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view:is(:hover, :focus-within) {
+  background: color-mix(in srgb, var(--bandkit-release-accent) 6%, var(--bandkit-release-row)) !important;
+}
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"][data-bandkit-page-theme="false"] body.feed :is(#DiscoverApp, .story-innards.bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view {
+  background: #f7f7f7 !important;
+  border-bottom-color: #ffffff !important;
+}
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"][data-bandkit-page-theme="false"] body.feed :is(#DiscoverApp, .story-innards.bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view:is(:hover, :focus-within) {
+  background: color-mix(in srgb, var(--bandkit-release-accent) 6%, #f7f7f7) !important;
+}
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks { margin: 8px 0 16px !important; }
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .title-col .title {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 3px 8px;
 }
-#DiscoverApp .bandkit-discover-tracks .bandkit-track-analysis {
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .bandkit-track-analysis {
   grid-column: 1 / -1;
   margin: 0;
   justify-self: start;
 }
-#DiscoverApp .bandkit-discover-tracks .track_row_view:not(.bandkit-modern-track-unplayable) { cursor: pointer; }
-#DiscoverApp .bandkit-discover-tracks .play-col > a:focus-visible {
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view:not(.bandkit-modern-track-unplayable) { cursor: pointer; }
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .play-col > a:focus-visible {
   outline: 2px solid var(--bandkit-release-accent) !important;
   outline-offset: 2px !important;
 }
-#DiscoverApp .bandkit-discover-tracklist-status { color: var(--bandkit-release-muted); font-size: 13px; padding: 12px 0; }
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracklist-status { color: var(--bandkit-release-muted); font-size: 13px; padding: 12px 0; }
+/* Feed album stories fold the generated rows away with the featured track's
+   chevron; the ID-level scope matches the row layout's own display rule. */
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracklist.is-collapsed .bandkit-discover-tracks {
+  display: none !important;
+}
 
 #DiscoverApp [data-bandkit-discover-select]:focus-visible { outline: 2px solid var(--bandkit-page-accent, #1da0c3); outline-offset: -3px; }
 
@@ -43,8 +74,8 @@
     top: var(--bandkit-discover-sticky-top, 66px) !important;
     align-self: start !important;
     box-sizing: border-box;
-    height: max(180px, calc(100dvh - var(--bandkit-discover-panel-top, 340px) - 16px)) !important;
-    max-height: calc(100dvh - 82px) !important;
+    height: max(180px, calc(100dvh - var(--bandkit-discover-sticky-top, 66px) - 16px - var(--bandkit-player-reserved-height, 0px))) !important;
+    max-height: calc(100dvh - var(--bandkit-discover-sticky-top, 66px) - 16px - var(--bandkit-player-reserved-height, 0px)) !important;
     min-height: 0 !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
@@ -116,15 +147,36 @@
   margin: 0 !important;
   padding: 0 !important;
   background: transparent !important;
-  color: inherit !important;
-  border: 1px solid currentColor !important;
+  color: var(--hub-accent, var(--bandkit-page-accent, var(--bandkit-release-accent))) !important;
+  border: 1px solid transparent !important;
   border-radius: 4px !important;
   box-shadow: none !important;
   opacity: 1;
   pointer-events: auto;
 }
-#DiscoverApp .focused-result .release-buttons > .is-discover-release-add:is(:hover, :focus-visible) {
-  background: color-mix(in srgb, currentColor 10%, transparent) !important;
+/* Secondary release actions match the album page: no resting outline, just a
+   themed backing on hover or keyboard focus, and an amber wishlisted state. */
+html :is(#DiscoverApp .focused-result, .bandkit-collection-preview) .release-buttons > :is(.is-discover-release-add, .wishlist-button, .bandkit-collection-preview-download) {
+  background: transparent !important;
+  color: var(--hub-accent, var(--bandkit-page-accent, var(--bandkit-release-accent))) !important;
+  border: 1px solid transparent !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+html :is(#DiscoverApp .focused-result, .bandkit-collection-preview) .release-buttons > .wishlist-button {
+  color: var(--hub-accent, var(--bandkit-page-accent, var(--bandkit-release-accent))) !important;
+}
+html :is(#DiscoverApp .focused-result, .bandkit-collection-preview) .release-buttons > :is(.is-discover-release-add, .wishlist-button, .bandkit-collection-preview-download):is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--hub-accent, var(--bandkit-page-accent, var(--bandkit-release-accent))) 8%, var(--hub-card, var(--bandkit-page-surface, var(--bandkit-release-surface, transparent)))) !important;
+  border-color: transparent !important;
+  outline: 0 !important;
+}
+html :is(#DiscoverApp .focused-result, .bandkit-collection-preview) .release-buttons > .wishlist-button:is([title*="Remove" i], [aria-label*="Remove" i], [aria-pressed="true"]) {
+  color: #ff9c00 !important;
+}
+html :is(#DiscoverApp .focused-result, .bandkit-collection-preview) .release-buttons > .wishlist-button:is([title*="Remove" i], [aria-label*="Remove" i], [aria-pressed="true"]):is(:hover, :focus-visible) {
+  background: color-mix(in srgb, #ff9c00 10%, var(--hub-card, var(--bandkit-page-surface, var(--bandkit-release-surface, transparent)))) !important;
+  color: #ff9c00 !important;
 }
 #DiscoverApp .focused-result .release-summary { font-size: 12px; line-height: 1.5; }
 #DiscoverApp .focused-result .band-meta { gap: 12px; }
@@ -137,26 +189,26 @@
     grid-template-columns: minmax(0, 1fr) 1px clamp(360px, 36vw, 540px) !important;
   }
 }
-#DiscoverApp .bandkit-discover-tracks {
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks {
   border-collapse: separate !important;
   border-spacing: 0;
 }
-#DiscoverApp .bandkit-discover-tracks .play-col {
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .play-col {
   box-sizing: border-box;
   width: 48px !important;
   padding-right: 20px !important;
 }
-#DiscoverApp .bandkit-discover-tracks .title-col {
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .title-col {
   padding-right: 12px !important;
 }
-#DiscoverApp .bandkit-discover-tracks .title-col .title {
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .title-col .title {
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 12px;
   align-items: center;
   white-space: nowrap;
 }
-#DiscoverApp .bandkit-discover-tracks .title-col .track-title {
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .title-col .track-title {
   grid-column: 1;
   grid-row: 1;
   min-width: 0;
@@ -164,27 +216,29 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-#DiscoverApp .bandkit-discover-tracks .title-col .bandkit-track-analysis {
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .title-col .bandkit-track-analysis {
   grid-column: 2;
   grid-row: 1;
   margin: 0;
 }
-#DiscoverApp .bandkit-discover-tracks .title-col .time {
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .title-col .time {
   grid-column: 3;
   grid-row: 1;
   min-width: 32px;
   text-align: right;
 }
-#DiscoverApp .bandkit-discover-tracks td { border-bottom: 1px solid var(--bandkit-release-line); }
-#DiscoverApp .bandkit-discover-tracks tr:last-child td { border-bottom: 0; }
-#DiscoverApp .bandkit-discover-tracks tr:first-child td:first-child { border-top-left-radius: 8px; }
-#DiscoverApp .bandkit-discover-tracks tr:first-child td:last-child { border-top-right-radius: 8px; }
-#DiscoverApp .bandkit-discover-tracks tr:last-child td:first-child { border-bottom-left-radius: 8px; }
-#DiscoverApp .bandkit-discover-tracks tr:last-child td:last-child { border-bottom-right-radius: 8px; }
-#DiscoverApp .bandkit-discover-tracks td { background: inherit; }
-#DiscoverApp .bandkit-discover-tracks tr:first-child { border-radius: 8px 8px 0 0; }
-#DiscoverApp .bandkit-discover-tracks tr:last-child { border-radius: 0 0 8px 8px; }
-#DiscoverApp .bandkit-discover-tracks tr:only-child { border-radius: 8px; }
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks td {
+  border-bottom: 1px solid var(--bandkit-release-divider, var(--bandkit-page-background, var(--bandkit-release-bg, transparent)));
+}
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks tr:last-child td { border-bottom: 0; }
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks tr:first-child td:first-child { border-top-left-radius: 8px; }
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks tr:first-child td:last-child { border-top-right-radius: 8px; }
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks tr:last-child td:first-child { border-bottom-left-radius: 8px; }
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks tr:last-child td:last-child { border-bottom-right-radius: 8px; }
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks td { background: inherit; }
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks tr:first-child { border-radius: 8px 8px 0 0; }
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks tr:last-child { border-radius: 0 0 8px 8px; }
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks tr:only-child { border-radius: 8px; }
 
 @media (min-width: 900px) {
   #DiscoverApp .results-container.has-focus {
@@ -219,20 +273,20 @@
 @media (min-width: 1200px) {
   #DiscoverApp .focused-result .tralbum-purchase-options-browser {
     display: grid;
-    grid-template-columns: minmax(0, 46%) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 46%);
     grid-template-rows: auto auto auto minmax(0, 1fr);
     gap: 12px 16px !important;
     align-items: start;
   }
   #DiscoverApp .focused-result .tralbum-purchase-options-browser > .images {
-    grid-column: 1;
+    grid-column: 2;
     grid-row: 1 / 5;
     width: 100% !important;
     margin: 0 !important;
   }
-  #DiscoverApp .focused-result .release-summary { grid-column: 2; grid-row: 4; align-self: end; font-size: 12px; }
+  #DiscoverApp .focused-result .release-summary { grid-column: 1; grid-row: 4; align-self: end; font-size: 12px; }
   #DiscoverApp .focused-result .band-meta {
-    grid-column: 2;
+    grid-column: 1;
     grid-row: 2;
     flex-direction: column;
     align-items: flex-start;
@@ -240,7 +294,7 @@
   }
   #DiscoverApp .focused-result .band-meta .profile { width: 100%; }
   #DiscoverApp .focused-result .band-meta .meta { min-width: 0; overflow-wrap: anywhere; }
-  #DiscoverApp .focused-result .release-buttons { grid-column: 2; grid-row: 3; flex-wrap: wrap; gap: 6px !important; }
+  #DiscoverApp .focused-result .release-buttons { grid-column: 1; grid-row: 3; flex-wrap: wrap; gap: 6px !important; }
   #DiscoverApp .focused-result .discover-player { grid-column: 1 / -1; grid-row: 5; }
   #DiscoverApp .focused-result .bandkit-discover-tracklist { grid-column: 1 / -1; grid-row: 6; }
   #DiscoverApp .focused-result .fan-review { grid-column: 1 / -1; grid-row: 7; }
@@ -255,7 +309,7 @@
   overflow-wrap: anywhere;
 }
 @media (min-width: 1200px) {
-  #DiscoverApp .focused-result .bandkit-discover-album-title { grid-column: 2; grid-row: 1; }
+  #DiscoverApp .focused-result .bandkit-discover-album-title { grid-column: 1; grid-row: 1; }
   #DiscoverApp .focused-result .band-meta .profile { display: flex; flex-direction: row; align-items: center; gap: 8px; }
   #DiscoverApp .focused-result .band-meta .profile-avatar {
     --profile-avatar-image-size: 32px !important;
@@ -288,8 +342,9 @@
   gap: 6px !important;
 }
 #DiscoverApp .focused-result .release-buttons > .buy-button {
-  flex: 1 1 0 !important;
-  min-width: 0 !important;
+  flex: 0 1 132px !important;
+  max-width: 132px !important;
+  min-width: 104px !important;
   height: 32px !important;
   min-height: 32px !important;
   box-sizing: border-box;
@@ -331,49 +386,60 @@
   #DiscoverApp .focused-result .band-meta .profile { flex: 1 1 0; width: auto; }
   #DiscoverApp .focused-result .tralbum-purchase-options-browser > .images { display: contents; }
   #DiscoverApp .focused-result .images > .cover {
-    grid-column: 1;
+    grid-column: 2;
     grid-row: 1 / 5;
     width: 100% !important;
     height: auto !important;
     align-self: start;
   }
-  #DiscoverApp .focused-result .images > .horizontal-scroll-row { grid-column: 1; grid-row: 5; width: 100%; min-width: 0; }
+  #DiscoverApp .focused-result .images > .horizontal-scroll-row { grid-column: 1; grid-row: 4; width: 100%; min-width: 0; }
   #DiscoverApp .focused-result .release-summary { text-align: left; padding: 0 !important; margin: 0 !important; }
 }
 
 @media (min-width: 1200px) {
-  #DiscoverApp .focused-result .tralbum-purchase-options-browser { grid-template-rows: auto auto auto auto minmax(0, 1fr); }
+  #DiscoverApp .focused-result .tralbum-purchase-options-browser { grid-template-rows: repeat(8, auto); }
   #DiscoverApp .focused-result .images > .cover { grid-row: 1 / 6; }
-  #DiscoverApp .focused-result .images > .horizontal-scroll-row { grid-column: 2; grid-row: 4; margin: 0 !important; }
+  #DiscoverApp .focused-result .images > .horizontal-scroll-row { grid-column: 1; grid-row: 4; margin: 0 !important; }
   #DiscoverApp .focused-result .release-summary { grid-row: 5; }
   #DiscoverApp .focused-result .discover-player { grid-row: 6; }
   #DiscoverApp .focused-result .bandkit-discover-tracklist { grid-row: 7; }
   #DiscoverApp .focused-result .fan-review { grid-row: 8; }
 }
 
-#DiscoverApp[data-bandkit-discover-genre] .bandkit-discover-tracklist {
-  --bandkit-release-surface: var(--bandkit-discover-surface);
-  --bandkit-release-ink: var(--bandkit-discover-ink);
-  --bandkit-release-muted: var(--bandkit-discover-muted);
-  --bandkit-release-line: var(--bandkit-discover-line);
-  --bandkit-release-accent: var(--bandkit-discover-accent);
-}
-
-#DiscoverApp .bandkit-discover-tracks .title > .bandkit-discover-track-buy {
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .title > .bandkit-discover-track-actions {
   grid-column: 3;
   grid-row: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
   width: auto !important;
   min-width: 40px;
   padding: 0 !important;
   justify-self: end;
 }
-#DiscoverApp .bandkit-discover-tracks .bandkit-discover-track-buy .bandcamp-hub-page-buy {
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .bandkit-discover-track-actions .bandcamp-hub-page-buy {
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
-#DiscoverApp .bandkit-discover-tracks .track_row_view:is(:hover, :focus-within) .title > .time { visibility: hidden; }
+/* The compact Discover row shows a duration at rest and swaps in the album
+   page's own Buy and Add controls once the row is hovered or focused. */
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view .download-col .bandcamp-hub-page-playlist.is-track-action {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view:is(:hover, :focus-within) .download-col .bandcamp-hub-page-playlist.is-track-action,
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view .download-col .bandcamp-hub-page-playlist.is-track-action:focus-visible,
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view .download-col .bandcamp-hub-page-playlist.is-track-action.is-active {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+:is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .track_row_view:is(:hover, :focus-within) .title > .time { visibility: hidden; }
 @media (hover: none) {
-  #DiscoverApp .bandkit-discover-tracks .title > .time { visibility: hidden; }
-  #DiscoverApp .bandkit-discover-tracks .download-col .bandcamp-hub-page-buy { opacity: 1 !important; pointer-events: auto !important; }
+  :is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .title > .time { visibility: hidden; }
+  :is(#DiscoverApp, .bandkit-feed-album, .bandkit-collection-preview) .bandkit-discover-tracks .download-col :is(.bandcamp-hub-page-buy, .bandcamp-hub-page-playlist.is-track-action) {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
 }

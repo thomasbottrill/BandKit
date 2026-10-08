@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const assets = path.join(root, "assets");
 const iconNames = fs.readdirSync(assets).filter((name) => /^icon-.*\.svg$/.test(name));
-const bespokeNames = new Set(iconNames.filter((name) => name === "icon-bandkit.svg" || name.startsWith("icon-scrub-")));
+const bespokeNames = new Set(iconNames.filter((name) => name.startsWith("icon-bandkit") || name.startsWith("icon-scrub-")));
 
 assert.ok(iconNames.includes("icon-bandkit.svg"), "The Bandkit logo must remain available");
 

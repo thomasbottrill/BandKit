@@ -60,7 +60,7 @@ export function registerDjHandoff(r) {
   registerClassicPageSeekState(r);
   r.$resetClassicPageHandoff = (expectedRequest = 0) => resetClassicPageHandoff(r, expectedRequest);
   r.$buildSeamlessQueue = function buildSeamlessQueue() {
-    if (document.querySelector("#DiscoverApp")) return r.$discoverReleaseTracks || []; const daily = r.$getDailyPlayerState(); if (daily?.queue.length) return daily.queue;
+    if (document.querySelector("#DiscoverApp, .bandkit-collection-preview")) return r.$discoverReleaseTracks || []; const daily = r.$getDailyPlayerState(); if (daily?.queue.length) return daily.queue;
     const modern = r.$getModernPlayerState();
     if (modern?.queue.length) return modern.queue;
     const data = r.$getBandcampPageData();

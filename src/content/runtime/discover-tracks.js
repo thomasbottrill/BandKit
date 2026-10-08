@@ -1,6 +1,7 @@
 import { MESSAGES } from "../../shared/contracts.js";
 import { createElement, formatDuration, safeBandcampReleaseUrl } from "../core.js";
 import { runtimeSeamless, runtimeState } from "./context.js";
+import { startPreparedPageTrack } from "./page-track-playback.js";
 
 function releaseUrl(value) {
   const safe = safeBandcampReleaseUrl(value);
@@ -12,14 +13,19 @@ function releaseUrl(value) {
 
 export function registerDiscoverTracks(r) {
   r.$discoverReleaseTracks = [];
+  r.$discoverRelease = null;
   r.$discoverTrackPlaybackActive = false;
   r.$discoverPlaybackRequest = 0;
   r.$discoverPendingTrack = null;
+  // The feed's album stories reuse the exact same compact track list markup.
+  r.$createDiscoverTrackList = (release) => createTrackList(r, release);
   r.$playDiscoverReleaseTrack = async (track) => {
+    r.$collectionHandoffRequest += 1;
     if (r.$pauseNativeDiscover?.(track)) return;
     r.$discoverTrackPlaybackActive = true;
     r.$silenceNativePagePlayback();
-    if (!r.$discoverPendingTrack && runtimeSeamless.enabled && String(runtimeSeamless.track?.id) === track.id) {
+    if (!r.$discoverPendingTrack && runtimeSeamless.enabled && runtimeSeamless.status !== "error" && String(runtimeSeamless.track?.id) === track.id) {
+      r.$playlistPlayRequest += 1;
       await r.$seamlessCommand(MESSAGES.SEAMLESS_PLAY_PAUSE);
       return;
     }
@@ -31,12 +37,8 @@ export function registerDiscoverTracks(r) {
       if (prepared.cancelled || prepared.request !== r.$playlistPlayRequest) return;
       if (prepared.index < 0) throw new Error(prepared.error || "This track is unavailable.");
       r.$silenceNativePagePlayback();
-      const response = await r.$runtimeMessage({
-        type: MESSAGES.SEAMLESS_ENABLE, queue: prepared.queue, index: prepared.index,
-        currentTime: 0, autoplay: true, ...runtimeState.dj
-      });
-      if (!response?.ok) throw new Error(response?.error || "Could not play this track.");
-      if (prepared.request === r.$playlistPlayRequest) r.$applySeamlessState(response.state);
+      const state = await startPreparedPageTrack(r, prepared, runtimeState.dj);
+      if (state) r.$applySeamlessState(state);
     } catch (error) {
       if (selection === r.$discoverPlaybackRequest) r.$showToast(error.message || "Could not play this track.");
     } finally {
@@ -48,7 +50,7 @@ export function registerDiscoverTracks(r) {
   };
 }
 
-function createTrackList(release) {
+function createTrackList(r, release) {
   const table = createElement("table", "bandkit-discover-tracks");
   table.setAttribute("aria-label", `${release.album} tracks`);
   const body = document.createElement("tbody");
@@ -70,11 +72,16 @@ function createTrackList(release) {
     const name = createElement("span", "track-title", track.title);
     name.title = track.title;
     title.append(name, createElement("span", "time", formatDuration(track.duration)));
-    const actions = createElement("span", "download-col bandkit-discover-track-buy");
+    const actions = createElement("span", "download-col bandkit-discover-track-actions");
     const buy = createElement("a", "bandcamp-hub-page-buy", "Buy");
     buy.href = track.pageUrl;
     buy.setAttribute("aria-label", `Buy ${track.title}`);
-    actions.append(buy);
+    // Discover rows carry the album page's per-track controls, so a single track
+    // can reach Now Playing, a playlist or a cart without leaving the panel.
+    const add = r.$createPagePlaylistButton();
+    add.classList.add("is-track-action");
+    r.$updatePagePlaylistButton(add, track);
+    actions.append(buy, add);
     title.append(actions);
     titleCell.append(title);
     row.append(play, titleCell);
@@ -86,6 +93,18 @@ function createTrackList(release) {
 
 export function setupDiscoverTracks(r) {
   if (location.hostname !== "bandcamp.com" || !/^\/discover(?:\/|$)/.test(location.pathname)) return;
+  // The release add control follows the resolved tracks. Discover rebuilds its
+  // release actions around a selection, so sync the control directly and stage the
+  // repeats the way the native player handoff already does.
+  const refreshReleaseActions = () => {
+    r.$syncDiscoverReleaseAddControl?.();
+    for (const delay of [0, 80, 240]) {
+      window.setTimeout(() => {
+        r.$syncDiscoverReleaseAddControl?.();
+        r.$schedulePlaylistButtons?.();
+      }, delay);
+    }
+  };
   let selectedUrl = "";
   let renderedUrl = "";
   let host = null;
@@ -96,6 +115,8 @@ export function setupDiscoverTracks(r) {
     request += 1;
     host?.remove(); host = null; renderedUrl = "";
     r.$discoverReleaseTracks = [];
+    r.$discoverRelease = null;
+    refreshReleaseActions();
     r.$pageTrackAnalysisRequest += 1;
     r.$pageTrackAnalysisStatus = "idle";
     r.$pageTrackAnalysisSignature = "";
@@ -147,10 +168,12 @@ export function setupDiscoverTracks(r) {
       }
       if (version !== request || !host?.isConnected) return;
       r.$discoverReleaseTracks = release.tracks.filter((track) => r.$isReusableStreamUrl(track.url));
-      host.replaceChildren(createTrackList(release));
+      r.$discoverRelease = release;
+      host.replaceChildren(createTrackList(r, release));
       host.setAttribute("aria-busy", "false");
       if (!release.tracks.length) host.append(createElement("p", "bandkit-discover-tracklist-status", "No tracks available."));
       r.$ensurePageStyles();
+      refreshReleaseActions();
       r.$maybeAnalyzePageTracks();
       r.$syncPagePlayerUi();
     } catch {
@@ -169,8 +192,8 @@ export function setupDiscoverTracks(r) {
     window.setTimeout(() => { void sync(); }, 0);
   };
   document.addEventListener("click", (event) => {
-    if (event.target.closest(".bandkit-discover-track-buy")) return;
-    const row = event.target.closest(".bandkit-discover-tracks .track_row_view");
+    if (event.target.closest(".bandkit-discover-track-actions")) return;
+    const row = event.target.closest("#DiscoverApp .bandkit-discover-tracks .track_row_view");
     if (row && !event.target.closest(".bandkit-track-analysis")) {
       event.preventDefault(); event.stopImmediatePropagation();
       const track = r.$discoverReleaseTracks.find((item) => item.id === row.dataset.bandkitDiscoverTrackId);
@@ -195,7 +218,7 @@ export function setupDiscoverTracks(r) {
   }, true);
   document.addEventListener("keydown", (event) => {
     if (event.key !== " " && event.key !== "Enter") return;
-    const control = event.target.closest(".bandkit-discover-tracks .play-col a, [data-bandkit-discover-select]");
+    const control = event.target.closest("#DiscoverApp .bandkit-discover-tracks .play-col a, [data-bandkit-discover-select]");
     if (control) { event.preventDefault(); control.click(); }
   });
   // Watch only native selection changes; ignore our own analysis/playback mutations.

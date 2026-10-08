@@ -78,7 +78,7 @@ assert.match(extractFunction("syncCurrentPlaylistAnalysisUi"), /current\.replace
   "analysis updates must patch a Now Playing card in place instead of replacing the hovered card");
 assert.match(extractFunction("renderPlaylistTrack"), /findIndex\(\(track\) => track\.playlistItemId === item\.playlistItemId\)[\s\S]*?playPlaylistAt\(currentIndex\)/,
   "Now Playing row playback must resolve its live item position instead of retaining a stale rendered index");
-assert.match(extractFunction("applySeamlessState"), /playlistAnalysisChanged[\s\S]*?syncCurrentPlaylistAnalysisUi\(\)[\s\S]*?syncCurrentPlaylistPlaybackUi\(\)[\s\S]*?else\s*\{\s*render\(\)/,
+assert.match(extractFunction("applySeamlessState"), /playlistAnalysisChanged[\s\S]*?syncCurrentPlaylistAnalysisUi\(\)[\s\S]*?syncCurrentPlaylistPlaybackUi\(\)[\s\S]*?else\s*\{\s*(?:schedulePanelRender|render)\(\)/,
   "routine playback analysis updates must preserve Now Playing card DOM identity");
 assert.doesNotMatch(extractFunction("renderPlaylistTrack"), /hub-playlist-position-play/,
   "Now Playing rows must not retain a separate play column before the artwork");
@@ -313,9 +313,13 @@ assert.match(hubCss, /\.hub-cart-item-card \.hub-product-main\s*\{[^}]*grid-temp
 assert.match(hubCss, /\.hub-cart-item-card \.hub-cart-remove-button\s*\{[^}]*height:\s*22px;[^}]*margin-top:\s*-3px;[^}]*width:\s*22px;/s,
   "the current-cart remove control must fit quietly within the compact card");
 assert.match(extractFunction("renderCartItemCard"), /hub-product-meta-row[\s\S]*?item\.kind/,
-  "cart item type must remain available as progressively disclosed metadata");
-assert.match(hubCss, /\.hub-cart-item-card \.hub-product-meta-row\s*\{[^}]*opacity:\s*0;[^}]*transition:\s*opacity 100ms ease;[^}]*\}[\s\S]*?\.hub-cart-item-card:is\(:hover, :focus-within\) \.hub-product-meta-row\s*\{[^}]*opacity:\s*1;/s,
-  "cart item type must appear only when its card is hovered or keyboard-focused");
+  "cart item type must remain rendered on the cart card");
+assert.match(extractFunction("renderCartItemCard"), /artistName = isGenericCartArtist\(item\.artist\) \? "Bandcamp" : item\.artist/,
+  "cart cards must keep their artist line even before the real name resolves");
+assert.match(hubCss, /\.hub-cart-item-card \.hub-product-meta-row\s*\{[^}]*min-height:\s*15px;/s,
+  "cart item type must be visible at rest alongside title and artist");
+assert.doesNotMatch(hubCss, /\.hub-cart-item-card \.hub-product-meta-row\s*\{[^}]*opacity:\s*0/s,
+  "cart item type must not be hidden until hover");
 assert.match(hubCss, /\.hub-row-title \.hub-price\s*\{[^}]*font-size:\s*13px;/s,
   "cart item prices must match the quiet saved-card duration scale");
 assert.match(extractFunction("renderPlaylist"), /createPlaylistToolbarButton\("Import playlist"[\s\S]*createPlaylistToolbarButton\("New playlist"/,
@@ -374,7 +378,7 @@ assert.match(extractFunction("recordActivity"), /state\.activity\.unshift[\s\S]*
   "the shared Activity recorder must keep a useful bounded history");
 assert.match(source, /function scanLiveCart[\s\S]*?addedItems[\s\S]*?action: "added-to-cart"[\s\S]*?recordActivity/,
   "newly observed Bandcamp cart items must be recorded in Activity");
-assert.match(pageActionsSource, /scanLiveCart[\s\S]*?cartAutosave\.cartSignature\(uniqueItems\)[\s\S]*?cartAutosave\.cartSignature\(runtimeState\.cart\)/,
+assert.match(pageActionsSource, /scanLiveCart[\s\S]*?cartAutosave\.cartSignature\(acceptedItems\)[\s\S]*?cartAutosave\.cartSignature\(runtimeState\.cart\)/,
   "unchanged Bandcamp carts must use the canonical autosave identity and never trigger a panel render loop");
 assert.match(pageActionsSource, /observedSummary[\s\S]*?Object\.values\(observedSummary\)\.some[\s\S]*?observedSummary : null/,
   "an empty bridged cart summary must stay null instead of oscillating persisted state and rebuilding the panel");
@@ -485,6 +489,6 @@ assert.match(source, /MESSAGES\.GET_NOW_PLAYING/,
   "startup must restore Now Playing from session storage rather than durable app state");
 assert.match(lifecycleSource, /MESSAGES\.NOW_PLAYING_STATE[\s\S]*?playlistShuffleEnabled[\s\S]*?playlistShuffleOrder/,
   "Shuffle state must follow Now Playing when another Bandcamp tab changes the queue");
-assert.match(lifecycleSource, /MESSAGES\.NOW_PLAYING_STATE[\s\S]*?if \(r\.\$isNowPlayingView\(\)\) r\.\$render\(\);\s*else r\.\$renderPlayer\(\);/,
+assert.match(lifecycleSource, /MESSAGES\.NOW_PLAYING_STATE[\s\S]*?if \(r\.\$isNowPlayingView\(\)\) r\.\$schedulePanelRender\(\);\s*else r\.\$schedulePlayerRender\(\);/,
   "queue broadcasts must not rebuild an open saved playlist when only the footer depends on them");
 console.log("now playing UI and source contracts smoke test passed");

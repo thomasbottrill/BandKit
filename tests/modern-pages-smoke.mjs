@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
-import { readContentSource, readHubStyles, readModernStyles } from "./support/source.mjs";
+import { readContentSource, readHubStyles, readModernStyles, readPageStyles } from "./support/source.mjs";
+import { usesBandcampBrandVisualizer } from "../src/content/runtime/modern-layout.js";
 
-const source = readContentSource();
+// The page theme moved into its own document_start stylesheet; its rules are
+// still Bandkit's shipped styling, so they stay in scope for these checks.
+const source = `${readContentSource()}\n${readPageStyles()}`;
 const css = readModernStyles();
 const hubCss = readHubStyles();
 const manifest = JSON.parse(fs.readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));
@@ -12,7 +15,30 @@ const modernLayoutSource = ["modern-layout.js", "modern-release-layout.js"].map(
   fs.readFileSync(new URL(`../src/content/runtime/${file}`, import.meta.url), "utf8")
 )).join("\n");
 const pageActionsSource = fs.readFileSync(new URL("../src/content/runtime/page-actions.js", import.meta.url), "utf8");
+const artworkActionsCss = fs.readFileSync(new URL("../src/styles/modern/artwork-actions.css", import.meta.url), "utf8");
 const collectionPlaylistsSource = fs.readFileSync(new URL("../src/content/runtime/collection-playlist-integration.js", import.meta.url), "utf8");
+
+const pageRoot = ({ feed = false, selector = "" } = {}) => ({
+  body: { classList: { contains: (name) => name === "feed" && feed } },
+  querySelector: (query) => query.includes(selector) && selector ? {} : null
+});
+for (const page of [
+  { hostname: "bandcamp.com", pathname: "/", root: pageRoot() },
+  { hostname: "bandcamp.com", pathname: "/discover/electronic", root: pageRoot() },
+  { hostname: "bandcamp.com", pathname: "/radio/show-123", root: pageRoot() },
+  { hostname: "daily.bandcamp.com", pathname: "/features/story", root: pageRoot() },
+  { hostname: "bandcamp.com", pathname: "/fan/feed", root: pageRoot({ feed: true }) },
+  { hostname: "bandcamp.com", pathname: "/fan", root: pageRoot({ selector: "#fan-container" }) }
+]) assert.equal(usesBandcampBrandVisualizer(page), true, `${page.hostname}${page.pathname} should use Bandcamp aqua`);
+assert.equal(usesBandcampBrandVisualizer({
+  hostname: "artist.bandcamp.com", pathname: "/album/release", root: pageRoot()
+}), false, "artist and release pages should keep their page-derived visualizer colours");
+assert.match(modernLayoutSource, /usesBandcampBrandVisualizer\(\)[\s\S]*?BANDCAMP_BRAND_ACCENT[\s\S]*?resolvedVisualizerColors\(\s*inheritedVisualizerColors/,
+  "Dynamic default Bandcamp pages must pass the brand aqua through the visualizer override resolver");
+assert.match(modernLayoutSource, /usesBandcampBrandPlayerAccent[\s\S]*?variables\["--hub-scrub-accent"\]\s*=\s*brandAccent;[\s\S]*?r\.\$player\?\.style\.setProperty\("--hub-scrub-accent", brandAccent\)/,
+  "Dynamic default Bandcamp pages must pin the player timeline and handle to brand aqua");
+assert.match(modernLayoutSource, /applySelectedTheme\(\)[\s\S]*?r\.\$player\?\.style\.removeProperty\("--hub-scrub-accent"\)/,
+  "Selecting a curated or custom theme must release the Dynamic brand scrub accent");
 
 assert.match(modernLayoutSource, /node\.querySelector\("iframe\.video-generic-iframe, video:not\(\.hidden-video-mobile-player\)"\)/,
   "featured-video detection must require a real playable embed rather than Bandcamp's empty legacy video wrapper");
@@ -77,6 +103,22 @@ assert.equal(pageType({ pathname: "/community", selectors: ["#community", "#subs
   "Community must ignore the inactive subscription view kept in Bandcamp's DOM");
 assert.equal(pageType({ pathname: "/community", selectors: ["#community"] }), "community");
 assert.equal(pageType({ pathname: "/album/release", bodyClasses: ["tralbum-page"], selectors: ["#trackInfo", "#tralbumArt", ".trackView"] }), "release");
+assert.match(css, /#DiscoverApp \.focused-result \.tralbum-purchase-options-browser\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) minmax\(0, 46%\);/s,
+  "Discover release info must lead the panel with the artwork on the right");
+assert.match(css, /#DiscoverApp \.focused-result \.images > \.cover\s*\{\s*grid-column:\s*2;/,
+  "Discover cover art must sit in the trailing column");
+assert.match(css, /html :is\(#DiscoverApp \.focused-result, \.bandkit-collection-preview\) \.release-buttons > :is\(\.is-discover-release-add, \.wishlist-button, \.bandkit-collection-preview-download\)\s*\{[^}]*border:\s*1px solid transparent\s*!important;/s,
+  "Discover secondary release actions must not show a resting outline");
+assert.match(css, /html :is\(#DiscoverApp \.focused-result, \.bandkit-collection-preview\) \.release-buttons > :is\(\.is-discover-release-add, \.wishlist-button, \.bandkit-collection-preview-download\):is\(:hover, :focus-visible\)\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--hub-accent, var\(--bandkit-page-accent, var\(--bandkit-release-accent\)\)\) 8%/s,
+  "Discover secondary release actions must back with the theme colour on hover");
+assert.match(css, /html :is\(#DiscoverApp \.focused-result, \.bandkit-collection-preview\) \.release-buttons > \.wishlist-button:is\(\[title\*="Remove" i\], \[aria-label\*="Remove" i\], \[aria-pressed="true"\]\)\s*\{\s*color:\s*#ff9c00\s*!important;/,
+  "Wishlisted Discover releases must use the album page amber heart");
+assert.match(css, /html :is\(#DiscoverApp \.focused-result, \.bandkit-collection-preview\) \.release-buttons > \.wishlist-button:is\(\[title\*="Remove" i\], \[aria-label\*="Remove" i\], \[aria-pressed="true"\]\):is\(:hover, :focus-visible\)\s*\{[^}]*background:\s*color-mix\(in srgb, #ff9c00 10%/s,
+  "Wishlisted Discover hearts must back with amber on hover");
+assert.match(css, /:is\(#DiscoverApp, \.bandkit-feed-album, \.bandkit-collection-preview\) \.bandkit-discover-tracks td\s*\{[^}]*border-bottom:\s*1px solid var\(--bandkit-release-divider, var\(--bandkit-page-background, var\(--bandkit-release-bg, transparent\)\)\);/s,
+  "Discover, feed and collection preview tracklist dividers must use the section colour rather than a bright border token");
+assert.match(artworkActionsCss, /#DiscoverApp \.results-grid-item:is\(:hover, :focus-within\) \.image-container > :is\(\.play-pause-button, \.play-button\)[^{]*\{[^}]*opacity:\s*1\s*!important/s,
+  "Discover play controls must reveal with the add button when any part of the card is hovered or focused");
 
 assert.match(source, /Modern Bandcamp pages/);
 assert.match(source, /Use modern Bandcamp pages/);
@@ -171,10 +213,14 @@ assert.doesNotMatch(source, /bandkit-modern-purchase-panel", "Buy & collect"/,
   "the right-column purchase cards must not retain a redundant Buy and collect heading");
 assert.match(source, /function prepareModernDiscography\(\)[\s\S]*?headingLink\.textContent = "Discography"[\s\S]*?showMore\?\.classList\.add\("bandkit-modern-discography-more-link"\)[\s\S]*?return discography;/,
   "release Discography must retain its matching heading and native More link before relocation");
-assert.match(source, /const extraReleases = releaseItems\.slice\(3\)[\s\S]*?event\.preventDefault\(\)[\s\S]*?setExpanded\(!discography\.classList\.contains\("bandkit-modern-discography-expanded"\)\)[\s\S]*?addEventListener\("click", toggleExtraReleases, true\)/,
-  "More releases must toggle the releases already supplied by Bandcamp instead of navigating away");
-assert.match(source, /if \(!extraReleases\.length\) return;/,
-  "the native Music-page link must remain the fallback when no extra releases are available inline");
+assert.match(source, /function prepareModernDiscography\(\)[\s\S]*?fetch\(showMoreLink\.href[\s\S]*?#music-grid > li[\s\S]*?releaseList\.append\(item\)[\s\S]*?addEventListener\("click", toggleExtraReleases, true\)/,
+  "More releases must fetch and merge the artist's full native music grid instead of navigating away");
+assert.match(source, /image\.src = sourceImage\?\.dataset\.original \|\| sourceImage\?\.src \|\| "";/,
+  "fetched discography artwork must support Bandcamp's deferred data-original image URLs");
+assert.match(source, /if \(fullDiscographyFailed\) return;[\s\S]*?open full discography\.\.\./,
+  "the native Music-page link must remain the fallback after a discography request fails");
+assert.match(source, /const expandedToggleTop = showMoreLink\?\.getBoundingClientRect\(\)\.top;[\s\S]*?setExpanded\(false\);[\s\S]*?collapsedToggleTop - expandedToggleTop/,
+  "collapsing a full Discography must move the viewport upward with the Fewer releases control");
 assert.doesNotMatch(source, /createModernReleaseShell\("li", "bandkit-modern-discography-more"\)/,
   "More releases must no longer be converted into a fourth square tile");
 assert.match(source, /function prepareModernReleaseProfile\(releaseBody, artistCard, discography\)[\s\S]*?bandkit-modern-artist-column[\s\S]*?bandkit-modern-discography-column[\s\S]*?releaseBody\.append\(section\)/,
@@ -187,16 +233,16 @@ assert.match(source, /function prepareModernReleaseInfo\(releaseBody, rightColum
   "Shows must precede Contact and help in their shared 50/50 section");
 assert.match(source, /function prepareModernReleaseInfo\(releaseBody, rightColumn\)[\s\S]*?while \(next\?\.matches\("p"\)\)[\s\S]*?moveModernReleaseNode\(node, contactColumn\)/,
   "Contact and help must retain its related contact, support, policy, redemption, and reporting links");
-assert.match(source, /mainAction\.append\(details\)[\s\S]*?moveModernReleaseNode\(node, details\)/,
-  "Price and discount details must sit beside, rather than inside, the native Buy control");
+assert.match(source, /buyControl\.append\(details\)[\s\S]*?moveModernReleaseNode\(node, details\)/,
+  "Price and discount details must sit inside the unified native Buy control");
 assert.match(source, /createTreeWalker\(details, window\.NodeFilter\.SHOW_TEXT\)[\s\S]*?replace\(\/\\bor\\s\+more\\b\/gi, "\+"\)/,
   "Modern purchase prices must replace the verbose or-more suffix with a compact plus sign");
-assert.match(source, /current\?\.type === "track"[\s\S]*?is-track-purchase[\s\S]*?setAttribute\("aria-label", "Buy"\)/,
-  "Digital Track purchase cards must use the compact accessible Buy label");
+assert.match(source, /buyControl\.style\.setProperty\("--bandkit-buy-icon", `url\('\$\{asset\("icon-cart\.svg"\)\}'\)`\)/,
+  "Every purchase control must receive the shared cart icon");
 assert.match(source, /bandkit-modern-gift-control[\s\S]*?aria-label", "Send as gift"/,
   "Modern purchase cards must retain an accessible native Gift control");
-assert.match(source, /querySelectorAll\("\.compound-button\.send-as-gift"\)[\s\S]*?icon-gift\.svg/,
-  "every native Gift control must receive the Lucide gift icon");
+assert.doesNotMatch(source, /icon-gift\.svg/,
+  "native Gift controls must use the visible Gift word rather than an icon");
 assert.match(source, /purchaseAction\.matches\("a\[href\]"\)[\s\S]*?target\.hash = "bandkit-cart";[\s\S]*?purchaseAction\.href = target\.href;/,
   "Feed purchase icons must carry the native Bandcamp purchase-action handoff");
 assert.match(source, /cartButton\.nextElementSibling !== playlistButton[\s\S]*?playlistButton\.nextElementSibling !== button[\s\S]*?button\.nextElementSibling !== overflowButton/, "Release actions must remain ordered Buy, Add, DJ, then More");
@@ -257,8 +303,12 @@ assert.match(djAnalysisFunction, /bpmTapTimes\.length < 4[\s\S]*?bpmLabel\.textC
   "the first three taps must provide compact visible and accessible progress feedback");
 assert.match(djAnalysisFunction, /const tapPending = !tappedBpm[\s\S]*?const mode = tapPending \? `\$\{bpmTapTimes\.length\}\/4`/,
   "tap progress must survive normal panel and music-bar rerenders until the fourth tap");
-assert.doesNotMatch(djAnalysisFunction, /nextTappedBpm[\s\S]*?SEAMLESS_SET_(?:RATE|BPM)/,
-  "Tap must never change playback speed or overwrite analyzed track metadata");
+assert.match(djAnalysisFunction, /const setManualBpm = \(\) => \{[\s\S]*?displayedValue \/ bpm[\s\S]*?state\.dj\.rate = targetRate[\s\S]*?SEAMLESS_SET_RATE/,
+  "typing a target BPM must change playback tempo through the same rate command as the page slider");
+assert.match(djAnalysisFunction, /const nextTappedBpm = tapTempoBpm\(bpmTapTimes\);[\s\S]*?nextTappedBpm \/ bpm[\s\S]*?state\.dj\.rate = targetRate[\s\S]*?SEAMLESS_SET_RATE/,
+  "Tap must apply its BPM estimate as a playback-rate target without overwriting analyzed track metadata");
+assert.doesNotMatch(djAnalysisFunction, /nextTappedBpm[\s\S]*?SEAMLESS_SET_BPM/,
+  "Tap must not overwrite the analyzed BPM metadata");
 assert.match(djAnalysisFunction, /const restoreAutomaticBpm = \(\) => \{[\s\S]*?state\.dj\.autoTempo = true;[\s\S]*?state\.dj\.tapBpm = null;[\s\S]*?state\.dj\.rate = 1;[\s\S]*?SEAMLESS_SET_RATE,[\s\S]*?rate: 1[\s\S]*?SEAMLESS_RESET_BPM/,
   "restoring Auto must return both the analyzed BPM reading and tempo slider to their defaults");
 assert.match(djAnalysisFunction, /resetBpm\.addEventListener\("click", restoreAutomaticBpm\)[\s\S]*?autoBpm\.addEventListener\("click", restoreAutomaticBpm\)/,
@@ -308,7 +358,7 @@ assert.match(source, /body\.feed :is\(\.bandkit-feed-action-row,\.bandkit-feed-s
   "Feed action buttons must not show backing or borders at rest");
 assert.match(source, /body\.feed :is\(\.bandkit-feed-action-row,\.bandkit-feed-sidebar-actions\) :is\([^}]+\):is\(:hover,:focus-visible\)\{background:rgba\(6,135,245,\.1\)!important;border-color:currentColor!important\}/,
   "Feed action buttons must restore their backing on hover or keyboard focus");
-assert.match(source, /\.story-innards>\.tralbum-wrapper-collect-controls \.bandkit-feed-action-row\{opacity:0!important;pointer-events:none!important;transition:opacity 120ms ease\}[\s\S]*?\.story-innards:is\(:hover,:focus-within\)>\.tralbum-wrapper-collect-controls \.bandkit-feed-action-row\{opacity:1!important;pointer-events:auto!important\}/,
+assert.match(source, /\.story-innards \.tralbum-wrapper-collect-controls \.bandkit-feed-action-row\{opacity:0!important;pointer-events:none!important;transition:opacity 120ms ease\}[\s\S]*?\.story-innards:is\(:hover,:focus-within\) \.tralbum-wrapper-collect-controls \.bandkit-feed-action-row\{opacity:1!important;pointer-events:auto!important\}/,
   "Feed action rows must reveal only when their overall card is hovered or keyboard-focused");
 assert.match(source, /\.story-innards:is\(:hover,:focus-within\) \.bandkit-feed-action-row \[data-bandkit-label\]>\.bandkit-page-action-label\{display:inline-block!important/,
   "revealed Feed action buttons must include their labels");
@@ -428,14 +478,14 @@ assert.match(css, /\.bandkit-modern-tags-panel\s*\{[^}]*border-top:\s*1px solid 
   "Tags must retain a single divider when it follows Discography");
 assert.match(css, /#discography > \.bandkit-modern-section-title\s*\{[^}]*font-size:\s*20px\s*!important;[^}]*font-weight:\s*600\s*!important;[^}]*margin:\s*0 0 14px\s*!important;/s,
   "Discography must match the Tags section-heading typography");
-assert.match(css, /#discography ul\s*\{[^}]*grid-auto-columns:\s*120px;[^}]*grid-auto-flow:\s*column;[^}]*overflow-x:\s*auto;[^}]*padding:\s*3px 2px 8px\s*!important;/s,
-  "Discography releases must use artwork-width columns with enough inset to prevent hover clipping");
-assert.match(css, /#discography li\s*\{[^}]*box-sizing:\s*border-box;[^}]*width:\s*120px\s*!important;/s,
-  "Discography hover surfaces must hug the same 120px content width as their artwork");
-assert.match(css, /#discography\.bandkit-modern-discography-expanded > ul > li\.gt3\s*\{[^}]*display:\s*block\s*!important;/s,
-  "expanded Discography must reveal Bandcamp's native hidden release items");
+assert.match(css, /#discography ul\s*\{[^}]*display:\s*grid\s*!important;[^}]*grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\);[^}]*overflow:\s*visible;[^}]*padding:\s*3px 2px 8px\s*!important;/s,
+  "Discography releases must fit four fluid columns without horizontal scrolling");
+assert.match(css, /#discography li\s*\{[^}]*box-sizing:\s*border-box;[^}]*width:\s*auto\s*!important;/s,
+  "Discography hover surfaces must follow their fluid grid columns");
+assert.match(css, /#discography > ul > li:nth-child\(-n \+ 4\),[\s\S]*?#discography\.bandkit-modern-discography-expanded > ul > li\s*\{[^}]*display:\s*block\s*!important;/s,
+  "Discography must show four releases when collapsed and every fetched release when expanded");
 assert.match(css, /#discography > \.bandkit-modern-discography-more-link\s*\{[^}]*margin:\s*28px 2px 0\s*!important;[^}]*width:\s*auto\s*!important;/s,
-  "More releases must sit as a normally aligned link below the three cards with standard spacing");
+  "More releases must sit as a normally aligned link below the four cards with standard spacing");
 assert.match(css, /#discography > \.bandkit-modern-discography-more-link a:hover\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--bandkit-release-accent\) 8%, var\(--bandkit-release-surface\)\)\s*!important;[^}]*border-color:\s*transparent\s*!important;[^}]*text-decoration:\s*none\s*!important;/s,
   "More releases must use the shared muted hover fill without an outline");
 assert.match(css, /#discography li:is\(:hover, :focus-within\)\s*\{[^}]*background:\s*var\(--bandkit-release-accent-soft\)\s*!important;[^}]*box-shadow:\s*none;[^}]*transform:\s*none;/s,
@@ -458,20 +508,22 @@ assert.match(css, /@media \(max-width:\s*680px\)[\s\S]*?:is\(\.bandkit-modern-pr
   "both paired release sections must stack on narrow screens");
 assert.match(css, /\.bandkit-modern-purchase-actions\s*\{[^}]*flex-wrap:\s*nowrap;/s,
   "Buy, price, discount, and Gift must remain on one purchase row");
-assert.match(css, /\.bandkit-modern-buy-details\s*\{[^}]*display:\s*inline-flex;[^}]*flex-wrap:\s*nowrap;[^}]*font-size:\s*13px;[^}]*font-weight:\s*700;[^}]*gap:\s*2px 4px;[^}]*white-space:\s*nowrap;/s,
-  "Purchase prices must remain in one compact, readable group outside the Buy button");
-assert.match(css, /\.bandkit-modern-buy-details \.buyItemExtra\s*\{[^}]*font-size:\s*11px;[^}]*font-weight:\s*600;/s,
-  "secondary purchase qualifiers must remain visually subordinate to the enlarged price");
+assert.match(css, /\.bandkit-modern-buy-details\s*\{[^}]*display:\s*inline-flex;[^}]*flex-wrap:\s*nowrap;[^}]*font-size:\s*12px;[^}]*font-weight:\s*700;[^}]*gap:\s*2px 3px;[^}]*white-space:\s*nowrap;/s,
+  "Purchase prices must remain one compact, readable group inside the Buy button");
+assert.match(css, /\.bandkit-modern-buy-details \.buyItemExtra\s*\{[^}]*font-size:\s*inherit;[^}]*font-weight:\s*inherit;[^}]*opacity:\s*1;/s,
+  "currency and plus qualifiers must match the primary purchase price");
 assert.match(css, /\.bandkit-modern-buy-control,[\s\S]*?\.following-actions-wrapper \.follow-unfollow\s*\{[^}]*background:\s*transparent\s*!important;[^}]*border:\s*1px solid transparent\s*!important;[^}]*border-radius:\s*5px\s*!important;[^}]*color:\s*var\(--bandkit-release-accent\)\s*!important;/s,
   "native Buy, Pre-order, and Follow controls must use accent text on a transparent resting surface");
 assert.match(css, /\.bandkit-modern-buy-control:is\(:hover, :focus-visible, :active\),[\s\S]*?\.follow-unfollow:is\(:hover, :focus-visible, :active\)\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--bandkit-release-accent\) 8%, var\(--bandkit-release-surface\)\)\s*!important;[^}]*border-color:\s*transparent\s*!important;[^}]*box-shadow:\s*none;[^}]*transform:\s*none;/s,
   "Buy, Pre-order, and Follow controls must match More releases on hover, focus, and press");
-assert.match(css, /\.bandkit-modern-buy-card\.is-track-purchase \.bandkit-modern-buy-label::after\s*\{[^}]*content:\s*"Buy";/s,
-  "Track purchase cards must render the shorter Buy copy");
-assert.match(css, /\.send-as-gift \.bandkit-modern-gift-control\s*\{[^}]*font-size:\s*0\s*!important;[^}]*height:\s*42px;[^}]*width:\s*42px;/s,
-  "Gift must render as a compact icon-only control alongside Buy");
-assert.match(css, /\.send-as-gift \.bandkit-modern-gift-control::before\s*\{[^}]*height:\s*18px;[^}]*mask:\s*var\(--bandkit-gift-icon\)[^}]*width:\s*18px;/s,
-  "Gift must render the shared Lucide gift icon without visible label text");
+assert.match(css, /\.bandkit-modern-buy-control\s*\{[^}]*margin-inline-start:\s*-8px\s*!important;[^}]*padding-inline:\s*8px\s*!important;/s,
+  "the purchase button backing must extend outward so its cart aligns with the card content");
+assert.match(css, /\.bandkit-modern-buy-control::before\s*\{[^}]*height:\s*18px;[^}]*mask:\s*var\(--bandkit-buy-icon\)[^}]*width:\s*18px;/s,
+  "purchase controls must render the shared cart icon");
+assert.match(css, /\.send-as-gift \.bandkit-modern-gift-control\s*\{[^}]*font-size:\s*0\s*!important;[^}]*height:\s*42px;[^}]*padding:\s*0 10px\s*!important;[^}]*width:\s*auto;/s,
+  "Gift must reserve only enough room for its visible word label");
+assert.match(css, /\.send-as-gift \.bandkit-modern-gift-control::after\s*\{[^}]*content:\s*"Gift";[^}]*font-size:\s*12px;/s,
+  "Gift must render as a word rather than an icon");
 assert.match(css, /\.buyItem:has\(> \.bandkit-modern-purchase-actions\) > \.ft > :is\([\s\S]*?\.compound-button\.main-button,[\s\S]*?\.compound-button\.send-as-gift[\s\S]*?display: none !important;/,
   "dynamically regenerated Bandcamp purchase controls must not duplicate the normalized action row");
 assert.match(css, /\.send-as-gift \.bandkit-modern-gift-control\s*\{[^}]*border:\s*1px solid transparent\s*!important;/s,
@@ -563,7 +615,8 @@ assert.match(css, /data-bandkit-page-theme="true"\][\s\S]*?#story-list \.story \
 assert.match(css, /\.story \.tralbum-wrapper\s*\{[^}]*display:\s*grid/s, "Feed release media must replace the legacy floated wrapper");
 assert.match(css, /\.story \.tralbum-wrapper::before,[\s\S]*?\.story \.tralbum-wrapper::after\s*\{[^}]*content:\s*none\s*!important/s, "Feed grid must remove legacy clearfix pseudo-items");
 assert.match(css, /data-bandkit-modern-page-type="music"\] \.leftMiddleColumns\s*\{[^}]*padding-top:\s*20px/s, "Music catalogues should not retain the oversized generic content gap below artist navigation");
-assert.match(css, /#music-grid > \.music-grid-item\s*\{[^}]*border:\s*1px solid color-mix\(in srgb, var\(--bandkit-release-line\) 60%, transparent\)\s*!important/s, "Music cards should use a subtle translucent outline");
+assert.match(css, /#music-grid > \.music-grid-item\s*\{[^}]*border:\s*0\s*!important;[^}]*box-shadow:\s*none\s*!important/s, "Music cards should use their raised surface without an outline");
+assert.match(css, /#music-grid > \.music-grid-item:is\(:hover, :focus-within\)\s*\{[^}]*border-color:\s*transparent\s*!important;[^}]*box-shadow:\s*none\s*!important/s, "Music cards should remain outline-free on hover and keyboard focus");
 assert.match(css, /#merch-grid > \.merch-grid-item\s*\{[^}]*border:\s*1px solid color-mix\(in srgb, var\(--bandkit-release-line\) 60%, transparent\)\s*!important/s, "Merch cards should share the subtle catalogue outline");
 assert.match(css, /\.tralbum-wrapper > \.tralbum-wrapper-col1\s*\{[^}]*grid-column:\s*1\s*!important;[^}]*grid-row:\s*1\s*!important/s, "Feed artwork and metadata must stay in the primary media column");
 assert.match(css, /\.tralbum-wrapper > \.tralbum-wrapper-col2\s*\{[^}]*grid-column:\s*2\s*!important;[^}]*grid-row:\s*1\s*!important/s, "Feed supporter details must stay beside the primary media column");

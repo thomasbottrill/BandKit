@@ -116,6 +116,14 @@
   padding: var(--hub-settings-row-padding) 0;
 }
 
+/* The shared row grid outranks the user agent's [hidden] rule, so dependent
+   rows must restate it or they stay visible when their parent control hides
+   them. */
+.hub-player-setting-row[hidden],
+.hub-settings-detail .hub-settings-row[hidden] {
+  display: none;
+}
+
 .hub-player-blend-mode-control[hidden] {
   display: none;
 }

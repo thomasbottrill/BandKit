@@ -1,8 +1,21 @@
 import { createColourField } from "../components/colour-field.js";
+import { createSettingsRow, createSettingsRowCopy } from "../components/settings.js";
+import { hexColor, hexString, parseColor } from "../color.js";
 import { createElement } from "../core.js";
+import { createSettingsPicker } from "../settings-picker.js";
 import { BUILT_IN_THEMES } from "../state.js";
 import { appearanceVisualizerColourDefaults } from "../visualizer-theme.js";
 import { runtimeSaveState, runtimeState } from "./context.js";
+
+function renderedVisualizerColours(r, fallbacks) {
+  const target = r.$playerVisualizer || r.$player;
+  const style = target ? getComputedStyle(target) : null;
+  return fallbacks.map((fallback, index) => {
+    const value = style?.getPropertyValue(`--hub-visualizer-color-${index + 1}`).trim();
+    const colour = parseColor(value) || hexColor(value, hexColor(fallback, { r: 29, g: 160, b: 195, a: 1 }));
+    return hexString(colour);
+  });
+}
 
 export function createCustomVisualizerColourSettings(r, { showHeading = true, variant = "theme" } = {}) {
   const playerSettings = variant === "player";
@@ -24,6 +37,8 @@ export function createCustomVisualizerColourSettings(r, { showHeading = true, va
     runtimeState.appearance[key]
     && String(runtimeState.appearance[key]).toLowerCase() !== String(defaults[index]).toLowerCase()
   );
+  const usesCustomSource = () => runtimeState.appearance.visualizerColourSource === "custom"
+    || settings.some(([key, , , , index]) => isOverridden(key, index));
   const syncLinked = () => {
     const defaults = defaultsForTheme();
     settings.forEach(([key, , , , index]) => {
@@ -37,7 +52,8 @@ export function createCustomVisualizerColourSettings(r, { showHeading = true, va
       for (const input of r.$content.querySelectorAll(`[data-theme-colour="${key}"]`)) {
         input.value = value;
         const field = input.closest(".hub-colour-field");
-        const overridden = isOverridden(key, index, defaults);
+        const overridden = runtimeState.appearance.visualizerColourSource === "custom"
+          ? Boolean(runtimeState.appearance[key]) : isOverridden(key, index, defaults);
         const source = field?.querySelector(".hub-colour-source");
         const reset = field?.querySelector(".hub-colour-link");
         if (source) source.hidden = overridden;
@@ -53,21 +69,26 @@ export function createCustomVisualizerColourSettings(r, { showHeading = true, va
       value: runtimeState.appearance[key] || defaultsForTheme()[index],
       className: "hub-colour-field is-linked-colour hub-player-setting-row hub-visualizer-colour-row",
       controlClassName: "hub-visualizer-colour-control",
-      sourceLabel: playerSettings ? "Theme colour" : sourceLabel,
-      resetLabel: playerSettings ? "Reset to theme" : resetLabel
+      sourceLabel: playerSettings ? "Theme" : sourceLabel,
+      resetLabel: playerSettings ? "Use theme" : resetLabel
     });
     input.dataset.themeColour = key;
     r.$containThemeColourPointer(input);
     inputs.set(key, input);
     const resetLinkedColour = () => {
       runtimeState.appearance[key] = null;
+      const returnedToTheme = settings.every(([colourKey]) => !runtimeState.appearance[colourKey]);
+      if (returnedToTheme) runtimeState.appearance.visualizerColourSource = "theme";
       r.$spectrumColourCache = null;
       syncAll();
       r.$applyAppearance();
       runtimeSaveState();
+      if (returnedToTheme && playerSettings) r.$render();
     };
-    setOverridden(isOverridden(key, index));
+    setOverridden(runtimeState.appearance.visualizerColourSource === "custom"
+      ? Boolean(runtimeState.appearance[key]) : isOverridden(key, index));
     input.addEventListener("input", () => {
+      runtimeState.appearance.visualizerColourSource = "custom";
       runtimeState.appearance[key] = input.value;
       r.$spectrumColourCache = null;
       syncAll();
@@ -81,7 +102,39 @@ export function createCustomVisualizerColourSettings(r, { showHeading = true, va
     reset.addEventListener("click", resetLinkedColour);
     group.append(field);
   }
-  return { group, syncAll, syncLinked };
+  if (playerSettings) {
+    const sourceRow = createSettingsRow({ className: "hub-visualizer-colour-source-row" });
+    const sourceCopy = createSettingsRowCopy("Source", "Follow the active theme, or keep fixed visualiser colours across pages.");
+    const sourcePicker = createSettingsPicker({
+      ariaLabel: "Visualiser colour source",
+      className: "hub-visualizer-colour-source-picker",
+      options: [
+        { value: "theme", label: "Follow theme" },
+        { value: "custom", label: "Custom" }
+      ],
+      value: usesCustomSource() ? "custom" : "theme",
+      onChange: (source) => {
+        const defaults = defaultsForTheme();
+        runtimeState.appearance.visualizerColourSource = source === "custom" ? "custom" : "theme";
+        if (source === "custom") {
+          renderedVisualizerColours(r, defaults).forEach((colour, index) => {
+            runtimeState.appearance[`customVisualizerColor${index + 1}`] = colour;
+          });
+        } else {
+          for (let index = 1; index <= 3; index++) runtimeState.appearance[`customVisualizerColor${index}`] = null;
+        }
+        r.$spectrumColourCache = null;
+        r.$applyAppearance();
+        runtimeSaveState();
+        r.$render();
+        r.$showToast(source === "custom" ? "Custom visualiser colours enabled" : "Visualiser now follows the theme");
+      }
+    });
+    sourceRow.append(sourceCopy, sourcePicker.element);
+    group.prepend(sourceRow);
+    for (const row of group.querySelectorAll(".hub-visualizer-colour-row")) row.hidden = !usesCustomSource();
+  }
+  return { group, syncAll, syncLinked, source: usesCustomSource() ? "custom" : "theme" };
 }
 
 export function createCustomScrubColourSetting(r, visualizerColours) {

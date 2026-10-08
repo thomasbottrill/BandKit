@@ -211,19 +211,20 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #mu
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid > .music-grid-item {
   background: var(--bandkit-release-surface-raised) !important;
-  border: 1px solid color-mix(in srgb, var(--bandkit-release-line) 60%, transparent) !important;
+  border: 0 !important;
   border-radius: 8px;
+  box-shadow: none !important;
   float: none !important;
   margin: 0 !important;
   min-width: 0;
   overflow: hidden;
   padding: 0 !important;
-  transition: border-color 140ms ease;
   width: auto !important;
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="music"] #music-grid > .music-grid-item:is(:hover, :focus-within) {
-  border-color: var(--bandkit-release-accent) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
   transform: none;
 }
 

@@ -1,4 +1,4 @@
-import { asset } from "./core.js";
+import { asset, removeStyleProperty, setStyleProperty } from "./core.js";
 import { scrubberHandleIconName } from "./state.js";
 import { importPngHandle, normalizePngHandle } from "./png-scrub-handle.js";
 
@@ -83,11 +83,11 @@ let cachedMask = null;
 export function setHandleImageStyles(style, prefix, shape, custom, retainSvgColors = false, retainPngColors = true) {
   const png = shape === "custom" ? normalizePngHandle(custom)?.png : null;
   const image = png ? retainPngColors ? `url("${png}")` : null : shape === "custom" && custom?.svg && retainSvgColors ? scrubberHandleMask(shape, false, custom) : null;
-  const accent = prefix.startsWith("--bandkit")
-    ? "var(--bandkit-handle-color, var(--bandkit-scrub-accent))"
-    : "var(--hub-handle-color, var(--hub-scrub-accent))";
-  style.setProperty(`${prefix}-fill`, image ? `${image} center / contain no-repeat` : accent);
-  style.setProperty(`${prefix}-fill-mask`, image ? "none" : `var(${prefix}-mask)`);
+  if (image) setStyleProperty(style, `${prefix}-fill`, `${image} center / contain no-repeat`);
+  // A var() written here would resolve against the host's accent, so the theme
+  // fill is left to the handle rule where the player's own accent is in scope.
+  else removeStyleProperty(style, `${prefix}-fill`);
+  setStyleProperty(style, `${prefix}-fill-mask`, image ? "none" : `var(${prefix}-mask)`);
 }
 
 export function scrubberHandleMask(shape, rounded, custom) {

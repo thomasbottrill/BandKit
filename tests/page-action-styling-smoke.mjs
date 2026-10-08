@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const playerUi = ["runtime/page-player-ui.js", "components/page-actions.js"].map(file => fs.readFileSync(new URL(`../src/content/${file}`, import.meta.url), "utf8")).join("\n");
-const appearance = fs.readFileSync(new URL("../src/content/runtime/appearance.js", import.meta.url), "utf8");
+// The page theme moved into its own document_start stylesheet; its rules are
+// still part of what theme application ships.
+const appearance = ["../src/content/runtime/appearance.js", "../src/styles/page/theme.css"].map((file) => (
+  fs.readFileSync(new URL(file, import.meta.url), "utf8")
+)).join("\n");
 const modernLayout = ["modern-layout.js", "modern-release-layout.js"].map((file) => (
   fs.readFileSync(new URL(`../src/content/runtime/${file}`, import.meta.url), "utf8")
 )).join("\n");
@@ -75,8 +79,10 @@ assert.match(releaseActionsCss, /#collect-item\.bandkit-modern-owned #wishlisted
   "owned releases must suppress the redundant wishlist View link");
 assert.match(releaseActionsCss, /#collect-item\.wishlisted #wishlisted-msg > \.action\s*\{[^}]*background: transparent !important;[^}]*border-color: transparent !important;[^}]*color: #ff9c00 !important;/s,
   "the artist-page wishlist control should use a filled orange heart without an outline");
-assert.match(modernLayout, /querySelectorAll\("\.compound-button\.send-as-gift"\)[\s\S]*?for \(const \{ action, control \} of giftEntries\)[\s\S]*?icon-gift\.svg/,
-  "every purchase Gift action should receive the shared icon treatment");
+assert.match(modernLayout, /for \(const \{ action, control \} of giftEntries\)[\s\S]*?control\.setAttribute\("aria-label", "Send as gift"\)/,
+  "every purchase Gift action should retain an accessible label");
+assert.doesNotMatch(modernLayout, /icon-gift\.svg/,
+  "purchase Gift actions should use text rather than the old gift icon");
 assert.match(releaseActionsCss, /\.buyItem:has\(> \.bandkit-modern-purchase-actions\) > \.ft > :is\([\s\S]*?\.compound-button\.main-button,[\s\S]*?\.compound-button\.send-as-gift[\s\S]*?display: none !important;/,
   "Bandcamp must not reintroduce duplicate native purchase and Gift controls beside the normalized action row");
 assert.match(releaseActionsCss, /\.bandkit-modern-gift-action\s*\{[^}]*opacity:\s*0;[^}]*pointer-events:\s*none;[^}]*visibility:\s*hidden;/s,
@@ -109,5 +115,19 @@ assert.match(playerUi, /syncPageCartButtonUi[\s\S]*?runtimeState\.open && runtim
   "the Name your price control should reflect the open cart panel");
 assert.match(playerShell, /aria-expanded[^\n]*r\.\$syncPageCartButtonUi\(\)/,
   "page cart active state should refresh with the music bar panel state");
+
+// The sidebar releases and the story column must read on one vertical rhythm:
+// an 8px track gap plus each row's 6px inset leaves 20px between artworks,
+// matching the 20px that separates the story cards beside them.
+assert.match(feedCss, /body\.feed \.story \{[^}]*margin: 0 0 20px !important;/s,
+  "feed story cards must keep their 20px separation");
+assert.match(feedCss, /body\.feed #dash-container \{[^}]*gap: 20px;/s,
+  "the feed's column gutter must match the 20px rhythm between the cards stacked inside it");
+assert.match(feedCss, /#sidebar \.collection-grid \{[^}]*gap: 8px !important;/s,
+  "the sidebar release list must use the 8px track gap that yields a 20px artwork rhythm");
+assert.match(feedCss, /#sidebar \.collection-grid > \.collection-item-container \{[^}]*padding: 6px !important;/s,
+  "each sidebar release row must keep a 6px inset so its hover state still has breathing room");
+assert.match(feedCss, /#sidebar \.collection-grid > \.collection-item-container \{[^}]*gap: 0 12px;/s,
+  "the sidebar row must not add a vertical track gap that would push its artwork rhythm past 20px");
 
 console.log("Page action styling smoke checks passed.");

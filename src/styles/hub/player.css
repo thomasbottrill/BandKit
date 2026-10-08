@@ -550,6 +550,16 @@
   z-index: 1;
 }
 
+/* Keep room beside the centred content for the dock chevron at its resting
+   position, so widening the timeline can never grow underneath it. The fixed
+   Tight and Default widths stay exactly as their preset states them; only the
+   widths that scale with the viewport need the reserve. */
+@media (min-width: 1121px) {
+  .hub-player[data-player-style="docked"]:is([data-content-width="wide"], [data-content-width="custom"], [data-content-width="full"]) .hub-player-content {
+    max-width: calc(100% - var(--hub-dock-chevron-reserve, 136px));
+  }
+}
+
 /* Controls retain their normal row height; only the surface grows below it. */
 .hub-player[data-player-style="docked"] :is(.hub-player-actions, .hub-player-sections) {
   top: calc(var(--hub-player-height) / 2);
@@ -669,7 +679,7 @@
   display: none;
 }
 .hub-player[data-player-style="docked"]:not(.is-empty) .hub-player-sections {
-  translate: calc(-1 * var(--hub-dock-chevron-offset, 0px)) 0;
+  translate: var(--hub-dock-chevron-gap, 0px) 0;
 }
 .hub-player[data-player-style="docked"]:not(.is-empty) .hub-chevron-drag-handle {
   display: block;

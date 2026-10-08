@@ -41,7 +41,7 @@ for (const [declaredSize, iconPath] of Object.entries(manifest.icons)) {
   assert.equal(png.readUInt32BE(16), Number(declaredSize), `${iconPath} width must match its manifest size`);
   assert.equal(png.readUInt32BE(20), Number(declaredSize), `${iconPath} height must match its manifest size`);
 }
-assert.match(popup, /assets\/icon-bandkit\.svg/);
+assert.match(popup, /assets\/icon-bandkit-square\.svg/);
 assert.match(content, /launcherIcon\.src = asset\("icon-bandkit\.svg"\)/);
 assert.match(content, /aboutIcon\.src = asset\("logo-type-3\.svg"\)/);
 assert.match(content, /"Release"[\s\S]*?`v\$\{chrome\.runtime\.getManifest\(\)\.version\}`/);
@@ -63,7 +63,7 @@ assert.match(content, /Send Feedback/i);
 assert.match(content, /View Feedback/i);
 assert.match(content, /picturesque-minute-159\.notion\.site/);
 assert.match(content, /Support Bandkit/);
-assert.match(content, /https:\/\/buy\.stripe\.com\/cNi00jgyeeifgIIdPU6Ri00/);
+assert.match(content, /https:\/\/buy\.stripe\.com\/28E00bgNT2se3GL1Vk3ZK00/);
 assert.match(content, /supportLink\.target = "_blank"/);
 assert.match(content, /supportLink\.rel = "noopener noreferrer"/);
 assert.ok(content.indexOf("const support =") > content.indexOf("const about ="), "Support must remain the final Settings section");

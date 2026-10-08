@@ -8,6 +8,20 @@ export function interruptedPlay(error) {
   return error?.name === "AbortError" || /play\(\).*interrupted/i.test(String(error?.message || ""));
 }
 
+export async function startMediaPlayback(audio, timeout = 12_000) {
+  let timer;
+  try {
+    await Promise.race([
+      audio.play(),
+      new Promise((_, reject) => {
+        timer = window.setTimeout(() => reject(new Error("Bandcamp took too long to start this stream.")), timeout);
+      })
+    ]);
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 export function canProgressivelyStreamMp3() {
   return typeof MediaSource === "function"
     && typeof MediaSource.isTypeSupported === "function"
@@ -21,7 +35,12 @@ const KEEP_BUFFER_BEHIND_SECONDS = 30;
 export function waitForMediaMetadata(audio, isCurrent) {
   if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) return Promise.resolve();
   return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Bandcamp took too long to load this stream."));
+    }, 12_000);
     const cleanup = () => {
+      window.clearTimeout(timer);
       audio.removeEventListener("loadedmetadata", loaded);
       audio.removeEventListener("error", failed);
       audio.removeEventListener("abort", aborted);

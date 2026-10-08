@@ -15,7 +15,7 @@
 .hub-player-visualizer {
   --hub-visualizer-cool: var(--hub-visualizer-color-3, var(--hub-panel-accent, #1da0c3));
   --hub-visualizer-hot: var(--hub-visualizer-color-2, var(--hub-scrub-accent, var(--hub-panel-accent, #1da0c3)));
-  --hub-visualizer-warm: var(--hub-visualizer-color-1, color-mix(in srgb, var(--hub-panel-accent, #1da0c3) 38%, var(--hub-scrub-accent, #e94783)));
+  --hub-visualizer-warm: var(--hub-visualizer-color-1, var(--hub-panel-accent, #1da0c3));
   --hub-visualizer-field-a: color-mix(in srgb, var(--hub-visualizer-warm) 52%, color-mix(in srgb, var(--hub-visualizer-hot) 44%, var(--hub-visualizer-cool)));
   --hub-visualizer-field-b: color-mix(in srgb, var(--hub-visualizer-hot) 46%, color-mix(in srgb, var(--hub-visualizer-cool) 58%, var(--hub-visualizer-warm)));
   --hub-visualizer-field-c: color-mix(in srgb, var(--hub-visualizer-cool) 48%, color-mix(in srgb, var(--hub-visualizer-warm) 56%, var(--hub-visualizer-hot)));
@@ -55,6 +55,10 @@
   transform: translateX(-50%);
   transition: opacity 500ms ease;
   z-index: 0;
+}
+
+.hub-player:not([data-theme-ready="true"]) .hub-player-visualizer {
+  opacity: 0 !important;
 }
 
 .hub-player-visualizer::before {

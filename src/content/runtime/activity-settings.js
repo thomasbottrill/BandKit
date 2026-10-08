@@ -17,6 +17,7 @@ import { createCustomScrubColourSetting, createCustomVisualizerColourSettings } 
 import { createControlsColourOverrides } from "../player-colour-overrides.js";
 import { createScrubberHandleSetting } from "../scrub-handle-picker.js";
 import { createThemeSourcePreview } from "../settings-option-previews.js";
+import { createDynamicThemeInfo } from "../theme-option-markers.js";
 import { createSettingsPicker } from "../settings-picker.js";
 import { closeSettingsPopover, openSettingsPopover, settingsPopoverContainsFocus } from "../settings-popover.js";
 import { appendCustomThemeEditor, createCustomThemeSaveAction } from "./custom-theme-settings.js";
@@ -222,6 +223,7 @@ r.$createAppearanceSettings = function createAppearanceSettings() {
           { value: "theme", label: "Curated" },
           { value: "custom", label: "Custom" }
         ],
+        renderTrailing: mode => mode === "match" ? createDynamicThemeInfo() : null,
         value: appearanceSource,
         onChange: (mode) => {
           runtimeState.appearance.pageAware = mode === "match";

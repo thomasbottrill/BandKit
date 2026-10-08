@@ -17,7 +17,7 @@ const STEPS = [
   { eyebrow: "Activity", title: "Find your way back to what you did", copy: "Activity records listening, playlist, wishlist, cart and backup actions locally, organised by date.", icon: "icon-activity.svg", panel: "activity", demo: "activity", target: "panel", placement: "left" },
   { eyebrow: "Settings", title: "Make Bandkit work your way", copy: "Playback, appearance, browsing, privacy and help controls all live here.", icon: "icon-settings.svg", panel: "settings", settingsView: "index", target: "panel", placement: "left" },
   { eyebrow: "DJ tools", title: "Extra control when you want it", copy: "Turn on local BPM and key analysis, tempo controls, EQ, filtering and beat tools.", icon: "icon-dj.svg", target: "dj-drawer", placement: "left" },
-  { eyebrow: "Make it yours", title: "Tune your player", copy: "These compact controls update the real music bar immediately. You can fine-tune everything later in Settings.", icon: "icon-settings.svg", target: "player", placement: "top", choice: "kit" },
+  { eyebrow: "Make it yours", title: "Make it yours", copy: "Start with a complete theme or customise the details yourself. Changes update the real music bar immediately.", icon: "icon-settings.svg", target: "player", placement: "top", choice: "kit" },
   { eyebrow: "Backup", title: "Keep a portable copy of your Bandkit data", copy: "A backup includes playlists, carts, activity and settings, ready to restore in another copy of Bandkit.", icon: "icon-download-all.svg", panel: "settings", settingsView: "privacy", target: "panel", placement: "left", choice: "backup" },
   { eyebrow: "You’re all set", title: "Bandkit is ready when you are", copy: "Press play and explore. Your queue, playlists, carts, activity and listening controls are always close by.", icon: "icon-bandkit.svg", target: "player", placement: "top", emptyPlayer: true }
 ];
@@ -426,7 +426,7 @@ function registerOnboardingRuntime(r) {
     }
     r.$onboardingActive = true;
     r.$onboardingKitInitialized = false;
-    r.$onboardingKitSettings = null;
+    r.$onboardingKitMode = "theme";
     r.$onboardingReplay = replay;
     r.$onboardingSessionStep = Math.max(0, Math.min(STEPS.length - 1, Number(step) || 0));
     if (!replay) runtimeState.onboardingStep = r.$onboardingSessionStep;
@@ -445,10 +445,16 @@ function registerOnboardingRuntime(r) {
     if ((Number(runtimeState.onboardingStep) || 0) === 0) {
       runtimeState.appearance.pageAware = true;
       runtimeState.appearance.applyToPage = false;
+      runtimeState.appearance.visualThemeId = "dynamic";
+      // The tour no longer asks about dynamic colour, so a first run always starts
+      // with it on and leaves the finer controls to Settings.
+      runtimeState.musicBarDynamicColor = true;
+      runtimeState.musicBarPlayerDynamicColor = true;
+      runtimeState.musicBarPanelDynamicColor = true;
     }
     r.$onboardingActive = true;
     r.$onboardingKitInitialized = false;
-    r.$onboardingKitSettings = null;
+    r.$onboardingKitMode = "theme";
     r.$onboardingSessionStep = Math.max(0, Math.min(STEPS.length - 1, Number(runtimeState.onboardingStep) || 0));
     applyStepNavigation(STEPS[r.$onboardingSessionStep]);
     return true;
@@ -463,7 +469,7 @@ function registerOnboardingRuntime(r) {
     r.$onboardingSessionStep = 0;
     removeOnboardingMenus(r);
     r.$onboardingKitInitialized = false;
-    r.$onboardingKitSettings = null;
+    r.$onboardingKitMode = null;
     clearTourDecorations(r);
     void r.$persistLocal({ [STORAGE_KEYS.ONBOARDING_COMPLETE]: ONBOARDING_COMPLETE });
     runtimeSaveState();
@@ -517,7 +523,6 @@ function registerOnboardingRuntime(r) {
     next.type = "button";
     const goToStep = (nextStep) => {
       const nextDefinition = STEPS[nextStep];
-      r.$onboardingKitSettings = null;
       r.$onboardingSessionStep = nextStep;
       applyStepNavigation(nextDefinition);
       // Publish the destination player state before render() lays out the
@@ -587,7 +592,6 @@ function setupOnboardingRuntime(r) {
   r.$onboardingThemeMenu = null;
   r.$onboardingHandleMenu = null;
   r.$onboardingKitInitialized = false;
-  r.$onboardingKitSettings = null;
   for (const key of ONBOARDING_MENU_KEYS) r[key] = null;
   r.$onboardingPositionFrame = 0;
   r.$onboardingPositionToken = 0;

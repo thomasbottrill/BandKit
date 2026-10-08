@@ -42,7 +42,7 @@ assert.match(source, /display:block!important;flex:0 0 18px!important;height:18p
   "Standardized play and pause icons must keep a fixed visible width");
 assert.match(source, /function syncDiscoverPagePlaybackUi\(r\)[\s\S]*?data-bandkit-playback-state[\s\S]*?seamless\.isPlaying[\s\S]*?aria-label[\s\S]*?aria-pressed/,
   "The active Discover card must follow seamless play and pause state from the shared player");
-assert.match(source, /syncFeedPagePlaybackUi\(\);\s*syncDiscoverPagePlaybackUi\(\);/,
+assert.match(source, /syncFeedPagePlaybackUi\(\);\s*syncFeedTracklistPlaybackUi\(\);\s*syncDiscoverPagePlaybackUi\(\);/,
   "Discover card playback state must be refreshed whenever the shared page player is synchronized");
 
 console.log("Discover performance regression checks passed.");

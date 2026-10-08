@@ -152,9 +152,9 @@ function spectrumColours(r, now) {
   const computed = getComputedStyle(r.$playerVisualizer);
   const colour = (name, fallback) => computed.getPropertyValue(name).trim() || fallback;
   const colours = [
-    colourChannels(colour("--hub-visualizer-color-1", "#e94783"), [233, 71, 131]),
-    colourChannels(colour("--hub-visualizer-color-2", "#ffc857"), [255, 200, 87]),
-    colourChannels(colour("--hub-visualizer-color-3", "#43c6db"), [67, 198, 219])
+    colourChannels(colour("--hub-visualizer-color-1", "#1da0c3"), [29, 160, 195]),
+    colourChannels(colour("--hub-visualizer-color-2", "#1da0c3"), [29, 160, 195]),
+    colourChannels(colour("--hub-visualizer-color-3", "#1da0c3"), [29, 160, 195])
   ];
   r.$spectrumColourCache = { colours, updatedAt: now };
   return colours;

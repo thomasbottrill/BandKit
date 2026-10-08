@@ -81,16 +81,6 @@
 
 .hub-cart-item-card .hub-product-meta-row {
   min-height: 15px;
-  opacity: 0;
-  transition: opacity 100ms ease;
-}
-
-.hub-cart-item-card:is(:hover, :focus-within) .hub-product-meta-row {
-  opacity: 1;
-}
-
-.hub-cart-item-card.is-unavailable .hub-product-meta-row {
-  opacity: 1;
 }
 
 .hub-cart-item-card.is-unavailable {
@@ -104,8 +94,9 @@
   margin-left: auto;
 }
 
-.hub-cart-item-card.is-unavailable .hub-cart-remove-button {
+.hub-cart-item-card:is(.is-unavailable, .is-below-minimum) .hub-cart-remove-button {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .hub-cart-item-card .hub-cart-remove-button {

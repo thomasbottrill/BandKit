@@ -99,6 +99,7 @@ export function createScrubbablePercentage({ ariaLabel, defaultValue, max, min, 
   dragHandle.addEventListener("pointercancel", finishDrag);
   control.append(input, dragHandle);
   setValue(value, false);
+  control.setValue = setValue;
   return control;
 }
 
@@ -399,7 +400,10 @@ export function createVisualizerSettings(r, { standalone = false } = {}) {
     "hub-visualizer-blend-mode-control"
   );
   const visualizerColours = createCustomVisualizerColourSettings(r, { variant: "player" });
-  const colourDisclosure = createSettingsDisclosure("Colour", "", "player-visualiser-colours");
+  const colourDescription = visualizerColours.source === "custom"
+    ? "Custom"
+    : runtimeState.appearance.pageAware ? "Dynamic · follows page" : "Follows theme";
+  const colourDisclosure = createSettingsDisclosure("Colour", colourDescription, "player-visualiser-colours");
   colourDisclosure.group.classList.add("hub-visualizer-colour-disclosure", "hub-settings-dependent-row");
   colourDisclosure.content.append(visualizerColours.group);
   enabledOptions.append(
@@ -750,6 +754,14 @@ export function createMusicBarSettings(r) {
     customMusicBarWidthRow.hidden = !custom;
   };
   syncCustomWidthVisibility();
+  // Dragging the music bar's edge handles switches the width to Custom. Keep
+  // the open settings page showing that, so its Custom row is available rather
+  // than staying hidden behind a stale Default.
+  r.$syncMusicBarWidthSetting = () => {
+    musicBarWidth.setValue(runtimeState.musicBarWidth, false);
+    customMusicBarWidth.setValue?.(runtimeState.musicBarCustomWidth, false);
+    syncCustomWidthVisibility();
+  };
 
   const playerHeight = createScrubbablePercentage({
     ariaLabel: "Player height above the bottom of the page",

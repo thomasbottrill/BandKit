@@ -18,6 +18,7 @@ function applySimpleColour(key, value) {
   if (key === "customAccent") {
     Object.assign(runtimeState.appearance, {
       customScrubAccent: null,
+      visualizerColourSource: "theme",
       customVisualizerColor1: null,
       customVisualizerColor2: null,
       customVisualizerColor3: null

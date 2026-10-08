@@ -1,6 +1,7 @@
 import { setupDiscoverToolbar } from "./runtime/discover-toolbar.js";
 import { setupDiscoverLayout } from "./runtime/discover-layout.js";
 import { registerDiscoverTracks, setupDiscoverTracks } from "./runtime/discover-tracks.js";
+import { registerFeedTracks, setupFeedTracks } from "./runtime/feed-tracks.js";
 import { STORAGE_KEYS } from "../shared/contracts.js";
 import { registerRuntimeShell, setupRuntimeShell } from "./runtime/runtime-shell.js";
 import { registerPersistencePlayback, setupPersistencePlayback } from "./runtime/persistence-playback.js";
@@ -26,6 +27,7 @@ import { registerLiveScanning, setupLiveScanning } from "./runtime/live-scanning
 import { registerLifecycle, setupLifecycle } from "./runtime/lifecycle.js";
 import { registerDailyPlaybackRuntime } from "./runtime/daily-playback.js";
 import { setupSearchResults } from "./runtime/search-results.js";
+import { setupCollectionPreview } from "./runtime/collection-preview.js";
 
 (async () => {
   if (window.top !== window || document.getElementById("bandcamp-hub-extension-root")) {
@@ -65,6 +67,7 @@ import { setupSearchResults } from "./runtime/search-results.js";
   for (const install of registerOverflowTooltips) install(r);
   for (const install of registerLiveScanning) install(r);
   registerDiscoverTracks(r);
+  registerFeedTracks(r);
   for (const install of registerLifecycle) install(r);
   for (const install of setupRuntimeShell) install(r);
   for (const install of setupDeepAnalysisRuntime) install(r);
@@ -77,6 +80,8 @@ import { setupSearchResults } from "./runtime/search-results.js";
   setupDiscoverToolbar(r);
   setupDiscoverLayout();
   setupDiscoverTracks(r);
+  setupCollectionPreview(r);
+  setupFeedTracks(r);
   for (const install of setupLiveScanning) install(r);
   for (const install of setupLifecycle) install(r);
 })().catch((error) => {

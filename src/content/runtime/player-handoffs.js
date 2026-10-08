@@ -110,14 +110,6 @@ r.$feedStreamTrackId = function feedStreamTrackId(value) {
         return "";
       }
     };
-r.$feedStreamUrl = function feedStreamUrl(trackId) {
-      const id = String(trackId || "");
-      if (!id) return "";
-      const url = new URL("/stream_redirect", "https://bandcamp.com");
-      url.searchParams.set("enc", "mp3-128");
-      url.searchParams.set("track_id", id);
-      return url.href;
-    };
 r.$getFeedPlayerState = function getFeedPlayerState(preferredTrackId = "") {
       if (!document.body.classList.contains("feed") && !/\/feed\/?$/.test(location.pathname)) return null;
       const audio = r.$getAudio();
@@ -147,7 +139,9 @@ r.$getFeedPlayerState = function getFeedPlayerState(preferredTrackId = "") {
       const artist = itemData.band_name || r.$elementText(storyNode, [".collection-item-artist", ".artist-name", ".waypoint-artist-title"]).replace(/^by\s+/i, "") || "Bandcamp";
       const duration = (audioMatchesTrack ? Number(audio?.duration) : 0)
         || Number(itemData.featured_track_duration)
-        || parseClock(r.$elementText(storyNode, [".time_total"]));
+        || parseClock(r.$elementText(storyNode, [".time_total"]))
+        || Number(r.$feedStreams.get(trackId)?.duration)
+        || 0;
       const currentTime = seededFromPendingClick
         && r.$pendingFeedSeekTrackId === trackId
         && (r.$pendingFeedSeekTime !== null || r.$pendingFeedSeekFraction !== null)
@@ -202,6 +196,19 @@ r.$muteFeedAudioForHandoff = function muteFeedAudioForHandoff(trackId) {
       audio.muted = true;
     };
 }
+
+// Discover never returns its own control to "Play" once Bandkit has taken the
+// stream over, so that label cannot say whether the native preview is still the
+// audible source. Treating a silenced preview as audible strands its row on the
+// pause glyph and pins the scrub readout to zero. The bridged media element
+// mirrors Bandcamp's own audio, so it is the honest answer; the label only
+// stands in until the bridge has seen that element.
+function audibleNativeDiscover(r, native = r.$getDiscoverPlayerState?.()) {
+      if (!native || r.$discoverTrackPlaybackActive) return null;
+      const media = r.$bridgedMedia;
+      if (media?.src) return media.paused || media.ended ? null : native;
+      return native.control?.getAttribute("aria-label") === "Pause" ? native : null;
+    }
 
 function pauseNativeDiscover(r, track = null) {
       const native = r.$getDiscoverPlayerState();
@@ -352,6 +359,7 @@ r.$isReusableStreamUrl = function isReusableStreamUrl(value) {
       }
     };
 r.$pauseNativeDiscover = (track) => pauseNativeDiscover(r, track);
+r.$audibleNativeDiscover = (native) => audibleNativeDiscover(r, native);
 r.$handoffDiscoverPlayer = async function handoffDiscoverPlayer() {
       if (r.$discoverHandoffBusy || r.$discoverTrackPlaybackActive) return false;
       const discover = r.$getDiscoverPlayerState();
@@ -416,12 +424,22 @@ r.$handoffDiscoverPlayer = async function handoffDiscoverPlayer() {
 }
 
 function registerPlayerHandoffs3(r) {
+r.$feedHandoffInFlight = function feedHandoffInFlight() {
+      // A handoff that never settles must not strand the feed, so one that has
+      // outlived any plausible round trip is treated as abandoned.
+      if (!r.$feedHandoffTrackId) return "";
+      if (Date.now() - r.$feedHandoffStartedAt > 8000) return "";
+      return r.$feedHandoffTrackId;
+    };
 r.$handoffFeedPlayer = async function handoffFeedPlayer(requestedTrackId = "") {
-      if (r.$feedHandoffBusy) {
-        return Boolean(requestedTrackId && String(requestedTrackId) === r.$feedHandoffTrackId);
-      }
-      const feed = r.$getFeedPlayerState(requestedTrackId);
-      if (!feed?.track || !feed.isPlaying || !r.$isReusableStreamUrl(feed.track.url)) return false;
+      const requested = String(requestedTrackId || "");
+      // Repeat scans must not restart the handoff already running for this
+      // track, but a different track always supersedes it.
+      if (requested && requested === r.$feedHandoffInFlight()) return true;
+      const feed = r.$getFeedPlayerState(requested);
+      if (!feed?.track || !feed.isPlaying) return false;
+      const trustProvidedStreams = r.$isReusableStreamUrl(feed.track.url);
+      if (!trustProvidedStreams && !feed.track.pageUrl) return false;
       if (r.$suppressedFeedTrackId && String(feed.track.id || requestedTrackId || "") === r.$suppressedFeedTrackId) {
         r.$pendingFeedTrackId = "";
         r.$pendingFeedSeekTime = null;
@@ -439,13 +457,15 @@ r.$handoffFeedPlayer = async function handoffFeedPlayer(requestedTrackId = "") {
         r.$restoreFeedAudioMute(feed.track.id || requestedTrackId);
         return true;
       }
-      r.$feedHandoffBusy = true;
-      r.$feedHandoffTrackId = String(feed.track.id || requestedTrackId || "");
+      const handoffRequest = ++r.$feedHandoffRequest;
+      r.$feedHandoffTrackId = String(feed.track.id || requested || "");
+      r.$feedHandoffStartedAt = Date.now();
       try {
-        // Feed stories only expose Bandcamp's stream_redirect endpoint. Resolve
-        // the release metadata first so the offscreen player receives the final
-        // bcbits media URL instead of depending on a cross-origin redirect.
-        const prepared = await r.$prepareExternalNowPlaying(feed.track);
+        // A story that carries Bandcamp's own signed stream starts straight
+        // away, the way a release page does. Anything the page world could not
+        // describe still falls back to resolving the release metadata.
+        const prepared = await r.$prepareExternalNowPlaying(feed.track, [], { trustProvidedStreams });
+        if (handoffRequest !== r.$feedHandoffRequest) return false;
         if (prepared.index < 0) return false;
         if (prepared.request !== r.$playlistPlayRequest) return false;
         const preparedDuration = Number(prepared.queue[prepared.index]?.duration) || 0;
@@ -467,6 +487,7 @@ r.$handoffFeedPlayer = async function handoffFeedPlayer(requestedTrackId = "") {
           eqHighDb: runtimeState.dj.eqHighDb
         });
         if (!response?.ok) return false;
+        if (handoffRequest !== r.$feedHandoffRequest) return false;
         if (prepared.request !== r.$playlistPlayRequest) return false;
         const responseDuration = Number(response.state?.duration) || Number(response.state?.track?.duration) || 0;
         if (r.$pendingFeedSeekTime === null && r.$pendingFeedSeekFraction !== null && responseDuration) {
@@ -480,8 +501,10 @@ r.$handoffFeedPlayer = async function handoffFeedPlayer(requestedTrackId = "") {
         r.$finishFeedAudioHandoff(r.$feedHandoffTrackId, r.$getAudio());
         return true;
       } finally {
-        r.$feedHandoffBusy = false;
-        r.$feedHandoffTrackId = "";
+        if (handoffRequest === r.$feedHandoffRequest) {
+          r.$feedHandoffTrackId = "";
+          r.$feedHandoffStartedAt = 0;
+        }
       }
     };
 r.$scheduleFeedHandoff = function scheduleFeedHandoff(trackId, attempt = 0) {

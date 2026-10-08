@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { readContentSource, readModernStyles } from "./support/source.mjs";
+import { readContentSource, readModernStyles, readPageStyles } from "./support/source.mjs";
 
 const [source, state, contracts, background, offscreen, releaseCss, hubCss, playerCss, deepAnalysis] = await Promise.all([
-  Promise.resolve(readContentSource()),
+  Promise.resolve(`${readContentSource()}\n${readPageStyles()}`),
   readFile(new URL("../src/content/state.js", import.meta.url), "utf8"),
   readFile(new URL("../src/shared/contracts.js", import.meta.url), "utf8"),
   readFile(new URL("../src/background/index.js", import.meta.url), "utf8"),
@@ -90,8 +90,8 @@ assert.match(source, /requestedPlaylistItemId[\s\S]*?\^\(\?:track-\)\?\\d\+\$/,
   "queue matching must prefer playlist identity and ignore display-title fallback IDs");
 assert.match(source, /canonical release URL is a stronger identity[\s\S]*?return pageMatch \|\| null/,
   "same-titled search results on different release URLs must not toggle one another");
-assert.match(source, /playlistButton\.classList\.add\("is-collection-action"\);[\s\S]*?playlistButton\.classList\.toggle\("is-feed-compact-action", modernActions\)/,
-  "wishlist and owned collection add buttons must share the compact collection component only in modern mode");
+assert.match(source, /playlistButton\.classList\.add\("is-collection-action"\);[\s\S]*?playlistButton\.classList\.toggle\("is-feed-compact-action", !modernActions\)[\s\S]*?playlistButton\.classList\.toggle\("bandkit-collection-overlay-action", modernActions\)/,
+  "wishlist and owned collection add buttons must use artwork overlays in modern mode and the compact action row in classic mode");
 assert.match(source, /function finishFeedAudioHandoff[\s\S]*?addEventListener\("playing"[\s\S]*?window\.setTimeout\(finish, 500\)[\s\S]*?async function handoffFeedPlayer[\s\S]*?finishFeedAudioHandoff/,
   "feed playback must let Bandcamp's native play promise settle before pausing its muted handoff audio");
 assert.match(source, /const isMutedHandoffAudio = currentAudio === mutedFeedAudio[\s\S]{0,240}?isMutedHandoffAudio[\s\S]{0,120}?currentTrackId/,
@@ -100,8 +100,16 @@ assert.match(source, /sameSeamlessFeedTrack[\s\S]*?!pendingFeedTrackId && !candi
   "feed maintenance must not pause Bandcamp's native player while its handoff play promise is settling");
 assert.match(source, /pendingFeedSeekTime[\s\S]*?handoffCurrentTime = pendingFeedSeekTime === null \? feed\.currentTime : pendingFeedSeekTime[\s\S]*?pendingFeedSeekRevision !== handoffSeekRevision[\s\S]*?SEAMLESS_SEEK/,
   "a feed seek made during handoff must be applied to the incoming track after playback starts");
-assert.match(source, /function feedStreamUrl\(trackId\)[\s\S]*?stream_redirect[\s\S]*?track_id[\s\S]*?seededFromPendingClick[\s\S]*?isPlaying: seededFromPendingClick/,
+assert.match(source, /isPlaying: seededFromPendingClick[\s\S]*?seededFromPendingClick \? feedStreamUrl\(trackId\)/,
   "feed playback must start from clicked story metadata before Bandcamp's native audio finishes loading");
+assert.match(source, /function feedStreamUrl\(trackId\)[\s\S]{0,260}?refreshFeedStreams\(\)[\s\S]{0,160}?known\?\.resolvedUrl \|\| known\?\.url/,
+  "a feed story must play the resolved media URL when one is cached and the signed redirect otherwise");
+assert.match(source, /function prefetchFeedStream[\s\S]*?RESOLVE_FEED_STREAMS[\s\S]*?resolvedUrl \}\)/,
+  "hovering or focusing a feed story must resolve its signed redirect before the click");
+assert.match(source, /function handoffFeedPlayer[\s\S]*?trustProvidedStreams = isReusableStreamUrl\(feed\.track\.url\)[\s\S]*?prepareExternalNowPlaying\(feed\.track, \[\], \{ trustProvidedStreams \}\)/,
+  "a feed story carrying Bandcamp's signed stream must start without refetching its release page");
+assert.match(source, /function feedHandoffInFlight[\s\S]*?feedHandoffStartedAt > 8000[\s\S]*?async function handoffFeedPlayer[\s\S]*?requested === feedHandoffInFlight\(\)[\s\S]*?feedHandoffRequest/,
+  "a stalled feed handoff must be superseded rather than blocking every later story click");
 assert.match(source, /function scrubTarget\(\)[\s\S]*?pendingFeedTrackId \? getFeedPlayerState\(pendingFeedTrackId\)[\s\S]*?async function seekToScrubTarget[\s\S]*?if \(pendingFeedTrackId\)[\s\S]*?pendingFeedSeekRevision \+= 1[\s\S]*?if \(seamless\.enabled\)/,
   "an immediate feed scrub must target the incoming feed track before any previously active seamless track");
 assert.match(source, /function scrubTarget\(\)[\s\S]*?const fraction = Math\.max[\s\S]*?pendingFeedSeekFraction = target\.fraction[\s\S]*?pendingFeedSeekTime = target\.duration \? target\.currentTime : null[\s\S]*?if \(!target\.duration\) return/,
@@ -142,8 +150,8 @@ assert.match(source, /const pendingFeedState = pendingFeedLoading \? getFeedPlay
   "incoming Feed metadata must stay pinned in the bottom player over stale playback messages");
 assert.match(source, /function renderPlayerTrack[\s\S]*?playerTitle\.textContent = hasCurrentTrack \? displayTrack\.title/,
   "the pinned Feed track must supply the rendered player title");
-assert.match(source, /Feed stories only expose Bandcamp's stream_redirect endpoint[\s\S]*?prepareExternalNowPlaying\(feed\.track\)/,
-  "Feed startup must resolve the final media URL instead of trusting the cross-origin redirect as audio");
+assert.match(source, /Anything the page world could not[\s\S]*?prepareExternalNowPlaying\(feed\.track, \[\], \{ trustProvidedStreams \}\)/,
+  "a feed story the page world cannot describe must still resolve its media URL from the release page");
 assert.match(source, /const preparedDuration = Number\(prepared\.queue\[prepared\.index\]\?\.duration\)[\s\S]*?pendingFeedSeekFraction \* preparedDuration[\s\S]*?const handoffCurrentTime/,
   "Feed handoff must translate an early seek fraction after resolved metadata supplies the duration");
 assert.match(playerCss, /@keyframes hub-pending-seek-pulse[\s\S]*?\.hub-scrub-control\.is-pending-seek \.hub-scrub-playhead[\s\S]*?animation: hub-pending-seek-pulse/,
@@ -246,6 +254,14 @@ assert.match(source, /hub-analysis-options[\s\S]*?options\.hidden = !enabled[\s\
   "analysis-specific settings must remain hidden until track analysis is enabled");
 assert.match(source, /bandkit-has-track-analysis[\s\S]*?grid-template-columns:minmax\(0,1fr\) 52px 160px/,
   "modern track rows must use stable title, duration, and analysis columns");
+assert.match(source, /if \(!text\) \{[\s\S]*?label\?\.remove\(\);[\s\S]*?analysisLayout\?\.classList\.add\("bandkit-has-track-analysis"\);[\s\S]*?continue;/,
+  "tracks without an analyzable source must still reserve the duration and analysis columns");
+assert.match(releaseCss, /\.title\.bandkit-has-track-analysis\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) 52px 160px\s*!important;/s,
+  "desktop track rows must keep one fixed duration start whether or not a rescan control exists");
+assert.match(releaseCss, /data-bandkit-show-track-keys="true"\]\[data-bandkit-show-camelot="false"\][^{]*\.title\.bandkit-has-track-analysis\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) 52px 126px\s*!important;/s,
+  "key-only track rows must reserve the same compact analysis width for unavailable tracks");
+assert.match(releaseCss, /@media \(max-width:\s*700px\)[\s\S]*?\.title\.bandkit-has-track-analysis\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) 48px 142px\s*!important;/s,
+  "narrow track rows must retain fixed duration and analysis columns");
 assert.match(source, /bandkit-has-track-analysis>a\{[^}]*min-width:0[^}]*overflow:hidden[^}]*width:100%/,
   "track links must yield space to metadata without wrapping onto another line");
 assert.match(source, /bandkit-has-track-analysis \.track-title\{[^}]*text-overflow:ellipsis[^}]*white-space:nowrap/,

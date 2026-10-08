@@ -16,6 +16,7 @@ export const VISUAL_APPEARANCE_KEYS = Object.freeze([
   "pageAware", "applyToPage", "frostedGlass", "paperTexture", "paperTextureStrength",
   "paperFibreStrength", "paperMottleStrength", "paperGrainSize", "glassTransparency", "glassBlur",
   "cornerStyle", "customCornerRadius", "preset", "customAccent", "customScrubAccent",
+  "visualizerColourSource",
   "customVisualizerColor1", "customVisualizerColor2", "customVisualizerColor3", "customSurface",
   "customPanelLinked", "customCard", "customContentLinked", "customPageBackground",
   "customPageSurface", "customNavbar", "customText", "customSecondaryText"
@@ -88,10 +89,10 @@ function preset(id, label, palette, style, surface, timeline, handle, visualizer
   return Object.freeze({ id, label, ...captureVisualTheme(state) });
 }
 
-// "No theme": Bandkit's out-of-the-box look. Selecting it clears whatever theme
-// is applied and leaves Bandcamp pages in their normal, unstyled state.
+// Dynamic is Bandkit's out-of-the-box look. It is a real theme rather than an
+// absence of one: its colours continue to adapt to the current Bandcamp page.
 export const DEFAULT_VISUAL_THEME = Object.freeze({
-  id: "none", label: "None", ...captureVisualTheme(defaultState)
+  id: "dynamic", label: "Dynamic", ...captureVisualTheme(defaultState)
 });
 
 // Themes built from custom hex colours rather than one of the built-in palettes
@@ -144,7 +145,7 @@ const CUSTOM_THEMES = Object.freeze([
     retainPngHandleColors: true, musicBarTimelineColor: null, musicBarHandleColor: null, musicBarControlsColor: null,
     musicBarPlayerColor: null, musicBarScrubberWidth: "full", musicBarStyle: "rounded", musicBarDynamicColor: false,
     musicBarPlayerDynamicColor: false, musicBarPanelDynamicColor: false, musicBarBlendMode: "normal",
-    musicBarSize: "standard", musicBarVisualizer: "constellation", musicBarVisualizerType: "constellation",
+    musicBarSize: "standard", musicBarVisualizer: "spectrum", musicBarVisualizerType: "spectrum",
     musicBarVisualizerOpacity: 100, musicBarVisualizerWidth: "auto", musicBarVisualizerHeight: "auto",
     musicBarVisualizerBlendMode: "normal", musicBarWidth: "default", musicBarCustomWidth: 900
   }, {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 import { resolveDiscoverRelease } from "../src/background/discover-release.js";
+import { startPreparedPageTrack } from "../src/content/runtime/page-track-playback.js";
 
 const originalFetch = globalThis.fetch;
 let fetches = 0;
@@ -138,7 +139,7 @@ const playbackRuntime = {
   $applySeamlessState(state) { applied.push(state.track.id); },
   $showToast(message) { assert.fail(message); }
 };
-const playContext = vm.createContext({ MESSAGES: { SEAMLESS_ENABLE: "enable" }, runtimeSeamless: playback, runtimeState: { dj: {} } });
+const playContext = vm.createContext({ startPreparedPageTrack, MESSAGES: { SEAMLESS_ENABLE: "enable" }, runtimeSeamless: playback, runtimeState: { dj: {} } });
 vm.runInContext(source.slice(source.indexOf("export function registerDiscoverTracks"), source.indexOf("function createTrackList")).replace("export ", ""), playContext);
 playContext.registerDiscoverTracks(playbackRuntime);
 playbackRuntime.$discoverReleaseTracks = [{ id: "first" }, { id: "second" }, { id: "third" }];
@@ -222,3 +223,56 @@ assert.equal(nativePauses, 0, 'Late completion must leave the newer native previ
 assert.equal(staleApplies, 0, 'Late completion must not replace the newer player presentation');
 assert.equal(racingRuntime.$discoverHandoffBusy, false);
 console.log('Discover rapid album switching rejects stale handoff completion.');
+
+// Discover rows carry the album page's own per-track controls, and the focused
+// release's control covers the whole release rather than its featured track.
+const listContext = vm.createContext({
+  document: { createElement: () => new Element() },
+  formatDuration: (value) => String(value || 0),
+  createElement: (tag, className, text) => {
+    const node = new Element();
+    node.className = className || "";
+    node.textContent = text || "";
+    return node;
+  }
+});
+vm.runInContext(source.slice(source.indexOf("function createTrackList"), source.indexOf("export function setupDiscoverTracks")), listContext);
+const listAdds = [];
+const listRuntime = {
+  $createPagePlaylistButton() {
+    const button = new Element();
+    button.className = "bandcamp-hub-page-playlist";
+    button.classList = { add: (name) => { button.className += ` ${name}`; } };
+    listAdds.push(button);
+    return button;
+  },
+  $updatePagePlaylistButton(button, track) { button._bandkitTrack = track; }
+};
+const listed = listContext.createTrackList(listRuntime, {
+  album: "Fixture album",
+  tracks: [
+    { id: "one", number: 1, title: "First", duration: 120, url: "stream", pageUrl: "https://fixture.bandcamp.com/track/first" },
+    { id: "two", number: 2, title: "Locked", duration: 90, url: "", pageUrl: "https://fixture.bandcamp.com/track/locked" }
+  ]
+});
+assert.ok(listed, "The generated table is returned for rendering");
+assert.equal(listAdds.length, 2, "Every Discover row, playable or not, gets its own Add control");
+assert.ok(listAdds.every((button) => button.className.includes("is-track-action")),
+  "Discover row Add controls reuse the album page's track action styling");
+assert.deepEqual(listAdds.map((button) => button._bandkitTrack.id), ["one", "two"],
+  "Each row's Add control carries that row's own track");
+
+const pageActions = fs.readFileSync(new URL("../src/content/runtime/page-actions.js", import.meta.url), "utf8");
+assert.match(pageActions, /applyDiscoverReleaseAddButton\(button, fallbackTrack\) \{[\s\S]*?const releaseTracks = r\.\$discoverRelease\?\.tracks \|\| \[\];[\s\S]*?button\._bandkitRelease = releaseTracks\.length > 0;[\s\S]*?button\._bandkitTracks = releaseTracks\.length \? releaseTracks : null;/,
+  "the focused Discover release's Add control must offer the whole release, not its featured track");
+assert.match(pageActions, /syncDiscoverReleaseAddControl\(fallbackTrack\) \{[\s\S]*?const releaseActions = document\.querySelector\("\.focused-result \.release-buttons, \.discover-detail \.release-buttons"\);[\s\S]*?button = r\.\$createPagePlaylistButton\(\);/,
+  "the release Add control must sit beside Buy and Wishlist whenever a release is open");
+assert.match(pageActions, /button\._bandkitRelease = false;\s*button\._bandkitTracks = null;[\s\S]*?button\._bandkitReleaseTrack = cardTrack;[\s\S]*?r\.\$updatePagePlaylistButton\(button, cardTrack\);\s*button\.setAttribute\("aria-label", `Add \$\{cardTrack\.title\}/,
+  "the Discover grid cards must keep their single featured track until a click resolves the release");
+assert.match(source, /r\.\$discoverRelease = release;/,
+  "the resolved release must be published for the release-level Add control");
+assert.match(source, /if \(event\.target\.closest\("\.bandkit-discover-track-actions"\)\) return;/,
+  "row playback must ignore clicks on the row's own Buy and Add controls");
+assert.match(source, /const refreshReleaseActions = \(\) => \{\s*r\.\$syncDiscoverReleaseAddControl\?\.\(\);\s*for \(const delay of \[0, 80, 240\]\)/,
+  "the resolved release must sync its Add control directly, not wait for a sweep to land after Discover's rebuild");
+console.log("Discover per-track Add controls and release-wide Add selection checks passed.");

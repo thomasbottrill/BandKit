@@ -1,0 +1,630 @@
+html[data-bandkit-collection-page="true"] #fan-container {
+  box-sizing: border-box;
+  margin-left: clamp(24px, 4vw, 80px) !important;
+  margin-right: clamp(24px, 4vw, 80px) !important;
+  max-width: none !important;
+  width: auto !important;
+}
+
+html[data-bandkit-collection-page="true"] #grids { width: 100% !important; }
+
+html[data-bandkit-collection-page="true"] #grid-tabs-sticky {
+  background: var(--bandkit-page-background, #fff);
+  box-sizing: border-box;
+  left: auto !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  max-width: none !important;
+  position: sticky !important;
+  right: auto !important;
+  top: 0 !important;
+  width: 100% !important;
+  z-index: 40;
+}
+
+html[data-bandkit-collection-page="true"] :is(.fan-bio-wrapper, #grid-tabs, #owner-controls, #wishlist-controls, .missing-purchases-wrapper) {
+  box-sizing: border-box;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  max-width: none !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#followers-grid, #following-grid, #followers-container, #following-tabs, #following-genre-controls, #following-bands-container, #following-fans-container, #following-genres-container),
+html[data-bandkit-collection-page="true"] :is(#followers-grid, #following-grid, #following-bands-container, #following-fans-container, #following-genres-container) > .inner,
+html[data-bandkit-collection-page="true"] :is(#followers-grid, #following-grid) :is(.following-tabs-wrapper, .followeer-grid) {
+  box-sizing: border-box;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  max-width: none !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#owner-controls, #wishlist-controls) {
+  left: auto !important;
+  right: auto !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#owner-controls, #wishlist-controls) > :is(#collection-search, #wishlist-search) {
+  left: 0 !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#owner-controls, #wishlist-controls) > :is(.wishlist-visibility-container, .collection-privacy, .purchase-help) {
+  left: auto !important;
+  right: 0 !important;
+}
+
+html[data-bandkit-collection-page="true"] .missing-purchases-wrapper .missing-purchases-link {
+  left: auto !important;
+  right: 0 !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-grid, #wishlist-grid) {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  max-width: none !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-search, #wishlist-search).search {
+  background: var(--bandkit-page-card, #f5f5f5);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  box-sizing: border-box;
+  height: 34px;
+  position: relative;
+  transition: background 120ms ease, border-color 120ms ease;
+  width: min(100%, 260px);
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-search, #wishlist-search).search:focus-within {
+  background: var(--bandkit-page-surface, #fff);
+  border-color: var(--bandkit-page-accent, #1da0c3);
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-search, #wishlist-search) .search-box {
+  appearance: none;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: inherit;
+  box-sizing: border-box;
+  color: var(--bandkit-page-text, #222) !important;
+  font-size: 13px;
+  height: 100% !important;
+  line-height: 1.3;
+  outline: 0 !important;
+  padding: 0 34px !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-search, #wishlist-search) :is(.search-icon, .search-spinner) {
+  left: 11px !important;
+  position: absolute;
+  top: 50% !important;
+  transform: translateY(-50%);
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-search, #wishlist-search) .close-search-results {
+  right: 10px !important;
+  top: 50% !important;
+  transform: translateY(-50%);
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items).bandkit-collection-preview-open {
+  align-items: start;
+  display: grid !important;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) clamp(500px, 39vw, 608px);
+  width: 100% !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items) > .collection-grid {
+  box-sizing: border-box;
+  display: grid !important;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  margin: 0 !important;
+  min-width: 0;
+  width: 100% !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items).bandkit-collection-preview-open > .collection-grid {
+  grid-column: 1;
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items) > .collection-grid > .collection-item-container {
+  box-sizing: border-box !important;
+  max-width: none !important;
+  margin: 0 !important;
+  min-width: 0 !important;
+  padding: 8px !important;
+  width: auto !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items) .collection-item-container > :is(.collection-item-gallery-container, .collection-item-details-container, .item-details-container) {
+  box-sizing: border-box;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  max-width: none !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items) .collection-item-gallery-container {
+  margin-top: 0 !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items) .collection-item-art-container {
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  height: auto !important;
+  overflow: hidden;
+  width: 100% !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items) .collection-item-art-container .banner-container {
+  bottom: auto !important;
+  height: 100% !important;
+  left: auto !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items) .collection-item-art-container .banner-outer {
+  height: 100% !important;
+  margin: 0 !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items) .collection-item-art-container .banner-inner {
+  box-sizing: border-box;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  margin: 0 !important;
+  padding: 4px 0 !important;
+  position: absolute;
+  right: -27%;
+  top: 8%;
+  transform: rotate(45deg);
+  transform-origin: center;
+  white-space: nowrap;
+  width: 80% !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items) .collection-item-art {
+  box-sizing: border-box;
+  display: block;
+  height: 100% !important;
+  max-width: 100% !important;
+  object-fit: cover;
+  width: 100% !important;
+}
+
+@media (min-width: 900px) {
+  html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items) > .collection-grid {
+    grid-template-columns: repeat(auto-fill, 188px);
+    justify-content: start;
+  }
+
+  html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items) > .collection-grid > .collection-item-container {
+    max-width: 188px !important;
+    width: 188px !important;
+  }
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items) .collection-item-container:is(.ui-sortable-helper, .is-dragging, [draggable="true"]:active),
+html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items) .collection-item-container.ui-sortable-placeholder {
+  max-width: var(--bandkit-collection-card-width, 188px) !important;
+  min-width: var(--bandkit-collection-card-width, 188px) !important;
+  width: var(--bandkit-collection-card-width, 188px) !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items) :is(.collection-item-details-container, .item-details-container) :is(.collection-item-why, .why-edit-box, .why-edit-box textarea, .just-hint) {
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items).bandkit-collection-preview-open > :not(.collection-grid):not(.bandkit-collection-preview) {
+  grid-column: 1;
+}
+
+html[data-bandkit-collection-page="true"] .collection-item-art-container { position: relative; }
+
+.bandkit-collection-preview-target {
+  appearance: none;
+  background: transparent !important;
+  border: 0 !important;
+  cursor: pointer;
+  inset: 0;
+  padding: 0;
+  position: absolute;
+  z-index: 1;
+}
+
+.bandkit-collection-preview-target:focus-visible {
+  outline: 2px solid var(--bandkit-page-accent, #1da0c3) !important;
+  outline-offset: -2px;
+}
+
+html[data-bandkit-collection-page="true"] .collection-item-art-container .item_link_play,
+html[data-bandkit-collection-page="true"] .collection-item-art-container > .bandkit-collection-overlay-action {
+  align-items: center !important;
+  appearance: none !important;
+  background: rgba(28, 28, 28, .92) !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  bottom: 8px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .12) !important;
+  box-sizing: border-box !important;
+  color: rgba(255, 255, 255, .68) !important;
+  cursor: pointer;
+  display: inline-flex !important;
+  height: 36px !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  opacity: 0;
+  padding: 0 !important;
+  pointer-events: none;
+  position: absolute !important;
+  top: auto !important;
+  transition: opacity 100ms ease, background 100ms ease;
+  width: 36px !important;
+  z-index: 3;
+}
+
+html[data-bandkit-collection-page="true"] .collection-item-art-container .item_link_play { left: 8px !important; }
+
+html[data-bandkit-collection-page="true"] .collection-item-art-container > .bandkit-collection-overlay-action {
+  left: 50px !important;
+  right: auto !important;
+}
+
+html[data-bandkit-collection-page="true"] .collection-item-art-container > .bandkit-collection-download-action {
+  left: 92px !important;
+}
+
+html[data-bandkit-collection-page="true"] .collection-item-art-container .item_link_play :is(.item_link_play_bkgd, .item_link_play_widget) {
+  display: none !important;
+}
+
+html[data-bandkit-collection-page="true"] .collection-item-art-container .item_link_play::before {
+  background: currentColor;
+  content: "";
+  height: 16px;
+  mask: var(--bandkit-play-icon) center / contain no-repeat;
+  -webkit-mask: var(--bandkit-play-icon) center / contain no-repeat;
+  width: 16px;
+}
+
+html[data-bandkit-collection-page="true"] .collection-item-container:is([data-bandkit-feed-playback="playing"], [data-bandkit-native-collection-playing].playing) .item_link_play::before,
+html[data-bandkit-collection-page="true"] .track_play_auxiliary[aria-label^="Pause" i] .item_link_play::before {
+  mask-image: var(--bandkit-pause-icon);
+  -webkit-mask-image: var(--bandkit-pause-icon);
+}
+
+html[data-bandkit-collection-page="true"] .collection-item-art-container:is(:hover, :focus-within) :is(.item_link_play, .bandkit-collection-overlay-action),
+html[data-bandkit-collection-page="true"] .collection-item-container:is([data-bandkit-feed-playback="playing"], [data-bandkit-native-collection-playing].playing) .item_link_play,
+html[data-bandkit-collection-page="true"] .track_play_auxiliary[aria-label^="Pause" i] .item_link_play {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+html[data-bandkit-collection-page="true"] .collection-item-art-container :is(.item_link_play, .bandkit-collection-overlay-action):is(:hover, :focus-visible) {
+  background: rgba(16, 16, 16, .98) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  outline: 0 !important;
+}
+
+html[data-bandkit-collection-page="true"] .collection-item-art-container :is(.item_link_play, .bandkit-collection-overlay-action):focus-visible {
+  outline: 2px solid #fff !important;
+  outline-offset: 2px;
+}
+
+html[data-bandkit-collection-page="true"] .collection-item-art-container > .bandkit-collection-overlay-action::before {
+  height: 16px !important;
+  width: 16px !important;
+}
+
+html[data-bandkit-collection-page="true"] .collection-item-art-container > .bandkit-collection-download-action::before {
+  background: currentColor;
+  content: "";
+  display: block;
+  height: 16px !important;
+  mask: var(--bandkit-feed-action-icon) center / contain no-repeat;
+  -webkit-mask: var(--bandkit-feed-action-icon) center / contain no-repeat;
+  width: 16px !important;
+}
+
+html[data-bandkit-collection-page="true"] .bandkit-collection-action-row:empty { display: none !important; }
+
+.bandkit-collection-preview {
+  --bandkit-release-ink: var(--bandkit-page-surface-text, var(--bandkit-page-text, #222));
+  --bandkit-release-muted: var(--bandkit-page-surface-muted, var(--bandkit-page-muted, #777));
+  --bandkit-release-line: var(--bandkit-page-surface-border, var(--bandkit-page-border, #ddd));
+  --bandkit-release-surface: var(--bandkit-page-surface, #fff);
+  --bandkit-release-row: color-mix(in srgb, var(--bandkit-release-surface) 94%, var(--bandkit-release-ink));
+  --bandkit-release-divider: var(--bandkit-release-surface);
+  align-self: start;
+  background: var(--bandkit-page-surface, #fff);
+  box-sizing: border-box;
+  color: var(--bandkit-release-ink);
+  grid-column: 2;
+  grid-row: 1 / span 20;
+  max-height: calc(100dvh - var(--bandkit-collection-preview-visible-top, var(--bandkit-collection-preview-top, 66px)) - 16px - var(--bandkit-player-reserved-height, 0px));
+  height: max(180px, calc(100dvh - var(--bandkit-collection-preview-visible-top, var(--bandkit-collection-preview-top, 66px)) - 16px - var(--bandkit-player-reserved-height, 0px)));
+  min-height: 180px;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  overscroll-behavior-y: auto;
+  padding: 2px 6px 16px 2px;
+  position: sticky;
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+  top: var(--bandkit-collection-preview-top, 66px);
+}
+
+.bandkit-collection-preview:is(:hover, :focus-visible, :has(:focus-visible)) {
+  scrollbar-color: rgba(140, 140, 140, .6) transparent;
+}
+
+.bandkit-collection-preview:focus-visible {
+  outline: 2px solid var(--bandkit-page-accent, #1da0c3);
+  outline-offset: 3px;
+}
+
+.bandkit-collection-preview-close {
+  align-items: center;
+  appearance: none;
+  background: color-mix(in srgb, var(--bandkit-page-surface, #fff) 86%, transparent) !important;
+  border: 0 !important;
+  border-radius: 4px;
+  color: var(--bandkit-page-accent, currentColor) !important;
+  cursor: pointer;
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  opacity: 0;
+  padding: 0;
+  position: absolute;
+  right: 6px;
+  top: 0;
+  width: 30px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.bandkit-collection-preview:is(:hover, :focus-within) .bandkit-collection-preview-close,
+.bandkit-collection-preview-close:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bandkit-collection-preview-close:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--bandkit-page-accent, currentColor) 8%, var(--bandkit-page-surface, #fff)) !important;
+  outline: 0;
+}
+
+.bandkit-collection-preview-close .hub-button-icon {
+  background: currentColor;
+  display: block;
+  height: 16px;
+  mask: var(--hub-icon) center / contain no-repeat;
+  -webkit-mask: var(--hub-icon) center / contain no-repeat;
+  width: 16px;
+}
+
+.bandkit-collection-preview-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px !important;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bandkit-collection-preview-content > * { flex-shrink: 0; }
+
+.bandkit-collection-preview-art {
+  margin: 0 auto;
+  width: min(100%, 260px);
+}
+
+.bandkit-collection-preview-art img {
+  display: block;
+  height: auto;
+  max-height: 280px;
+  object-fit: contain;
+  width: 100%;
+}
+
+.bandkit-collection-preview-heading {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  order: 1;
+}
+
+.bandkit-collection-preview-title {
+  color: var(--bandkit-release-ink) !important;
+  text-decoration: none !important;
+}
+
+.bandkit-collection-preview-artist {
+  color: var(--bandkit-release-ink) !important;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-decoration: none !important;
+}
+
+.bandkit-collection-preview :is(.bandkit-collection-preview-title, .bandkit-collection-preview-artist):is(:hover, :focus-visible) {
+  color: var(--bandkit-page-accent, #1da0c3) !important;
+  text-decoration: underline !important;
+}
+
+.bandkit-collection-preview .band-meta {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.bandkit-collection-preview .band-meta .profile,
+.bandkit-collection-preview .band-meta .meta { min-width: 0; }
+
+.bandkit-collection-preview .release-buttons {
+  align-items: center;
+  display: flex !important;
+  flex-wrap: nowrap;
+  gap: 6px !important;
+}
+
+.bandkit-collection-preview .release-buttons > .buy-button {
+  align-items: center;
+  background: var(--bandkit-release-ink) !important;
+  border: 1px solid var(--bandkit-release-ink) !important;
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: var(--bandkit-release-surface) !important;
+  display: inline-flex;
+  flex: 0 1 132px !important;
+  font-size: 12px;
+  font-weight: 600;
+  height: 32px !important;
+  justify-content: center;
+  max-width: 132px !important;
+  min-width: 104px !important;
+  padding: 0 8px;
+  text-decoration: none !important;
+}
+
+.bandkit-collection-preview .release-buttons > :is(.bandcamp-hub-page-playlist.is-discover-release-add, .wishlist-button, .bandkit-collection-preview-download) {
+  align-items: center;
+  appearance: none;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  color: var(--bandkit-page-accent, var(--bandkit-release-ink)) !important;
+  display: inline-flex;
+  flex: 0 0 32px !important;
+  height: 32px !important;
+  justify-content: center;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 32px !important;
+}
+
+.bandkit-collection-preview .release-buttons > :is(.bandcamp-hub-page-playlist.is-discover-release-add, .wishlist-button, .bandkit-collection-preview-download):is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--bandkit-page-accent, currentColor) 8%, var(--bandkit-release-surface)) !important;
+  outline: 0 !important;
+}
+
+.bandkit-collection-preview .release-buttons > .wishlist-button[aria-pressed="true"] { color: #ff9c00 !important; }
+.bandkit-collection-preview .release-buttons > :is(.wishlist-button, .bandkit-collection-preview-download) .hub-button-icon {
+  background: currentColor;
+  display: inline-block;
+  height: 18px;
+  mask: var(--hub-icon) center / contain no-repeat;
+  -webkit-mask: var(--hub-icon) center / contain no-repeat;
+  width: 18px;
+}
+
+.bandkit-collection-preview-summary { color: var(--bandkit-release-muted); font-size: 12px; line-height: 1.5; }
+.bandkit-collection-preview-summary p { margin: 0; }
+
+.bandkit-collection-preview .bandkit-discover-tracklist {
+  flex: 1 1 0 !important;
+  margin: 0 !important;
+  min-height: 0;
+  order: 5;
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+}
+
+.bandkit-collection-preview .bandkit-discover-tracklist:is(:hover, :focus-within) {
+  scrollbar-color: rgba(140, 140, 140, .6) transparent;
+}
+
+.bandkit-collection-preview .bandkit-discover-tracklist:focus-visible {
+  outline: 2px solid var(--bandkit-page-accent, #1da0c3);
+  outline-offset: -2px;
+}
+
+html[data-bandkit-collection-page="true"] .collection-item-container[data-bandkit-preview-selected="true"] .collection-item-art-container {
+  outline: 2px solid var(--bandkit-page-accent, #1da0c3);
+  outline-offset: 3px;
+}
+
+@media (min-width: 1200px) {
+  .bandkit-collection-preview-content {
+    align-items: start;
+    display: grid;
+    gap: 12px 16px !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 46%);
+    grid-template-rows: auto auto auto auto auto minmax(0, 1fr);
+  }
+  .bandkit-collection-preview-art { display: contents; }
+  .bandkit-collection-preview-art > .cover {
+    align-self: start;
+    grid-column: 2;
+    grid-row: 1 / 6;
+    height: auto !important;
+    max-height: 280px;
+    width: 100% !important;
+  }
+  .bandkit-collection-preview-heading { grid-column: 1; grid-row: 1; }
+  .bandkit-collection-preview .band-meta { grid-column: 1; grid-row: 2; }
+  .bandkit-collection-preview .release-buttons { grid-column: 1; grid-row: 3; width: 100%; }
+  .bandkit-collection-preview-summary { align-self: end; grid-column: 1; grid-row: 5; }
+  .bandkit-collection-preview .bandkit-discover-tracklist {
+    align-self: stretch;
+    grid-column: 1 / -1;
+    grid-row: 6;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    width: 100%;
+  }
+}
+
+@media (hover: none) {
+  .bandkit-collection-preview { scrollbar-color: rgba(140, 140, 140, .6) transparent; }
+  .bandkit-collection-preview-close { opacity: 1; pointer-events: auto; }
+  html[data-bandkit-collection-page="true"] .collection-item-art-container :is(.item_link_play, .bandkit-collection-overlay-action) {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (max-width: 899px) {
+  html[data-bandkit-collection-page="true"] #fan-container {
+    margin-left: 16px !important;
+    margin-right: 16px !important;
+  }
+  html[data-bandkit-collection-page="true"] :is(#collection-items, #wishlist-items).bandkit-collection-preview-open {
+    display: block !important;
+  }
+  .bandkit-collection-preview {
+    bottom: var(--bandkit-player-reserved-height, 0px);
+    box-shadow: -10px 0 30px rgba(0, 0, 0, .18);
+    height: calc(100dvh - var(--bandkit-player-reserved-height, 0px));
+    max-height: none;
+    max-width: 440px;
+    padding: 16px 20px 24px;
+    position: fixed;
+    right: 0;
+    top: 0;
+    width: min(92vw, 440px);
+    z-index: 120;
+  }
+}

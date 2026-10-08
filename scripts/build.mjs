@@ -28,6 +28,7 @@ const styleEntries = {
   "component-reference": "src/component-reference/index.css",
   "collection-playlists": "src/styles/modern/collection-playlists.css",
   "modern-release": "src/styles/modern/index.css",
+  "page-theme": "src/styles/page/index.css",
   popup: "src/styles/popup.css"
 };
 const staticFiles = ["manifest.json", "component-reference.html", "offscreen.html", "popup.html", "THIRD_PARTY_NOTICES.md"];

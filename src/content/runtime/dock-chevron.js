@@ -1,28 +1,50 @@
 import { runtimeSaveState, runtimeState } from "./context.js";
 
-export function syncDockChevron(r, center) {
-  r.$dockChevronMaxOffset = Math.max(0, center - 36);
-  const offset = Math.min(r.$dockChevronMaxOffset, Math.max(0, Number(runtimeState.dockChevronOffset) || 0));
-  r.$player.style.setProperty("--hub-dock-chevron-offset", `${offset}px`);
+// The docked chevron is anchored just past the right edge of the music bar
+// content, so it starts where the fade and float bars place it. The saved
+// position is the gap kept to the right of that anchor: widening the timeline
+// moves the anchor and pushes the chevron along, and dragging the chevron back
+// stops as soon as it meets the timeline again.
+export const DOCK_CHEVRON_WIDTH = 48;
+export const DOCK_CHEVRON_CLEARANCE = 8;
+export const DOCK_CHEVRON_EDGE_MARGIN = 12;
+
+export function dockChevronGeometry(playerRect, contentRect) {
+  const viewportWidth = document.documentElement?.clientWidth || window.innerWidth;
+  const half = DOCK_CHEVRON_WIDTH / 2;
+  const anchor = contentRect?.width
+    ? contentRect.right - playerRect.left + DOCK_CHEVRON_CLEARANCE + half
+    : viewportWidth - DOCK_CHEVRON_EDGE_MARGIN - half - playerRect.left;
+  const maxCenter = viewportWidth - DOCK_CHEVRON_EDGE_MARGIN - half - playerRect.left;
+  const center = Math.min(anchor, Math.max(half + DOCK_CHEVRON_EDGE_MARGIN, maxCenter));
+  return { center, maxGap: Math.max(0, maxCenter - center) };
+}
+
+export function syncDockChevron(r, center, docked = false) {
+  const maxGap = docked ? Math.max(0, Number(r.$dockChevronMaxGap) || 0) : 0;
+  r.$dockChevronMaxGap = maxGap;
+  const gap = docked ? Math.min(maxGap, Math.max(0, Number(runtimeState.dockChevronGap) || 0)) : 0;
+  r.$player.style.setProperty("--hub-dock-chevron-gap", `${gap}px`);
   if (r.$panel) {
     const playerLeft = r.$player.getBoundingClientRect?.().left || 0;
     const panelWidth = r.$panel.offsetWidth || r.$panel.getBoundingClientRect?.().width || 420;
     const viewportWidth = document.documentElement?.clientWidth || window.innerWidth;
     const maxPanelLeft = Math.max(12, viewportWidth - panelWidth - 12);
-    const panelLeft = Math.max(12, Math.min(maxPanelLeft, playerLeft + center - offset - panelWidth / 2));
+    const panelLeft = Math.max(12, Math.min(maxPanelLeft, playerLeft + center + gap - panelWidth / 2));
     r.$panel.style.setProperty("--hub-context-panel-left", `${Math.round(panelLeft)}px`);
   }
   for (const handle of r.$playerSections.querySelectorAll(".hub-chevron-drag-handle")) {
-    handle.setAttribute("aria-valuemax", String(Math.round(r.$dockChevronMaxOffset)));
-    handle.setAttribute("aria-valuenow", String(Math.round(r.$dockChevronMaxOffset - offset)));
+    handle.setAttribute("aria-valuemax", String(Math.round(maxGap)));
+    handle.setAttribute("aria-valuenow", String(Math.round(gap)));
   }
 }
 
 export function bindDockChevron(r) {
   let drag = null;
-  const move = (offset) => {
-    runtimeState.dockChevronOffset = Math.max(0, Math.min(r.$dockChevronMaxOffset || 0, offset));
-    syncDockChevron(r, (r.$dockChevronMaxOffset || 0) + 36);
+  const move = (gap) => {
+    runtimeState.dockChevronGap = Math.max(0, Math.min(r.$dockChevronMaxGap || 0, gap));
+    r.$playerSectionGeometrySignature = "";
+    r.$syncPlayerSectionGeometry();
   };
   for (const edge of ["left", "right"]) {
     const handle = document.createElement("div");
@@ -37,7 +59,7 @@ export function bindDockChevron(r) {
     handle.addEventListener("click", (event) => event.stopPropagation());
     handle.addEventListener("pointerdown", (event) => {
       if (event.button !== 0) return;
-      drag = { pointerId: event.pointerId, x: event.clientX, offset: Number.parseFloat(r.$player.style.getPropertyValue("--hub-dock-chevron-offset")) || 0 };
+      drag = { pointerId: event.pointerId, x: event.clientX, gap: Number.parseFloat(r.$player.style.getPropertyValue("--hub-dock-chevron-gap")) || 0 };
       handle.setPointerCapture(event.pointerId);
       handle.classList.add("is-active");
       event.preventDefault();
@@ -45,7 +67,7 @@ export function bindDockChevron(r) {
     });
     handle.addEventListener("pointermove", (event) => {
       if (!drag || drag.pointerId !== event.pointerId) return;
-      move(drag.offset + drag.x - event.clientX);
+      move(drag.gap + event.clientX - drag.x);
     });
     const finish = () => {
       if (!drag) return;
@@ -57,10 +79,10 @@ export function bindDockChevron(r) {
     handle.addEventListener("pointercancel", finish);
     handle.addEventListener("lostpointercapture", finish);
     handle.addEventListener("keydown", (event) => {
-      const offset = Number.parseFloat(r.$player.style.getPropertyValue("--hub-dock-chevron-offset")) || 0;
+      const gap = Number.parseFloat(r.$player.style.getPropertyValue("--hub-dock-chevron-gap")) || 0;
       if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
       event.preventDefault();
-      move(event.key === "Home" ? r.$dockChevronMaxOffset : event.key === "End" ? 0 : offset + (event.key === "ArrowLeft" ? 10 : -10));
+      move(event.key === "Home" ? 0 : event.key === "End" ? r.$dockChevronMaxGap : gap + (event.key === "ArrowLeft" ? -10 : 10));
       runtimeSaveState();
     });
   }

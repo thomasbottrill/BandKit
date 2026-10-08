@@ -156,6 +156,19 @@ r.$createDjAnalysis = function createDjAnalysis(bpm) {
         const displayedValue = Math.max(40, Math.min(300, Number(bpmInput.value)));
         if (!Number.isFinite(displayedValue)) return;
         bpmInput.value = String(Math.round(displayedValue * 10) / 10);
+        if (bpm) {
+          const targetRate = Math.max(0.35, Math.min(2, displayedValue / bpm));
+          runtimeState.dj.rate = targetRate;
+          runtimeState.dj.autoTempo = Math.abs(targetRate - 1) <= 0.001;
+          runtimeState.dj.tapBpm = null;
+          runtimeState.dj.tapTrackKey = "";
+          runtimeSaveState();
+          void r.$seamlessCommand(MESSAGES.SEAMLESS_SET_RATE, {
+            rate: targetRate,
+            preservePitch: runtimeState.dj.preservePitch
+          });
+          return;
+        }
         runtimeState.dj.autoTempo = false;
         runtimeState.dj.tapBpm = null;
         runtimeState.dj.tapTrackKey = "";
@@ -220,7 +233,7 @@ r.$createDjAnalysis = function createDjAnalysis(bpm) {
       const tap = createElement("button", "hub-dj-action hub-dj-compact-action", "Tap");
       tap.type = "button";
       tap.disabled = !runtimeSeamless.enabled;
-      tap.title = "Tap repeatedly to estimate BPM without changing playback";
+      tap.title = "Tap repeatedly to match the playback tempo";
       tap.addEventListener("click", () => {
         const now = performance.now();
         if (!r.$bpmTapTimes.length || now - r.$bpmTapTimes.at(-1) > 2200) r.$bpmTapTimes = [];
@@ -229,11 +242,17 @@ r.$createDjAnalysis = function createDjAnalysis(bpm) {
         if (r.$bpmTapTimes.length < 4) { const tapCount = r.$bpmTapTimes.length; bpmLabel.textContent = `BPM · ${tapCount}/4`; bpmLabel.title = `${tapCount} of 4 taps registered. Keep tapping to calculate BPM.`; tap.setAttribute("aria-label", `Tap ${tapCount} of 4 registered`); return; }
         const nextTappedBpm = tapTempoBpm(r.$bpmTapTimes);
         if (!nextTappedBpm) return;
+        const targetRate = bpm ? Math.max(0.35, Math.min(2, nextTappedBpm / bpm)) : 1;
         runtimeState.dj.autoTempo = false;
         runtimeState.dj.tapBpm = nextTappedBpm;
         runtimeState.dj.tapTrackKey = activeTrackKey;
+        runtimeState.dj.rate = targetRate;
         runtimeSaveState();
         r.$renderDjTools();
+        if (bpm) void r.$seamlessCommand(MESSAGES.SEAMLESS_SET_RATE, {
+          rate: targetRate,
+          preservePitch: runtimeState.dj.preservePitch
+        });
       });
 
       autoBpm = createElement("button", `hub-dj-action hub-dj-compact-action hub-dj-status-button${runtimeState.dj.autoTempo ? " is-active" : ""}`, runtimeSeamless.bpmStatus === "analyzing" ? "…" : "Auto");
@@ -986,9 +1005,9 @@ r.$applySeamlessState = function applySeamlessState(nextState) {
       const gestureSelector = ".hub-dj-knob-dial.is-dragging, .hub-dj-platter.is-scratching, .hub-dj-platter.is-coasting, .hub-dj-platter.is-vinyl-releasing";
       const activeDjGesture = r.$djDrawer.querySelector(gestureSelector) || r.$pageDjSurface?.querySelector(gestureSelector);
       if ((runtimeState.dj.open || r.$pageDjOpen) && !editingDjControl && !activeDjGesture) r.$renderDjTools();
-      r.$renderPlayer(); r.$syncSavedPlaylistCardPlaybackUi?.();
+      r.$schedulePlayerRender(); r.$syncSavedPlaylistCardPlaybackUi?.();
       if (playlistQueueChanged && runtimeState.activeTab === "playlist") {
-        r.$render();
+        r.$schedulePanelRender();
         return;
       }
       if (playlistAnalysisChanged && runtimeState.activeTab === "playlist") {
@@ -996,7 +1015,7 @@ r.$applySeamlessState = function applySeamlessState(nextState) {
           r.$syncCurrentPlaylistAnalysisUi();
           r.$syncCurrentPlaylistPlaybackUi();
         } else {
-          r.$render();
+          r.$schedulePanelRender();
         }
         return;
       }
