@@ -35,6 +35,7 @@ r.$prepareModernReleaseLayout = function prepareModernReleaseLayout() {
         r.$moveModernReleaseNode(item, purchaseList);
       }
       r.$prepareModernPurchaseActions(purchaseList);
+      r.$prepareModernReleaseCart(purchasePanel, purchaseList);
       if (commands && [...commands.children].every((item) => item.classList.contains("bandkit-modern-add-trigger"))) {
         commands.classList.add("bandkit-modern-commands-empty");
         r.$modernReleaseCleanups.push(() => commands.classList.remove("bandkit-modern-commands-empty"));

@@ -7,7 +7,7 @@ export function registerSettingsOverview(r) {
   r.$settingsOverviewSections = function settingsOverviewSections() {
     return [
       { id: "player", title: "Player" },
-      { id: "tools", title: "Tools" },
+      { id: "features", title: "Features" },
       { id: "appearance", title: "Appearance" },
       { id: "browsing", title: "Browsing" },
       { id: "onboarding", title: "Help" },
@@ -36,6 +36,8 @@ export function registerSettingsOverview(r) {
   };
 
   r.$renderSettings = function renderSettings() {
+    // Tools now lives inside Features; send anything still pointing at it there.
+    if (runtimeState.settingsView === "tools") runtimeState.settingsView = "features";
     const sections = new Map(r.$settingsOverviewSections().map((section) => [section.id, section]));
     const view = sections.has(runtimeState.settingsView) ? runtimeState.settingsView : "index";
     if (view === "index") {
@@ -70,7 +72,7 @@ export function registerSettingsOverview(r) {
     const backLabel = playerSubView === "index" ? "Back to Settings" : "Back to Player";
     r.$content.append(createSettingsDetailHeader(title), createSettingsBackRow(backLabel, goBack));
     if (view === "player") r.$renderPlaybackSettings();
-    if (view === "tools") r.$renderToolsSettings();
+    if (view === "features") r.$renderFeatureSettings();
     if (view === "browsing") r.$renderBrowsingSettings();
     if (view === "appearance") {
       const editor = runtimeState.settingsSubView.replace(/^theme-/, "");
@@ -80,12 +82,11 @@ export function registerSettingsOverview(r) {
         r.$renderPlaybackSettings(editor);
         return;
       }
-      const { appearance, appearanceMode, themeGroup, pageOptionsGroup } = r.$createAppearanceSettings();
+      const { appearance, appearanceMode, themeGroup } = r.$createAppearanceSettings();
       appearance.prepend(createVisualThemeSettings(r));
       r.$appendAppearanceThemePicker(themeGroup, appearanceMode);
       r.$appendSavedThemeSettings(themeGroup, appearanceMode);
       r.$appendCustomThemeSettings(themeGroup, appearanceMode);
-      r.$appendAppearanceToggles(pageOptionsGroup);
       r.$finishAppearanceSettings(appearance, themeGroup);
     }
     if (view === "onboarding") r.$renderOnboardingSettings();

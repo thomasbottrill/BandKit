@@ -7,7 +7,7 @@ import { createPlayerButtonSettings } from "../player-button-settings.js";
 import { appendControlsDrawers } from "../controls-settings.js";
 import { asset, createButtonIcon, createElement, createPanelCaret } from "../core.js";
 import { hexColor, hexString, luminance, mixColor } from "../color.js";
-import { BUILT_IN_THEMES, FEEDBACK_FORM_URL, FEEDBACK_LIST_URL, SUPPORT_CONTACT_EMAIL, SUPPORT_PAYMENT_URL, defaultState } from "../state.js";
+import { BUILT_IN_THEMES, FEEDBACK_FORM_URL, FEEDBACK_LIST_URL, RELEASE_NOTES_URL, SUPPORT_CONTACT_EMAIL, SUPPORT_PAYMENT_URL, defaultState } from "../state.js";
 import { MESSAGES } from "../../shared/contracts.js";
 import { appendSettingsDisclosureSections, createSettingsDisclosure, createSettingsOverviewCard, prepareSettingsDetail, resetSettingsDisclosures } from "../settings-drawer.js";
 import { registerSettingsOverview } from "../settings-overview.js";
@@ -151,12 +151,15 @@ r.$renderPlaybackSettings = function renderPlaybackSettings(requestedSubView = r
       r.$content.append(detail);
     };
 
-r.$renderToolsSettings = function renderToolsSettings() {
-      const tools = createElement("section", "hub-card hub-settings-card");
-      tools.append(createElement("h2", "hub-settings-heading", "Tools"));
+// DJ and Analysis fine-tuning, shown under Features while DJ tools is on.
+r.$createDjSettingsGroups = function createDjSettingsGroups() {
       const djToolsEnabled = runtimeState.djToolsEnabled !== false;
       const djSettings = createElement("section", "hub-dj-settings hub-settings-group hub-settings-subrow");
-      djSettings.append(r.$createDjToolsSettingsRow());
+      const masterRow = createSettingsRow({ className: "hub-dj-master-row" });
+      const masterToggle = createSettingsToggle({ checked: djToolsEnabled, ariaLabel: "DJ tools", className: "hub-dj-tools-toggle" });
+      masterToggle.addEventListener("click", () => { r.$setDjToolsEnabled(!djToolsEnabled, { announce: true }); r.$render(); });
+      masterRow.append(createSettingsRowCopy("DJ tools", "Add BPM, key, local analysis, tempo, EQ, filters and beat controls."), masterToggle);
+      djSettings.append(masterRow);
       const knobRow = createSettingsRow({ className: "hub-dj-secondary-row hub-settings-dependent-row" });
       knobRow.hidden = !djToolsEnabled;
       const knobCopy = createSettingsRowCopy("Knob gesture", "Choose how DJ knobs respond.");
@@ -178,10 +181,10 @@ r.$renderToolsSettings = function renderToolsSettings() {
       djSettings.append(knobRow);
       const djGroup = createSettingsDisclosure("DJ", "", "dj");
       appendSettingsDisclosureSections(djGroup.content, djSettings);
+      if (!djToolsEnabled) return [djGroup.group];
       const analysisGroup = createSettingsDisclosure("Analysis", "", "analysis");
       appendSettingsDisclosureSections(analysisGroup.content, createTrackAnalysisSettings(r));
-      tools.append(djGroup.group, analysisGroup.group);
-      r.$content.append(prepareSettingsDetail(tools));
+      return [djGroup.group, analysisGroup.group];
     };
 }
 
@@ -248,11 +251,8 @@ r.$createAppearanceSettings = function createAppearanceSettings() {
       const cornerStyleGroup = createCornerStyleSetting(r);
       const finishDisclosure = createSettingsDisclosure("Finish", "", "finish");
       appendSettingsDisclosureSections(finishDisclosure.content, surfaceGroup, cornerStyleGroup);
-      const pageDisclosure = createSettingsDisclosure("Page", "", "page");
-      const pageOptionsGroup = pageDisclosure.content;
-      pageOptionsGroup.classList.add("hub-page-appearance-settings");
-      appearance.append(themeDisclosure.group, finishDisclosure.group, pageDisclosure.group);
-      return { appearance, appearanceMode, themeGroup, pageOptionsGroup };
+      appearance.append(themeDisclosure.group, finishDisclosure.group);
+      return { appearance, appearanceMode, themeGroup };
     };
 }
 
@@ -647,13 +647,34 @@ r.$appendSavedThemeSettings = function appendSavedThemeSettings(appearance, appe
     };
 }
 
-function registerAppearanceToggles(r) {
-r.$appendAppearanceToggles = function appendAppearanceToggles(appearance) {
-      const modernReleaseRow = createSettingsRow({ className: "hub-settings-subrow" });
-      const modernReleaseCopy = createSettingsRowCopy("Modern Bandcamp pages", "Refresh legacy feeds and artist pages.");
+function registerFeatureSettings(r) {
+r.$renderFeatureSettings = function renderFeatureSettings() {
+      const features = createElement("section", "hub-card hub-settings-card hub-feature-settings");
+      features.append(createElement("h2", "hub-settings-heading", "Features"));
+      // Two layers, like every other section: the switches that turn whole
+      // parts of Bandkit on or off, then DJ and its analysis fine-tuning.
+      const coreGroup = createSettingsDisclosure("Modules", "", "modules");
+      const coreRows = createElement("section", "hub-settings-group hub-settings-subrow hub-module-settings");
+      const featureRow = (label, description, checked, className, onToggle) => {
+        const row = createSettingsRow();
+        const toggle = createSettingsToggle({ checked, ariaLabel: label, className });
+        toggle.addEventListener("click", onToggle);
+        row.append(createSettingsRowCopy(label, description), toggle);
+        coreRows.append(row);
+      };
+      // One switch owns the whole cart: on, Bandkit's Cart panel replaces
+      // Bandcamp's carts; off, Bandcamp's own cart is back everywhere.
+      const cartEnabled = r.$cartFeaturesEnabled();
+      featureRow("Bandkit cart", "Mirror, save and edit your cart in Bandkit. Turn off to use Bandcamp’s own cart.",
+        cartEnabled, "hub-cart-enabled-toggle", () => r.$setCartFeaturesEnabled(!cartEnabled));
+      const playlistsEnabled = r.$playlistsFeatureEnabled();
+      featureRow("Saved playlists", "Save, play and share playlists beside Now Playing.", playlistsEnabled,
+        "hub-playlists-enabled-toggle", () => r.$setFeatureEnabled("playlistsEnabled", !playlistsEnabled, "Saved playlists"));
+      const activityEnabled = r.$activityFeatureEnabled();
+      featureRow("Activity", "Keep a local history of listening, cart and playlist actions.", activityEnabled,
+        "hub-activity-enabled-toggle", () => r.$setFeatureEnabled("activityEnabled", !activityEnabled, "Activity"));
       const modernReleasePages = Boolean(runtimeState.appearance.modernReleasePages);
-      const modernReleaseToggle = createSettingsToggle({ checked: modernReleasePages, ariaLabel: "Use modern Bandcamp pages", className: "hub-modern-release-toggle" });
-      modernReleaseToggle.addEventListener("click", () => {
+      featureRow("Modern Bandcamp pages", "Refresh legacy feeds and artist pages.", modernReleasePages, "hub-modern-release-toggle", () => {
         runtimeState.appearance.modernReleasePages = !modernReleasePages;
         r.$applyAppearance();
         r.$injectPlaylistButtons({ incremental: false });
@@ -661,36 +682,15 @@ r.$appendAppearanceToggles = function appendAppearanceToggles(appearance) {
         r.$render();
         r.$showToast(runtimeState.appearance.modernReleasePages ? "Modern Bandcamp pages enabled" : "Classic Bandcamp pages restored");
       });
-      modernReleaseRow.append(modernReleaseCopy, modernReleaseToggle);
-      appearance.append(modernReleaseRow);
-
-      const hideCartRow = createSettingsRow({ className: "hub-settings-subrow" });
-      const hideCartCopy = createSettingsRowCopy("Hide shopping cart", "Use Bandkit’s Cart panel instead of Bandcamp’s carts.");
-      const hideShoppingCart = Boolean(runtimeState.appearance.hidePageCart || runtimeState.appearance.hideHeaderCart);
-      const hideCartToggle = createSettingsToggle({ checked: hideShoppingCart, ariaLabel: "Hide shopping cart", className: "hub-hide-cart-toggle" });
-      hideCartToggle.addEventListener("click", () => {
-        const enabled = !hideShoppingCart;
-        runtimeState.appearance.hidePageCart = enabled;
-        runtimeState.appearance.hideHeaderCart = enabled;
-        r.$applyNativeCartVisibility();
-        runtimeSaveState();
-        r.$render();
-      });
-      hideCartRow.append(hideCartCopy, hideCartToggle);
-      appearance.append(hideCartRow);
-
-      const nativePlayerRow = createSettingsRow({ className: "hub-settings-subrow" });
-      const nativePlayerCopy = createSettingsRowCopy("Hide Bandcamp music player", "Use only Bandkit’s music player.");
-      const hideBandcampPlayer = Boolean(runtimeState.appearance.hideBandcampPlayer);
-      const nativePlayerToggle = createSettingsToggle({ checked: hideBandcampPlayer, ariaLabel: "Hide Bandcamp music player" });
-      nativePlayerToggle.addEventListener("click", () => {
+      featureRow("Bandcamp music player", "Show Bandcamp’s own player alongside Bandkit’s.", !runtimeState.appearance.hideBandcampPlayer, "hub-native-player-toggle", () => {
         runtimeState.appearance.hideBandcampPlayer = !runtimeState.appearance.hideBandcampPlayer;
         r.$applyNativePlayerVisibility();
         runtimeSaveState();
         r.$render();
       });
-      nativePlayerRow.append(nativePlayerCopy, nativePlayerToggle);
-      appearance.append(nativePlayerRow);
+      appendSettingsDisclosureSections(coreGroup.content, coreRows);
+      features.append(coreGroup.group, ...r.$createDjSettingsGroups());
+      r.$content.append(prepareSettingsDetail(features));
     };
 }
 
@@ -795,6 +795,13 @@ r.$renderAboutSettings = function renderAboutSettings() {
       releaseRow.append(releaseCopy, createElement("span", "hub-settings-row-value", `v${chrome.runtime.getManifest().version}`));
       about.append(aboutRow, releaseRow);
 
+      const releaseNotesLink = createSettingsAction("Release notes", { tag: "a" });
+      releaseNotesLink.href = RELEASE_NOTES_URL;
+      releaseNotesLink.target = "_blank";
+      releaseNotesLink.rel = "noopener noreferrer";
+      releaseNotesLink.dataset.settingsTooltip = "See what changed in each Bandkit release.";
+      const releaseNotes = createSettingsActionRow({ tag: "section", label: "What’s new", description: "See what changed in each Bandkit release.", actions: releaseNotesLink });
+
       const feedbackActions = createSettingsActions();
       const sendFeedback = createSettingsAction("Send Feedback", { tag: "a" });
       sendFeedback.href = FEEDBACK_FORM_URL;
@@ -819,7 +826,7 @@ r.$renderAboutSettings = function renderAboutSettings() {
       contactLink.href = `mailto:${SUPPORT_CONTACT_EMAIL}`;
       contactLink.dataset.settingsTooltip = `Open your email app to message ${SUPPORT_CONTACT_EMAIL}.`;
       const contact = createSettingsActionRow({ tag: "section", label: "Contact", description: "Email the developer about a problem or question.", actions: contactLink });
-      info.append(about, feedback, support, contact);
+      info.append(about, releaseNotes, feedback, support, contact);
       r.$content.append(prepareSettingsDetail(info));
     };
 }
@@ -827,6 +834,6 @@ r.$renderAboutSettings = function renderAboutSettings() {
 export const registerActivitySettings = [
   registerPlaybackSettings, registerBrowsingSettings, registerAppearanceSettingsShell,
   registerAppearanceThemePicker, registerSavedThemeSettings, registerCustomThemePreview,
-  registerCustomThemeSettings, registerAppearanceToggles, registerAppearanceSettingsFinish,
+  registerCustomThemeSettings, registerFeatureSettings, registerAppearanceSettingsFinish,
   registerSettingsInfoCards, registerActivityView, registerSettingsOverview
 ];

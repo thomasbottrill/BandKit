@@ -200,18 +200,6 @@
 }
 
 
-/* Detail pages already receive their vertical rhythm from the shared row grid.
-   Do not retain the spacing used when Page lived inside an accordion. */
-.hub-settings-detail .hub-page-appearance-settings {
-  margin-top: 0;
-  padding-top: 0;
-}
-
-.hub-settings-detail .hub-page-appearance-settings > .hub-settings-subrow {
-  margin-top: 0;
-}
-
-
 /* These shared controls can appear either directly in Player > Design or
    inside Appearance > Finish. Remove their legacy card/subsection inset in
    both contexts so they keep the standard row spacing and column edges. */

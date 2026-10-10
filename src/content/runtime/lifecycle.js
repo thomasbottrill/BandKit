@@ -49,6 +49,9 @@ function normalizedCrossTabSettings(incoming, current) {
     onboardingCompletedVersion,
     onboardingStep: onboardingCompletedVersion > 0 ? 0 : Math.max(0, Math.min(10, Number(incoming.onboardingStep) || 0)),
     djToolsEnabled: incoming.djToolsEnabled !== false,
+    cartEnabled: incoming.cartEnabled !== false,
+    playlistsEnabled: incoming.playlistsEnabled !== false,
+    activityEnabled: incoming.activityEnabled !== false,
     autoAnalyzeTracks: incoming.autoAnalyzeTracks !== false,
     showTrackKeys: incoming.showTrackKeys !== false,
     showCamelotNotation: incoming.showCamelotNotation === true,
@@ -479,6 +482,9 @@ r.$restoreRuntimeState = function restoreRuntimeState({ saved, savedState, saved
       runtimeState.onboardingCompletedVersion = Math.max(0, Number(runtimeState.onboardingCompletedVersion) || 0);
       runtimeState.onboardingStep = Math.max(0, Math.min(10, Number(runtimeState.onboardingStep) || 0));
       runtimeState.djToolsEnabled = runtimeState.djToolsEnabled !== false;
+      runtimeState.cartEnabled = runtimeState.cartEnabled !== false;
+      runtimeState.playlistsEnabled = runtimeState.playlistsEnabled !== false;
+      runtimeState.activityEnabled = runtimeState.activityEnabled !== false;
       runtimeState.playlistMode = runtimeState.playlistMode === "manual" ? "manual" : "browse";
       runtimeState.playlistShuffleEnabled = runtimeState.playlistShuffleEnabled === true;
       runtimeState.playlistShuffleOrder = Array.isArray(runtimeState.playlistShuffleOrder)
@@ -531,7 +537,8 @@ r.$restoreRuntimeState = function restoreRuntimeState({ saved, savedState, saved
       if (normalizedGlassAppearance
         || normalizedVisualThemeAppearance
         || storedModernReleasePages !== runtimeState.appearance.modernReleasePages) runtimeSaveState();
-      const hideShoppingCart = Boolean(runtimeState.appearance.hidePageCart || runtimeState.appearance.hideHeaderCart);
+      // Bandcamp's carts are hidden exactly while Bandkit's cart is on.
+      const hideShoppingCart = runtimeState.cartEnabled !== false;
       runtimeState.appearance.hidePageCart = hideShoppingCart;
       runtimeState.appearance.hideHeaderCart = hideShoppingCart;
       const backupReminderDays = Number(runtimeState.backupReminderDays);
@@ -558,7 +565,7 @@ r.$restoreRuntimeState = function restoreRuntimeState({ saved, savedState, saved
       }
       if (!["current", "saved"].includes(runtimeState.playlistView)) runtimeState.playlistView = "current";
       if (!r.$tabs.some((tab) => tab.id === runtimeState.activeTab)) runtimeState.activeTab = "playlist";
-      if (!["index", "player", "tools", "appearance", "browsing", "onboarding", "privacy", "about"].includes(runtimeState.settingsView)) {
+      if (!["index", "player", "features", "tools", "appearance", "browsing", "onboarding", "privacy", "about"].includes(runtimeState.settingsView)) {
         runtimeState.settingsView = "index";
       }
       if (typeof runtimeState.settingsSubView !== "string") {
@@ -799,7 +806,7 @@ function createRuntimeMessageHandler(r) {
       }
       if (message?.type === MESSAGES.CART_REMOVE_ITEM) {
         if (!r.$pageCartIsAvailable()) return false;
-        void r.$sendCartRemove(message.item).then((result) => {
+        void r.$sendCartRemove(message.clear ? null : message.item).then((result) => {
           r.$scanLiveCart();
           sendResponse({ ...result, cart: runtimeState.cart, cartSummary: runtimeState.cartSummary });
         });

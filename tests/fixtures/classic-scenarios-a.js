@@ -84,7 +84,7 @@ window.fixtureScenarios = {
       && nativeCart.style.getPropertyPriority("display") === "important"
       && window.fixtureMenuShadow.querySelector("#bandkit-native-header-cart-style");
     root?.querySelector('.hub-header-shortcut[data-tab="settings"]')?.click();
-    root?.querySelector('[role="switch"][aria-label="Hide shopping cart"]')?.click();
+    root?.querySelector('[role="switch"][aria-label="Bandkit cart"]')?.click();
     const restored = getComputedStyle(nativeCart).display === "flex"
       && getComputedStyle(nativeCartWrapper).display === "flex"
       && !nativeCart.hasAttribute("hidden")
@@ -92,7 +92,7 @@ window.fixtureScenarios = {
       && nativeCart.style.getPropertyValue("display") === ""
       && window.fixtureStored.bandcampHubState?.appearance?.hidePageCart === false
       && window.fixtureStored.bandcampHubState?.appearance?.hideHeaderCart === false;
-    root?.querySelector('[role="switch"][aria-label="Hide shopping cart"]')?.click();
+    root?.querySelector('[role="switch"][aria-label="Bandkit cart"]')?.click();
     const hiddenAgain = getComputedStyle(nativeCart).display === "none"
       && getComputedStyle(nativeCartWrapper).display === "none"
       && window.fixtureStored.bandcampHubState?.appearance?.hidePageCart === true

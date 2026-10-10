@@ -17,3 +17,10 @@
 - Verify the relevant interaction and visual state on the live page, including computed layout or DOM measurements when alignment, sizing, wrapping, or responsive behavior is involved. Check the page for runtime or console errors appropriate to the change.
 - If browser automation cannot reload the extension or access the required real page, ask the user to perform the minimal required reload or access step. Do not report the work as complete until the live extension has been verified on the real site.
 - Keep fixtures and automated tests as regression coverage, but do not use them as a substitute for live-site testing.
+
+## Chrome Web Store releases
+
+- Whenever you are asked to package Bandkit for the Chrome Web Store, bump the version in `manifest.json`, `package.json`, `package-lock.json`, `README.md` and `STORE_SUBMISSION.md`, run `npm test`, then `npm run package`.
+- In the same task, add a row for the new version to the public **Release Notes** database in the Lantana Softworks Notion workspace (Bandkit page › Release notes, https://app.notion.com/p/b2343291e09849ceaf9a383a698a1645, data source `collection://567e49dc-a9af-4a86-afae-726a06554076`). Set **Version**, **Released** (the packaging date) and a one-line **Summary**, and in the row's page list user-facing changes in plain language under **New**, **Fixed** and **Changed** headings. Base it on the commits and changes since the previous release; leave out internal-only changes.
+- Settings › About links to that database's public view through `RELEASE_NOTES_URL` in `src/content/state.js`. It must stay published to the web so the link works for everyone.
+- Do not report the package as done until the release notes entry has been added.

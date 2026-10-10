@@ -251,7 +251,7 @@ assert.match(source, /accessibleControlPalette\(\[surface, card, activeCard\], c
   "selected-theme controls must contrast against both the panel and card surfaces");
 assert.match(source, /if \(appearanceMode === "theme"\) \{[\s\S]*?hub-theme-combobox/, "Theme controls should only render while Theme pages is active");
 assert.match(source, /pageAware: true,[\s\S]*?applyToPage: false,/, "Match page should remain the default appearance mode");
-assert.match(source, /hub-hide-cart-toggle[\s\S]*?hidePageCart = enabled;[\s\S]*?hideHeaderCart = enabled;/, "One shopping-cart control must update both Bandcamp cart surfaces");
+assert.match(source, /setCartFeaturesEnabled[\s\S]*?hidePageCart = enabled !== false;[\s\S]*?hideHeaderCart = enabled !== false;/, "One cart switch must update both Bandcamp cart surfaces");
 assert.doesNotMatch(source, /hub-page-theme-toggle/, "The old independent page-theme switch should be removed");
 assert.match(source, /#DiscoverApp :is\([\s\S]*?border-radius:8px!important[\s\S]*?height:36px!important[\s\S]*?width:36px!important/, "Discover play and add controls should share the compact rounded-square control style");
 assert.match(source, /color-mix\(in srgb,var\(--bandkit-page-accent[\s\S]*?opacity:1!important/, "Discover controls should keep an opaque themed fill on hover");

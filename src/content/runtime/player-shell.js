@@ -721,6 +721,7 @@ r.$setOpen = function setOpen(open) {
       if (open) r.$schedulePlaylistMetadataRefresh(0);
     };
 r.$openBandKitCart = function openBandKitCart() {
+      if (!r.$cartFeaturesEnabled()) return;
       r.$closePagePlaylistMenu();
       runtimeState.musicBarRecentPanel = "cart";
       runtimeState.open = true;

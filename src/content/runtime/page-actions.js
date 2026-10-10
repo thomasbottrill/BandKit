@@ -689,7 +689,7 @@ r.$injectFeedPageActions = function injectFeedPageActions({ incremental, onFeedP
             });
             purchaseAction.addEventListener("click", (event) => {
               const requested = purchaseAction._bandkitCartTrack;
-              if (!requested) return;
+              if (!requested || !r.$cartFeaturesEnabled()) return;
               event.preventDefault();
               event.stopPropagation();
               void r.$requestReleaseCartAdd(purchaseAction, requested);
@@ -1085,6 +1085,9 @@ r.$queueCartArtistResolution = function queueCartArtistResolution(items) {
       });
     };
 r.$scanLiveCart = function scanLiveCart() {
+      // Turned off, Bandkit neither mirrors nor protects the cart: anything it
+      // did here could fight the Bandcamp cart the listener is now using.
+      if (!r.$cartFeaturesEnabled()) return;
       // A page whose cart exists but has not loaded must be left alone. Reading
       // the markup behind it yields rows without artwork or product identity,
       // which then sit in the cart alongside the real ones.

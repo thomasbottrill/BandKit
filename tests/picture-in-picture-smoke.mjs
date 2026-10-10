@@ -64,6 +64,7 @@ function load({ supported = true } = {}) {
     if (tag === "video") {
       Object.assign(element, { paused: true, readyState: 4, requests: 0,
         play: async () => { element.paused = false; },
+        pause: () => { element.paused = true; },
         requestPictureInPicture: async () => { element.requests++; document.pictureInPictureElement = element; } });
       videos.push(element);
     }
@@ -145,12 +146,21 @@ env.handlers.play();
 assert.equal(r.$playButton.clicks, 0, "play while already playing is ignored");
 env.handlers.pause();
 assert.equal(r.$playButton.clicks, 1, "pause drives the music bar's play button");
+assert.equal(env.session.playbackState, "paused", "pause updates Chrome's native media state immediately");
+env.handlers.play();
+assert.equal(env.session.playbackState, "playing", "play updates Chrome's native media state immediately");
 env.handlers.nexttrack();
 env.handlers.previoustrack();
 assert.deepEqual([next.clicks, previous.clicks], [1, 1], "track skips drive the music bar's buttons");
 env.handlers.seekto({ seekTime: 100 });
 assert.equal(r.$scrubSlider.value, "500");
 assert.deepEqual(r.$scrubSlider.dispatched, ["input", "change"], "seeks go through the bar's own scrub handlers");
+r.$scrubSlider.dispatched.length = 0;
+env.handlers.seekbackward({ seekOffset: 20 });
+assert.equal(r.$scrubSlider.value, "400", "rewind uses Chrome's requested offset");
+env.handlers.seekforward({ seekOffset: 10 });
+assert.equal(r.$scrubSlider.value, "450", "fast-forward uses Chrome's requested offset");
+assert.deepEqual(r.$scrubSlider.dispatched, ["input", "change", "input", "change"]);
 
 video.muted = true;
 video.emit("volumechange");

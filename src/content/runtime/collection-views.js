@@ -4,6 +4,7 @@ import { createPanelEmptyState, createPanelMediaCard, createPanelViewTabs, creat
 import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState } from "./context.js";
 import { createArt, createButtonIcon, createElement, createPanelBackButton, formatCartPrice, formatDuration } from "../core.js";
 import { MESSAGES } from "../../shared/contracts.js";
+import { comparableReleaseUrl } from "./release-preview.js";
 import { protectNowPlayingShuffleClick, syncNowPlayingShuffleButton } from "./interaction-guards.js";
 export function playlistAlbumLabel(item) {
   const artist = String(item?.artist || "").trim();
@@ -35,11 +36,25 @@ export function playlistAlbumLabel(item) {
   return album;
 }
 
+function registerCartPreview(r) {
+r.$cartItemReleaseUrl = function cartItemReleaseUrl(item) {
+      // Only albums and tracks have something to listen to; merch, bundles and
+      // releases that have been taken down keep their plain artwork link.
+      if (item?.unavailable === true || !["a", "t", undefined].includes(item?.restore?.item_type)) return "";
+      return comparableReleaseUrl(item.restore?.url || item.url);
+    };
+r.$createCartItemPlayToggle = function createCartItemPlayToggle(item) {
+      return r.$createReleasePlayToggle({ url: r.$cartItemReleaseUrl(item), title: item.title, art: r.$cartItemArt(item), className: "hub-cart-media-toggle" });
+    };
+}
+
 function registerCollectionViews1(r) {
 r.$renderCartViewTabs = function renderCartViewTabs() {
+      const current = runtimeState.cartView === "current";
       r.$content.append(createPanelViewTabs({
-        views: [{ id: "current", label: "Cart" }, { id: "saved", label: "Saved" }],
+        views: [{ id: "current", label: "Cart", count: runtimeState.cart.length }, { id: "saved", label: "Saved" }],
         selected: runtimeState.cartView,
+        actions: current ? r.$createCurrentCartActions() : null,
         onSelect: (id) => {
           runtimeState.cartView = id;
           runtimeState.selectedSavedCartId = null;
@@ -50,7 +65,7 @@ r.$renderCartViewTabs = function renderCartViewTabs() {
     };
 r.$renderPlaylistViewTabs = function renderPlaylistViewTabs() {
       r.$content.append(createPanelViewTabs({
-        views: [{ id: "current", label: "Now Playing" }, { id: "saved", label: "Playlists" }],
+        views: [{ id: "current", label: "Now Playing" }, ...(r.$playlistsFeatureEnabled() ? [{ id: "saved", label: "Playlists" }] : [])],
         selected: runtimeState.playlistView,
         headerClass: "hub-playlist-view-header", tabsClass: "hub-playlist-view-tabs", buttonClass: "hub-playlist-view-tab",
         ariaLabel: "Now Playing and playlists views",
@@ -86,10 +101,12 @@ r.$renderCartItemCard = function renderCartItemCard(item, { removable = false, s
       card.classList.toggle("is-unavailable", item.unavailable === true);
       card.classList.toggle("is-below-minimum", belowMinimum);
       const main = createElement("div", "hub-product-main");
-      const artLink = r.$createPageLink("", item.url, "hub-art-link");
-      artLink.setAttribute("aria-label", `Open ${item.title}`);
-      artLink.append(createArt(r.$cartItemArt(item)));
-      main.append(artLink);
+      main.append(r.$cartItemReleaseUrl(item) ? r.$createCartItemPlayToggle(item) : (() => {
+        const artLink = r.$createPageLink("", item.url, "hub-art-link");
+        artLink.setAttribute("aria-label", `Open ${item.title}`);
+        artLink.append(createArt(r.$cartItemArt(item)));
+        return artLink;
+      })());
       const details = createElement("div", "hub-product-details");
       const row = createElement("div", "hub-row-title");
       row.append(r.$createPageLink(item.title, item.url, "hub-cart-title hub-inline-link"), createElement("span", "hub-price", formatCartPrice(item.price, item.currency)));
@@ -143,11 +160,8 @@ r.$renderCartItemCard = function renderCartItemCard(item, { removable = false, s
       card.append(main);
       return card;
     };
-r.$renderCurrentCart = function renderCurrentCart() {
-      const backup = createElement("div", "hub-cart-backup");
-      const itemCount = `${runtimeState.cart.length} item${runtimeState.cart.length === 1 ? "" : "s"}`;
-      backup.append(createElement("div", "hub-cart-backup-time hub-panel-count-summary", itemCount));
-      const backupActions = createElement("div", "hub-toolbar");
+r.$createCurrentCartActions = function createCurrentCartActions() {
+      const backupActions = createElement("div", "hub-toolbar hub-cart-header-actions");
       const saveButton = r.$createPlaylistToolbarButton("Save cart", "icon-save.svg", r.$saveCartSnapshot);
       saveButton.disabled = !runtimeState.cart.length;
       const exportButton = r.$createToolbarMenuAction("Download cart", "icon-download-all.svg", () => r.$exportCart(), {
@@ -166,13 +180,17 @@ r.$renderCurrentCart = function renderCurrentCart() {
         importInput.value = "";
         void r.$importAndRestoreCart(file, importButton);
       });
-      const moreActions = r.$createToolbarOverflow("More cart actions", [exportButton, shareButton, importButton], {
+      const clearButton = r.$createToolbarMenuAction("Clear cart", "icon-trash.svg", () => void r.$clearLiveCart(), {
+        disabled: !runtimeState.cart.length, danger: true
+      });
+      const moreActions = r.$createToolbarOverflow("More cart actions", [exportButton, shareButton, importButton, clearButton], {
         menuLabel: "Cart actions",
         className: "hub-cart-overflow"
       });
       backupActions.append(saveButton, moreActions, importInput);
-      backup.append(backupActions);
-      r.$content.append(backup);
+      return backupActions;
+    };
+r.$renderCurrentCart = function renderCurrentCart() {
       const stack = createElement("div", "hub-stack hub-current-cart-list");
       for (const item of runtimeState.cart) {
         stack.append(r.$renderCartItemCard(item, { removable: true }));
@@ -882,4 +900,6 @@ r.$renderPlaylist = function renderPlaylist() {
       r.$mountPanelClose();
     };
 }
-export const registerCollectionViews = [registerCollectionViews1, registerCollectionViews2, registerCollectionViews3, registerCollectionViews4, registerCollectionViews5, registerCollectionViews6];
+export const registerCollectionViews = [
+  registerCartPreview, registerCollectionViews1, registerCollectionViews2, registerCollectionViews3, registerCollectionViews4, registerCollectionViews5, registerCollectionViews6
+];

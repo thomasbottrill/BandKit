@@ -2,6 +2,7 @@ import { attachMenuKeyNavigation, attachMenuTriggerKeyNavigation } from "../menu
 import { createPanelEmptyState, createPanelMediaCard } from "../components/collections.js";
 import { runtimeState } from "./context.js";
 import { asset, createArt, createElement, createSectionHeading } from "../core.js";
+import { comparableReleaseUrl } from "./release-preview.js";
 
 function activityDateKey(item) {
   const date = new Date(item.createdAt || item.time || 0);
@@ -104,6 +105,11 @@ const ACTIVITY_ACTIONS = {
 };
 
 function activityVisual(r, item, action) {
+  // An album or track can be previewed from its artwork, like a cart item.
+  const releaseUrl = item.art ? comparableReleaseUrl(item.url) : "";
+  if (releaseUrl) {
+    return r.$createReleasePlayToggle({ url: releaseUrl, title: item.title, art: item.art, className: "hub-activity-art" });
+  }
   if (item.art && item.url) {
     const link = r.$createPageLink("", item.url, "hub-art-link hub-activity-art");
     link.setAttribute("aria-label", `Open ${item.title}`);
@@ -139,6 +145,15 @@ function activityRow(r, item) {
   meta.append(chip, createElement("span", "hub-meta", time));
   details.append(copy, meta);
   row.append(details);
+  // The rest of the card opens the item, the same place its title links to.
+  const pageLink = copy.querySelector("a[href]");
+  if (pageLink) {
+    row.classList.add("is-openable");
+    row.addEventListener("click", (event) => {
+      if (event.target.closest("a, button") || window.getSelection()?.toString()) return;
+      window.open(pageLink.href, "_blank", "noopener");
+    });
+  }
   return row;
 }
 

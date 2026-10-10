@@ -15,6 +15,12 @@ r.$populatePlaylistDestinationMenu = function populatePlaylistDestinationMenu(me
         r.$positionPlaylistDestinationMenu(menu);
         menu.querySelector(".hub-playlist-menu-option")?.focus();
       };
+      const cartOption = (label, cartView, needsPage = true) => (r.$cartFeaturesEnabled()
+        ? r.$createPlaylistMenuOption(label, () => showView(cartView), { disabled: needsPage && !resolvedTrackPageUrl(track) })
+        : null);
+      const playlistOption = (label, playlistView) => (r.$playlistsFeatureEnabled()
+        ? r.$createPlaylistMenuOption(label, () => showView(playlistView))
+        : null);
       menu.replaceChildren();
       if (["playlists", "playlists-only", "now-playing-playlists"].includes(view)) {
         if (view !== "playlists-only") {
@@ -57,10 +63,8 @@ r.$populatePlaylistDestinationMenu = function populatePlaylistDestinationMenu(me
       if (view === "now-playing") {
         const wishlisted = (runtimeState.wishlistTrackKeys || []).includes(r.$wishlistTrackKey(track));
         const options = [
-          r.$createPlaylistMenuOption("＋ Add to playlist…", () => showView("now-playing-playlists")),
-          r.$createPlaylistMenuOption("＋ Add to cart…", () => showView("now-playing-carts"), {
-            disabled: !resolvedTrackPageUrl(track)
-          }),
+          playlistOption("＋ Add to playlist…", "now-playing-playlists"),
+          cartOption("＋ Add to cart…", "now-playing-carts"),
           r.$createPlaylistMenuOption(wishlisted ? "In Wishlist" : "Add to Wishlist", () => {
             close();
             void r.$openTrackAction(track, "wishlist", { active: !wishlisted });
@@ -70,7 +74,7 @@ r.$populatePlaylistDestinationMenu = function populatePlaylistDestinationMenu(me
           close();
           menuContext.onRemove?.();
         }, { icon: "icon-close.svg" }));
-        menu.append(...options);
+        menu.append(...options.filter(Boolean));
         return;
       }
       if (view === "saved-playlist") {
@@ -81,10 +85,8 @@ r.$populatePlaylistDestinationMenu = function populatePlaylistDestinationMenu(me
             close();
             r.$addTrackToPlaylist(track);
           }, { disabled: inPlaying }),
-          r.$createPlaylistMenuOption("＋ Add to Playlist…", () => showView("now-playing-playlists")),
-          r.$createPlaylistMenuOption("＋ Add to Cart…", () => showView("now-playing-carts"), {
-            disabled: !resolvedTrackPageUrl(track)
-          }),
+          playlistOption("＋ Add to Playlist…", "now-playing-playlists"),
+          cartOption("＋ Add to Cart…", "now-playing-carts"),
           r.$createPlaylistMenuOption(wishlisted ? "In Wishlist" : "Add to Wishlist", () => {
             close();
             void r.$openTrackAction(track, "wishlist", { active: !wishlisted });
@@ -94,18 +96,18 @@ r.$populatePlaylistDestinationMenu = function populatePlaylistDestinationMenu(me
           close();
           menuContext.onRemove?.();
         }, { icon: "icon-close.svg" }));
-        menu.append(...options);
+        menu.append(...options.filter(Boolean));
         return;
       }
       const inPlaying = runtimeState.playlist.some((item) => r.$playlistTracksMatch(item, track));
-      menu.append(
+      menu.append(...[
         r.$createPlaylistMenuOption(inPlaying ? "✓ In Now Playing" : "＋ Add to Now Playing", () => {
           close();
           r.$addTrackToPlaylist(track);
         }, { disabled: inPlaying }),
-        r.$createPlaylistMenuOption("＋ Add to Playlist…", () => showView("playlists")),
-        r.$createPlaylistMenuOption("＋ Add to Cart…", () => showView("carts"))
-      );
+        playlistOption("＋ Add to Playlist…", "playlists"),
+        cartOption("＋ Add to Cart…", "carts", false)
+      ].filter(Boolean));
     };
 r.$createNowPlayingTrackActions = function createNowPlayingTrackActions(card, item, context = {}) {
       const removeFromNowPlaying = () => {

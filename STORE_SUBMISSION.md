@@ -1,6 +1,6 @@
 # Chrome Web Store submission guide
 
-This is the launch checklist and source of truth for Bandkit 1.0.0. Keep the listing, Privacy practices answers, privacy policy and extension behavior consistent.
+This is the launch checklist and source of truth for Bandkit 1.1.0. Keep the listing, Privacy practices answers, privacy policy and extension behavior consistent.
 
 ## Submission blockers
 

@@ -4,6 +4,7 @@ import { accessibleControlPalette, accessibleScrubberPalette, colorString, contr
 import { BUILT_IN_THEMES } from "../state.js";
 import { appearanceVisualizerColourDefaults, resolvedVisualizerColors, visualizerThemeVariables } from "../visualizer-theme.js";
 import { registerModernReleaseLayout } from "./modern-release-layout.js";
+import { registerModernReleaseCart } from "./modern-release-cart.js";
 
 const BANDCAMP_BRAND_ACCENT = { r: 29, g: 160, b: 195, a: 1 };
 
@@ -917,6 +918,6 @@ r.$applySelectedTheme = function applySelectedTheme() {
     };
 }
 export const registerModernLayout = [
-  registerModernLayoutSupporters, registerModernLayoutPurchases, registerModernReleaseLayout,
+  registerModernLayoutSupporters, registerModernLayoutPurchases, registerModernReleaseLayout, registerModernReleaseCart,
   registerModernLayout2, registerModernLayout3, registerModernLayout4, registerModernLayout5
 ];

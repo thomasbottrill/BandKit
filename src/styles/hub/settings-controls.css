@@ -543,6 +543,7 @@
 :host > .hub-visualizer-type-options .hub-visualizer-style-preview,
 :host > .hub-visualizer-type-options canvas { height: 44px; width: 112px; }
 :host > :is(.hub-surface-picker-options, .hub-corner-style-picker-options, .hub-theme-source-picker-options) .hub-settings-picker-option { grid-template-columns: 28px minmax(0, 1fr); }
+:host > .hub-theme-source-picker-options.has-trailing .hub-settings-picker-option.has-option-trailing { grid-template-columns: 28px minmax(0, 1fr) 16px; }
 .hub-settings-detail .hub-settings-picker:is(.hub-player-blend-mode, .hub-visualizer-blend-mode) .hub-settings-combobox { grid-template-columns: 22px minmax(0, 1fr) var(--hub-settings-control-tail-width); }
 :host > :is(.hub-player-blend-mode-options, .hub-visualizer-blend-mode-options) .hub-settings-picker-option { grid-template-columns: 22px minmax(0, 1fr); }
 

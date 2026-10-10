@@ -23,8 +23,12 @@ r.$applyAppearance = function applyAppearance() {
     };
 r.$applyNativeCartVisibility = function applyNativeCartVisibility() {
       r.$ensurePageStyles();
-      const hidePageCart = Boolean(runtimeState.appearance.hidePageCart);
-      const hideHeaderCart = Boolean(runtimeState.appearance.hideHeaderCart);
+      // With Bandkit's cart off, Bandcamp's own carts are the only cart left,
+      // so they always show whatever the hide preference says.
+      const cartEnabled = r.$cartFeaturesEnabled();
+      const hidePageCart = cartEnabled && Boolean(runtimeState.appearance.hidePageCart);
+      const hideHeaderCart = cartEnabled && Boolean(runtimeState.appearance.hideHeaderCart);
+      document.documentElement.dataset.bandkitCartDisabled = String(!cartEnabled);
       document.documentElement.dataset.bandkitHidePageCart = String(hidePageCart);
       document.documentElement.dataset.bandkitHideHeaderCart = String(hideHeaderCart);
       for (const nativeCart of document.querySelectorAll("[data-bandkit-native-cart]")) {
@@ -607,7 +611,7 @@ r.$removeLiveCartItem = async function removeLiveCartItem(item) {
         const remote = await r.$runtimeMessage({
           type: MESSAGES.CART_REMOVE_REMOTE,
           item: item.restore || item,
-          url: item.restore?.url || item.url || ""
+          urls: r.$cartRemovalPageUrls(item)
         });
         window.setTimeout(() => r.$cartRemovalKeys?.delete(removalKey), 1000);
         r.$adoptRemoteCart(remote);
@@ -615,29 +619,33 @@ r.$removeLiveCartItem = async function removeLiveCartItem(item) {
       }
       return r.$sendCartRemove(item, removalKey);
     };
-r.$sendCartRemove = async function sendCartRemove(item, removalKey = cartActivityIdentity(item)) {
+r.$sendCartRemove = async function sendCartRemove(item, removalKey = item && cartActivityIdentity(item)) {
+      // No item means "everything": the whole cart is held from protection.
+      const clearing = !item;
+      const removalKeys = clearing ? runtimeState.cart.map(cartActivityIdentity).filter(Boolean) : [removalKey].filter(Boolean);
       const requestId = `remove-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       // Cart protection treats a removed item as one to restore, so hold the key
       // here as well: a borrowed tab runs its own sweep and would otherwise put
       // the item straight back.
       r.$cartRemovalKeys ||= new Set();
-      if (removalKey) r.$cartRemovalKeys.add(removalKey);
+      for (const key of removalKeys) r.$cartRemovalKeys.add(key);
+      const release = () => { for (const key of removalKeys) r.$cartRemovalKeys?.delete(key); };
       return new Promise((resolve) => {
         const timeout = window.setTimeout(() => {
           document.removeEventListener("bandkit:cart-remove-result", onResult);
-          if (removalKey) r.$cartRemovalKeys.delete(removalKey);
+          release();
           resolve({ requestId, removed: false, error: "Bandcamp did not finish removing the item in time." });
-        }, 12000);
+        }, clearing ? 12000 + runtimeState.cart.length * 10000 : 12000);
         const onResult = (event) => {
           if (event.detail?.requestId !== requestId) return;
           window.clearTimeout(timeout);
           document.removeEventListener("bandkit:cart-remove-result", onResult);
-          window.setTimeout(() => r.$cartRemovalKeys?.delete(removalKey), 1000);
+          window.setTimeout(release, clearing ? 3000 : 1000);
           resolve(event.detail);
         };
         document.addEventListener("bandkit:cart-remove-result", onResult);
         document.dispatchEvent(new CustomEvent("bandkit:cart-command", {
-          detail: { action: "remove", requestId, item: item.restore || item }
+          detail: clearing ? { action: "clear", requestId } : { action: "remove", requestId, item: item.restore || item }
         }));
       });
     };
@@ -686,6 +694,32 @@ r.$createPlaylistMenuOption = function createPlaylistMenuOption(label, onClick, 
       }
       option.addEventListener("click", onClick);
       return option;
+    };
+}
+
+function registerLayoutCartClear(r) {
+r.$clearLiveCart = async function clearLiveCart() {
+      const count = runtimeState.cart.length;
+      if (!count) return false;
+      if (!window.confirm(`Remove all ${count} item${count === 1 ? "" : "s"} from your Bandcamp cart?`)) return false;
+      r.$showToast("Clearing your Bandcamp cart…");
+      let result;
+      if (r.$pageCartIsAvailable()) result = await r.$sendCartRemove(null);
+      else {
+        result = await r.$runtimeMessage({ type: MESSAGES.CART_REMOVE_REMOTE, clear: true, urls: r.$cartRemovalPageUrls(null) });
+        r.$adoptRemoteCart(result);
+      }
+      if (!result?.removed) {
+        r.$showToast(result?.error || "Bandcamp could not clear the cart.");
+        return false;
+      }
+      runtimeState.cart = [];
+      runtimeState.cartSummary = null;
+      runtimeState.cartSavedAt = Date.now();
+      runtimeSaveState();
+      r.$render();
+      r.$showToast("Cleared your Bandcamp cart.");
+      return true;
     };
 }
 
@@ -816,7 +850,7 @@ r.$createCartDestinationControl = function createCartDestinationControl(track, {
 r.$createTrackActionControls = function createTrackActionControls(track, { labeled = false, playlistsOnly = false, hideCart = false } = {}) {
       const actions = createElement("div", `hub-queue-actions${labeled ? " is-labeled" : ""}`);
       const trackPageUrl = resolvedTrackPageUrl(track);
-      const playlist = r.$createPlaylistDestinationControl(track, { labeled, playlistsOnly });
+      const playlist = r.$playlistsFeatureEnabled() ? r.$createPlaylistDestinationControl(track, { labeled, playlistsOnly }) : null;
       const wishlisted = (runtimeState.wishlistTrackKeys || []).includes(r.$wishlistTrackKey(track));
       const wishlist = createElement("button", `hub-queue-action hub-wishlist-action${labeled ? " is-labeled" : ""}${wishlisted ? " is-active" : ""}`);
       wishlist.type = "button";
@@ -830,8 +864,9 @@ r.$createTrackActionControls = function createTrackActionControls(track, { label
         void r.$openTrackAction(track, "wishlist", { active: !wishlisted });
       });
       const cart = r.$createCartDestinationControl(track, { labeled });
-      actions.append(playlist, wishlist);
-      if (!hideCart) actions.append(cart);
+      if (playlist) actions.append(playlist);
+      actions.append(wishlist);
+      if (!hideCart && r.$cartFeaturesEnabled()) actions.append(cart);
       return actions;
     };
 r.$trackIsOwnedOnCollectionPage = function trackIsOwnedOnCollectionPage(track) {
@@ -857,6 +892,28 @@ r.$currentLiveTrack = function currentLiveTrack() {
 }
 
 function registerLayoutCart6(r) {
+r.$setCartFeaturesEnabled = function setCartFeaturesEnabled(enabled) {
+      runtimeState.appearance.hidePageCart = enabled !== false;
+      runtimeState.appearance.hideHeaderCart = enabled !== false;
+      r.$setFeatureEnabled("cartEnabled", enabled, "Bandkit cart");
+      r.$applyNativeCartVisibility();
+      if (runtimeState.cartEnabled) r.$scanLiveCart();
+    };
+r.$cartRemovalPageUrls = function cartRemovalPageUrls(item) {
+      // Any release page carries the whole cart. An unavailable item's own page
+      // is usually gone, so try pages that still exist before falling back to it.
+      const pageOf = (entry) => entry?.restore?.url || entry?.url || "";
+      const others = [
+        ...runtimeState.cart.filter((entry) => entry !== item && entry.unavailable !== true).map(pageOf),
+        ...runtimeState.playlist.map((track) => track.releaseUrl || track.pageUrl),
+        // An artist's home page usually shows a release, so it can stand in
+        // when every listed release has gone.
+        r.$artistUrlFromPageUrl(pageOf(item)),
+        ...runtimeState.cart.map((entry) => r.$artistUrlFromPageUrl(pageOf(entry)))
+      ];
+      const ordered = item?.unavailable === true ? [...others, pageOf(item)] : [pageOf(item), ...others];
+      return [...new Set(ordered.map((value) => safeBandcampUrl(value)).filter(Boolean))].slice(0, 4);
+    };
 r.$deleteSavedCart = function deleteSavedCart(snapshot) {
       if (!window.confirm(`Delete the saved cart “${snapshot.name || "Saved cart"}”?`)) return false;
       runtimeState.savedCarts = runtimeState.savedCarts.filter((entry) => entry.id !== snapshot.id);
@@ -909,5 +966,5 @@ r.$removeSavedCartItem = function removeSavedCartItem(snapshot, item) {
 
 export const registerLayoutCart = [
   registerLayoutCart1, registerLayoutCart2, registerLayoutCartActivity, registerLayoutCart2b,
-  registerLayoutCart3, registerLayoutCartRecovery, registerLayoutCartMinimums, registerLayoutCart4, registerLayoutCartRendering, registerLayoutCart6
+  registerLayoutCart3, registerLayoutCartRecovery, registerLayoutCartClear, registerLayoutCartMinimums, registerLayoutCart4, registerLayoutCartRendering, registerLayoutCart6
 ];

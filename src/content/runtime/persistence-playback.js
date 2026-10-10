@@ -25,6 +25,9 @@ function portableSettings(value = runtimeState) {
   return {
     openHomeToFeed: Boolean(value.openHomeToFeed),
     djToolsEnabled: value.djToolsEnabled !== false,
+    cartEnabled: value.cartEnabled !== false,
+    playlistsEnabled: value.playlistsEnabled !== false,
+    activityEnabled: value.activityEnabled !== false,
     autoAnalyzeTracks: value.autoAnalyzeTracks !== false,
     showTrackKeys: value.showTrackKeys !== false,
     showCamelotNotation: value.showCamelotNotation === true,

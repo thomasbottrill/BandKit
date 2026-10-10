@@ -120,7 +120,7 @@ r.$syncCollectionPlaylistCards = function syncCollectionPlaylistCards() {
       const section = root.querySelector(COLLECTION_PLAYLIST_SECTION);
       const grid = section?.querySelector(":scope .results > ul.card-grid");
       if (!grid) return false;
-      const playlists = Array.isArray(runtimeState.savedPlaylists) ? runtimeState.savedPlaylists : [];
+      const playlists = r.$playlistsFeatureEnabled() && Array.isArray(runtimeState.savedPlaylists) ? runtimeState.savedPlaylists : [];
       const fingerprint = JSON.stringify(playlists.map((snapshot) => [
         snapshot.id,
         snapshot.name,

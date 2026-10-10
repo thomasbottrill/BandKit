@@ -36,7 +36,7 @@ assert.match(source, /if \(message\?\.type === MESSAGES\.CART_ADD_ITEMS\)[\s\S]*
   "a borrowed tab must stay silent until its cart is ready so the caller keeps waiting");
 assert.match(cartDelegate, /chrome\.tabs\.create\(\{ url: pageUrl, active: false \}\)[\s\S]*?finally[\s\S]*?chrome\.tabs\.remove/,
   "the borrowed cart tab must open in the background and always be closed again");
-assert.match(source, /function sendCartRemove[\s\S]*?cartRemovalKeys \|\|= new Set\(\);[\s\S]*?cartRemovalKeys\.add\(removalKey\)/,
+assert.match(source, /function sendCartRemove[\s\S]*?cartRemovalKeys \|\|= new Set\(\);[\s\S]*?cartRemovalKeys\.add\(key\)/,
   "a borrowed tab must suppress its own cart protection so the removal is not undone");
 for (const name of ["CART_ADD_ITEMS", "CART_ADD_REMOTE", "CART_REMOVE_ITEM", "CART_REMOVE_REMOTE"]) {
   assert.match(contracts, new RegExp(`${name}: "BANDCAMP_HUB_`), `${name} must be a declared message type`);

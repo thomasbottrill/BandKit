@@ -1,5 +1,5 @@
 import { createKitControls, ONBOARDING_MENU_KEYS, removeOnboardingMenus, syncOnboardingContrast } from "./onboarding-controls.js";
-import { createSettingsRowCopy, createSettingsToggle } from "../components/settings.js";
+import { createSettingsRowCopy } from "../components/settings.js";
 import { runtimeSaveState, runtimeSeamless, runtimeState } from "./context.js";
 import { asset, createButtonIcon, createElement } from "../core.js";
 import { MUSIC_BAR_VISUALIZER_TYPES, ONBOARDING_COMPLETE } from "../state.js";
@@ -395,15 +395,6 @@ function registerOnboardingRuntime(r) {
         forceVisualizer: step.forceVisualizer === true,
         forceControls: step.forceControls === true
       });
-  };
-  r.$createDjToolsSettingsRow = function createDjToolsSettingsRow() {
-    const row = createElement("div", "hub-settings-row hub-dj-master-row");
-    const copy = createSettingsRowCopy("DJ tools", "Add BPM, key, local analysis, tempo, EQ, filters and beat controls.");
-    const enabled = runtimeState.djToolsEnabled !== false;
-    const toggle = createSettingsToggle({ checked: enabled, ariaLabel: "Enable DJ tools", className: "hub-dj-tools-toggle" });
-    toggle.addEventListener("click", () => { r.$setDjToolsEnabled(!enabled, { announce: true }); r.$render(); });
-    row.append(copy, toggle);
-    return row;
   };
   r.$renderOnboardingSettingsCard = () => onboardingSettingsCard(r);
   r.$setDjToolsEnabled = function setDjToolsEnabled(enabled, { announce = false } = {}) {

@@ -57,3 +57,17 @@
     transition-duration: 0.01ms;
   }
 }
+
+/* A feature turned off in Settings › Features loses every route into it. */
+:host-context(html[data-bandkit-cart-disabled="true"]) :is(
+  .hub-header-shortcut[data-tab="cart"],
+  .hub-panel-shortcut[data-tab="cart"],
+  .hub-tab[data-tab="cart"]
+),
+:host-context(html[data-bandkit-activity-disabled="true"]) :is(
+  .hub-header-shortcut[data-tab="activity"],
+  .hub-panel-shortcut[data-tab="activity"],
+  .hub-tab[data-tab="activity"]
+) {
+  display: none !important;
+}

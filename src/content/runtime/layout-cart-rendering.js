@@ -53,6 +53,7 @@ r.$render = function render() {
         r.$panelRenderFrame = 0;
       }
       r.$restoreVisualThemePreview?.();
+      r.$syncDisabledFeatureViews();
       const panelHidden = !runtimeState.open;
       if (!panelHidden) r.$cancelCompactPanelFocusRelease?.();
       if (panelHidden && r.$panel.contains(r.$shadow.activeElement)) {
@@ -70,7 +71,7 @@ r.$render = function render() {
       r.$launcher.setAttribute("aria-expanded", String(runtimeState.open));
       r.$syncDockedControls();
       const labels = {
-        playlist: "Now Playing & Playlists",
+        playlist: r.$playlistsFeatureEnabled() ? "Now Playing & Playlists" : "Now Playing",
         cart: "Cart",
         activity: "Activity",
         settings: "Settings"

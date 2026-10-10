@@ -121,7 +121,6 @@ assert.match(artworkActionsCss, /#DiscoverApp \.results-grid-item:is\(:hover, :f
   "Discover play controls must reveal with the add button when any part of the card is hovered or focused");
 
 assert.match(source, /Modern Bandcamp pages/);
-assert.match(source, /Use modern Bandcamp pages/);
 const bootstrapScript = manifest.content_scripts.find((entry) => entry.js?.includes("modern-pages-bootstrap.js"));
 assert.ok(bootstrapScript, "Modern pages need an early bootstrap content script");
 assert.equal(bootstrapScript.run_at, "document_start");
@@ -189,7 +188,7 @@ assert.match(source, /if \(!isBatch \|\| isRelease\)[\s\S]*?isRelease \? "Add al
 assert.match(source, /Current Bandcamp cart/, "Panel add-to menus should offer the current Bandcamp cart");
 assert.match(source, /_bandkitOwned = !isWishlistItem/,
   "Collection cards must distinguish purchased items from Wishlist items");
-assert.match(source, /type === "bandkit-owned-track"[\s\S]*?if \(!isOwned\) \{[\s\S]*?Add all to Cart/,
+assert.match(source, /type === "bandkit-owned-track"[\s\S]*?if \(!isOwned && (?:r\.\$)?cartFeaturesEnabled\(\)\) \{[\s\S]*?Add all to Cart/,
   "Purchased Collection items must omit cart destinations while Wishlist items retain them");
 assert.match(source, /button\._bandkitOwned[\s\S]*?to Now Playing or a playlist[\s\S]*?to Now Playing, a playlist, or a cart/,
   "Purchased Collection controls must not advertise an unavailable cart action");

@@ -31,6 +31,42 @@ function setOptionalColour(style, property, value) {
     ? setStyleProperty(style, property, value)
     : removeStyleProperty(style, property);
 }
+function registerFeatureSwitches(r) {
+r.$cartFeaturesEnabled = function cartFeaturesEnabled() {
+      return runtimeState.cartEnabled !== false;
+    };
+r.$playlistsFeatureEnabled = function playlistsFeatureEnabled() {
+      return runtimeState.playlistsEnabled !== false;
+    };
+r.$activityFeatureEnabled = function activityFeatureEnabled() {
+      return runtimeState.activityEnabled !== false;
+    };
+// Features that are off are routed around rather than hidden behind a view:
+// a panel left pointing at one falls back to Now Playing.
+r.$syncDisabledFeatureViews = function syncDisabledFeatureViews() {
+      const fallback = (tab) => (tab === "cart" && !r.$cartFeaturesEnabled()) || (tab === "activity" && !r.$activityFeatureEnabled());
+      if (fallback(runtimeState.activeTab)) runtimeState.activeTab = "playlist";
+      if (fallback(runtimeState.musicBarRecentPanel)) runtimeState.musicBarRecentPanel = "playlist";
+      if (!r.$playlistsFeatureEnabled() && runtimeState.playlistView === "saved") {
+        runtimeState.playlistView = "current";
+        runtimeState.selectedSavedPlaylistId = null;
+      }
+      const root = document.documentElement.dataset;
+      root.bandkitCartDisabled = String(!r.$cartFeaturesEnabled());
+      root.bandkitPlaylistsDisabled = String(!r.$playlistsFeatureEnabled());
+      root.bandkitActivityDisabled = String(!r.$activityFeatureEnabled());
+    };
+r.$setFeatureEnabled = function setFeatureEnabled(key, enabled, label) {
+      runtimeState[key] = enabled !== false;
+      r.$syncDisabledFeatureViews();
+      r.$playerActionSignature = "";
+      runtimeSaveState(); r.$saveLayoutState();
+      r.$scheduleCollectionPlaylistSync?.();
+      r.$render();
+      r.$showToast(`${label} turned ${runtimeState[key] ? "on" : "off"}`);
+    };
+}
+
 function registerRuntimeShellPlayer(r) {
 r.$canonicalBandcampFeedUrl = function canonicalBandcampFeedUrl(value) {
       try {
@@ -654,7 +690,7 @@ r.$saveState = updateRuntimeSaveState(function saveState() {
       r.$scheduleCollectionPlaylistSync?.();
     });
 }
-export const registerRuntimeShell = [registerRuntimeShellPlayer, registerRuntimeShellActions, registerRuntimeShellCommerce, registerRuntimeShellLinks, registerRuntimeShell3];
+export const registerRuntimeShell = [registerFeatureSwitches, registerRuntimeShellPlayer, registerRuntimeShellActions, registerRuntimeShellCommerce, registerRuntimeShellLinks, registerRuntimeShell3];
 function setupRuntimeShell1(r) {
 r.$cartAutosave = globalThis.BandKitCartAutosave;
 r.$app = createAppContext(defaultState);

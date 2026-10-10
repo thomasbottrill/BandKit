@@ -19,7 +19,7 @@ export function registerDiscoverTracks(r) {
   r.$discoverPendingTrack = null;
   // The feed's album stories reuse the exact same compact track list markup.
   r.$createDiscoverTrackList = (release) => createTrackList(r, release);
-  r.$playDiscoverReleaseTrack = async (track) => {
+  r.$playDiscoverReleaseTrack = async (track, releaseTracks = r.$discoverReleaseTracks) => {
     r.$collectionHandoffRequest += 1;
     if (r.$pauseNativeDiscover?.(track)) return;
     r.$discoverTrackPlaybackActive = true;
@@ -33,7 +33,7 @@ export function registerDiscoverTracks(r) {
     r.$discoverPendingTrack = track;
     r.$renderPlayer?.();
     try {
-      const prepared = await r.$prepareExternalNowPlaying(track, r.$discoverReleaseTracks, { trustProvidedStreams: true });
+      const prepared = await r.$prepareExternalNowPlaying(track, releaseTracks, { trustProvidedStreams: true });
       if (prepared.cancelled || prepared.request !== r.$playlistPlayRequest) return;
       if (prepared.index < 0) throw new Error(prepared.error || "This track is unavailable.");
       r.$silenceNativePagePlayback();

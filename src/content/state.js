@@ -12,6 +12,8 @@ export const PAPER_DEFAULTS = Object.freeze({
 export const ONBOARDING_COMPLETE = 1;
 export const FEEDBACK_FORM_URL = "https://picturesque-minute-159.notion.site/26e59205570e82919346017f46d04630?pvs=105";
 export const FEEDBACK_LIST_URL = "https://picturesque-minute-159.notion.site/b2559205570e822baeb4014fae0d3f64?v=f8f59205570e82719f94084ecebb1869";
+// Public release log, updated with every Chrome Web Store package (see AGENTS.md).
+export const RELEASE_NOTES_URL = "https://picturesque-minute-159.notion.site/b2343291e09849ceaf9a383a698a1645?v=68c8ac09bd734b5a873fccca32ae2a86";
 export const SUPPORT_PAYMENT_URL = "https://buy.stripe.com/28E00bgNT2se3GL1Vk3ZK00";
 export const SUPPORT_CONTACT_EMAIL = "lantana.softworks@gmail.com";
 export const MUSIC_BAR_WIDTHS = ["tight", "default", "wide", "full", "custom"];
@@ -125,6 +127,9 @@ export const defaultState = {
   feedUrl: "",
   autoAnalyzeTracks: true,
   djToolsEnabled: true,
+  cartEnabled: true,
+  playlistsEnabled: true,
+  activityEnabled: true,
   showTrackKeys: true,
   showCamelotNotation: false,
   recordPlaylistMetadata: true,

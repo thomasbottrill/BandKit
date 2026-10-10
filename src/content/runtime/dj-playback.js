@@ -1005,7 +1005,7 @@ r.$applySeamlessState = function applySeamlessState(nextState) {
       const gestureSelector = ".hub-dj-knob-dial.is-dragging, .hub-dj-platter.is-scratching, .hub-dj-platter.is-coasting, .hub-dj-platter.is-vinyl-releasing";
       const activeDjGesture = r.$djDrawer.querySelector(gestureSelector) || r.$pageDjSurface?.querySelector(gestureSelector);
       if ((runtimeState.dj.open || r.$pageDjOpen) && !editingDjControl && !activeDjGesture) r.$renderDjTools();
-      r.$schedulePlayerRender(); r.$syncSavedPlaylistCardPlaybackUi?.();
+      r.$schedulePlayerRender(); r.$syncSavedPlaylistCardPlaybackUi?.(); r.$syncReleasePreviewUi?.();
       if (playlistQueueChanged && runtimeState.activeTab === "playlist") {
         r.$schedulePanelRender();
         return;

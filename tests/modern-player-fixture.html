@@ -419,7 +419,7 @@
         const themeMode = modeButtons.find((button) => button.dataset.appearanceMode === "theme");
         const matchMode = modeButtons.find((button) => button.dataset.appearanceMode === "match");
         const musicBarRow = root?.querySelector(".hub-settings-combined-row");
-        const cartToggles = root?.querySelectorAll(".hub-hide-cart-toggle");
+        const cartToggles = root?.querySelectorAll(".hub-cart-enabled-toggle");
         matchMode?.click();
         const themeControlsHiddenWhenMatching = !root?.querySelector(".hub-theme-picker")
           && window.fixtureStored.bandcampHubState?.appearance?.pageAware === true

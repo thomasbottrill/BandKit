@@ -304,7 +304,7 @@ assert.match(extractFunction("renderCurrentPlaylist"), /: live\.hasPlaybackStart
   "the Now Playing toolbar must not count or export a latent page queue before playback starts");
 assert.match(hubCss, /\.hub-toolbar-actions-menu\s*\{[^}]*min-width:\s*180px;/s,
   "toolbar overflows must present readable labeled actions");
-assert.match(extractFunction("renderCurrentCart"), /createToolbarOverflow\("More cart actions", \[exportButton, shareButton, importButton\]/,
+assert.match(extractFunction("createCurrentCartActions"), /createToolbarOverflow\("More cart actions", \[exportButton, shareButton, importButton, clearButton\]/,
   "Cart must keep download, share, and import in its overflow menu");
 assert.match(extractFunction("renderCartItemCard"), /createPanelMediaCard\("hub-cart-item-card"\)/,
   "current and opened saved-cart items must use the common compact card shell");
@@ -443,8 +443,10 @@ assert.doesNotMatch(hubCss, /hub-section-heading-meta|hub-cart-view-meta/,
   "panel styles must not retain the removed top-right metadata treatment");
 assert.match(hubCss, /\.hub-cart-view-header\.hub-panel-content-header\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) var\(--hub-control-size\);/s,
   "tabbed panel headers must align their tabs directly with the close button");
-assert.match(extractFunction("renderCurrentCart"), /hub-panel-count-summary[\s\S]*?itemCount/,
-  "the current cart header must show only its concise item count");
+assert.match(extractFunction("renderCartViewTabs"), /label: "Cart", count: (?:runtimeState|state)\.cart\.length/,
+  "the current cart's item count must sit on the Cart tab itself");
+assert.match(extractFunction("createCurrentCartActions"), /"Clear cart"[\s\S]*?clearLiveCart/,
+  "the cart overflow menu must offer a way to clear the whole cart");
 assert.doesNotMatch(extractFunction("renderCart"), /Total:/,
   "the active cart total must not remain in the top header");
 assert.match(extractFunction("renderCurrentCart"), /hub-cart-checkout[\s\S]*?hub-cart-checkout-total[\s\S]*?cartTotalLabel/,

@@ -309,8 +309,7 @@
   padding-bottom: 2px;
 }
 
-.hub-theme-settings-group.hub-settings-disclosure-content,
-.hub-page-appearance-settings.hub-settings-disclosure-content {
+.hub-theme-settings-group.hub-settings-disclosure-content {
   padding-top: 4px;
 }
 
@@ -344,16 +343,6 @@
 .hub-theme-settings-group {
   display: grid;
   gap: 10px;
-}
-
-.hub-page-appearance-settings {
-  display: grid;
-  gap: 0;
-  margin-top: 12px;
-}
-
-.hub-page-appearance-copy {
-  margin-bottom: 4px;
 }
 
 .hub-music-bar-settings-grid {

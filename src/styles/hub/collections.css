@@ -964,3 +964,27 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* The current cart keeps its actions in the tab row instead of a second row. */
+.hub-cart-view-header.has-actions {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.hub-cart-view-header.has-actions.hub-panel-content-header {
+  grid-template-columns: minmax(0, 1fr) auto var(--hub-control-size);
+}
+
+.hub-cart-view-tab-count {
+  align-items: center;
+  background: color-mix(in srgb, var(--hub-accent) 14%, transparent);
+  border-radius: 999px;
+  color: var(--hub-accent);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  height: 18px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 18px;
+  padding: 0 5px;
+}

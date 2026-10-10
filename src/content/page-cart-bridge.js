@@ -181,6 +181,30 @@ export function installCartBridge() {
     document.dispatchEvent(new CustomEvent("bandkit:cart-remove-result", { detail: result }));
   }
 
+  async function clearCart(request) {
+    const result = { requestId: request.requestId, removed: false, cleared: 0 };
+    if (!window.Sidecart?.delete_from_cart || !Array.isArray(window.Sidecart.cart_items)) {
+      result.error = "Bandcamp's cart is not available on this page yet.";
+    } else {
+      // One at a time: Bandcamp updates cart_items after each request, and two
+      // deletes in flight can leave one of them unapplied.
+      for (const item of [...window.Sidecart.cart_items]) {
+        const key = item.local_id != null ? `local:${item.local_id}` : cartItemKey(item);
+        const keyOf = (candidate) => (candidate.local_id != null ? `local:${candidate.local_id}` : cartItemKey(candidate));
+        try {
+          window.Sidecart.delete_from_cart(item);
+          if (await waitForCartChange(() => !window.Sidecart?.cart_items?.some((candidate) => keyOf(candidate) === key))) result.cleared += 1;
+        } catch {
+          // Carry on: one item Bandcamp refuses should not keep the rest.
+        }
+      }
+      result.removed = window.Sidecart.cart_items.length === 0;
+      if (!result.removed) result.error = `Bandcamp kept ${window.Sidecart.cart_items.length} item${window.Sidecart.cart_items.length === 1 ? "" : "s"} in the cart.`;
+      emitCart(true);
+    }
+    document.dispatchEvent(new CustomEvent("bandkit:cart-remove-result", { detail: result }));
+  }
+
   async function restoreCart(request) {
     const result = { requestId: request.requestId, added: 0, alreadyPresent: 0, failed: [] };
     if (!await waitForCartApi()) {
@@ -241,6 +265,7 @@ export function installCartBridge() {
   document.addEventListener("bandkit:cart-command", (event) => {
     if (event.detail?.action === "restore") void restoreCart(event.detail);
     if (event.detail?.action === "remove") void removeCartItem(event.detail);
+    if (event.detail?.action === "clear") void clearCart(event.detail);
     if (event.detail?.action === "getState") emitCart(true);
     if (event.detail?.action === "getAvailability") {
       lastCartAvailable = null;

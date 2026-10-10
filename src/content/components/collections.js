@@ -1,6 +1,6 @@
 import { createElement } from "../core.js";
 
-export function createPanelViewTabs({ views, selected, onSelect, headerClass = "", tabsClass = "", buttonClass = "", ariaLabel }) {
+export function createPanelViewTabs({ views, selected, onSelect, headerClass = "", tabsClass = "", buttonClass = "", ariaLabel, actions = null }) {
   const header = createElement("div", `hub-cart-view-header${headerClass ? ` ${headerClass}` : ""}`);
   const tabs = createElement("div", `hub-cart-view-tabs${tabsClass ? ` ${tabsClass}` : ""}`);
   tabs.setAttribute("role", "tablist");
@@ -11,9 +11,18 @@ export function createPanelViewTabs({ views, selected, onSelect, headerClass = "
     button.setAttribute("role", "tab");
     button.setAttribute("aria-selected", String(selected === view.id));
     button.addEventListener("click", () => onSelect(view.id));
+    if (Number(view.count) > 0) {
+      const count = createElement("span", "hub-cart-view-tab-count", view.count > 99 ? "99+" : String(view.count));
+      button.setAttribute("aria-label", `${view.label}, ${view.count} item${view.count === 1 ? "" : "s"}`);
+      button.append(count);
+    }
     tabs.append(button);
   }
   header.append(tabs);
+  if (actions) {
+    header.classList.add("has-actions");
+    header.append(actions);
+  }
   return header;
 }
 

@@ -8,7 +8,7 @@ import { MESSAGES } from "../../shared/contracts.js";
 // bar through Media Session action handlers.
 const SIZE = 480;
 const TICK_MS = 250;
-const ACTIONS = ["play", "pause", "previoustrack", "nexttrack", "seekto"];
+const ACTIONS = ["play", "pause", "previoustrack", "nexttrack", "seekbackward", "seekforward", "seekto"];
 
 export function pictureInPictureSupported() {
   return document.pictureInPictureEnabled === true
@@ -182,19 +182,42 @@ function setActionHandlers(r, mini, bar) {
   const session = navigator.mediaSession;
   if (!session) return;
   const play = r.$playButton;
+  const setNativePlayback = (playing) => {
+    session.playbackState = playing ? "playing" : "paused";
+    if (!mini?.video) return;
+    if (playing) mini.video.play().catch(() => {});
+    else mini.video.pause();
+  };
+  const seekTo = (time) => {
+    const duration = Number(r.$scrubDuration) || 0;
+    if (!duration || !Number.isFinite(time)) return;
+    r.$scrubSlider.value = String(Math.round(Math.max(0, Math.min(1, time / duration)) * 1000));
+    r.$scrubSlider.dispatchEvent(new Event("input"));
+    r.$scrubSlider.dispatchEvent(new Event("change"));
+  };
   const handlers = {
-    play: () => { if (!readBar(r).playing) play.click(); },
-    pause: () => { if (readBar(r).playing) play.click(); },
+    play: () => {
+      if (!readBar(r).playing) play.click();
+      // Background tabs throttle the render timer, so reflect the requested
+      // state in Chrome's native control immediately instead of waiting for a tick.
+      setNativePlayback(true);
+    },
+    pause: () => {
+      if (readBar(r).playing) play.click();
+      setNativePlayback(false);
+    },
     previoustrack: bar?.hasPrevious ? () => r.$player.querySelector(".hub-previous-button").click() : null,
     nexttrack: bar?.hasNext ? () => r.$player.querySelector(".hub-next-button").click() : null,
+    seekbackward: (details) => {
+      const current = readBar(r).progress * (Number(r.$scrubDuration) || 0);
+      seekTo(current - (Number(details.seekOffset) || 10));
+    },
+    seekforward: (details) => {
+      const current = readBar(r).progress * (Number(r.$scrubDuration) || 0);
+      seekTo(current + (Number(details.seekOffset) || 10));
+    },
     // Seeks go through the bar's own slider handlers, like a drag would.
-    seekto: (details) => {
-      const duration = Number(r.$scrubDuration) || 0;
-      if (!duration || !Number.isFinite(details.seekTime)) return;
-      r.$scrubSlider.value = String(Math.round(Math.max(0, Math.min(1, details.seekTime / duration)) * 1000));
-      r.$scrubSlider.dispatchEvent(new Event("input"));
-      r.$scrubSlider.dispatchEvent(new Event("change"));
-    }
+    seekto: (details) => seekTo(details.seekTime)
   };
   for (const action of ACTIONS) {
     try { session.setActionHandler(action, mini ? handlers[action] : null); } catch { /* unsupported action */ }
@@ -206,7 +229,7 @@ function setActionHandlers(r, mini, bar) {
 function setPositionState(bar) {
   try {
     if (!bar || bar.duration <= 0 || bar.progress < 0) navigator.mediaSession?.setPositionState?.();
-    else navigator.mediaSession?.setPositionState?.({ duration: bar.duration, playbackRate: bar.playing ? 1 : 0, position: Math.min(bar.duration, bar.progress * bar.duration) });
+    else navigator.mediaSession?.setPositionState?.({ duration: bar.duration, playbackRate: 1, position: Math.min(bar.duration, bar.progress * bar.duration) });
   } catch { /* invalid or unsupported position */ }
 }
 
@@ -292,7 +315,13 @@ function createMiniPlayer(r) {
       mini.positionSignature = positionSignature;
       setPositionState(bar);
     }
-    if (mini.video.paused && document.pictureInPictureElement === mini.video) mini.video.play().catch(() => {});
+    // Chrome's native play/pause control follows the source video's state.
+    // Keep the silent canvas video aligned with the actual music instead of
+    // restarting it unconditionally after Chrome pauses it.
+    if (document.pictureInPictureElement === mini.video) {
+      if (bar.playing && mini.video.paused) mini.video.play().catch(() => {});
+      else if (!bar.playing && !mini.video.paused) mini.video.pause();
+    }
   };
   return mini;
 }

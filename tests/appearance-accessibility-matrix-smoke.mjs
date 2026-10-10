@@ -137,7 +137,7 @@ const applyAppearance = extractFunction("applyAppearance");
 assert.match(applyAppearance, /captureModernReleasePalette\(\)[\s\S]*?applyBandcampPageTheme\(\);[\s\S]*?applyModernReleaseLayout\(\);[\s\S]*?pageAware\) updateThemeFromPage\(\)/, "Appearance must snapshot native colours, apply the final page state, then run Match Bandcamp");
 assert.doesNotMatch(extractFunction("clearModernReleasePalette"), /modernReleasePalette\s*=\s*null/, "Disabling Modern Pages must retain the clean native palette snapshot");
 assert.match(source, /state\.appearance\.modernReleasePages = !modernReleasePages;\s*applyAppearance\(\);/, "The Modern Pages switch must re-run the complete appearance pipeline");
-assert.match(source, /const modernReleasePages = Boolean\(state\.appearance\.modernReleasePages\);[\s\S]*?createSettingsToggle\(\{ checked: modernReleasePages/,
+assert.match(source, /const modernReleasePages = Boolean\(state\.appearance\.modernReleasePages\);[\s\S]*?featureRow\("Modern Bandcamp pages", [^,]+, modernReleasePages,/,
   "Stored legacy Modern Pages values must render with a valid boolean ARIA state");
 assert.match(source, /state\.appearance\.modernReleasePages = Boolean\(storedModernReleasePages\)/,
   "Upgraded Modern Pages preferences must be normalized to booleans");

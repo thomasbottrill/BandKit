@@ -7,6 +7,13 @@
     display: flex;
   }
 
+  /* Previewable artwork stays visible on touch, with the play glyph laid over it. */
+  .hub-release-media-toggle .hub-playlist-media-icon {
+    background: rgba(0, 0, 0, 0.32);
+    opacity: 1;
+    transform: none;
+  }
+
   .hub-playlist-track .hub-playlist-track-actions,
   .hub-queue-list .hub-queue-item .hub-queue-actions,
   .hub-saved-playlist-track .hub-queue-actions {
@@ -76,7 +83,23 @@
 
 .hub-cart-item-card .hub-product-details {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
+}
+
+/* A long title gives way to the price, which always stays fully in view. */
+.hub-cart-item-card .hub-row-title {
+  min-width: 0;
+}
+
+.hub-cart-item-card .hub-row-title > .hub-cart-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hub-cart-item-card .hub-row-title > .hub-price {
+  flex: none;
+  white-space: nowrap;
 }
 
 .hub-cart-item-card .hub-product-meta-row {
@@ -519,6 +542,10 @@
   border-color: transparent;
 }
 
+.hub-activity-item.is-openable {
+  cursor: pointer;
+}
+
 .hub-activity-icon {
   align-items: center;
   background: var(--hub-accent-soft);
@@ -615,4 +642,29 @@
   mask: var(--hub-event-chip-icon) center / contain no-repeat;
   -webkit-mask: var(--hub-event-chip-icon) center / contain no-repeat;
   width: 12px;
+}
+
+/* Focus effect: pointing at or keyboard-focusing one card in a list lets the
+   rest fall back, so the card in hand stands out. Shared by Now Playing,
+   playlists, the cart, saved carts and Activity. */
+:is(.hub-stack, .hub-activity-list) > .hub-compact-media-card {
+  transition: background-color 120ms ease, border-color 120ms ease, opacity 160ms ease, transform 120ms ease, filter 160ms ease;
+}
+
+@media (hover: hover) {
+  :is(.hub-stack, .hub-activity-list):has(> .hub-compact-media-card:hover) > .hub-compact-media-card:not(:hover) {
+    filter: saturate(0.55);
+    opacity: 0.45;
+  }
+}
+
+:is(.hub-stack, .hub-activity-list):has(> .hub-compact-media-card :focus-visible) > .hub-compact-media-card:not(:has(:focus-visible)) {
+  filter: saturate(0.55);
+  opacity: 0.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.hub-stack, .hub-activity-list) > .hub-compact-media-card {
+    transition: none;
+  }
 }

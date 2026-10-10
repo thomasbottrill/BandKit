@@ -251,6 +251,7 @@ r.$scanLivePlayer = function scanLivePlayer() {
       }
     };
 r.$recordActivity = function recordActivity(item, { persist = true, render = true } = {}) {
+      if (!r.$activityFeatureEnabled()) return;
       const createdAt = item?.createdAt || new Date().toISOString();
       runtimeState.activity.unshift({
         id: item?.id || `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,

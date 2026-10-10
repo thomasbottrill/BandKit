@@ -42,7 +42,7 @@ assert.doesNotMatch(overviewSource, /\b(?:icon|description|chips|summary):/,
 
 for (const [id, title] of [
   ["player", "Player"],
-  ["tools", "Tools"],
+  ["features", "Features"],
   ["appearance", "Appearance"],
   ["browsing", "Browsing"],
   ["onboarding", "Help"],
@@ -77,18 +77,24 @@ assert.match(await Promise.all(["onboarding.js", "onboarding-controls.js"].map(f
   "onboarding must present music bar Style as a preview-enabled picker");
 assert.doesNotMatch(playerSource, /ariaLabel:\s*"Music bar buttons"|createPlayerSettingRow\("Buttons"/,
   "Player Style must not expose the removed Expanded or Single button choice");
-assert.match(settingsSource, /renderToolsSettings[\s\S]*?createSettingsDisclosure\("DJ", "", "dj"\)[\s\S]*?createSettingsDisclosure\("Analysis", "", "analysis"\)/,
-  "Tools must use the same description-free disclosure pattern");
-assert.match(settingsSource, /createSettingsDisclosure\("Colours", "", "colours"\)[\s\S]*?createSettingsDisclosure\("Finish", "", "finish"\)[\s\S]*?createSettingsDisclosure\("Page", "", "page"\)/,
+assert.match(settingsSource, /createDjSettingsGroups[\s\S]*?createSettingsDisclosure\("DJ", "", "dj"\)[\s\S]*?createSettingsDisclosure\("Analysis", "", "analysis"\)/,
+  "DJ and Analysis must use the same description-free disclosure pattern");
+assert.match(settingsSource, /createSettingsDisclosure\("Colours", "", "colours"\)[\s\S]*?createSettingsDisclosure\("Finish", "", "finish"\)/,
   "Appearance must use the same description-free disclosure pattern");
+assert.doesNotMatch(settingsSource, /createSettingsDisclosure\("Page", "", "page"\)/,
+  "page-level features belong in Features, not Appearance");
+assert.match(settingsSource, /renderFeatureSettings[\s\S]*?"Bandkit cart"[\s\S]*?"Saved playlists"[\s\S]*?"Activity"[\s\S]*?"Modern Bandcamp pages"[\s\S]*?"Bandcamp music player"/,
+  "Features must hold the cart, modern pages and native player switches");
 assert.match(activitySource, /hub-analysis-options hub-settings-dependent-options[\s\S]*?camelotRow\.hidden = !showTrackKeys/,
   "Analysis children must be indented and Camelot notation disclosed only with musical keys");
 assert.match(css, /\.hub-settings-detail \.hub-analysis-option-row\[hidden\]\s*\{[^}]*display:\s*none;/s,
   "Conditional analysis rows must remain hidden despite their grid row styling");
 assert.match(playerSource, /row\.hidden = runtimeState\.showMusicBarAnalysis === false/,
   "Persistent analysis visibility must be disclosed only when music-bar analysis is enabled");
-assert.match(activitySource, /hub-dj-secondary-row hub-settings-dependent-row/,
-  "DJ gesture settings must read as children of the DJ master switch");
+assert.match(activitySource, /createSettingsDisclosure\("Modules", "", "modules"\)[\s\S]*?features\.append\(coreGroup\.group, \.\.\.r\.\$createDjSettingsGroups\(\)\)/,
+  "Features must group its switches as Modules, then DJ and Analysis");
+assert.match(activitySource, /hub-dj-secondary-row hub-settings-dependent-row[\s\S]*?if \(!djToolsEnabled\) return \[djGroup\.group\];/,
+  "DJ gesture and Analysis settings must only be offered while DJ tools is on");
 assert.doesNotMatch(activitySource, /createSettingsDisclosure\([^\n]*icon-[^)]+\)/,
   "settings disclosures must not render decorative icons");
 
@@ -136,6 +142,8 @@ assert.match(css, /\.hub-settings-picker-option\.is-selected\s*\{[^}]*color:\s*v
   "selected modal options must use a bold accent treatment");
 assert.match(css, /\.hub-settings-picker-options:has\(\.hub-settings-picker-option:is\(:hover, :focus-visible\)\)[\s\S]*?\.hub-settings-picker-option:not\(:hover, :focus-visible\)\s*\{[^}]*opacity:\s*0\.38/s,
   "hovering or focusing a modal option must defocus all sibling options");
+assert.match(css, /\.hub-theme-source-picker-options\.has-trailing \.hub-settings-picker-option\.has-option-trailing\s*\{[^}]*grid-template-columns:\s*28px minmax\(0, 1fr\) 16px/s,
+  "the colour-source info marker must stay in the Dynamic option row");
 assert.match(activitySource, /openSettingsPopover\(themeTrigger, themeOptions\)[\s\S]*?closeSettingsPopover\(themeOptions\)/,
   "the theme chooser must use the same overlay popover layer");
 assert.match(activitySource, /appearanceSource[\s\S]*?Colour source[\s\S]*?value: "match", label: "Dynamic"[\s\S]*?value: "theme", label: "Curated"[\s\S]*?value: "custom", label: "Custom"/,
@@ -175,8 +183,6 @@ assert.doesNotMatch(css, /\.hub-settings-overview-(?:card|description|arrow|peek
 
 assert.match(css, /Every settings destination shares the same quiet, text-first language/,
   "all detail pages must opt into one shared visual system");
-assert.match(css, /\.hub-settings-detail \.hub-page-appearance-settings\s*\{[^}]*margin-top:\s*0;[^}]*padding-top:\s*0;[\s\S]*?\.hub-page-appearance-settings > \.hub-settings-subrow\s*\{[^}]*margin-top:\s*0;/s,
-  "the Page detail must discard the vertical spacing inherited from its former accordion layout");
 assert.match(css, /\.hub-backup-block > \.hub-settings-text-actions > \.hub-settings-action\s*\{[^}]*margin-right:\s*var\(--hub-settings-compact-control-inset\);[\s\S]*?\.hub-backup-frequency \.hub-settings-combobox\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) calc\(var\(--hub-settings-compact-control-inset\) \* 2\);/s,
   "Data actions, readouts and picker carets must share one visible right-hand endpoint");
 assert.match(css, /\.hub-settings-detail \.hub-settings-disclosure--quiet[\s\S]*?background:\s*transparent;[\s\S]*?border:\s*0/,
