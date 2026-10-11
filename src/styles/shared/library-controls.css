@@ -1,0 +1,353 @@
+/* Collection search, tags and filters. Shared by the panel and the collection
+   page; each supplies the --hub-* colour tokens for its own surface. */
+.bandkit-tag-search {
+  min-width: 0;
+  position: relative;
+}
+
+.bandkit-tag-search-field {
+  align-items: center;
+  background: var(--hub-card);
+  border: 1px solid color-mix(in srgb, var(--hub-line) 70%, transparent);
+  border-radius: var(--hub-control-radius, 6px);
+  box-sizing: border-box;
+  cursor: text;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 34px;
+  padding: 3px 4px 3px 10px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.bandkit-tag-search-field:focus-within {
+  border-color: var(--hub-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--hub-accent) 20%, transparent);
+}
+
+.bandkit-tag-search-chips {
+  display: contents;
+}
+
+.bandkit-tag-search .hub-button-icon {
+  background: currentColor;
+  display: block;
+  flex: none;
+  height: 14px;
+  mask: var(--hub-icon) center / contain no-repeat;
+  -webkit-mask: var(--hub-icon) center / contain no-repeat;
+  width: 14px;
+}
+
+.bandkit-tag-search-icon {
+  color: var(--hub-muted);
+  margin-right: 2px;
+}
+
+.bandkit-tag-search-input {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--hub-ink);
+  flex: 1 1 96px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  margin: 0;
+  min-width: 96px;
+  outline: 0;
+  padding: 3px 2px;
+}
+
+.bandkit-tag-search-input::placeholder {
+  color: var(--hub-muted);
+  opacity: 1;
+}
+
+.bandkit-tag-search-input::-webkit-search-cancel-button {
+  appearance: none;
+  display: none;
+}
+
+.bandkit-tag-search-clear {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--hub-muted);
+  cursor: pointer;
+  display: inline-flex;
+  flex: none;
+  height: 26px;
+  justify-content: center;
+  margin-left: auto;
+  padding: 0;
+  width: 26px;
+}
+
+.bandkit-tag-search-clear .hub-button-icon {
+  height: 12px;
+  width: 12px;
+}
+
+.bandkit-tag-search-clear:is(:hover, :focus-visible) {
+  color: var(--hub-accent);
+  outline: 0;
+}
+
+.bandkit-tag-search :is(.bandkit-tag-search-clear, .bandkit-tag-search-suggestions, .bandkit-tag-search-options, .bandkit-tag-search-note)[hidden] {
+  display: none;
+}
+
+.bandkit-tag-chip {
+  align-items: center;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--hub-line) 75%, transparent);
+  border-radius: 999px;
+  box-sizing: border-box;
+  color: var(--hub-ink);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12px;
+  gap: 6px;
+  line-height: 18px;
+  margin: 0;
+  max-width: 100%;
+  min-height: 26px;
+  padding: 3px 10px;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  white-space: nowrap;
+}
+
+.bandkit-tag-chip > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bandkit-tag-chip:is(:hover, :focus-visible),
+.bandkit-tag-chip.is-suggested {
+  border-color: var(--hub-accent);
+  color: var(--hub-accent);
+  outline: 0;
+}
+
+.bandkit-tag-chip.is-selected {
+  background: var(--hub-accent);
+  border-color: var(--hub-accent);
+  color: var(--hub-on-accent);
+  gap: 4px;
+  min-height: 24px;
+  padding: 1px 6px 1px 9px;
+}
+
+.bandkit-tag-chip.is-selected:is(:hover, :focus-visible) {
+  color: var(--hub-on-accent);
+  filter: brightness(1.08);
+}
+
+.bandkit-tag-chip.is-selected:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--hub-accent) 35%, transparent);
+}
+
+.bandkit-tag-chip.is-selected .hub-button-icon {
+  height: 10px;
+  width: 10px;
+}
+
+.bandkit-tag-chip-count {
+  color: var(--hub-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bandkit-tag-search-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bandkit-tag-search-options + .bandkit-tag-search-note {
+  margin-top: 10px;
+}
+
+.bandkit-tag-search-status {
+  align-items: baseline;
+  color: var(--hub-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 4px 8px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.bandkit-tag-search-status > button,
+.bandkit-filter-action {
+  background: transparent;
+  border: 0;
+  color: var(--hub-accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0;
+}
+
+.bandkit-tag-search-status > button:is(:hover, :focus-visible),
+.bandkit-filter-action:is(:hover, :focus-visible) {
+  outline: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Filter sheet */
+.bandkit-filter-sheet {
+  color: var(--hub-ink);
+  display: grid;
+  font-size: 12px;
+  gap: 10px;
+}
+
+.bandkit-filter-saved {
+  border-bottom: 1px solid color-mix(in srgb, var(--hub-line) 60%, transparent);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 12px;
+}
+
+.bandkit-tag-chip.is-saved {
+  cursor: default;
+  gap: 0;
+  padding: 0;
+}
+
+.bandkit-filter-saved-apply,
+.bandkit-filter-saved-remove {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  margin: 0;
+  outline: 0;
+}
+
+.bandkit-filter-saved-apply {
+  overflow: hidden;
+  padding: 3px 2px 3px 10px;
+  text-overflow: ellipsis;
+}
+
+/* Delete stays out of sight until the saved filter is pointed at or focused;
+   its space is kept so revealing it never shifts the row. */
+.bandkit-filter-saved-remove {
+  align-items: center;
+  display: inline-flex;
+  height: 22px;
+  justify-content: center;
+  opacity: 0;
+  padding: 0 7px 0 3px;
+  transition: opacity 120ms ease;
+}
+
+.bandkit-tag-chip.is-saved:is(:hover, :focus-within) .bandkit-filter-saved-remove {
+  opacity: 1;
+}
+
+.bandkit-filter-saved-remove .hub-button-icon {
+  background: currentColor;
+  display: block;
+  height: 10px;
+  mask: var(--hub-icon) center / contain no-repeat;
+  -webkit-mask: var(--hub-icon) center / contain no-repeat;
+  width: 10px;
+}
+
+.bandkit-filter-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.bandkit-filter-label {
+  color: var(--hub-muted);
+}
+
+.bandkit-filter-controls {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.bandkit-filter-input {
+  background: var(--hub-card);
+  border: 1px solid color-mix(in srgb, var(--hub-line) 70%, transparent);
+  border-radius: var(--hub-control-radius, 6px);
+  box-sizing: border-box;
+  color: var(--hub-ink);
+  flex: 1 1 auto;
+  font: inherit;
+  font-size: 12px;
+  height: 30px;
+  min-width: 0;
+  padding: 0 8px;
+}
+
+.bandkit-filter-input.is-number {
+  flex: 0 1 76px;
+  width: 76px;
+}
+
+.bandkit-filter-input:focus-visible {
+  border-color: var(--hub-accent);
+  outline: 0;
+}
+
+.bandkit-filter-dash {
+  color: var(--hub-muted);
+}
+
+.bandkit-filter-check {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+}
+
+.bandkit-filter-check > input {
+  accent-color: var(--hub-accent);
+  margin: 0;
+}
+
+.bandkit-filter-footer {
+  align-items: center;
+  border-top: 1px solid color-mix(in srgb, var(--hub-line) 60%, transparent);
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding-top: 10px;
+}
+
+.bandkit-filter-footer > .bandkit-filter-action:not(.is-accent) {
+  color: var(--hub-muted);
+}
+
+.bandkit-filter-save {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+}
+
+.bandkit-filter-footer [hidden] {
+  display: none;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .bandkit-filter-saved-remove {
+    opacity: 1;
+  }
+}

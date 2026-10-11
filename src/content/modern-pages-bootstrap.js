@@ -1,3 +1,4 @@
+import { resolvePageScale } from "./scale.js";
 import { STORAGE_KEYS } from "../shared/contracts.js";
 
 (() => {
@@ -87,6 +88,7 @@ import { STORAGE_KEYS } from "../shared/contracts.js";
     applyCachedPageTheme(stored?.[STORAGE_KEYS.PAGE_THEME]);
     if (!pageType) return;
     const enabled = stored?.[STORAGE_KEYS.STATE]?.appearance?.modernReleasePages !== false;
+    root.style.setProperty("--bandkit-page-scale", String(resolvePageScale(stored?.[STORAGE_KEYS.STATE]?.appearance, pageType)));
     root.dataset.bandkitModernStyling = String(enabled);
     if (!enabled) restoreClassicPage();
   });

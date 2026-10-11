@@ -13,8 +13,13 @@
 
 @import "./discover-tracks.css";
 @import "./collection-preview.css";
+@import "./collection-downloads.css";
 
 @import "./discover-toolbar.css";
 @import "./home-sales.css";
 
 @import "./artwork-actions.css";
+
+@import "./scaling.css";
+
+@import "./collection-library.css";

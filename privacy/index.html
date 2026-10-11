@@ -109,11 +109,13 @@
       <li>A signed-in fan's public Bandcamp username or feed URL when needed for the optional feed-homepage feature.</li>
       <li>Playback actions and listening activity used for the visible queue, player, playlists, DJ tools and local activity log.</li>
       <li>Settings, layouts, themes, playlists, cart backups, analysis results and other content that you deliberately create in Bandkit.</li>
+      <li>On your own collection page, the releases you select for download and their Bandcamp download links, and a record of which purchases you have downloaded in which format.</li>
     </ul>
     <p>Bandkit handles this information only on Bandcamp pages and only to provide its user-facing Bandcamp companion features.</p>
 
     <h2>How information is used and stored</h2>
     <p>Bandkit stores settings, saved playlists, cart backups and listening activity in Chrome's local extension storage on your device. Current playback state may be kept in Chrome's session storage so playback controls can continue across Bandcamp navigation. Audio analysis for BPM, musical key and waveforms happens locally in the extension.</p>
+    <p>Collection downloads are optional. The first time you download from your collection, Chrome asks whether Bandkit may manage your downloads. Bandkit then reads each selected purchase's download page on bandcamp.com and hands the file Bandcamp provides to Chrome's own downloader, which saves it to your usual downloads folder. The download queue and the record of what you have downloaded stay in Chrome's local extension storage. Bandkit does not read, change or upload any other downloads.</p>
     <p>Bandkit does not collect or store bank account details, payment-card numbers, passwords or Bandcamp cookies. Bandcamp handles purchases and payment information on its own pages.</p>
     <p>The optional <strong>Settings → Support → Support Bandkit</strong> link opens a Stripe-hosted page for a one-off tip supporting Bandkit's continued development. Bandkit does not receive, process or store payment-card, billing or payment credential information. Payment information is provided directly to Stripe only if you choose to use its external checkout.</p>
     <p>Chrome's local extension storage is Bandkit's live working copy and is not removed by normal cache, cookie or browsing-history clearing. Users can manually create one portable <code>BandKit Backup.json</code> file containing their playlists, carts, current state and deletion history. Bandkit writes the file only when the user chooses <strong>Save</strong>, and reads a selected file only when the user chooses <strong>Restore</strong>. Restoring merges saved playlists and carts into the current Chrome copy rather than replacing the whole local library. Bandkit can show an optional periodic reminder to save a fresh file.</p>
@@ -140,6 +142,7 @@
     <p>For privacy questions, use the monitored support contact shown on Bandkit's Chrome Web Store listing.</p>
 
     <footer>Bandkit is an independent extension and is not affiliated with, endorsed by or sponsored by Bandcamp.</footer>
-  </main>
+  <h2>Library</h2><p>If you connect Library, Bandkit stores your Bandcamp collection and wishlist catalogue, private tags, notes, smart crates, and known analysis locally. Reading release details fetches public Bandcamp pages only when requested. Notes are never posted to Bandcamp. Portable backups omit signed download links and temporary streams. Delete all data also removes Library data.</p>
+</main>
 </body>
 </html>

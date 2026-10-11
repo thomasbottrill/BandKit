@@ -27,7 +27,7 @@ assert.match(state, /onboardingCompletedVersion:\s*0/);
 assert.match(state, /onboardingStep:\s*0/);
 assert.match(lifecycle, /legacyOnboardingState[\s\S]*?onboardingCompletedVersion\s*=\s*ONBOARDING_COMPLETE/,
   "existing installations must be grandfathered instead of receiving an unexpected first-run tour");
-assert.match(lifecycle, /storageGet\(\[STORAGE_KEYS\.STATE, STORAGE_KEYS\.LAYOUT, STORAGE_KEYS\.ONBOARDING_COMPLETE\]\)/,
+assert.match(lifecycle, /storageGet\(\[STORAGE_KEYS\.STATE, STORAGE_KEYS\.LAYOUT, STORAGE_KEYS\.ONBOARDING_COMPLETE, STORAGE_KEYS\.TOUR_RESUME\]\)/,
   "startup must consult the permanent onboarding sentinel");
 assert.match(lifecycle, /onboardingPermanentlyCompleted[\s\S]*?STORAGE_KEYS\.ONBOARDING_COMPLETE[\s\S]*?onboardingCompletedVersion\s*=\s*ONBOARDING_COMPLETE/,
   "a completed sentinel must survive missing or stale tab state");
@@ -50,7 +50,7 @@ assert.match(onboarding, /function renderRealDemoPanel[\s\S]*?r\.\$renderPlaylis
   "tour samples must be rendered by the production panel views");
 assert.match(onboarding, /function applyStepNavigation[\s\S]*?runtimeState\.open = Boolean\(step\.panel\)[\s\S]*?runtimeState\.activeTab = step\.panel/,
   "each step must open the appropriate real Bandkit panel");
-assert.match(onboarding, /\$onboardingUsesDemoPanel[\s\S]*?STEPS\[r\.\$onboardingSessionStep\]\?\.demo/,
+assert.match(onboarding, /\$onboardingUsesDemoPanel[\s\S]*?tourSteps\(r\)\[r\.\$onboardingSessionStep\]\?\.demo/,
   "the active guided step must identify when its temporary panel view is authoritative");
 assert.match(layout, /\$onboardingUsesDemoPanel\?\.\(\)[\s\S]*?dataset\.onboardingDemo[\s\S]*?return/,
   "background panel refreshes must not erase guided-tour samples or their anchors");
@@ -236,8 +236,8 @@ assert.match(css, /\.hub-onboarding-back\s*\{[^}]*background:\s*transparent;[^}]
   "Back must remain text-only until interaction");
 assert.match(css, /\.hub-onboarding-primary\s*\{[^}]*background:\s*var\(--hub-onboarding-bandcamp\);[^}]*border:\s*1px solid var\(--hub-onboarding-bandcamp\);/s,
   "the right-side primary action must retain its persistent button treatment");
-assert.match(onboarding, /stepIndex === STEPS\.length - 1[\s\S]*?hub-onboarding-finish-logo[\s\S]*?logo-type-3\.svg/,
-  "the final wrap-up step must show the Bandkit logo");
+assert.match(onboarding, /lastStep = stepIndex === steps\.length - 1[\s\S]*?lastStep && r\.\$onboardingTour === "welcome"[\s\S]*?hub-onboarding-finish-logo[\s\S]*?logo-type-3\.svg/,
+  "the welcome tour's final wrap-up step must show the Bandkit logo");
 assert.match(css, /@media \(max-width: 700px\)/);
 assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
 assert.doesNotMatch(onboarding, /Dynamic colour|createOnboardingBlendPicker/,
@@ -248,5 +248,51 @@ assert.match(css, /hub-onboarding-dialog:hover \.hub-onboarding-secondary-naviga
   "Back and Skip must reveal when the onboarding card is hovered or focused");
 assert.doesNotMatch(onboarding, /musicBarSize|Player size/,
   "onboarding must leave player sizing to full Settings");
+
+// What's new: a per-release tour on the same engine.
+const { WHATS_NEW } = await import("../src/content/whats-new.js");
+assert.match(WHATS_NEW.version, /^\d+\.\d+\.\d+$/, "What's new must name the release that added its features");
+assert.ok(WHATS_NEW.summary && WHATS_NEW.summary.length <= 90, "What's new needs a one-line summary for Settings");
+const panelDemos = new Set(["now-playing", "playlists", "add", "cart", "activity", "collection", "bandcamp-playlists", "downloads"]);
+for (const step of WHATS_NEW.steps) {
+  for (const field of ["eyebrow", "title", "copy"]) assert.ok(step[field], `What's new step "${step.title}" is missing ${field}`);
+  assert.ok(["player", "panel", "dj-drawer"].includes(step.target), `What's new step "${step.title}" needs a known target`);
+  if (step.demo) assert.ok(panelDemos.has(step.demo) && step.panel, `What's new step "${step.title}" has an unknown demo or no panel`);
+  if (step.control) assert.ok(["download-format", "scale"].includes(step.control), `What's new step "${step.title}" has an unknown control`);
+  assert.ok(!step.choice && !step.emptyPlayer, "welcome-only step options must stay out of What's new");
+}
+for (const demo of ["collection", "bandcamp-playlists", "downloads"]) {
+  assert.match(onboarding, new RegExp(`demo === "${demo}"[\\s\\S]*?withDemoRuntime`), `the ${demo} demo must restore the runtime it borrows`);
+}
+assert.match(onboarding, /TOURS = Object\.freeze\(\{ welcome: STEPS, "whats-new": WHATS_NEW\.steps \}\)/,
+  "What's new must reuse the welcome tour's coachmark rather than a second implementation");
+assert.match(onboarding, /activateWhatsNew[\s\S]*?onboardingCompletedVersion\) <= 0[\s\S]*?whatsNewSeenVersion === WHATS_NEW\.version[\s\S]*?runtimeSeamless\.isPlaying/,
+  "What's new opens only for welcomed users, once per release, and never over playing music");
+assert.match(onboarding, /r\.\$onboardingTour === "whats-new"\) runtimeState\.whatsNewSeenVersion = WHATS_NEW\.version/,
+  "What's new is marked as seen when it opens, so a page change never brings it back");
+assert.match(onboarding, /welcome && !r\.\$onboardingReplay\) runtimeState\.whatsNewSeenVersion = WHATS_NEW\.version/,
+  "someone finishing the first-run tour must not be shown What's new straight after");
+assert.match(onboarding, /r\.\$onboardingReplay = replay \|\| r\.\$onboardingTour !== "welcome"/,
+  "What's new must never resume or complete the welcome tour");
+assert.match(onboarding, /whatsNewSettingsRow[\s\S]*?r\.\$startOnboarding\(\{ tour: "whats-new", replay: true \}\)/,
+  "Settings › Help & onboarding must replay What's new under Tour");
+assert.match(lifecycle, /const welcoming = r\.\$activateFirstRunOnboarding\(\);[\s\S]*?if \(!welcoming && !r\.\$resumeTour[\s\S]*?r\.\$activateWhatsNew\(\)/,
+  "What's new must wait until the first-run tour is not running");
+assert.match(state, /whatsNewSeenVersion:\s*""/);
+const scaleStep = WHATS_NEW.steps.find((step) => step.control === "scale");
+if (scaleStep) assert.ok(scaleStep.page?.kind === "scaled" && /^https:\/\/[a-z0-9-]+\.bandcamp\.com\/album\//.test(scaleStep.page.url),
+  "the scale step must open a release page, where page scale visibly applies");
+assert.match(onboarding, /needsOtherPage\(r, nextDefinition\)[\s\S]*?continueTourOnPage/,
+  "a step that needs another page must open it instead of showing a scale nobody can see");
+assert.match(onboarding, /async function continueTourOnPage[\s\S]*?Object\.assign\(runtimeState, r\.\$onboardingUiSnapshot[\s\S]*?\$stateSaveChain[\s\S]*?TOUR_RESUME[\s\S]*?location\.assign/,
+  "leaving for another page must restore the panel and save where the tour continues first");
+assert.match(onboarding, /resumeTour[\s\S]*?storage\.local\.remove\(STORAGE_KEYS\.TOUR_RESUME\)[\s\S]*?RESUME_WINDOW_MS[\s\S]*?samePage\(resume\.url, location\.href\)/,
+  "a tour resumes once, only on the page it opened and only shortly after");
+assert.match(lifecycle, /!r\.\$resumeTour\(saved\[STORAGE_KEYS\.TOUR_RESUME\]\)\) r\.\$activateWhatsNew\(\)/);
+assert.match(onboarding, /createOnboardingScaleSettings[\s\S]*?picker: \(\{ label, options, value, onChange \}\) => createOnboardingPicker/,
+  "tour scale controls must use the tour's dropdown, not the Settings picker");
+assert.doesNotMatch(onboarding, /createScaleSettings\(r, \{ onboarding: true \}\)/,
+  "no tour step may fall back to the Settings scale picker");
+assert.match(merge, /"whatsNewSeenVersion"/, "the seen release must sync across open tabs");
 
 console.log("Onboarding guided-tour checks passed.");

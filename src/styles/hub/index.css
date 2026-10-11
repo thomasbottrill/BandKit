@@ -5,6 +5,7 @@
 @import "./collections.css";
 @import "./collections-details.css";
 @import "./collections-interactions.css";
+@import "./downloads.css";
 @import "./settings.css";
 @import "./settings-controls.css";
 @import "./settings-actions.css";
@@ -26,3 +27,7 @@
 @import "./fullscreen-visualizer.css";
 @import "./picture-in-picture.css";
 @import "./search-results.css";
+
+@import "./scaling.css";
+
+@import "./collection-panel.css";

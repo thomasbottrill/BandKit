@@ -1,6 +1,6 @@
 # Chrome Web Store submission guide
 
-This is the launch checklist and source of truth for Bandkit 1.1.0. Keep the listing, Privacy practices answers, privacy policy and extension behavior consistent.
+This is the launch checklist and source of truth for Bandkit 1.2.0. Keep the listing, Privacy practices answers, privacy policy and extension behavior consistent.
 
 ## Submission blockers
 
@@ -90,6 +90,10 @@ The page is served over enforced HTTPS from the repository's dedicated `gh-pages
 `scripting`
 
 > Lets the user activate Bandkit from the toolbar or keyboard shortcut on an already-open supported Bandcamp tab when the normal installed content script is not yet present, such as immediately after installation or an extension update. Only packaged Bandkit scripts are injected.
+
+Optional `downloads`
+
+> Requested only when the user first chooses **Download** for releases selected on their own Bandcamp collection page. Bandkit passes each purchased file's Bandcamp-provided link to Chrome's downloader, shows its progress and completion in the Downloads tab, and offers pause, retry, cancel and **Show in folder**. It never reads, opens or changes downloads Bandkit did not start. Declared as optional so existing installs are not disabled when updating.
 
 Host access to `bandcamp.com` and `*.bandcamp.com`
 

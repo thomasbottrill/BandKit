@@ -1,7 +1,7 @@
 import { createMusicBarPanelButton, createSectionTab, createPanelShortcut, createMusicBarShortcut } from "../components/section-navigation.js";
 import { runtimeLive, runtimeSaveState, runtimeState, updateRuntimeLive, updateRuntimeSaveState, updateRuntimeSeamless, updateRuntimeState } from "./context.js";
 import { asset, createElement, enableRangeReset, removeStyleProperty, resolvedTrackPageUrl, safeBandcampReleaseUrl, safeBandcampUrl, setDatasetValue, setStyleProperty } from "../core.js";
-import { MUSIC_BAR_SCRUBBER_WIDTHS, MUSIC_BAR_STYLES, MUSIC_BAR_WIDTHS, PLAYER_BLEND_MODES, SCRUBBER_HANDLE_SHAPES, VISUALIZER_BLEND_MODES, defaultState, normalizeVisualizerType, normalizeHandleSize } from "../state.js";
+import { MUSIC_BAR_SCRUBBER_WIDTHS, MUSIC_BAR_STYLES, MUSIC_BAR_WIDTHS, PLAYER_BLEND_MODES, SCRUBBER_HANDLE_SHAPES, VISUALIZER_BLEND_MODES, PANEL_TAB_IDS, defaultState, normalizeVisualizerType, normalizeHandleSize } from "../state.js";
 import { scrubberHandleMask, setHandleImageStyles } from "../custom-scrub-handle.js";
 import { applyTimelinePath, normalizeTimelineStyle } from "../timeline-styles.js";
 import { MESSAGES, STORAGE_KEYS } from "../../shared/contracts.js";
@@ -31,6 +31,14 @@ function setOptionalColour(style, property, value) {
     ? setStyleProperty(style, property, value)
     : removeStyleProperty(style, property);
 }
+function releasePlayerPageSpace(r, pageFlowParent) {
+  setStyleProperty(r.$playerSpacer.style, "height", "0px", "important");
+  setStyleProperty(r.$playerSpacer.style, "flex-basis", "0px", "important");
+  r.$discoverPlayerSpacer.remove();
+  document.documentElement.style.removeProperty("--bandkit-player-reserved-height");
+  document.documentElement.style.removeProperty("scroll-padding-bottom");
+  pageFlowParent.style.removeProperty("scroll-padding-bottom");
+}
 function registerFeatureSwitches(r) {
 r.$cartFeaturesEnabled = function cartFeaturesEnabled() {
       return runtimeState.cartEnabled !== false;
@@ -41,12 +49,19 @@ r.$playlistsFeatureEnabled = function playlistsFeatureEnabled() {
 r.$activityFeatureEnabled = function activityFeatureEnabled() {
       return runtimeState.activityEnabled !== false;
     };
+r.$downloadsFeatureEnabled = function downloadsFeatureEnabled() {
+      return runtimeState.downloadsEnabled !== false;
+    };
 // Features that are off are routed around rather than hidden behind a view:
 // a panel left pointing at one falls back to Now Playing.
 r.$syncDisabledFeatureViews = function syncDisabledFeatureViews() {
-      const fallback = (tab) => (tab === "cart" && !r.$cartFeaturesEnabled()) || (tab === "activity" && !r.$activityFeatureEnabled());
+      const fallback = (tab) => (tab === "cart" && !r.$cartFeaturesEnabled()) || (tab === "activity" && !r.$activityFeatureEnabled())
+        || (tab === "downloads" && !r.$downloadsAvailable?.());
       if (fallback(runtimeState.activeTab)) runtimeState.activeTab = "playlist";
       if (fallback(runtimeState.musicBarRecentPanel)) runtimeState.musicBarRecentPanel = "playlist";
+      const playerEnabled = Boolean(runtimeState.appearance.hideBandcampPlayer);
+      if (!playerEnabled && runtimeState.activeTab === "playlist") runtimeState.activeTab = "settings";
+      if (!playerEnabled && runtimeState.musicBarRecentPanel === "playlist") runtimeState.musicBarRecentPanel = "settings";
       if (!r.$playlistsFeatureEnabled() && runtimeState.playlistView === "saved") {
         runtimeState.playlistView = "current";
         runtimeState.selectedSavedPlaylistId = null;
@@ -55,6 +70,8 @@ r.$syncDisabledFeatureViews = function syncDisabledFeatureViews() {
       root.bandkitCartDisabled = String(!r.$cartFeaturesEnabled());
       root.bandkitPlaylistsDisabled = String(!r.$playlistsFeatureEnabled());
       root.bandkitActivityDisabled = String(!r.$activityFeatureEnabled());
+      root.bandkitDownloadsAvailable = String(Boolean(r.$downloadsAvailable?.()));
+      root.bandkitPlayerDisabled = String(!playerEnabled);
     };
 r.$setFeatureEnabled = function setFeatureEnabled(key, enabled, label) {
       runtimeState[key] = enabled !== false;
@@ -123,6 +140,7 @@ r.$syncPlayerPageSpace = function syncPlayerPageSpace() {
         r.$playerSpacer.parentElement?.style.removeProperty("scroll-padding-bottom");
         pageFlowParent.append(r.$playerSpacer);
       }
+      if (!runtimeState.appearance.hideBandcampPlayer) { releasePlayerPageSpace(r, pageFlowParent); return; }
       const playerRect = r.$player.getBoundingClientRect();
       const playerHeight = Math.ceil(playerRect.height);
       if (!playerHeight) return;
@@ -688,6 +706,7 @@ r.$saveState = updateRuntimeSaveState(function saveState() {
       });
       r.$persistNowPlayingSession();
       r.$scheduleCollectionPlaylistSync?.();
+      return r.$stateSaveChain;
     });
 }
 export const registerRuntimeShell = [registerFeatureSwitches, registerRuntimeShellPlayer, registerRuntimeShellActions, registerRuntimeShellCommerce, registerRuntimeShellLinks, registerRuntimeShell3];
@@ -966,7 +985,7 @@ for (const tab of r.$tabs) {
     r.$compactPanelButton.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      const tabId = ["playlist", "cart", "activity", "settings"].includes(runtimeState.musicBarRecentPanel)
+      const tabId = PANEL_TAB_IDS.includes(runtimeState.musicBarRecentPanel)
         ? runtimeState.musicBarRecentPanel : "playlist";
       r.$toggleSectionPanel(tabId);
     });

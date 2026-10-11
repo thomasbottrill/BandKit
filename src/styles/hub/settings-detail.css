@@ -30,7 +30,7 @@
   background: transparent;
 }
 
-.hub-settings-detail .hub-settings-disclosure--quiet {
+:is(.hub-settings-detail, .hub-onboarding-scale) .hub-settings-disclosure--quiet {
   background: transparent;
   border: 0;
   border-radius: 0;
@@ -46,24 +46,24 @@
   opacity: 0.38;
 }
 
-.hub-settings-detail .hub-settings-disclosure--quiet:is(:hover, :focus-within) {
+:is(.hub-settings-detail, .hub-onboarding-scale) .hub-settings-disclosure--quiet:is(:hover, :focus-within) {
   background: transparent;
   border-color: transparent;
 }
 
-.hub-panel.is-frosted-glass .hub-settings-detail .hub-settings-disclosure--quiet,
-.hub-panel.is-frosted-glass .hub-settings-detail .hub-settings-disclosure--quiet:is(:hover, :focus-within) {
+.hub-panel.is-frosted-glass :is(.hub-settings-detail, .hub-onboarding-scale) .hub-settings-disclosure--quiet,
+.hub-panel.is-frosted-glass :is(.hub-settings-detail, .hub-onboarding-scale) .hub-settings-disclosure--quiet:is(:hover, :focus-within) {
   background: transparent;
 }
 
-.hub-settings-detail .hub-settings-disclosure--quiet .hub-settings-disclosure-trigger {
+:is(.hub-settings-detail, .hub-onboarding-scale) .hub-settings-disclosure--quiet .hub-settings-disclosure-trigger {
   gap: 10px;
   grid-template-columns: minmax(0, 1fr) 14px;
   min-height: 54px;
   padding: 12px 0;
 }
 
-.hub-settings-detail .hub-settings-disclosure--quiet .hub-settings-disclosure-title {
+:is(.hub-settings-detail, .hub-onboarding-scale) .hub-settings-disclosure--quiet .hub-settings-disclosure-title {
   color: var(--hub-muted);
   font-size: 15px;
   font-weight: 600;
@@ -71,25 +71,25 @@
   transition: color var(--hub-settings-color-duration) ease, font-weight 140ms ease;
 }
 
-.hub-settings-detail .hub-settings-disclosure--quiet.is-open .hub-settings-disclosure-title {
+:is(.hub-settings-detail, .hub-onboarding-scale) .hub-settings-disclosure--quiet.is-open .hub-settings-disclosure-title {
   color: var(--hub-ink);
   font-weight: 750;
 }
 
-.hub-settings-detail .hub-settings-disclosure--quiet .hub-settings-disclosure-trigger:is(:hover, :focus-visible) .hub-settings-disclosure-title {
+:is(.hub-settings-detail, .hub-onboarding-scale) .hub-settings-disclosure--quiet .hub-settings-disclosure-trigger:is(:hover, :focus-visible) .hub-settings-disclosure-title {
   color: var(--hub-accent);
 }
 
-.hub-settings-detail .hub-settings-disclosure--quiet .hub-settings-disclosure-chevron {
+:is(.hub-settings-detail, .hub-onboarding-scale) .hub-settings-disclosure--quiet .hub-settings-disclosure-chevron {
   opacity: 0;
   transition: color var(--hub-settings-color-duration) ease, margin 140ms ease, opacity 140ms ease, transform 140ms ease;
 }
 
-.hub-settings-detail .hub-settings-disclosure--quiet .hub-settings-disclosure-trigger:is(:hover, :focus-visible) .hub-settings-disclosure-chevron {
+:is(.hub-settings-detail, .hub-onboarding-scale) .hub-settings-disclosure--quiet .hub-settings-disclosure-trigger:is(:hover, :focus-visible) .hub-settings-disclosure-chevron {
   opacity: 1;
 }
 
-.hub-settings-detail .hub-settings-disclosure--quiet .hub-settings-disclosure-content {
+:is(.hub-settings-detail, .hub-onboarding-scale) .hub-settings-disclosure--quiet .hub-settings-disclosure-content {
   padding: 0 0 14px;
 }
 

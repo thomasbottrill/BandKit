@@ -1,9 +1,26 @@
+import { interfaceScale, scaleRect } from "../scale.js";
 import { attachMenuKeyNavigation, attachMenuTriggerKeyNavigation } from "../menu-keyboard.js";
 import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState } from "./context.js";
 import { asset, createButtonIcon, createElement, escapeHtml, formatCartPrice, portableBandcampUrl, removeStyleProperty, resolvedCartItemPageUrl, resolvedTrackPageUrl, safeBandcampUrl, setStyleProperty } from "../core.js";
 import { MESSAGES } from "../../shared/contracts.js";
 import { cartActivityIdentity, parseCartBackup, portableCartItem } from "../cart-model.js";
 import { registerLayoutCartRendering } from "./layout-cart-rendering.js";
+import { applyScales } from "./scaling.js";
+
+function disableBandkitPlayback(r, enabled) {
+  if (enabled || !runtimeSeamless.enabled || r.$bandkitPlayerDisablePending) return;
+  r.$bandkitPlayerDisablePending = true;
+  void r.$seamlessCommand(MESSAGES.SEAMLESS_DISABLE).finally(() => {
+    r.$bandkitPlayerDisablePending = false;
+  });
+}
+
+function resumeBandkitPlayback(r, enabled, changed) {
+  if (!enabled || !changed) return;
+  window.setTimeout(() => r.$scanLivePlayer?.(), 0);
+  window.setTimeout(() => r.$scanLivePlayer?.(), 160);
+}
+
 function registerLayoutCart1(r) {
 r.$applyAppearance = function applyAppearance() {
       if (!r.$modernReleasePalette && r.$modernBandcampPageType()) {
@@ -12,6 +29,7 @@ r.$applyAppearance = function applyAppearance() {
       r.$applyBandcampPageTheme();
       r.$applyShadowHeaderTheme();
       r.$applyModernReleaseLayout();
+      applyScales(r);
       if (runtimeState.appearance.pageAware) r.$updateThemeFromPage();
       else r.$applySelectedTheme();
       // Theme variables and this readiness flag are committed in the same task,
@@ -78,7 +96,23 @@ r.$applyShadowHeaderCartVisibility = function applyShadowHeaderCartVisibility(hi
     };
 r.$applyNativePlayerVisibility = function applyNativePlayerVisibility() {
       r.$ensurePageStyles();
-      document.documentElement.dataset.bandkitHideBandcampPlayer = String(Boolean(runtimeState.appearance.hideBandcampPlayer));
+      const enabled = Boolean(runtimeState.appearance.hideBandcampPlayer);
+      document.documentElement.dataset.bandkitHideBandcampPlayer = String(enabled);
+      r.$syncNativePlayerMode(enabled);
+    };
+r.$syncNativePlayerMode = function syncNativePlayerMode(enabled = Boolean(runtimeState.appearance.hideBandcampPlayer)) {
+      const nativeBottomPlayer = !enabled && Boolean(document.querySelector("section.floating-player"));
+      const changed = r.$player.dataset.playerEnabled !== String(enabled)
+        || r.$player.dataset.nativeBottomPlayer !== String(nativeBottomPlayer);
+      r.$player.dataset.playerEnabled = String(enabled);
+      r.$player.dataset.nativeBottomPlayer = String(nativeBottomPlayer);
+      r.$host.dataset.playerEnabled = String(enabled);
+      disableBandkitPlayback(r, enabled);
+      if (!changed) return;
+      resumeBandkitPlayback(r, enabled, changed);
+      r.$playerSectionGeometrySignature = "";
+      r.$schedulePlayerSectionGeometry?.();
+      r.$syncPlayerPageSpace?.();
     };
 r.$applyLauncherPosition = function applyLauncherPosition() {
       if (r.$launcher.classList.contains("is-header")) {
@@ -139,7 +173,7 @@ r.$applySavedLayout = function applySavedLayout() {
       }
       if (runtimeState.layoutMode === "docked") {
         r.$clearPanelInlineLayout();
-        const dockedWidth = Math.min(Math.max(320, Number(runtimeState.dockedWidth) || 420), Math.max(320, window.innerWidth));
+        const dockedWidth = Math.min(Math.max(320, Number(runtimeState.dockedWidth) || 420), Math.max(320, (window.innerWidth / interfaceScale(runtimeState.appearance))));
         r.$panel.style.width = `${dockedWidth}px`;
       } else if (!runtimeState.layout) {
         r.$clearPanelInlineLayout();
@@ -148,10 +182,10 @@ r.$applySavedLayout = function applySavedLayout() {
         const savedHeight = Number(runtimeState.layout.height) || 620;
         const savedLeft = Number(runtimeState.layout.left) || 8;
         const savedTop = Number(runtimeState.layout.top) || 8;
-        const width = Math.max(1, Math.min(Math.max(320, savedWidth), Math.max(1, window.innerWidth - 16)));
-        const height = Math.max(1, Math.min(Math.max(520, savedHeight), Math.max(1, window.innerHeight - 16)));
-        const left = Math.max(8, Math.min(Math.max(8, window.innerWidth - width - 8), savedLeft));
-        const top = Math.max(8, Math.min(Math.max(8, window.innerHeight - height - 8), savedTop));
+        const width = Math.max(1, Math.min(Math.max(320, savedWidth), Math.max(1, (window.innerWidth / interfaceScale(runtimeState.appearance)) - 16)));
+        const height = Math.max(1, Math.min(Math.max(520, savedHeight), Math.max(1, (window.innerHeight / interfaceScale(runtimeState.appearance)) - 16)));
+        const left = Math.max(8, Math.min(Math.max(8, (window.innerWidth / interfaceScale(runtimeState.appearance)) - width - 8), savedLeft));
+        const top = Math.max(8, Math.min(Math.max(8, (window.innerHeight / interfaceScale(runtimeState.appearance)) - height - 8), savedTop));
         r.$panel.style.left = `${left}px`;
         r.$panel.style.right = "auto";
         r.$panel.style.top = `${top}px`;
@@ -166,7 +200,7 @@ r.$applySavedLayout = function applySavedLayout() {
 r.$capturePanelLayout = function capturePanelLayout() {
       if (r.$applyingLayout || r.$dragging || r.$panel.classList.contains("is-contextual")) return;
       if (runtimeState.layoutMode === "docked") {
-        const rect = r.$panel.getBoundingClientRect();
+        const rect = scaleRect(r.$panel.getBoundingClientRect(), interfaceScale(runtimeState.appearance));
         if (!rect.width) return;
         runtimeState.dockedWidth = Math.round(rect.width);
         window.clearTimeout(r.$layoutSaveTimer);
@@ -177,7 +211,7 @@ r.$capturePanelLayout = function capturePanelLayout() {
         return;
       }
       if (!runtimeState.layout && !r.$panel.style.width) return;
-      const rect = r.$panel.getBoundingClientRect();
+      const rect = scaleRect(r.$panel.getBoundingClientRect(), interfaceScale(runtimeState.appearance));
       if (!rect.width || !rect.height) return;
       runtimeState.layout = { left: Math.round(rect.left), top: Math.round(rect.top), width: Math.round(rect.width), height: Math.round(rect.height) };
       window.clearTimeout(r.$layoutSaveTimer);

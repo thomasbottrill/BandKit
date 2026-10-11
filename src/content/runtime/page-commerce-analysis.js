@@ -29,6 +29,7 @@ r.$createPagePlaylistButton = function createPagePlaylistButton(tagName = "butto
       button.addEventListener("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
+        if (!runtimeState.appearance.hideBandcampPlayer) return;
         // A feed story whose track list has not loaded still stands for its
         // album, so resolve it before deciding this is a single-track control.
         if (!button._bandkitTracks?.length && button._bandkitFeedTrack) {

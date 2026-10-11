@@ -1,0 +1,111 @@
+/* Downloads tab. Rows are the cart's compact product card; this file only
+   adds the queue's status line, progress rail and row actions. */
+.hub-downloads-list {
+  display: grid;
+  gap: 10px;
+}
+
+.hub-downloads-row-actions {
+  align-items: center;
+  display: flex;
+  flex: none;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.hub-downloads-row .hub-downloads-row-overflow .hub-toolbar-more-button {
+  height: 22px;
+  margin-top: -3px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  width: 22px;
+}
+
+.hub-downloads-row:is(:hover, :focus-within, .has-open-menu) .hub-downloads-row-overflow .hub-toolbar-more-button,
+.hub-downloads-row .hub-cart-remove-button.is-persistent {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .hub-downloads-row .hub-downloads-row-overflow .hub-toolbar-more-button,
+  .hub-downloads-row .hub-cart-remove-button {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.hub-downloads-row.has-open-menu {
+  overflow: visible;
+  z-index: 10;
+}
+
+.hub-downloads-row-overflow .hub-toolbar-actions-menu {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.hub-downloads-status {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hub-downloads-row:is(.is-failed, .is-unavailable) .hub-downloads-status {
+  color: var(--hub-error, #dc2626);
+}
+
+.hub-downloads-row.is-unavailable .hub-downloads-status {
+  color: var(--hub-faint);
+}
+
+/* Progress sits inline after the status text, as a short rounded track that
+   stays inside the card instead of riding its clipped bottom edge. */
+.hub-downloads-row .hub-product-meta-row {
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.hub-downloads-progress {
+  background: color-mix(in srgb, var(--hub-line) 70%, transparent);
+  border-radius: 999px;
+  flex: 1 1 auto;
+  height: 4px;
+  max-width: 120px;
+  min-width: 32px;
+  overflow: hidden;
+}
+
+.hub-downloads-progress-value {
+  background: var(--hub-accent);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  transform: scaleX(var(--hub-downloads-progress, 0));
+  transform-origin: left center;
+  transition: transform 600ms linear;
+  width: 100%;
+}
+
+.hub-downloads-permission-copy {
+  color: var(--hub-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.hub-downloads-permission-frame {
+  background: transparent;
+  border: 0;
+  color-scheme: normal;
+  flex: none;
+  height: var(--hub-settings-input-height, 32px);
+  width: 140px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-downloads-progress-value {
+    transition: none;
+  }
+}

@@ -10,6 +10,7 @@ export const PAPER_DEFAULTS = Object.freeze({
 // This is a permanent completion sentinel, not a tour version. App updates must
 // never reactivate onboarding for someone who has already completed or skipped it.
 export const ONBOARDING_COMPLETE = 1;
+export const PANEL_TAB_IDS = Object.freeze(["playlist", "cart", "activity", "downloads", "settings"]);
 export const FEEDBACK_FORM_URL = "https://picturesque-minute-159.notion.site/26e59205570e82919346017f46d04630?pvs=105";
 export const FEEDBACK_LIST_URL = "https://picturesque-minute-159.notion.site/b2559205570e822baeb4014fae0d3f64?v=f8f59205570e82719f94084ecebb1869";
 // Public release log, updated with every Chrome Web Store package (see AGENTS.md).
@@ -115,6 +116,8 @@ export const defaultState = {
   activeTab: "playlist",
   onboardingCompletedVersion: 0,
   onboardingStep: 0,
+  // Version of the last What's new tour shown (see whats-new.js).
+  whatsNewSeenVersion: "",
   settingsDrawers: {},
   settingsView: "index",
   settingsSubView: "index",
@@ -130,6 +133,8 @@ export const defaultState = {
   cartEnabled: true,
   playlistsEnabled: true,
   activityEnabled: true,
+  downloadsEnabled: true,
+  downloadFormat: "flac",
   showTrackKeys: true,
   showCamelotNotation: false,
   recordPlaylistMetadata: true,
@@ -171,6 +176,8 @@ export const defaultState = {
     pageAware: true,
     applyToPage: false,
     modernReleasePages: true,
+    pageScale: { preset: "normal", custom: 100, adjustByPage: false, overrides: {} },
+    interfaceScale: { preset: "normal", custom: 100 },
     frostedGlass: false,
     paperTexture: false,
     ...PAPER_DEFAULTS,

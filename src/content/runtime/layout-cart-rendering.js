@@ -1,6 +1,7 @@
 import { runtimeLive, runtimeState } from "./context.js";
 import { asset, createElement, resolvedTrackPageUrl } from "../core.js";
 import { openFullscreenVisualizer } from "./fullscreen-visualizer.js";
+import { PANEL_TAB_IDS } from "../state.js";
 import { createPictureInPictureMenuAction } from "./picture-in-picture.js";
 
 function deferNowPlayingShuffleRefresh(r) {
@@ -71,9 +72,10 @@ r.$render = function render() {
       r.$launcher.setAttribute("aria-expanded", String(runtimeState.open));
       r.$syncDockedControls();
       const labels = {
-        playlist: r.$playlistsFeatureEnabled() ? "Now Playing & Playlists" : "Now Playing",
+        playlist: r.$playlistsFeatureEnabled() ? "Play" : "Play",
         cart: "Cart",
         activity: "Activity",
+        downloads: "Downloads",
         settings: "Settings"
       };
       const availablePanelHeight = Math.max(220, window.innerHeight - 160);
@@ -86,11 +88,13 @@ r.$render = function render() {
       const panelDestinationState = (tabId) => {
         if (tabId === "playlist") {
           const saved = runtimeState.playlistView === "saved";
+          const collection = runtimeState.playlistView === "collection";
           const count = saved ? 0 : queuedTrackCount;
+          const destinationCount = collection ? 0 : count;
           return {
-            count,
-            icon: saved ? "icon-playlist.svg" : "icon-now-playing.svg",
-            label: saved ? "Playlists" : `Now Playing, ${count} song${count === 1 ? "" : "s"}`
+            count: destinationCount,
+            icon: collection ? "icon-folder.svg" : saved ? "icon-playlist.svg" : "icon-now-playing.svg",
+            label: collection ? "Collection" : saved ? "Playlists" : `Now Playing, ${destinationCount} song${destinationCount === 1 ? "" : "s"}`
           };
         }
         if (tabId === "cart") {
@@ -101,6 +105,10 @@ r.$render = function render() {
             icon: saved ? "icon-saved-cart.svg" : "icon-cart.svg",
             label: saved ? "Saved carts" : `Cart, ${count} item${count === 1 ? "" : "s"}`
           };
+        }
+        if (tabId === "downloads") {
+          const count = r.$unfinishedDownloadCount?.() || 0;
+          return { count, icon: "icon-downloads.svg", label: count ? `Downloads, ${count} in progress` : "Downloads" };
         }
         const tab = r.$tabs.find((item) => item.id === tabId);
         return { count: 0, icon: tab?.icon || "icon-now-playing.svg", label: tab?.label || "Bandkit" };
@@ -121,13 +129,13 @@ r.$render = function render() {
         button.setAttribute("aria-label", destination.label);
         button.title = destination.label;
       }
-      const recentPanel = ["playlist", "cart", "activity", "settings"].includes(runtimeState.musicBarRecentPanel)
+      const recentPanel = PANEL_TAB_IDS.includes(runtimeState.musicBarRecentPanel)
         ? runtimeState.musicBarRecentPanel : "playlist";
       const recentDestination = panelDestinationState(recentPanel);
       r.$compactPanelButton.dataset.tab = recentPanel;
       r.$compactPanelButton.classList.toggle("is-active", runtimeState.open);
       r.$compactPanelButton.classList.remove("has-count");
-      const compactDestinationLabel = recentPanel === "playlist" ? runtimeState.playlistView === "saved" ? "Playlists" : "Now Playing"
+      const compactDestinationLabel = recentPanel === "playlist" ? runtimeState.playlistView === "saved" ? "Playlists" : runtimeState.playlistView === "collection" ? "Collection" : "Now Playing"
         : recentPanel === "cart" ? runtimeState.cartView === "saved" ? "Saved carts" : "Cart"
         : recentDestination.label;
       r.$compactPanelButton.setAttribute("aria-label", `Open ${compactDestinationLabel} panel`);
@@ -157,7 +165,14 @@ r.$render = function render() {
     };
 r.$renderPanelContent = function renderPanelContent() {
       if (r.$onboardingUsesDemoPanel?.() && r.$content.dataset.onboardingDemo) return;
+      if (runtimeState.activeTab === "playlist" && runtimeState.playlistView === "collection"
+        && !r.$collectionPanelDirty && r.$content.querySelector(".hub-collection-panel")) {
+        r.$syncCollectionPanelPlayback(); return;
+      }
       const forcePlaylistRefresh = r.$forcePlaylistPanelRefresh === true;
+      // Hover is not reported during a native drag, so the guard below cannot
+      // see it; replacing the cards mid-drag would lose the drop.
+      if (!forcePlaylistRefresh && r.$playlistDrag?.list.isConnected) { r.$playlistDragRefreshPending = true; return; }
       if (!forcePlaylistRefresh && deferNowPlayingShuffleRefresh(r)) return;
       const interactingPlaylistTrack = !forcePlaylistRefresh && runtimeState.activeTab === "playlist"
         ? r.$content.querySelector(".hub-playlist-track:hover, .hub-playlist-track:focus-within") : null;
@@ -191,6 +206,7 @@ r.$renderPanelContent = function renderPanelContent() {
       if (runtimeState.activeTab === "playlist") r.$renderPlaylist();
       if (runtimeState.activeTab === "cart") r.$renderCart();
       if (runtimeState.activeTab === "activity") r.$renderActivity();
+      if (runtimeState.activeTab === "downloads") r.$renderDownloads();
       if (runtimeState.activeTab === "settings") r.$renderSettings();
       const backupPrompt = r.$renderBackupReminder();
       if (backupPrompt) {
@@ -245,7 +261,7 @@ r.$organizePanelContentScrolling = function organizePanelContentScrolling() {
       }
     };
 r.$mountPanelClose = function mountPanelClose() {
-      const anchor = runtimeState.activeTab === "cart"
+      const anchor = ["cart", "collection"].includes(runtimeState.activeTab)
         ? r.$content.querySelector(".hub-saved-cart-detail-toolbar, .hub-cart-view-header")
         : runtimeState.activeTab === "playlist"
           ? r.$content.querySelector(".hub-saved-cart-detail-toolbar, .hub-playlist-view-header")

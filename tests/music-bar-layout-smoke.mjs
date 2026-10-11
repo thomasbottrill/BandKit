@@ -3,7 +3,10 @@ import fs from "node:fs";
 import { readContentSource, readHubStyles, readModernStyles } from "./support/source.mjs";
 
 const source = readContentSource();
-const css = readHubStyles();
+// Resolve viewport variables at the default 100% interface scale for the existing layout contracts.
+const css = readHubStyles().replace(/calc\(var\(--hub-viewport-(width|height), 100v[wh]\) \* ([\d.]+)\)/g,
+  (_, axis, ratio) => `${Number((Number(ratio) * 100).toFixed(4))}v${axis === "width" ? "w" : "h"}`)
+  .replace(/var\(--hub-viewport-width, 100vw\)/g, "100vw").replace(/var\(--hub-viewport-height, 100vh\)/g, "100vh");
 const modernCss = readModernStyles();
 const liveScanningSource = fs.readFileSync(new URL("../src/content/runtime/live-scanning.js", import.meta.url), "utf8");
 const dockChevronSource = fs.readFileSync(new URL("../src/content/runtime/dock-chevron.js", import.meta.url), "utf8");
@@ -22,6 +25,8 @@ const scrubHandlePickerSource = fs.readFileSync(new URL("../src/content/scrub-ha
 const coreSource = fs.readFileSync(new URL("../src/content/core.js", import.meta.url), "utf8");
 const interactionGuardsSource = fs.readFileSync(new URL("../src/content/runtime/interaction-guards.js", import.meta.url), "utf8");
 const musicBarSettingsSource = fs.readFileSync(new URL("../src/content/music-bar-settings.js", import.meta.url), "utf8");
+const activitySettingsSource = fs.readFileSync(new URL("../src/content/runtime/activity-settings.js", import.meta.url), "utf8");
+const persistencePlaybackSource = fs.readFileSync(new URL("../src/content/runtime/persistence-playback.js", import.meta.url), "utf8");
 const settingsPickerSource = fs.readFileSync(new URL("../src/content/settings-picker.js", import.meta.url), "utf8");
 const visualizerThemeSource = fs.readFileSync(new URL("../src/content/visualizer-theme.js", import.meta.url), "utf8");
 const backgroundSource = fs.readFileSync(new URL("../src/background/index.js", import.meta.url), "utf8");
@@ -90,6 +95,28 @@ assert.match(runtimeShellSource, /const mode = "compact";[\s\S]*?dataset\.panelB
   "Empty and occupied players must use the same single panel chevron");
 assert.match(source, /hub-compact-panel-chevron[\s\S]*?icon-panel-caret\.svg/, "The compact panel button must use the filled rounded panel caret");
 assert.match(source, /classList\.toggle\("is-active", state\.open\)/, "The compact chevron must point down whenever its panel is open");
+assert.match(activitySettingsSource, /featureRow\("Bandkit player"[\s\S]*?Turn off to restore Bandcamp’s player[\s\S]*?const enabled = !bandkitPlayerEnabled/,
+  "The player feature switch must restore Bandcamp's player when Bandkit's music bar is off");
+assert.match(activitySettingsSource, /clearPlayerModeQueue[\s\S]*?releaseExplicitPlaybackClear[\s\S]*?applyNativePlayerVisibility/,
+  "Switching player modes must clear stale Bandkit playback before reclaiming a native track");
+assert.match(activitySettingsSource, /playerModeChangeRevision[\s\S]*?runtimeSaveState\(\)[\s\S]*?clearPlayerModeQueue[\s\S]*?await runtimeSaveState\(\)/,
+  "Player-mode changes must persist in order and ignore superseded queue clears");
+assert.match(persistencePlaybackSource, /clearPlayerModeQueue[\s\S]*?clearLocalPlaybackState\(\{ persist: false, pausePage: false \}\)[\s\S]*?CLEAR_PLAYBACK[\s\S]*?clearLocalPlaybackState\(\{ persist: false, pausePage: false \}\)/,
+  "The mode transaction must save once after clearing both local and background queues");
+assert.match(runtimeShellSource, /!playerEnabled && runtimeState\.activeTab === "playlist"[\s\S]*?activeTab = "settings"[\s\S]*?!playerEnabled && runtimeState\.musicBarRecentPanel === "playlist"[\s\S]*?musicBarRecentPanel = "settings"/,
+  "Native-player mode must route the retained chevron away from Now Playing and playlists");
+assert.match(layoutCartSource, /bandkitHideBandcampPlayer = String\(enabled\)[\s\S]*?syncNativePlayerMode[\s\S]*?section\.floating-player[\s\S]*?dataset\.playerEnabled = String\(enabled\)/,
+  "Player mode must expose Bandcamp's player and detect its floating bottom surface");
+assert.match(layoutCartSource, /resumeBandkitPlayback[\s\S]*?scanLivePlayer\?\.\(\)[\s\S]*?160[\s\S]*?resumeBandkitPlayback\(r, enabled, changed\)/,
+  "Re-enabling Bandkit's player must immediately reclaim active native playback");
+assert.match(liveScanningSource, /scanLivePlayer\(\)[\s\S]*?syncNativePlayerMode\?\.\(\)/,
+  "Late-loading native bottom players must update the retained chevron position");
+assert.match(runtimeShellSource, /function releasePlayerPageSpace[\s\S]*?height", "0px"[\s\S]*?discoverPlayerSpacer\.remove\(\)[\s\S]*?removeProperty\("--bandkit-player-reserved-height"\)[\s\S]*?!runtimeState\.appearance\.hideBandcampPlayer\) \{ releasePlayerPageSpace/,
+  "Disabling the Bandkit player must release its page spacing");
+assert.match(css, /data-player-enabled="false"[\s\S]*?> :not\(\.hub-player-sections\):not\(\.hub-toast\)[\s\S]*?display:\s*none !important[\s\S]*?data-native-bottom-player="true"[\s\S]*?right:\s*16px/,
+  "The disabled player must retain only its chevron and move it to the right of a native bottom player");
+assert.match(css, /data-player-enabled="false"\] \.hub-player-sections > :not\(\.hub-compact-panel-button\)[\s\S]*?display:\s*none !important[\s\S]*?data-player-enabled="false"\] \.hub-compact-panel-button[\s\S]*?display:\s*inline-flex !important[\s\S]*?pointer-events:\s*auto/,
+  "The retained chevron must stay usable regardless of the configured player button layout");
 assert.match(source, /setupCompactPanelNotices[\s\S]*?is-notifying[\s\S]*?3600/, "Compact destination notices must return to the chevron after a few seconds");
 assert.doesNotMatch(source, /has-notice-count|compactPanelNoticeCount/, "Compact destination notices must not render numeric counters");
 assert.match(css, /\.hub-player-sections \.hub-now-playing-count\s*\{[^}]*display:\s*none !important;[\s\S]*?\.hub-player \.hub-header-shortcut-count\s*\{[^}]*display:\s*none !important;/s,
@@ -115,8 +142,8 @@ assert.match(css, /\.hub-panel-shortcut::before\s*\{[^}]*border-radius:\s*999px;
   "Inactive panel destinations must retain compact circular hit-state geometry");
 assert.match(css, /\.hub-panel-shortcut:hover::before\s*\{[^}]*background:\s*transparent;[^}]*width:\s*68px;/s,
   "Hovered panel destinations must retain their full hit area without drawing a backing");
-assert.match(css, /\.hub-panel-shortcuts\s*\{[^}]*column-gap:\s*4px;[^}]*grid-template-columns:\s*repeat\(4, 68px\);[^}]*justify-content:\s*center;/s,
-  "Panel destinations must form a tightly spaced centred cluster");
+assert.match(css, /\.hub-panel-shortcuts\s*\{[^}]*column-gap:\s*4px;[^}]*grid-auto-columns:\s*68px;[^}]*grid-auto-flow:\s*column;[^}]*justify-content:\s*center;/s,
+  "Panel destinations must form a tightly spaced centred cluster that fits however many destinations are available");
 assert.match(css, /\.hub-panel-shortcut-count\s*\{[^}]*right:\s*calc\(50% - 34px\);[^}]*top:\s*1px;/s,
   "Panel destination counters must sit on the pill's upper-right edge");
 assert.match(css, /\.hub-panel\.is-frosted-glass \.hub-panel-shortcut-count\s*\{[^}]*border-color:\s*transparent;/s,
@@ -326,14 +353,14 @@ assert.match(liveScanningSource, /\$headerCloseButton\.addEventListener\("click"
   "Pointer clicks on the panel close button must release panel focus before returning the music bar to rest");
 assert.match(interactionGuardsSource, /scheduleCompactPanelFocusRelease[\s\S]*?setTimeout\([\s\S]*?\.matches\(":hover"\)[\s\S]*?compactPanelButton\.blur\(\)[\s\S]*?5000/,
   "A pointer-closed compact panel must release restored focus five seconds after mouseout");
-assert.match(source, /sectionRect = playerSections\.getBoundingClientRect\(\)[\s\S]*?sectionRect\.left \+ sectionRect\.width \/ 2 - playerRect\.left/,
+assert.match(source, /sectionRect = scaleRect\(playerSections\.getBoundingClientRect\(\), uiScale\)[\s\S]*?sectionRect\.left \+ sectionRect\.width \/ 2 - localPlayerRect\.left/,
   "Contextual panels must use the launcher's rendered center after preset layout resolves");
-assert.match(source, /dockChevron = docked \? dockChevronGeometry\(playerRect, contentRect\) : null;[\s\S]*?sectionCenter = dockChevron[\s\S]*?\? dockChevron\.center[\s\S]*?: contextual[\s\S]*?: panelCenter - playerRect\.left;/,
+assert.match(source, /dockChevron = docked \? dockChevronGeometry\(localPlayerRect, contentRect, uiScale\) : null;[\s\S]*?sectionCenter = dockChevron[\s\S]*?\? dockChevron\.center[\s\S]*?: contextual[\s\S]*?: panelCenter - localPlayerRect\.left;/,
   "Docked panel controls must anchor beside the music bar content while floating and Zune launchers use their rendered position");
 assert.match(dockChevronSource, /contentRect\.right - playerRect\.left \+ DOCK_CHEVRON_CLEARANCE \+ half/,
   "The docked chevron must rest just past the timeline instead of at the viewport edge");
-assert.match(source, /anchorCenter = playerRect\.left \+ sectionCenter[\s\S]*?anchorCenter - panelWidth \/ 2/, "Floating contextual panels must center on their music-bar control");
-assert.match(source, /maxPanelLeft = Math\.max\(12, window\.innerWidth - panelWidth - 12\)/, "Floating contextual panels must stay inside the viewport");
+assert.match(source, /anchorCenter = localPlayerRect\.left \+ sectionCenter[\s\S]*?anchorCenter - panelWidth \/ 2/, "Floating contextual panels must center on their music-bar control");
+assert.match(source, /maxPanelLeft = Math\.max\(12, window\.innerWidth \/ uiScale - panelWidth - 12\)/, "Floating contextual panels must stay inside the viewport");
 assert.match(css, /\.hub-panel\.is-contextual\[data-player-style="zune"\]\s*\{[^}]*left:\s*var\(--hub-context-panel-left, 12px\);[^}]*right:\s*auto;/s,
   "Zune contextual panels must use their chevron anchor");
 assert.match(css, /\.hub-panel\.is-contextual\[data-player-style="zune"\]\s*\{[^}]*bottom:\s*calc\(var\(--hub-player-height\) \+ var\(--hub-player-bottom-gap\) - 20px\);/s,

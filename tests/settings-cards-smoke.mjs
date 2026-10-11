@@ -83,8 +83,8 @@ assert.match(settingsSource, /createSettingsDisclosure\("Colours", "", "colours"
   "Appearance must use the same description-free disclosure pattern");
 assert.doesNotMatch(settingsSource, /createSettingsDisclosure\("Page", "", "page"\)/,
   "page-level features belong in Features, not Appearance");
-assert.match(settingsSource, /renderFeatureSettings[\s\S]*?"Bandkit cart"[\s\S]*?"Saved playlists"[\s\S]*?"Activity"[\s\S]*?"Modern Bandcamp pages"[\s\S]*?"Bandcamp music player"/,
-  "Features must hold the cart, modern pages and native player switches");
+assert.match(settingsSource, /renderFeatureSettings[\s\S]*?"Bandkit cart"[\s\S]*?"Saved playlists"[\s\S]*?"Activity"[\s\S]*?"Modern Bandcamp pages"[\s\S]*?"Bandkit player"/,
+  "Features must hold the cart, modern pages and Bandkit player switches");
 assert.match(activitySource, /hub-analysis-options hub-settings-dependent-options[\s\S]*?camelotRow\.hidden = !showTrackKeys/,
   "Analysis children must be indented and Camelot notation disclosed only with musical keys");
 assert.match(css, /\.hub-settings-detail \.hub-analysis-option-row\[hidden\]\s*\{[^}]*display:\s*none;/s,
@@ -185,13 +185,13 @@ assert.match(css, /Every settings destination shares the same quiet, text-first 
   "all detail pages must opt into one shared visual system");
 assert.match(css, /\.hub-backup-block > \.hub-settings-text-actions > \.hub-settings-action\s*\{[^}]*margin-right:\s*var\(--hub-settings-compact-control-inset\);[\s\S]*?\.hub-backup-frequency \.hub-settings-combobox\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) calc\(var\(--hub-settings-compact-control-inset\) \* 2\);/s,
   "Data actions, readouts and picker carets must share one visible right-hand endpoint");
-assert.match(css, /\.hub-settings-detail \.hub-settings-disclosure--quiet[\s\S]*?background:\s*transparent;[\s\S]*?border:\s*0/,
+assert.match(css, /:is\(\.hub-settings-detail, \.hub-onboarding-scale\) \.hub-settings-disclosure--quiet[\s\S]*?background:\s*transparent;[\s\S]*?border:\s*0/,
   "detail disclosures must not use card backings");
 assert.match(css, /\.hub-settings-detail:has\(> \.hub-settings-disclosure--quiet > \.hub-settings-disclosure-trigger:is\(:hover, :focus-visible\)\)[\s\S]*?> \.hub-settings-disclosure--quiet:not\(\.is-open\):not\(:has\(> \.hub-settings-disclosure-trigger:is\(:hover, :focus-visible\)\)\)\s*\{[^}]*opacity:\s*0\.38;/s,
   "top-level detail drawers must defocus only their closed siblings, never nested disclosures");
-assert.match(css, /\.hub-settings-detail \.hub-settings-disclosure--quiet \.hub-settings-disclosure-title\s*\{[^}]*font-weight:\s*600;[\s\S]*?\.hub-settings-disclosure--quiet\.is-open \.hub-settings-disclosure-title\s*\{[^}]*font-weight:\s*750;/s,
+assert.match(css, /:is\(\.hub-settings-detail, \.hub-onboarding-scale\) \.hub-settings-disclosure--quiet \.hub-settings-disclosure-title\s*\{[^}]*font-weight:\s*600;[\s\S]*?\.hub-settings-disclosure--quiet\.is-open \.hub-settings-disclosure-title\s*\{[^}]*font-weight:\s*750;/s,
   "an open settings drawer must use a distinctly bolder heading than closed drawers");
-assert.match(css, /\.hub-settings-detail \.hub-settings-disclosure--quiet \.hub-settings-disclosure-chevron\s*\{[\s\S]*?opacity:\s*0[\s\S]*?\.hub-settings-disclosure-trigger:is\(:hover, :focus-visible\) \.hub-settings-disclosure-chevron\s*\{[\s\S]*?opacity:\s*1/,
+assert.match(css, /:is\(\.hub-settings-detail, \.hub-onboarding-scale\) \.hub-settings-disclosure--quiet \.hub-settings-disclosure-chevron\s*\{[\s\S]*?opacity:\s*0[\s\S]*?\.hub-settings-disclosure-trigger:is\(:hover, :focus-visible\) \.hub-settings-disclosure-chevron\s*\{[\s\S]*?opacity:\s*1/,
   "detail disclosure chevrons must only reveal on header hover or focus");
 assert.doesNotMatch(css, /\.hub-settings-disclosure--quiet\.is-open \.hub-settings-disclosure-chevron\s*\{\s*opacity:\s*1/,
   "opening a detail drawer must not make its chevron persist");

@@ -26,7 +26,7 @@ const contentModules = [
   "../../src/content/index.js",
   ...[
     "runtime-shell", "runtime-dom-shell", "interaction-guards", "now-playing-session", "persistence-playback", "playlist-io", "appearance-header-theme", "appearance", "modern-layout", "modern-release-layout",
-    "layout-cart", "layout-cart-rendering", "now-playing-actions", "dj-playback", "dj-page-tools", "dj-handoff", "collection-views", "collection-playlist-integration", "activity-view", "custom-theme-settings", "activity-settings",
+    "layout-cart", "layout-cart-rendering", "now-playing-actions", "dj-playback", "dj-page-tools", "dj-handoff", "collection-views", "collection-playlist-integration", "collection-download-selection", "downloads-view", "activity-view", "custom-theme-settings", "activity-settings",
     "discover-tracks", "feed-tracks", "player-metadata", "player-shell", "feed-streams", "feed-cart", "player-handoffs", "page-player-ui", "page-commerce-analysis", "page-actions", "search-results", "overflow-tooltips", "live-scanning",
     "lifecycle"
   ].map((filename) => `../../src/content/runtime/${filename}.js`)
@@ -54,7 +54,7 @@ function readStyleDirectory(name, filenames) {
 }
 
 export const readHubStyles = () => readStyleDirectory("hub", [
-  "base.css", "navigation.css", "dj.css", "dj-controls.css", "collections.css", "collections-details.css", "collections-interactions.css", "settings.css", "settings-controls.css", "settings-actions.css", "player-foundation.css", "settings-backup.css", "settings-detail.css", "settings-theme.css", "settings-colours.css", "glass.css", "settings-disclosure.css", "player.css", "player-menu.css", "player-track.css", "player-interactions.css", "compact-panel.css", "onboarding.css", "responsive.css", "links.css", "search-results.css"
+  "base.css", "navigation.css", "dj.css", "dj-controls.css", "collections.css", "collections-details.css", "collections-interactions.css", "downloads.css", "settings.css", "settings-controls.css", "settings-actions.css", "player-foundation.css", "settings-backup.css", "settings-detail.css", "settings-theme.css", "settings-colours.css", "glass.css", "settings-disclosure.css", "player.css", "player-menu.css", "player-track.css", "player-interactions.css", "compact-panel.css", "onboarding.css", "responsive.css", "links.css", "search-results.css", "scaling.css"
 ]);
 // The page theme ships as its own document_start stylesheet so a navigation
 // paints in the user's colours before the runtime starts.

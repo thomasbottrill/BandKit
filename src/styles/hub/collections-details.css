@@ -209,7 +209,7 @@
 }
 
 :is(.hub-saved-cart-stack, .hub-saved-playlist-stack):is(:hover, :focus-within) > .hub-saved-playlist-card {
-  opacity: 0.42;
+  opacity: 0.88;
 }
 
 :is(.hub-saved-cart-stack, .hub-saved-playlist-stack) > .hub-saved-playlist-card:is(:hover, :focus-within) {

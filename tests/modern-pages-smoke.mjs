@@ -577,8 +577,8 @@ assert.match(source, /function bindPageScrubDrag\(control\)[\s\S]*?pointerdown[\
 assert.match(source, /previewPageScrub[\s\S]*?--bandkit-page-scrub-progress/, "Page scrubbers should preview the playhead position while dragging");
 assert.match(source, /const fraction = drag\.fraction;[\s\S]*?commitPageScrub\(control, fraction\)/, "Page scrubbers should commit the last stable drag position instead of trusting pointer-up coordinates");
 assert.match(source, /containThemeColourPointer[\s\S]*?pointerdown[\s\S]*?stopPropagation/, "Theme colour sliders should not bubble pointer gestures into draggable panel chrome");
-assert.match(source, /const maxLeft = Math\.max\(8, window\.innerWidth - dragging\.width - 8\);[\s\S]*?Math\.max\(8, Math\.min\(maxLeft,/, "Panel dragging must clamp to a valid viewport range even when the panel nearly fills the screen");
-assert.match(source, /const savedWidth = Number\(state\.layout\.width\) \|\| 420;[\s\S]*?Math\.max\(8, window\.innerWidth - width - 8\)/, "Saved panel geometry must reject invalid values and preserve an on-screen inset");
+assert.match(source, /const maxLeft = Math\.max\(8, \(window\.innerWidth \/ uiScale\) - dragging\.width - 8\);[\s\S]*?Math\.max\(8, Math\.min\(maxLeft,/, "Panel dragging must clamp to a valid viewport range even when the panel nearly fills the screen");
+assert.match(source, /const savedWidth = Number\(state\.layout\.width\) \|\| 420;[\s\S]*?Math\.max\(8, \(window\.innerWidth \/ interfaceScale\(state\.appearance\)\) - width - 8\)/, "Saved panel geometry must reject invalid values and preserve an on-screen inset");
 assert.match(source, /commitPageScrub[\s\S]*?MESSAGES\.SEAMLESS_SEEK/, "Page scrubbers should commit the previewed position on release");
 assert.match(css, /body\.feed #stories-vm\s*\{[^}]*grid-column:\s*1/s, "Feed stories must occupy the wide column regardless of DOM order");
 assert.match(css, /body\.feed #stories-vm > h2,[\s\S]*?body\.feed #stories > h2\s*\{[^}]*display:\s*none\s*!important/s, "Both live Feed heading locations must remove the redundant Fan Activity divider");

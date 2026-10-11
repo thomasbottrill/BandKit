@@ -1,3 +1,4 @@
+import { interfaceScale } from "../scale.js";
 import { runtimeSaveState, runtimeState } from "./context.js";
 
 // The docked chevron is anchored just past the right edge of the music bar
@@ -9,8 +10,8 @@ export const DOCK_CHEVRON_WIDTH = 48;
 export const DOCK_CHEVRON_CLEARANCE = 8;
 export const DOCK_CHEVRON_EDGE_MARGIN = 12;
 
-export function dockChevronGeometry(playerRect, contentRect) {
-  const viewportWidth = document.documentElement?.clientWidth || window.innerWidth;
+export function dockChevronGeometry(playerRect, contentRect, scale = 1) {
+  const viewportWidth = (document.documentElement?.clientWidth || window.innerWidth) / scale;
   const half = DOCK_CHEVRON_WIDTH / 2;
   const anchor = contentRect?.width
     ? contentRect.right - playerRect.left + DOCK_CHEVRON_CLEARANCE + half
@@ -26,9 +27,9 @@ export function syncDockChevron(r, center, docked = false) {
   const gap = docked ? Math.min(maxGap, Math.max(0, Number(runtimeState.dockChevronGap) || 0)) : 0;
   r.$player.style.setProperty("--hub-dock-chevron-gap", `${gap}px`);
   if (r.$panel) {
-    const playerLeft = r.$player.getBoundingClientRect?.().left || 0;
+    const playerLeft = (r.$player.getBoundingClientRect?.().left || 0) / interfaceScale(runtimeState.appearance);
     const panelWidth = r.$panel.offsetWidth || r.$panel.getBoundingClientRect?.().width || 420;
-    const viewportWidth = document.documentElement?.clientWidth || window.innerWidth;
+    const viewportWidth = (document.documentElement?.clientWidth || window.innerWidth) / interfaceScale(runtimeState.appearance);
     const maxPanelLeft = Math.max(12, viewportWidth - panelWidth - 12);
     const panelLeft = Math.max(12, Math.min(maxPanelLeft, playerLeft + center + gap - panelWidth / 2));
     r.$panel.style.setProperty("--hub-context-panel-left", `${Math.round(panelLeft)}px`);
@@ -67,7 +68,7 @@ export function bindDockChevron(r) {
     });
     handle.addEventListener("pointermove", (event) => {
       if (!drag || drag.pointerId !== event.pointerId) return;
-      move(drag.gap + event.clientX - drag.x);
+      move(drag.gap + (event.clientX - drag.x) / interfaceScale(runtimeState.appearance));
     });
     const finish = () => {
       if (!drag) return;

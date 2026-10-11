@@ -1,12 +1,16 @@
+import { scaleRect } from "./scale.js";
+
 const activePopovers = new WeakMap();
 
 function positionPopover(anchor, popover) {
   if (!anchor.isConnected || !popover.isConnected) return;
   const margin = 8;
   const gap = 4;
-  const anchorRect = anchor.getBoundingClientRect();
-  const viewportWidth = document.documentElement.clientWidth;
-  const viewportHeight = document.documentElement.clientHeight;
+  const scale = Number.parseFloat(getComputedStyle(anchor.closest(".hub-panel") || anchor).zoom) || 1;
+  popover.style.zoom = String(scale);
+  const anchorRect = scaleRect(anchor.getBoundingClientRect(), scale);
+  const viewportWidth = document.documentElement.clientWidth / scale;
+  const viewportHeight = document.documentElement.clientHeight / scale;
 
   popover.style.position = "fixed";
   popover.style.inset = "auto";
@@ -15,7 +19,7 @@ function positionPopover(anchor, popover) {
   popover.style.maxWidth = `${Math.max(0, viewportWidth - margin * 2)}px`;
   popover.style.visibility = "hidden";
 
-  const popoverRect = popover.getBoundingClientRect();
+  const popoverRect = scaleRect(popover.getBoundingClientRect(), scale);
   const cssMaxHeight = Number.parseFloat(getComputedStyle(popover).maxHeight);
   const availableBelow = viewportHeight - anchorRect.bottom - gap - margin;
   const availableAbove = anchorRect.top - gap - margin;
@@ -58,7 +62,7 @@ export function closeSettingsPopover(popover) {
   window.removeEventListener("resize", active.reposition);
   window.removeEventListener("scroll", active.reposition, true);
   activePopovers.delete(popover);
-  for (const property of ["position", "inset", "margin", "minWidth", "maxWidth", "maxHeight", "left", "top", "visibility", "zIndex"]) {
+  for (const property of ["zoom", "position", "inset", "margin", "minWidth", "maxWidth", "maxHeight", "left", "top", "visibility", "zIndex"]) {
     popover.style[property] = "";
   }
   if (active.owner?.isConnected) active.owner.append(popover);

@@ -1,4 +1,4 @@
-import { createKitControls, ONBOARDING_MENU_KEYS, removeOnboardingMenus, syncOnboardingContrast } from "./onboarding-controls.js";
+import { createDownloadFormatControl, createKitControls, createOnboardingScaleSettings, ONBOARDING_MENU_KEYS, removeOnboardingMenus, syncOnboardingContrast } from "./onboarding-controls.js";
 import { createSettingsRowCopy } from "../components/settings.js";
 import { runtimeSaveState, runtimeSeamless, runtimeState } from "./context.js";
 import { asset, createButtonIcon, createElement } from "../core.js";
@@ -7,6 +7,9 @@ import { MESSAGES, STORAGE_KEYS } from "../../shared/contracts.js";
 import { applyTimelinePath } from "../timeline-styles.js";
 import { syncCustomPlayerButtons } from "../custom-player-buttons.js";
 import { createHelpReferenceShortcut } from "../help-reference-shortcut.js";
+import { WHATS_NEW } from "../whats-new.js";
+import { normalizeLibraryQuery } from "../../shared/library.js";
+import { pageScaleGroup } from "../scale.js";
 
 const STEPS = [
   { eyebrow: "Welcome to Bandkit", title: "Your Bandcamp listening toolkit", copy: "Bandkit adds a music bar and focused tools without taking you away from the music.", icon: "icon-bandkit.svg", target: "player", placement: "top", forceVisualizer: true },
@@ -21,6 +24,39 @@ const STEPS = [
   { eyebrow: "Backup", title: "Keep a portable copy of your Bandkit data", copy: "A backup includes playlists, carts, activity and settings, ready to restore in another copy of Bandkit.", icon: "icon-download-all.svg", panel: "settings", settingsView: "privacy", target: "panel", placement: "left", choice: "backup" },
   { eyebrow: "You’re all set", title: "Bandkit is ready when you are", copy: "Press play and explore. Your queue, playlists, carts, activity and listening controls are always close by.", icon: "icon-bandkit.svg", target: "player", placement: "top", emptyPlayer: true }
 ];
+
+// The welcome tour runs once on first install. What's new is defined per
+// release in whats-new.js and reuses the same coachmark, demos and controls.
+const TOURS = Object.freeze({ welcome: STEPS, "whats-new": WHATS_NEW.steps });
+const tourSteps = (r) => TOURS[r.$onboardingTour] || STEPS;
+const tourStep = (r) => {
+  const steps = tourSteps(r);
+  return steps[Math.max(0, Math.min(steps.length - 1, Number(r.$onboardingSessionStep) || 0))];
+};
+
+// Pages a step can require. Page scale only applies to some Bandcamp pages,
+// so its step moves to one where the change can be seen.
+const PAGE_KINDS = Object.freeze({
+  scaled: (r) => Boolean(pageScaleGroup(r.$modernBandcampPageType?.()))
+});
+const needsOtherPage = (r, step) => Boolean(step?.page?.url) && PAGE_KINDS[step.page.kind]?.(r) === false;
+const RESUME_WINDOW_MS = 2 * 60_000;
+const samePage = (left, right) => {
+  try {
+    const a = new URL(left); const b = new URL(right);
+    return a.origin === b.origin && a.pathname.replace(/\/$/, "") === b.pathname.replace(/\/$/, "");
+  } catch { return false; }
+};
+
+// Leaves the panel as it was before the tour, then opens the step's page; the
+// tour picks up again there (see $resumeTour).
+async function continueTourOnPage(r, step, url) {
+  const resume = { tour: r.$onboardingTour, step, url, at: Date.now(), snapshot: r.$onboardingUiSnapshot };
+  Object.assign(runtimeState, r.$onboardingUiSnapshot || {});
+  runtimeSaveState();
+  await Promise.all([r.$stateSaveChain, r.$persistLocal({ [STORAGE_KEYS.TOUR_RESUME]: resume }, false)]).catch(() => {});
+  location.assign(url);
+}
 
 const DEMO_TRACKS = [
   { id: "bandkit-tour-night-drive", playlistItemId: "bandkit-tour-night-drive", title: "Night Drive", artist: "Bandkit Radio", album: "First Light", duration: 222, art: asset("icon-image.svg"), pageUrl: "https://bandcamp.com", artistUrl: "https://bandcamp.com", releaseUrl: "https://bandcamp.com" },
@@ -56,6 +92,48 @@ function demoActivity() {
     { id: "bandkit-tour-playlist", action: "added-to-playlist", title: DEMO_TRACKS[1].title, artist: DEMO_TRACKS[1].artist, art: DEMO_TRACKS[1].art, url: DEMO_TRACKS[1].pageUrl, destination: "Late-night finds", createdAt: new Date(now - 45_000).toISOString() },
     { id: "bandkit-tour-cart", action: "added-to-cart", title: DEMO_TRACKS[2].title, artist: DEMO_TRACKS[2].artist, art: DEMO_TRACKS[2].art, url: DEMO_TRACKS[2].pageUrl, createdAt: new Date(now - 10_000).toISOString() }
   ];
+}
+
+const DEMO_LIBRARY_ACCOUNT = "bandkit-tour";
+const DEMO_LIBRARY = {
+  version: 1,
+  activeAccount: DEMO_LIBRARY_ACCOUNT,
+  accounts: {
+    [DEMO_LIBRARY_ACCOUNT]: {
+      profileUrl: "https://bandcamp.com",
+      annotations: {},
+      items: Object.fromEntries([
+        ["First Light", "Bandkit Radio", "2026-03-06", ["ambient", "electronic"], true, false],
+        ["Blue Hours", "Bandkit Radio", "2025-11-14", ["house"], true, false],
+        ["Low Tide", "Harbour Lights", "2024-07-19", ["dub", "electronic"], true, false],
+        ["Paper Moons", "The Quiet Hours", "2023-02-03", ["folk"], true, false],
+        ["Night Market", "Neon Arcade", "2026-01-23", ["techno"], false, true]
+      ].map(([title, artist, releaseDate, tags, owned, wished], index) => {
+        const id = `bandkit-tour-release-${index}`;
+        return [id, { id, title, artist, releaseDate, tags, owned, wished, addedAt: 1000 - index, art: asset("icon-image.svg"), pageUrl: "https://bandcamp.com", tracks: [] }];
+      }))
+    }
+  }
+};
+
+const DEMO_BANDCAMP_PLAYLISTS = [
+  { id: "bandkit-tour-bandcamp-playlist", title: "Shared on Bandcamp", trackCount: 9, duration: 2460, art: asset("icon-image.svg"), url: "https://bandcamp.com" },
+  { id: "bandkit-tour-bandcamp-playlist-two", title: "Sunday records", trackCount: 6, duration: 1720, art: asset("icon-image.svg"), url: "https://bandcamp.com" }
+];
+
+const DEMO_DOWNLOADS = [
+  { id: "bandkit-tour-download-0", status: "downloading", title: "First Light", artist: "Bandkit Radio", format: "flac", art: asset("icon-image.svg"), pageUrl: "https://bandcamp.com" },
+  { id: "bandkit-tour-download-1", status: "preparing", title: "Blue Hours", artist: "Bandkit Radio", format: "flac", art: asset("icon-image.svg"), pageUrl: "https://bandcamp.com" },
+  { id: "bandkit-tour-download-2", status: "queued", title: "Low Tide", artist: "Harbour Lights", format: "flac", art: asset("icon-image.svg"), pageUrl: "https://bandcamp.com" }
+];
+
+// Like withDemoState, for demo data that lives on the runtime instead of in
+// the saved state (the collection catalogue, Bandcamp playlists, downloads).
+function withDemoRuntime(r, overrides, render) {
+  const previous = new Map(Object.keys(overrides).map((key) => [key, r[key]]));
+  Object.assign(r, overrides);
+  try { render(); }
+  finally { for (const [key, value] of previous) r[key] = value; }
 }
 
 function withDemoState(overrides, render) {
@@ -108,6 +186,29 @@ function renderRealDemoPanel(r, demo) {
     r.$activityDateFilter = "";
     try { withDemoState({ ...common, activity: demoActivity() }, () => r.$renderActivity()); }
     finally { r.$activityDateFilter = previousDateFilter; }
+  } else if (demo === "collection") {
+    withDemoRuntime(r, {
+      $collectionCatalog: DEMO_LIBRARY, $collectionAccountId: DEMO_LIBRARY_ACCOUNT,
+      $collectionQuery: normalizeLibraryQuery({ scope: "owned" }), $collectionLimit: 40,
+      $collectionSearchOpen: true, $collectionFiltersOpen: false, $collectionRefreshing: false,
+      $collectionTagSearch: null, $collectionReleaseCache: new Map()
+    }, () => withDemoState({ ...common, playlistView: "collection" }, () => r.$renderPlaylist()));
+    // The real panel must rebuild from the real catalogue once the tour moves on.
+    r.$collectionPanelDirty = true;
+  } else if (demo === "bandcamp-playlists") {
+    withDemoRuntime(r, {
+      $bandcampPlaylists: { items: DEMO_BANDCAMP_PLAYLISTS, loadedAt: Date.now(), loading: false, fanId: DEMO_LIBRARY_ACCOUNT },
+      $loadBandcampPlaylists: async () => {}
+    }, () => withDemoState({ ...common, playlistView: "saved", savedPlaylists: DEMO_PLAYLISTS.slice(0, 1) }, () => r.$renderPlaylist()));
+  } else if (demo === "downloads") {
+    withDemoRuntime(r, {
+      // Sample rows follow the format chosen in the card.
+      $downloadsQueue: { paused: false, items: DEMO_DOWNLOADS.map((item) => ({ ...item, format: runtimeState.downloadFormat })) },
+      $downloadProgress: { [DEMO_DOWNLOADS[0].id]: { received: 61_000_000, total: 148_000_000 } },
+      $downloadPermission: true,
+      $pollDownloads: async () => {},
+      $syncDownloadsPolling: () => {}
+    }, () => r.$renderDownloads());
   }
   r.$content.dataset.onboardingDemo = demo;
   decorateDemoArtwork(r);
@@ -280,7 +381,21 @@ function onboardingSettingsCard(r) {
     restart.addEventListener("click", () => r.$startOnboarding({ replay: true, step: 0 }));
     actions.append(restart);
   }
+  if (WHATS_NEW.steps.length) card.append(whatsNewSettingsRow(r));
   return card;
+}
+
+function whatsNewSettingsRow(r) {
+  const copy = createSettingsRowCopy("What’s new", WHATS_NEW.summary);
+  const show = createElement("button", "hub-settings-action hub-onboarding-whats-new", "See What’s New");
+  show.type = "button";
+  show.title = `Walk through the features added in Bandkit ${WHATS_NEW.version}.`;
+  show.addEventListener("click", () => r.$startOnboarding({ tour: "whats-new", replay: true }));
+  const row = createElement("div", "hub-settings-row hub-settings-text-actions");
+  const actions = createElement("div", "hub-settings-feedback-actions");
+  actions.append(show);
+  row.append(copy, actions);
+  return row;
 }
 
 function targetForStep(r, step) {
@@ -385,10 +500,10 @@ function pausePlaybackForOnboarding(r) {
 
 function registerOnboardingRuntime(r) {
   r.$onboardingUsesDemoPanel = () => r.$onboardingActive === true
-    && Boolean(STEPS[r.$onboardingSessionStep]?.demo);
+    && Boolean(tourSteps(r)[r.$onboardingSessionStep]?.demo);
   r.$syncOnboardingDemoPlayer = function syncOnboardingDemoPlayer() {
     if (!r.$onboardingActive) return;
-    const step = STEPS[Math.max(0, Math.min(STEPS.length - 1, Number(r.$onboardingSessionStep) || 0))];
+    const step = tourStep(r);
     if (step.emptyPlayer) setEmptyPlayerContent(r);
     else setDemoPlayerContent(r, {
         forceDj: step.target === "dj-drawer" || step.forceDj === true,
@@ -406,7 +521,7 @@ function registerOnboardingRuntime(r) {
     runtimeSaveState();
     if (announce) r.$showToast(runtimeState.djToolsEnabled ? "DJ tools enabled" : "DJ tools disabled");
   };
-  r.$startOnboarding = function startOnboarding({ replay = false, step = 0 } = {}) {
+  r.$startOnboarding = function startOnboarding({ tour = "welcome", replay = false, step = 0, render = true } = {}) {
     if (!r.$onboardingActive) {
       r.$onboardingUiSnapshot = {
         open: runtimeState.open, activeTab: runtimeState.activeTab,
@@ -415,15 +530,43 @@ function registerOnboardingRuntime(r) {
       };
       pausePlaybackForOnboarding(r);
     }
+    r.$onboardingTour = TOURS[tour] ? tour : "welcome";
     r.$onboardingActive = true;
     r.$onboardingKitInitialized = false;
     r.$onboardingKitMode = "theme";
-    r.$onboardingReplay = replay;
-    r.$onboardingSessionStep = Math.max(0, Math.min(STEPS.length - 1, Number(step) || 0));
-    if (!replay) runtimeState.onboardingStep = r.$onboardingSessionStep;
-    applyStepNavigation(STEPS[r.$onboardingSessionStep]);
+    // What's new never resumes or completes the welcome tour.
+    r.$onboardingReplay = replay || r.$onboardingTour !== "welcome";
+    const steps = tourSteps(r);
+    r.$onboardingSessionStep = Math.max(0, Math.min(steps.length - 1, Number(step) || 0));
+    if (!r.$onboardingReplay) runtimeState.onboardingStep = r.$onboardingSessionStep;
+    if (r.$onboardingTour === "whats-new") runtimeState.whatsNewSeenVersion = WHATS_NEW.version;
+    applyStepNavigation(steps[r.$onboardingSessionStep]);
     runtimeSaveState();
-    r.$render();
+    if (render) r.$render();
+  };
+  // Shown once after an update to anyone who has already been welcomed. It is
+  // marked as seen as soon as it opens, so leaving the page part-way through
+  // never brings it back; Settings › Help & onboarding replays it. It waits
+  // for a page load where nothing is playing rather than pausing the music.
+  r.$activateWhatsNew = function activateWhatsNew() {
+    if (r.$onboardingActive || !WHATS_NEW.steps.length
+      || Number(runtimeState.onboardingCompletedVersion) <= 0
+      || runtimeState.whatsNewSeenVersion === WHATS_NEW.version
+      || (runtimeSeamless.enabled && runtimeSeamless.isPlaying)) return false;
+    // Startup renders once the hub is ready, as it does for the welcome tour.
+    r.$startOnboarding({ tour: "whats-new", render: false });
+    return true;
+  };
+  // Continues a tour that opened this page for one of its steps. The note is
+  // read once and only honoured on the page it named, shortly after.
+  r.$resumeTour = function resumeTour(resume) {
+    if (!resume) return false;
+    void chrome.storage.local.remove(STORAGE_KEYS.TOUR_RESUME).catch(() => {});
+    if (r.$onboardingActive || !TOURS[resume.tour] || resume.tour === "welcome"
+      || !(Date.now() - Number(resume.at) < RESUME_WINDOW_MS) || !samePage(resume.url, location.href)) return false;
+    r.$startOnboarding({ tour: resume.tour, step: resume.step, render: false });
+    if (resume.snapshot && typeof resume.snapshot === "object") r.$onboardingUiSnapshot = resume.snapshot;
+    return true;
   };
   r.$activateFirstRunOnboarding = function activateFirstRunOnboarding() {
     if (Number(runtimeState.onboardingCompletedVersion) > 0) return false;
@@ -443,6 +586,7 @@ function registerOnboardingRuntime(r) {
       runtimeState.musicBarPlayerDynamicColor = true;
       runtimeState.musicBarPanelDynamicColor = true;
     }
+    r.$onboardingTour = "welcome";
     r.$onboardingActive = true;
     r.$onboardingKitInitialized = false;
     r.$onboardingKitMode = "theme";
@@ -451,6 +595,9 @@ function registerOnboardingRuntime(r) {
     return true;
   };
   r.$finishOnboarding = function finishOnboarding() {
+    const welcome = r.$onboardingTour === "welcome";
+    // Someone finishing their first tour has nothing to catch up on yet.
+    if (welcome && !r.$onboardingReplay) runtimeState.whatsNewSeenVersion = WHATS_NEW.version;
     runtimeState.onboardingCompletedVersion = ONBOARDING_COMPLETE;
     runtimeState.onboardingStep = 0;
     Object.assign(runtimeState, r.$onboardingUiSnapshot || {});
@@ -458,6 +605,7 @@ function registerOnboardingRuntime(r) {
     r.$onboardingActive = false;
     r.$onboardingReplay = false;
     r.$onboardingSessionStep = 0;
+    r.$onboardingTour = "welcome";
     removeOnboardingMenus(r);
     r.$onboardingKitInitialized = false;
     r.$onboardingKitMode = null;
@@ -465,7 +613,7 @@ function registerOnboardingRuntime(r) {
     void r.$persistLocal({ [STORAGE_KEYS.ONBOARDING_COMPLETE]: ONBOARDING_COMPLETE });
     runtimeSaveState();
     r.$render();
-    r.$showToast("Bandkit is ready");
+    if (welcome) r.$showToast("Bandkit is ready");
   };
   r.$renderOnboarding = function renderOnboarding() {
     removeOnboardingMenus(r);
@@ -481,14 +629,16 @@ function registerOnboardingRuntime(r) {
       return;
     }
     syncOnboardingContrast(r);
-    const stepIndex = Math.max(0, Math.min(STEPS.length - 1, Number(r.$onboardingSessionStep) || 0));
+    const steps = tourSteps(r);
+    const stepIndex = Math.max(0, Math.min(steps.length - 1, Number(r.$onboardingSessionStep) || 0));
+    const lastStep = stepIndex === steps.length - 1;
     r.$onboardingSessionStep = stepIndex;
-    const step = STEPS[stepIndex];
+    const step = steps[stepIndex];
     configureTourView(r, step);
     r.$player.setAttribute("inert", "");
     r.$panel.setAttribute("inert", "");
     const headingContent = [];
-    if (stepIndex === STEPS.length - 1) {
+    if (lastStep && r.$onboardingTour === "welcome") {
       const logo = document.createElement("img");
       logo.className = "hub-onboarding-finish-logo";
       logo.src = asset("logo-type-3.svg");
@@ -503,17 +653,25 @@ function registerOnboardingRuntime(r) {
     body.append(copy);
     if (step.inlineDemo === "track-add") body.append(createAddMusicExample(r));
     if (step.choice === "kit") body.append(createKitControls(r));
+    if (step.control === "download-format") body.append(createDownloadFormatControl(r));
+    if (step.control === "scale") body.append(createOnboardingScaleSettings(r), createOnboardingScaleSettings(r, { pages: false }));
     const footer = createElement("footer", "hub-onboarding-footer");
     const back = createElement("button", "hub-onboarding-back", "Back");
     back.type = "button";
     back.disabled = stepIndex === 0;
     const skip = createElement("button", "hub-onboarding-skip", "Skip");
     skip.type = "button";
-    skip.hidden = stepIndex === STEPS.length - 1;
-    const next = createElement("button", "hub-onboarding-primary", stepIndex === STEPS.length - 1 ? "Finish" : "Next");
+    skip.hidden = lastStep;
+    const next = createElement("button", "hub-onboarding-primary", lastStep ? (r.$onboardingTour === "welcome" ? "Finish" : "Done") : "Next");
     next.type = "button";
     const goToStep = (nextStep) => {
-      const nextDefinition = STEPS[nextStep];
+      const nextDefinition = steps[nextStep];
+      if (needsOtherPage(r, nextDefinition)) {
+        for (const button of [back, skip, next]) button.disabled = true;
+        next.textContent = "Opening…";
+        void continueTourOnPage(r, nextStep, nextDefinition.page.url);
+        return;
+      }
       r.$onboardingSessionStep = nextStep;
       applyStepNavigation(nextDefinition);
       // Publish the destination player state before render() lays out the
@@ -525,7 +683,7 @@ function registerOnboardingRuntime(r) {
     };
     back.addEventListener("click", () => goToStep(Math.max(0, stepIndex - 1)));
     skip.addEventListener("click", r.$finishOnboarding);
-    next.addEventListener("click", () => stepIndex === STEPS.length - 1 ? r.$finishOnboarding() : goToStep(stepIndex + 1));
+    next.addEventListener("click", () => lastStep ? r.$finishOnboarding() : goToStep(stepIndex + 1));
     const secondary = createElement("div", "hub-onboarding-secondary-navigation");
     secondary.append(back, skip);
     const primaryNavigation = createElement("div", "hub-onboarding-primary-navigation");
@@ -565,7 +723,7 @@ function setupOnboardingRuntime(r) {
   };
   const renderDjTools = r.$renderDjTools;
   r.$renderDjTools = function renderDjToolsWithOnboardingDemo() {
-    const step = STEPS[Math.max(0, Math.min(STEPS.length - 1, Number(r.$onboardingSessionStep) || 0))];
+    const step = tourStep(r);
     if (r.$onboardingActive) {
       const forceOpen = step.target === "dj-drawer";
       withDemoState({
@@ -576,6 +734,11 @@ function setupOnboardingRuntime(r) {
     }
     renderDjTools();
   };
+  // Downloads is only a destination while something is queued, so the tour
+  // keeps it open for the step that demonstrates it.
+  const downloadsAvailable = r.$downloadsAvailable;
+  r.$downloadsAvailable = () => (r.$onboardingActive === true && tourStep(r)?.demo === "downloads") || downloadsAvailable();
+  r.$onboardingTour = "welcome";
   r.$onboardingActive = false;
   r.$onboardingReplay = false;
   r.$onboardingSessionStep = 0;
@@ -595,10 +758,11 @@ function setupOnboardingRuntime(r) {
   r.$onboardingDialog.setAttribute("aria-labelledby", "bandkit-onboarding-title");
   r.$onboardingLayer.append(r.$onboardingDialog);
   r.$shadow.append(r.$onboardingLayer);
-  window.addEventListener("resize", () => {
+  r.$scheduleOnboardingPosition = () => {
     if (!r.$onboardingActive) return;
-    scheduleCoachmarkPosition(r, r.$onboardingTarget, STEPS[r.$onboardingSessionStep]?.placement);
-  });
+    scheduleCoachmarkPosition(r, r.$onboardingTarget, tourSteps(r)[r.$onboardingSessionStep]?.placement);
+  };
+  window.addEventListener("resize", r.$scheduleOnboardingPosition);
   r.$onboardingLayer.addEventListener("keydown", (event) => {
     if (event.key !== "Tab") return;
     const focusable = [...r.$onboardingDialog.querySelectorAll("button:not(:disabled):not([hidden]), input:not(:disabled), select:not(:disabled)")];

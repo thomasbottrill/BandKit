@@ -2,10 +2,11 @@ import { asset, createElement } from "../core.js";
 
 export function createBandkitPlaylistOrigin() {
   const origin = createElement("span", "bandkit-collection-origin");
-  origin.title = "BandKit playlist";
-  origin.setAttribute("aria-label", "BandKit playlist");
+  origin.title = "Made with Bandkit";
+  origin.setAttribute("role", "img");
+  origin.setAttribute("aria-label", "Made with Bandkit");
   const originIcon = document.createElement("img");
-  originIcon.src = asset("icon-bandkit.svg");
+  originIcon.src = asset("icon-bandkit-square.svg");
   originIcon.alt = "";
   origin.append(originIcon);
   return origin;

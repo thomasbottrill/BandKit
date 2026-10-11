@@ -1,0 +1,74 @@
+@import "../shared/library-controls.css";
+
+.hub-collection-search,
+.hub-collection-filters {
+  margin-bottom: 12px;
+}
+
+.hub-collection-search[hidden],
+.hub-collection-filters[hidden],
+.hub-toolbar-menu-action[hidden] {
+  display: none;
+}
+
+/* In the panel the suggestions open inline under the field, so they never
+   cover the releases they are filtering. */
+.hub-collection-search .bandkit-tag-search-suggestions {
+  padding-top: 10px;
+}
+
+/* One line of tags that scrolls sideways, so the releases stay in view. */
+.hub-collection-search .bandkit-tag-search-options {
+  flex-wrap: nowrap;
+  margin: -2px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 2px;
+  scrollbar-width: none;
+}
+
+.hub-collection-search .bandkit-tag-search-options::-webkit-scrollbar {
+  display: none;
+}
+
+.hub-collection-search .bandkit-tag-search-options.has-more {
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+
+.hub-collection-search .bandkit-tag-chip {
+  flex: none;
+}
+
+.hub-collection-filters {
+  background: var(--hub-card);
+  border: 1px solid color-mix(in srgb, var(--hub-line) 35%, transparent);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.hub-collection-art { display: block; }
+.hub-collection-art .hub-art { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.hub-collection-release .hub-saved-cart-total { display: none; }
+.hub-collection-release .hub-row-title { min-width: 0; }
+.hub-collection-release .hub-saved-collection-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hub-collection-release .hub-saved-cart-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (hover: none), (pointer: coarse) {
+  .hub-collection-release .hub-saved-playlist-art-action { opacity: 1; background: color-mix(in srgb, var(--hub-card) 65%, transparent); }
+  .hub-collection-stack:is(:hover, :focus-within) > .hub-saved-playlist-card { opacity: 1; }
+}
+
+/* A small Bandkit glyph after the track count separates Bandkit's playlists
+   from the ones made on Bandcamp. */
+.hub-saved-cart-summary .hub-playlist-origin {
+  display: inline-block;
+  margin-left: 6px;
+  vertical-align: 0;
+}
+
+/* The glyph sits in a square file with room above and below; crop to it. */
+.hub-playlist-origin > img {
+  display: block;
+  height: 8px;
+  object-fit: cover;
+  width: 19px;
+}

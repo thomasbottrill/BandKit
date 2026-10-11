@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
+import { interfaceScale } from "../src/content/scale.js";
 
 const source = readFileSync(new URL("../src/content/runtime/dock-chevron.js", import.meta.url), "utf8")
-  .replace(/^import .*;\n/, "").replaceAll("export function", "function").replaceAll("export const", "const");
+  .replace(/^import .*;\n/gm, "").replaceAll("export function", "function").replaceAll("export const", "const");
 const handles = [];
 const compactCss = readFileSync(new URL("../src/styles/hub/compact-panel.css", import.meta.url), "utf8");
 assert.match(compactCss, /> :not\(\.hub-compact-panel-button\):not\(\.hub-chevron-drag-handle\)/,
@@ -30,7 +31,7 @@ const r = {
   },
   $playerSections: { append: (h) => handles.push(h), querySelectorAll: () => handles }
 };
-const context = vm.createContext({ runtimeState: state, runtimeSaveState: () => saves++, window: { innerWidth: 1200 }, document: {
+const context = vm.createContext({ interfaceScale, runtimeState: state, runtimeSaveState: () => saves++, window: { innerWidth: 1200 }, document: {
   documentElement: { clientWidth: 1200 },
   createElement: () => ({ events: {}, attrs: {}, classList: { add() {}, remove() {} },
     setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(k, fn) { this.events[k] = fn; }, setPointerCapture() {} })

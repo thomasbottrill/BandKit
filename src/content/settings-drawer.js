@@ -21,6 +21,7 @@ const SETTINGS_DESTINATION_ICONS = Object.freeze({
   themes: "icon-theme-curated.svg",
   colours: "icon-theme-custom.svg",
   finish: "icon-settings-finish.svg",
+  scale: "icon-settings-effects.svg",
   page: "icon-settings-page.svg"
 });
 

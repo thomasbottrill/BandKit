@@ -1,0 +1,82 @@
+/* The header launcher and onboarding remain at their original size. */
+.hub-player,
+.hub-panel,
+.hub-dj-drawer {
+  zoom: var(--hub-interface-scale, 1);
+  --hub-viewport-width: calc(100vw / var(--hub-interface-scale, 1));
+  --hub-viewport-height: calc(100vh / var(--hub-interface-scale, 1));
+}
+
+.hub-panel.is-contextual {
+  max-height: calc(var(--hub-viewport-height) - var(--hub-player-height) - var(--hub-player-bottom-gap) - 80px);
+  min-width: min(320px, calc(var(--hub-viewport-width) - 24px));
+}
+
+.hub-scale-settings { display: grid; gap: 8px; }
+.hub-scale-custom { display: grid; gap: 8px; }
+.hub-scale-custom[hidden], .hub-scale-control-row[hidden] { display: none; }
+.hub-scale-override { display: grid; gap: 6px; }
+.hub-scale-page-types { display: grid; gap: 6px; }
+.hub-scale-page-types[hidden] { display: none; }
+.hub-scale-control-row.is-disabled { color: var(--hub-muted); opacity: .55; }
+.hub-scrubbable-percentage.is-disabled .hub-scrubbable-percentage-handle { cursor: default; pointer-events: none; }
+.hub-onboarding-scale { border-top: 1px solid var(--hub-line); padding-top: 8px; }
+.hub-onboarding-scale .hub-scale-custom { max-height: 180px; overflow-y: auto; }
+
+/* Turning the Bandkit player off restores Bandcamp's player while retaining
+   the existing compact panel control as a small, independent launcher. */
+.hub-player[data-player-enabled="false"] {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  height: 64px;
+  pointer-events: none;
+}
+
+.hub-player[data-player-enabled="false"] > :not(.hub-player-sections):not(.hub-toast) {
+  display: none !important;
+}
+
+.hub-player[data-player-enabled="false"] .hub-player-sections {
+  height: 52px;
+  left: 50% !important;
+  pointer-events: auto;
+  right: auto !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  translate: none !important;
+  width: 52px !important;
+}
+
+.hub-player[data-player-enabled="false"] .hub-player-sections > :not(.hub-compact-panel-button) {
+  display: none !important;
+}
+
+:host([data-player-enabled="false"]) :is(.hub-header-shortcut, .hub-panel-shortcut, .hub-tab)[data-tab="playlist"] {
+  display: none !important;
+}
+
+.hub-player[data-player-enabled="false"][data-native-bottom-player="true"] .hub-player-sections {
+  left: auto !important;
+  right: 16px !important;
+  transform: translateY(-50%) !important;
+}
+
+.hub-player[data-player-enabled="false"] .hub-compact-panel-button {
+  background: var(--hub-panel);
+  border-color: var(--hub-line);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+  display: inline-flex !important;
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+.hub-player[data-player-enabled="false"] .hub-compact-panel-button:is(:hover, :focus-visible, .is-active) {
+  background: var(--hub-panel);
+  border-color: var(--hub-accent);
+}
+
+.hub-player[data-player-enabled="false"] .hub-chevron-drag-handle {
+  display: none !important;
+}

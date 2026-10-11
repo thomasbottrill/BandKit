@@ -103,6 +103,7 @@ r.$tabs = [
       { id: "playlist", label: "Now Playing & Playlists", icon: "icon-playlist.svg" },
       { id: "cart", label: "Cart", icon: "icon-cart.svg" },
       { id: "activity", label: "Activity", icon: "icon-activity.svg" },
+      { id: "downloads", label: "Downloads", icon: "icon-downloads.svg" },
       { id: "settings", label: "Settings", icon: "icon-settings.svg" }
     ];
 r.$tabBar = r.$panel.querySelector(".hub-tabs");

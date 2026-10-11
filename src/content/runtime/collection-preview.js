@@ -12,6 +12,10 @@ function releaseUrlFromCard(r, card) {
   return safeBandcampReleaseUrl(r.$collectionTrackFromCard(card)?.pageUrl);
 }
 
+function selectingDownloads() {
+  return document.documentElement.dataset.bandkitCollectionSelecting === "true";
+}
+
 function collectionSection(card) {
   return card.closest("#collection-items, #wishlist-items");
 }
@@ -263,7 +267,8 @@ export function setupCollectionPreview(r) {
       return;
     }
     const art = event.target.closest(COLLECTION_ART_SELECTOR);
-    if (!art) return;
+    // Selecting releases for download owns artwork clicks until it ends.
+    if (!art || (selectingDownloads() && !event.target.closest(".item_link_play"))) return;
     if (event.target.closest(".item_link_play")) {
       const card = art.closest(".collection-item-container");
       if (card && selectedCard !== card) void open(card); return;
@@ -280,7 +285,7 @@ export function setupCollectionPreview(r) {
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" && event.key !== " ") return;
     if (!(event.target instanceof Element)) return; const control = event.target.closest(".bandkit-collection-preview-target");
-    if (!control) return;
+    if (!control || selectingDownloads()) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     const card = control.closest(".collection-item-container");

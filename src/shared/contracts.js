@@ -1,6 +1,9 @@
 export const STORAGE_KEYS = Object.freeze({
   BPM_CORRECTIONS: "bandcampHubBpmCorrections",
+  DOWNLOAD_HISTORY: "bandcampHubDownloadHistory",
+  DOWNLOADS: "bandcampHubDownloads",
   ENABLED: "bandcampHubEnabled",
+  LIBRARY: "bandcampHubLibrary",
   LAYOUT: "bandcampHubLayout",
   ONBOARDING_COMPLETE: "bandcampHubOnboardingComplete",
   NOW_PLAYING: "bandcampHubNowPlayingSession",
@@ -9,12 +12,19 @@ export const STORAGE_KEYS = Object.freeze({
   PAGE_THEME: "bandcampHubPageTheme",
   PLAYBACK: "bandcampHubPlayback",
   STATE: "bandcampHubState",
+  // Where a tour continues after it opens another Bandcamp page for a step.
+  TOUR_RESUME: "bandcampHubTourResume",
   TRACK_ANALYSIS_CACHE: "bandcampHubTrackAnalysisCache"
 });
 
 export const MESSAGES = Object.freeze({
+  LIBRARY: "BANDCAMP_HUB_LIBRARY",
   CLEAR_PLAYBACK: "BANDCAMP_HUB_CLEAR_PLAYBACK",
   DELETE_ALL_DATA: "BANDCAMP_HUB_DELETE_ALL_DATA",
+  DOWNLOADS_COMMAND: "BANDCAMP_HUB_DOWNLOADS_COMMAND",
+  DOWNLOADS_ENQUEUE: "BANDCAMP_HUB_DOWNLOADS_ENQUEUE",
+  DOWNLOADS_LIST_COLLECTION: "BANDCAMP_HUB_DOWNLOADS_LIST_COLLECTION",
+  DOWNLOADS_STATUS: "BANDCAMP_HUB_DOWNLOADS_STATUS",
   FETCH_ARTWORK: "BANDCAMP_HUB_FETCH_ARTWORK",
   GET_ENABLED: "BANDCAMP_HUB_GET_ENABLED",
   GET_NOW_PLAYING: "BANDCAMP_HUB_GET_NOW_PLAYING",

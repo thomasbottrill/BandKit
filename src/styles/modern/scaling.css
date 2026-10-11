@@ -1,0 +1,7 @@
+/* Scale only the modernised content, never body or the Bandkit header host.
+   Select outer roots once so nested main/content elements cannot double-zoom. */
+html[data-bandkit-modern-page="true"] #pgBd,
+html[data-bandkit-modern-page="true"] #recommendations_container:not(#pgBd *),
+html[data-bandkit-modern-page-type="feed"] body.feed main:not(#pgBd, #pgBd *) {
+  zoom: var(--bandkit-page-scale, 1);
+}

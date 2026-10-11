@@ -1,3 +1,6 @@
+import { registerCollectionPanel, setupCollectionPanel } from "./runtime/collection-panel.js";
+import { registerBandcampPlaylists } from "./runtime/bandcamp-playlists.js";
+import { registerLibraryView, setupLibraryView } from "./runtime/collection-library-view.js";
 import { setupDiscoverToolbar } from "./runtime/discover-toolbar.js";
 import { setupDiscoverLayout } from "./runtime/discover-layout.js";
 import { registerDiscoverTracks, setupDiscoverTracks } from "./runtime/discover-tracks.js";
@@ -29,6 +32,8 @@ import { registerLifecycle, setupLifecycle } from "./runtime/lifecycle.js";
 import { registerDailyPlaybackRuntime } from "./runtime/daily-playback.js";
 import { setupSearchResults } from "./runtime/search-results.js";
 import { setupCollectionPreview } from "./runtime/collection-preview.js";
+import { registerCollectionDownloadSelection, setupCollectionDownloadSelection } from "./runtime/collection-download-selection.js";
+import { registerDownloadsView, setupDownloadsView } from "./runtime/downloads-view.js";
 
 (async () => {
   if (window.top !== window || document.getElementById("bandcamp-hub-extension-root")) {
@@ -59,6 +64,11 @@ import { setupCollectionPreview } from "./runtime/collection-preview.js";
   for (const install of registerCollectionViews) install(r);
   for (const install of registerCollectionPlaylistIntegration) install(r);
   for (const install of registerActivitySettings) install(r);
+  registerDownloadsView(r);
+  registerLibraryView(r);
+  registerCollectionPanel(r);
+  registerBandcampPlaylists(r);
+  registerCollectionDownloadSelection(r);
   for (const install of registerDailyPlaybackRuntime) install(r);
   for (const install of registerPlayerShell) install(r);
   for (const install of registerPagePlayerUi) install(r);
@@ -83,9 +93,13 @@ import { setupCollectionPreview } from "./runtime/collection-preview.js";
   setupDiscoverLayout();
   setupDiscoverTracks(r);
   setupCollectionPreview(r);
+  setupCollectionDownloadSelection(r);
   setupFeedTracks(r);
   for (const install of setupLiveScanning) install(r);
   for (const install of setupLifecycle) install(r);
+  setupDownloadsView(r);
+  setupLibraryView(r);
+  setupCollectionPanel(r);
 })().catch((error) => {
   console.error("Bandkit failed to initialize its content runtime.", error);
 });

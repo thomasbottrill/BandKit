@@ -17,6 +17,7 @@ const scriptEntries = {
   "analysis-worker": "src/offscreen/analysis-worker.js",
   "cart-autosave": "src/content/cart-autosave.js",
   content: "src/content/index.js",
+  "downloads-permission": "src/downloads-permission/index.js",
   "feed-redirect": "src/content/feed-redirect.js",
   "modern-pages-bootstrap": "src/content/modern-pages-bootstrap.js",
   offscreen: "src/offscreen/index.js",
@@ -27,11 +28,12 @@ const styleEntries = {
   hub: "src/styles/hub/index.css",
   "component-reference": "src/component-reference/index.css",
   "collection-playlists": "src/styles/modern/collection-playlists.css",
+  "downloads-permission": "src/styles/downloads-permission.css",
   "modern-release": "src/styles/modern/index.css",
   "page-theme": "src/styles/page/index.css",
   popup: "src/styles/popup.css"
 };
-const staticFiles = ["manifest.json", "component-reference.html", "offscreen.html", "popup.html", "THIRD_PARTY_NOTICES.md"];
+const staticFiles = ["manifest.json", "component-reference.html", "downloads-permission.html", "offscreen.html", "popup.html", "THIRD_PARTY_NOTICES.md"];
 const extensionIcons = [
   "extension-icon-16.png",
   "extension-icon-32.png",

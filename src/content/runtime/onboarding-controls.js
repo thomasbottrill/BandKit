@@ -9,6 +9,10 @@ import { TIMELINE_STYLES, normalizeTimelineStyle, createTimelinePreview } from "
 import { createPlayerDesignPreview, createSurfacePreview } from "../settings-option-previews.js";
 import { applyVisualTheme, captureVisualTheme, DEFAULT_VISUAL_THEME, VISUAL_THEMES } from "../visual-themes.js";
 import { createDynamicThemeInfo } from "../theme-option-markers.js";
+import { DOWNLOAD_FORMATS, normalizeDownloadFormat } from "../../shared/download-formats.js";
+
+import { createScaleSettings } from "./scale-settings.js";
+import { applyScales } from "./scaling.js";
 
 const HANDLE_LABELS = Object.freeze({
   pill: "Pill",
@@ -25,7 +29,8 @@ const HANDLE_LABELS = Object.freeze({
 
 export const ONBOARDING_MENU_KEYS = Object.freeze([
   "$onboardingHandleMenu", "$onboardingTimelineMenu",
-  "$onboardingPlayerStyleMenu", "$onboardingSurfaceMenu", "$onboardingThemeMenu", "$onboardingPaletteMenu"
+  "$onboardingPlayerStyleMenu", "$onboardingSurfaceMenu", "$onboardingThemeMenu", "$onboardingPaletteMenu",
+  "$onboardingDownloadFormatMenu", "$onboardingPageScaleMenu", "$onboardingInterfaceScaleMenu"
 ]);
 
 export function removeOnboardingMenus(r) {
@@ -494,6 +499,38 @@ function createOnboardingModeSwitch(r, mode) {
   return tabs;
 }
 
+export function createDownloadFormatControl(r) {
+  return createOnboardingPicker(r, () => r.$render(), {
+    label: "Download format",
+    value: normalizeDownloadFormat(runtimeState.downloadFormat),
+    options: DOWNLOAD_FORMATS.map((format) => ({ value: format.id, label: format.label })),
+    menuKey: "$onboardingDownloadFormatMenu",
+    onChange: (value) => {
+      runtimeState.downloadFormat = normalizeDownloadFormat(value);
+      runtimeSaveState();
+    }
+  });
+}
+
+// Page and interface scale with the tour's dropdown. Pointing at an option
+// previews it on the real page and player, like the theme picker.
+export function createOnboardingScaleSettings(r, { pages = true } = {}) {
+  const key = pages ? "pageScale" : "interfaceScale";
+  return createScaleSettings(r, {
+    pages,
+    onboarding: true,
+    picker: ({ label, options, value, onChange }) => createOnboardingPicker(r, () => r.$render(), {
+      label,
+      value,
+      options,
+      menuKey: pages ? "$onboardingPageScaleMenu" : "$onboardingInterfaceScaleMenu",
+      onPreview: (preset) => { runtimeState.appearance[key].preset = preset; applyScales(r); },
+      onRestore: (preset) => { runtimeState.appearance[key].preset = preset; applyScales(r); },
+      onChange
+    })
+  });
+}
+
 export function createKitControls(r) {
   const config = createElement("div", "hub-onboarding-kit-config");
   const mode = r.$onboardingKitMode === "custom" ? "custom" : "theme";
@@ -536,6 +573,6 @@ export function createKitControls(r) {
     );
     content.append(grid);
   }
-  config.append(createOnboardingModeSwitch(r, mode), content);
+  config.append(createOnboardingModeSwitch(r, mode), content, createOnboardingScaleSettings(r));
   return config;
 }

@@ -3,7 +3,7 @@ export function stableTrackId(value) {
   return match ? match[1].replace(/^0+(?=\d)/, "") : "";
 }
 
-function decodeHtmlAttribute(value) {
+export function decodeHtmlAttribute(value) {
   return String(value || "")
     .replace(/&quot;/gi, '"')
     .replace(/&#(?:0*39|x0*27);/gi, "'")

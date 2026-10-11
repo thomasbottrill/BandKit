@@ -176,13 +176,15 @@
   display: inline-flex;
   height: 20px;
   justify-content: center;
-  width: 20px;
+  width: 28px;
 }
 
+/* The glyph sits in a square file with room above and below; crop to it. */
 .bandkit-collection-origin img {
   display: block;
-  height: 17px;
-  width: 17px;
+  height: 11px;
+  object-fit: cover;
+  width: 26px;
 }
 
 @media (max-width: 600px) {

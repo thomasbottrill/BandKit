@@ -138,8 +138,8 @@ console.log("Discover tracklist playback ownership checks passed.");
 const hubStyles = readHubStyles();
 assert.match(hubStyles, /\.hub-panel-card\.hub-compact-media-card\s*\{[^}]*border-width:\s*0/,
   "Compact panel cards drop the inherited border so 64px of card holds 64px of artwork");
-assert.match(hubStyles, /\.hub-playlist-track\.is-drag-target\s*\{[^}]*outline:\s*1px solid var\(--hub-accent\)[^}]*outline-offset:\s*-1px/,
-  "The drop target keeps a visible edge without relying on the removed border");
+assert.match(hubStyles, /\.is-reordering > \.hub-playlist-track:not\(\.is-dragging\)\s*\{[^}]*transition:\s*transform/,
+  "While dragging, the other tracks slide aside instead of relying on a drop outline");
 assert.doesNotMatch(hubStyles, /\.hub-playlist-track\.is-drag-target\s*\{[^}]*border-color/,
   "Nothing reintroduces a border the compact card no longer reserves space for");
 

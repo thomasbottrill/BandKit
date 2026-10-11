@@ -23,6 +23,10 @@ assert.match(scanning, /bandkit-sales-feed-actions/,
   "extension-owned live-sale controls should not recursively dirty the page scan");
 assert.match(playback, /syncHomeSalesPlaybackUi/,
   "live-sale controls should refresh when the global playback state changes");
+assert.match(playback, /data-bandkit-hide-bandcamp-player="false"[\s\S]*?\.bandkit-sales-feed-actions[\s\S]*?\.bandkit-search-play[\s\S]*?\.bandcamp-hub-page-playlist[\s\S]*?:not\(#bandkit-native-player-control\)[\s\S]*?display:none!important/,
+  "native-player mode should hide Bandkit-only play and add controls");
+assert.match(css, /data-bandkit-hide-bandcamp-player="false"[\s\S]*?#HomepageApp #sales-feed \.item > \.bandkit-sales-feed-actions[\s\S]*?display:\s*none !important/,
+  "native-player mode should hide the complete live-sale action group above its important child layout");
 assert.match(css, /\.item:is\(:hover, :focus-within, \.bandkit-home-sale-current\)[\s\S]*?opacity:\s*1/,
   "live-sale controls should use hover and keyboard-focus progressive disclosure");
 assert.match(css, /@media \(hover: none\)[\s\S]*?opacity:\s*1/,

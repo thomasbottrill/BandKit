@@ -1,4 +1,5 @@
 import { createPlaylistArtwork } from "../components/playlist-artwork.js";
+import { createBandkitPlaylistOrigin } from "../components/page-cards.js";
 import { createPanelIconButton, createPanelMenuAction, createPanelOverflow, createPanelToolbarButton } from "../components/actions.js";
 import { createPanelEmptyState, createPanelMediaCard, createPanelViewTabs, createSavedCollectionCard } from "../components/collections.js";
 import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState } from "./context.js";
@@ -65,10 +66,14 @@ r.$renderCartViewTabs = function renderCartViewTabs() {
     };
 r.$renderPlaylistViewTabs = function renderPlaylistViewTabs() {
       r.$content.append(createPanelViewTabs({
-        views: [{ id: "current", label: "Now Playing" }, ...(r.$playlistsFeatureEnabled() ? [{ id: "saved", label: "Playlists" }] : [])],
+        views: [
+          { id: "current", label: "Now Playing" },
+          ...(r.$playlistsFeatureEnabled() ? [{ id: "saved", label: "Playlists" }] : []),
+          { id: "collection", label: "Collection" }
+        ],
         selected: runtimeState.playlistView,
         headerClass: "hub-playlist-view-header", tabsClass: "hub-playlist-view-tabs", buttonClass: "hub-playlist-view-tab",
-        ariaLabel: "Now Playing and playlists views",
+        ariaLabel: "Play views",
         onSelect: (id) => {
           runtimeState.playlistView = id;
           runtimeState.selectedSavedPlaylistId = null;
@@ -314,18 +319,47 @@ r.$movePlaylistItem = function movePlaylistItem(fromIndex, toIndex) {
       runtimeState.playlistMode = "manual";
       runtimeSaveState();
       void r.$syncActivePlaylistQueue();
-      r.$render();
+      r.$renderAfterReorder();
     };
-r.$moveSavedPlaylistItem = function moveSavedPlaylistItem(snapshot, fromIndex, toIndex) {
-      if (!snapshot || fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= snapshot.items.length || toIndex >= snapshot.items.length) return;
+// Saved state from this or another tab replaces runtimeState.savedPlaylists
+// with fresh objects, so a list drawn earlier may hold a stale copy. Edits
+// resolve the playlist (and its items) again by id before changing anything.
+r.$moveSavedPlaylistItem = function moveSavedPlaylistItem(drawn, fromIndex, toIndex) {
+      const snapshot = runtimeState.savedPlaylists.find((entry) => entry.id === drawn?.id) || drawn;
+      const itemId = drawn?.items?.[fromIndex]?.playlistItemId;
+      const targetId = drawn?.items?.[toIndex]?.playlistItemId;
+      if (!snapshot || !itemId || !targetId || itemId === targetId) return;
+      fromIndex = snapshot.items.findIndex((entry) => entry.playlistItemId === itemId);
+      toIndex = snapshot.items.findIndex((entry) => entry.playlistItemId === targetId);
+      if (fromIndex < 0 || toIndex < 0) return;
       const [item] = snapshot.items.splice(fromIndex, 1);
       snapshot.items.splice(toIndex, 0, item);
       snapshot.items = r.$normalizePlaylist(snapshot.items);
       snapshot.modifiedAt = new Date().toISOString();
       runtimeSaveState();
-      r.$render();
+      r.$renderAfterReorder();
     };
-r.$removeSavedPlaylistItem = function removeSavedPlaylistItem(snapshot, item) {
+// A drop always lands with the pointer over a track, which normally holds
+// back panel refreshes; a reorder the user asked for must show at once.
+r.$renderAfterReorder = function renderAfterReorder() {
+      // Tracks glide from where they were drawn (including a drag preview)
+      // to their new places, so a move reads as a move rather than a redraw.
+      const before = new Map([...r.$content.querySelectorAll("[data-playlist-item-id]")]
+        .map((entry) => [entry.dataset.playlistItemId, entry.getBoundingClientRect().top]));
+      r.$playlistDrag?.cleanup();
+      r.$playlistDrag = null;
+      r.$forcePlaylistPanelRefresh = true;
+      try { r.$render(); } finally { r.$forcePlaylistPanelRefresh = false; }
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      for (const entry of r.$content.querySelectorAll("[data-playlist-item-id]")) {
+        const top = before.get(entry.dataset.playlistItemId);
+        const offset = top === undefined ? 0 : top - entry.getBoundingClientRect().top;
+        if (Math.abs(offset) < 1) continue;
+        entry.animate([{ transform: `translateY(${offset}px)` }, { transform: "none" }], { duration: 220, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+      }
+    };
+r.$removeSavedPlaylistItem = function removeSavedPlaylistItem(drawn, item) {
+      const snapshot = runtimeState.savedPlaylists.find((entry) => entry.id === drawn?.id) || drawn;
       if (!snapshot || !item || !Array.isArray(snapshot.items)) return false;
       const index = snapshot.items.findIndex((entry) => entry.playlistItemId === item.playlistItemId
         || r.$playlistTracksMatch(entry, item));
@@ -339,6 +373,20 @@ r.$removeSavedPlaylistItem = function removeSavedPlaylistItem(snapshot, item) {
       r.$showToast(`Removed “${item.title}” from “${snapshot.name}”`);
       return true;
     };
+}
+// Moves each track to where it would sit if the dragged one were dropped at
+// drag.target, measured from where the tracks were when the drag began.
+function previewPlaylistOrder(drag) {
+  const order = drag.cards.slice();
+  const [moving] = order.splice(drag.from, 1);
+  order.splice(drag.target, 0, moving);
+  const gap = drag.rects.length > 1 ? drag.rects[1].top - drag.rects[0].bottom : 0;
+  let top = drag.rects[0].top;
+  for (const entry of order) {
+    const rect = drag.rects[drag.cards.indexOf(entry)];
+    entry.style.transform = `translateY(${top - rect.top}px)`;
+    top += rect.height + gap;
+  }
 }
 function registerCollectionViews3(r) {
 r.$bindPlaylistCardReordering = function bindPlaylistCardReordering(card, item, index, items, moveItem) {
@@ -363,6 +411,8 @@ r.$bindPlaylistCardReordering = function bindPlaylistCardReordering(card, item, 
         window.addEventListener("pointerup", restoreDragging);
         window.addEventListener("pointercancel", restoreDragging);
       }, true);
+      // While dragging, the other tracks slide aside to open a gap wherever
+      // the pointer is, and letting go anywhere drops the track into that gap.
       card.addEventListener("dragstart", (event) => {
         if (event.target instanceof Element && event.target.closest("a, button, input, select, textarea")) {
           event.preventDefault();
@@ -371,31 +421,50 @@ r.$bindPlaylistCardReordering = function bindPlaylistCardReordering(card, item, 
         r.$draggingPlaylistId = item.playlistItemId;
         event.dataTransfer?.setData("text/plain", item.playlistItemId);
         if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
-        card.classList.add("is-dragging");
+        const list = card.parentElement;
+        const cards = [...list.children].filter((entry) => entry.dataset.playlistItemId);
+        // Positions are kept relative to the list, so scrolling mid-drag
+        // cannot throw them off.
+        const listTop = list.getBoundingClientRect().top;
+        const rects = cards.map((entry) => {
+          const rect = entry.getBoundingClientRect();
+          return { top: rect.top - listTop, bottom: rect.bottom - listTop, height: rect.height };
+        });
+        const drag = { list, cards, rects, from: cards.indexOf(card), target: cards.indexOf(card), moveItem };
+        const over = (dragEvent) => {
+          dragEvent.preventDefault();
+          if (dragEvent.dataTransfer) dragEvent.dataTransfer.dropEffect = "move";
+          const y = dragEvent.clientY - list.getBoundingClientRect().top;
+          const slot = drag.rects.findIndex((rect) => y < rect.top + rect.height / 2);
+          const target = slot < 0 ? drag.rects.length - 1 : slot > drag.from ? slot - 1 : slot;
+          if (target !== drag.target) { drag.target = target; previewPlaylistOrder(drag); }
+        };
+        const drop = (dropEvent) => {
+          dropEvent.preventDefault();
+          const itemIndex = (position) => items.findIndex((entry) => entry.playlistItemId === drag.cards[position]?.dataset.playlistItemId);
+          if (drag.target !== drag.from) drag.moveItem(itemIndex(drag.from), itemIndex(drag.target));
+        };
+        // The whole panel accepts the drop, so letting go just above or below
+        // the list still lands the track where the gap is showing.
+        const area = r.$content;
+        drag.cleanup = () => {
+          area.removeEventListener("dragover", over);
+          area.removeEventListener("drop", drop);
+          list.classList.remove("is-reordering");
+          for (const entry of drag.cards) entry.style.removeProperty("transform");
+        };
+        area.addEventListener("dragover", over);
+        area.addEventListener("drop", drop);
+        r.$playlistDrag = drag;
+        // The browser takes its drag image from the card as it is now.
+        requestAnimationFrame(() => { list.classList.add("is-reordering"); card.classList.add("is-dragging"); });
       });
       card.addEventListener("dragend", () => {
         r.$draggingPlaylistId = "";
-        r.$content.querySelectorAll(".hub-playlist-track").forEach((entry) => entry.classList.remove("is-dragging", "is-drag-target", "is-drop-before", "is-drop-after"));
-      });
-      card.addEventListener("dragover", (event) => {
-        event.preventDefault();
-        if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-        const after = event.clientY > card.getBoundingClientRect().top + card.getBoundingClientRect().height / 2;
-        card.classList.add("is-drag-target");
-        card.classList.toggle("is-drop-before", !after);
-        card.classList.toggle("is-drop-after", after);
-      });
-      card.addEventListener("dragleave", () => card.classList.remove("is-drag-target", "is-drop-before", "is-drop-after"));
-      card.addEventListener("drop", (event) => {
-        event.preventDefault();
-        const dropAfter = card.classList.contains("is-drop-after");
-        card.classList.remove("is-drag-target", "is-drop-before", "is-drop-after");
-        const sourceId = r.$draggingPlaylistId || event.dataTransfer?.getData("text/plain");
-        const sourceIndex = items.findIndex((entry) => entry.playlistItemId === sourceId);
-        const destinationIndex = sourceIndex < index
-          ? index - (dropAfter ? 0 : 1)
-          : index + (dropAfter ? 1 : 0);
-        moveItem(sourceIndex, Math.max(0, Math.min(items.length - 1, destinationIndex)));
+        r.$playlistDrag?.cleanup();
+        r.$playlistDrag = null;
+        r.$content.querySelectorAll(".hub-playlist-track").forEach((entry) => entry.classList.remove("is-dragging"));
+        if (r.$playlistDragRefreshPending) { r.$playlistDragRefreshPending = false; r.$render(); }
       });
       card.addEventListener("keydown", (event) => {
         if (!event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
@@ -821,7 +890,9 @@ r.$renderSavedPlaylistDetail = function renderSavedPlaylistDetail(snapshot) {
       if (!snapshot.items.length) r.$content.append(createPanelEmptyState("This playlist is empty. Use any ＋ menu to add tracks to it."));
     };
 r.$renderSavedPlaylists = function renderSavedPlaylists() {
-      if (!runtimeState.savedPlaylists.length) {
+      // Show Bandkit playlists first, then any made on Bandcamp.
+      const bandcampCards = r.$bandcampPlaylistCards?.() || [];
+      if (!runtimeState.savedPlaylists.length && !bandcampCards.length) {
         r.$content.append(createPanelEmptyState("Create a playlist from any track’s ＋ menu, or save the current Now Playing list."));
         return;
       }
@@ -842,6 +913,9 @@ r.$renderSavedPlaylists = function renderSavedPlaylists() {
           }
         });
         card.dataset.savedPlaylistId = snapshot.id;
+        const origin = createBandkitPlaylistOrigin();
+        origin.classList.add("hub-playlist-origin");
+        card.querySelector(".hub-saved-cart-summary")?.append(origin);
         const play = createElement("button", "hub-saved-playlist-art-action");
         play.type = "button";
         play.title = isPlayingPlaylist ? `Pause ${snapshot.name}` : `Play ${snapshot.name}`;
@@ -856,10 +930,11 @@ r.$renderSavedPlaylists = function renderSavedPlaylists() {
         card.append(play);
         stack.append(card);
       }
+      stack.append(...bandcampCards);
       r.$content.append(stack);
     };
 r.$renderPlaylist = function renderPlaylist() {
-      if (!["current", "saved"].includes(runtimeState.playlistView)) runtimeState.playlistView = "current";
+      if (!["current", "saved", "collection"].includes(runtimeState.playlistView)) runtimeState.playlistView = "current";
       const selected = runtimeState.savedPlaylists.find((entry) => entry.id === runtimeState.selectedSavedPlaylistId);
       if (!selected) runtimeState.selectedSavedPlaylistId = null;
       if (selected && runtimeState.playlistView === "saved") {
@@ -870,9 +945,11 @@ r.$renderPlaylist = function renderPlaylist() {
       r.$renderPlaylistViewTabs();
       if (runtimeState.playlistView === "current") {
         r.$renderCurrentPlaylist();
+      } else if (runtimeState.playlistView === "collection") {
+        r.$renderCollectionPanel();
       } else {
         const importRow = createElement("div", "hub-cart-backup hub-playlist-import-row");
-        const playlistCount = runtimeState.savedPlaylists.length;
+        const playlistCount = runtimeState.savedPlaylists.length + (r.$bandcampPlaylists?.items.length || 0);
         importRow.append(createElement(
           "div",
           "hub-cart-backup-time hub-panel-count-summary",

@@ -1,7 +1,9 @@
+import { portableLibrary } from "../../shared/library.js";
 import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState, updateRuntimeLive, updateRuntimeSeamless, updateRuntimeState } from "./context.js";
 import { createElement, portableBandcampUrl, resolveImage, resolvedTrackPageUrl, safeBandcampUrl } from "../core.js";
-import { defaultState, MAX_PLAYLIST_ITEMS, MAX_SAVED_PLAYLISTS } from "../state.js";
+import { defaultState, MAX_PLAYLIST_ITEMS, MAX_SAVED_PLAYLISTS, PANEL_TAB_IDS } from "../state.js";
 import { MESSAGES, STORAGE_KEYS } from "../../shared/contracts.js";
+import { normalizeDownloadFormat } from "../../shared/download-formats.js";
 import { BACKUP_FILENAME, restoreBackupFile, saveBackupFile } from "../../shared/backup-file.js";
 import { createPlaylistModel } from "../playlist-model.js";
 import { parseCartBackup, portableCartItem, portableCartRestore } from "../cart-model.js";
@@ -28,6 +30,8 @@ function portableSettings(value = runtimeState) {
     cartEnabled: value.cartEnabled !== false,
     playlistsEnabled: value.playlistsEnabled !== false,
     activityEnabled: value.activityEnabled !== false,
+    downloadsEnabled: value.downloadsEnabled !== false,
+    downloadFormat: normalizeDownloadFormat(value.downloadFormat),
     autoAnalyzeTracks: value.autoAnalyzeTracks !== false,
     showTrackKeys: value.showTrackKeys !== false,
     showCamelotNotation: value.showCamelotNotation === true,
@@ -156,7 +160,9 @@ r.$savePortableBackup = async function savePortableBackup() {
       });
       const stored = await r.$storageGet(STORAGE_KEYS.STATE);
       const latestState = stored?.[STORAGE_KEYS.STATE] || runtimeState;
-      const result = await saveBackupFile(handle, r.$portableDataBackup(latestState));
+      const libraryStored = await r.$storageGet(STORAGE_KEYS.LIBRARY);
+      const backup = { ...r.$portableDataBackup(latestState), library: portableLibrary(libraryStored[STORAGE_KEYS.LIBRARY]) };
+      const result = await saveBackupFile(handle, backup);
       if (!result?.ok) throw new Error(result?.error || "Bandkit could not save the backup file.");
       const savedAt = new Date().toISOString();
       runtimeState.backupIntroSeen = true;
@@ -196,6 +202,10 @@ r.$restorePortableBackup = async function restorePortableBackup() {
       const stored = await r.$storageGet(STORAGE_KEYS.STATE);
       const latestState = stored?.[STORAGE_KEYS.STATE] || runtimeState;
       const result = await restoreBackupFile(handle, latestState);
+      if (result.library) {
+        const restoredLibrary = await r.$runtimeMessage({ type: MESSAGES.LIBRARY, action: "restore", library: result.library });
+        if (!restoredLibrary?.ok) throw new Error(restoredLibrary?.error || "Library restore failed.");
+      }
       const reminderDays = BACKUP_REMINDER_DAYS.has(Number(latestState.backupReminderDays))
         ? Number(latestState.backupReminderDays) : 7;
       const nextState = {
@@ -237,8 +247,8 @@ r.$savedLayoutState = function savedLayoutState(value = runtimeState) {
       return {
         revision: r.$layoutRevision,
         open: Boolean(value.open),
-        activeTab: ["playlist", "cart", "activity", "settings"].includes(value.activeTab) ? value.activeTab : "playlist", musicBarRecentPanel: ["playlist", "cart", "activity", "settings"].includes(value.musicBarRecentPanel) ? value.musicBarRecentPanel : "playlist",
-        playlistView: value.playlistView === "saved" ? "saved" : "current", selectedSavedPlaylistId: value.selectedSavedPlaylistId || null,
+        activeTab: PANEL_TAB_IDS.includes(value.activeTab) ? value.activeTab : "playlist", musicBarRecentPanel: PANEL_TAB_IDS.includes(value.musicBarRecentPanel) ? value.musicBarRecentPanel : "playlist",
+        playlistView: ["current", "saved", "collection"].includes(value.playlistView) ? value.playlistView : "current", selectedSavedPlaylistId: value.selectedSavedPlaylistId || null,
         cartView: value.cartView === "saved" ? "saved" : "current", selectedSavedCartId: value.selectedSavedCartId || null, settingsView: typeof value.settingsView === "string" ? value.settingsView : "index", settingsSubView: typeof value.settingsSubView === "string" ? value.settingsSubView : "index",
         djOpen: value.dj?.open === true, pageDjOpen: value.dj?.pageOpen === true,
         layoutMode: value.layoutMode === "docked" ? "docked" : "floating",
@@ -352,10 +362,10 @@ function registerPersistencePlayback2(r) {
 r.$applyPersistedLayout = function applyPersistedLayout(value) {
       if (!value || typeof value !== "object") return false;
       runtimeState.open = Boolean(value.open);
-      runtimeState.activeTab = ["playlist", "cart", "activity", "settings"].includes(value.activeTab) ? value.activeTab : runtimeState.activeTab;
-      runtimeState.musicBarRecentPanel = ["playlist", "cart", "activity", "settings"].includes(value.musicBarRecentPanel)
+      runtimeState.activeTab = PANEL_TAB_IDS.includes(value.activeTab) ? value.activeTab : runtimeState.activeTab;
+      runtimeState.musicBarRecentPanel = PANEL_TAB_IDS.includes(value.musicBarRecentPanel)
         ? value.musicBarRecentPanel : runtimeState.musicBarRecentPanel;
-      if (Object.prototype.hasOwnProperty.call(value, "playlistView")) runtimeState.playlistView = value.playlistView === "saved" ? "saved" : "current";
+      if (Object.prototype.hasOwnProperty.call(value, "playlistView")) runtimeState.playlistView = ["current", "saved", "collection"].includes(value.playlistView) ? value.playlistView : "current";
       if (Object.prototype.hasOwnProperty.call(value, "selectedSavedPlaylistId")) runtimeState.selectedSavedPlaylistId = value.selectedSavedPlaylistId || null;
       if (Object.prototype.hasOwnProperty.call(value, "cartView")) runtimeState.cartView = value.cartView === "saved" ? "saved" : "current";
       if (Object.prototype.hasOwnProperty.call(value, "selectedSavedCartId")) runtimeState.selectedSavedCartId = value.selectedSavedCartId || null;
@@ -439,7 +449,7 @@ r.$resetLoadedPlayback = function resetLoadedPlayback() {
         queue: []
       });
     };
-r.$clearLocalPlaybackState = function clearLocalPlaybackState({ persist = true } = {}) {
+r.$clearLocalPlaybackState = function clearLocalPlaybackState({ persist = true, pausePage = true } = {}) {
       r.$clearedPageQueueSignature ||= `${runtimeLive.pageUrl}|${runtimeLive.title}`;
       r.$nowPlayingExplicitlyCleared = true;
       r.$playlistPlayRequest += 1;
@@ -451,14 +461,16 @@ r.$clearLocalPlaybackState = function clearLocalPlaybackState({ persist = true }
       r.$resetPlaylistShuffle();
       if (persist) runtimeSaveState();
 
-      r.$pageMediaCommand("pause");
-      r.$stopModernPagePlayer();
-      for (const audio of document.querySelectorAll("audio")) {
-        if (!audio.paused) audio.pause();
-        try {
-          audio.currentTime = 0;
-        } catch {
-          // Some page audio elements are not seekable until metadata is loaded.
+      if (pausePage) {
+        r.$pageMediaCommand("pause");
+        r.$stopModernPagePlayer();
+        for (const audio of document.querySelectorAll("audio")) {
+          if (!audio.paused) audio.pause();
+          try {
+            audio.currentTime = 0;
+          } catch {
+            // Some page audio elements are not seekable until metadata is loaded.
+          }
         }
       }
       r.$resetLoadedPlayback();
@@ -484,7 +496,16 @@ r.$clearNowPlayingPlayback = async function clearNowPlayingPlayback({ notify = t
       r.$clearLocalPlaybackState();
       if (notify) r.$showToast("Now Playing cleared");
     };
+r.$clearPlayerModeQueue = async function clearPlayerModeQueue() {
+      r.$savedPlaylistPlayRequest += 1;
+      r.$savedPlaylistReplacementRequest = 0;
+      r.$savedPlaylistReplacementGuardUntil = 0;
+      r.$clearLocalPlaybackState({ persist: false, pausePage: false });
+      await r.$runtimeMessage({ type: MESSAGES.CLEAR_PLAYBACK });
+      r.$clearLocalPlaybackState({ persist: false, pausePage: false });
+    };
 r.$addTracksToPlaylist = function addTracksToPlaylist(tracks, { quiet = false, syncQueue = true } = {}) {
+      if (runtimeState.appearance?.hideBandcampPlayer === false) return 0;
       r.$releaseExplicitPlaybackClear();
       const incoming = r.$normalizePlaylist((Array.isArray(tracks) ? tracks : []).map(r.$capturePlaylistAnalysis));
       if (incoming.length) runtimeState.playlistMode = "manual";

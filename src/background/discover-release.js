@@ -1,4 +1,4 @@
-import { artistNameFromHtml, metadataImageFromHtml, tralbumDataFromHtml } from "./metadata.js";
+import { artistNameFromHtml, metadataImageFromHtml, tralbumDataFromHtml, decodeHtmlAttribute } from "./metadata.js";
 import { isBandcampUrl } from "./urls.js";
 
 // Only selected releases are requested; cache metadata briefly, never audio bytes.
@@ -21,7 +21,16 @@ export async function resolveDiscoverRelease(value) {
     const artist = data.artist || artistNameFromHtml(html) || "Bandcamp";
     const album = data.current?.title || "";
     const art = metadataImageFromHtml(html);
-    return { pageUrl, album, tracks: data.trackinfo.map((track, index) => {
+    // Bandcamp lowercases every tag except the artist's location, which keeps
+    // its place-name capitals; a place is not a genre, so it is left out.
+    const tags = [...html.matchAll(/<a\b[^>]*class=["'][^"']*\btag\b[^"']*["'][^>]*>([\s\S]*?)<\/a>/gi)]
+      .map((match) => decodeHtmlAttribute(match[1].replace(/<[^>]+>/g, "")).trim()).filter((tag) => tag && tag === tag.toLowerCase());
+    const releaseTime = Date.parse(data.album_release_date || data.current?.release_date || "");
+    let label = "";
+    for (const match of html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+      try { const json = JSON.parse(match[1]); label ||= String(json.recordLabel?.name || json.publisher?.name || ""); } catch { /* Optional metadata. */ }
+    }
+    return { pageUrl, album, tags, label, releaseDate: Number.isFinite(releaseTime) ? new Date(releaseTime).toISOString().slice(0, 10) : "", tracks: data.trackinfo.map((track, index) => {
       const trackUrl = new URL(track.title_link || pageUrl, pageUrl).href;
       return {
         id: String(track.track_id || track.id || `${pageUrl}|${index}`),

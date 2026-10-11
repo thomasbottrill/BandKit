@@ -1,3 +1,5 @@
+import { createLibraryStore } from "./library.js";
+import { createDownloadQueue, listCollectionDownloads } from "./collection-downloads.js";
 import { resolveDiscoverRelease } from "./discover-release.js";
 import { fetchArtworkDataUrl } from "./artwork.js";
 import { addItemsToCartRemotely, removeItemFromCartRemotely } from "./cart-delegate.js";
@@ -34,6 +36,16 @@ let visualizerBroadcastRunning = false;
 let visualizerBroadcastedAt = 0;
 let visualizerTargetCache = { expiresAt: 0, ids: [] };
 const deliverVisualizerFrame = createVisualizerDelivery((tabId, message) => chrome.tabs.sendMessage(tabId, message));
+const libraryStore = createLibraryStore();
+const downloadQueue = createDownloadQueue();
+downloadQueue.listen();
+const downloadRequests = {
+  [MESSAGES.LIBRARY]: (message) => libraryStore.command(message),
+  [MESSAGES.DOWNLOADS_STATUS]: () => downloadQueue.progress(),
+  [MESSAGES.DOWNLOADS_ENQUEUE]: (message) => downloadQueue.enqueue(message.items, message.format),
+  [MESSAGES.DOWNLOADS_COMMAND]: (message) => downloadQueue.command(message),
+  [MESSAGES.DOWNLOADS_LIST_COLLECTION]: (message) => listCollectionDownloads(message)
+};
 
 
 
@@ -612,10 +624,16 @@ async function closeOffscreenDocument() {
   }
 }
 
+async function resetLibraryAndDownloads() {
+  await libraryStore.reset();
+  await downloadQueue.reset();
+}
+
 async function handlePlaybackRequest(message, sender) {
   if (!isBandcampUrl(sender.url)) throw new Error("Playback requests are only accepted from Bandcamp pages.");
 
   if (message.type === MESSAGES.DELETE_ALL_DATA) {
+    await resetLibraryAndDownloads();
     await closeOffscreenDocument();
     await playbackStateUpdates.catch(() => {});
     await Promise.all([
@@ -643,6 +661,8 @@ async function handlePlaybackRequest(message, sender) {
   if (message.type === MESSAGES.RESOLVE_COLLECTION_MEMBERSHIP) {
     return { ok: true, ...await resolveCollectionMembership(message) };
   }
+
+  if (Object.hasOwn(downloadRequests, message.type)) return downloadRequests[message.type](message);
 
   if (message.type === MESSAGES.RESOLVE_DISCOVER_RELEASE) {
     return { ok: true, release: await resolveDiscoverRelease(message.pageUrl) };
@@ -864,6 +884,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         ])).then(() => ({ ok: true }));
     if (message.type === MESSAGES.OFFSCREEN_SET_ANALYSIS_STORAGE) {
       analysisStorageUpdates = request.catch(() => {});
+      void request.then(() => libraryStore.recordAnalysis(message.trackAnalysisCache, message.bpmCorrections)).catch(() => {});
     }
     request
       .then(sendResponse)
@@ -954,5 +975,11 @@ chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
 });
 chrome.tabs.onActivated?.addListener(invalidateVisualizerTargets);
 chrome.windows.onFocusChanged?.addListener(invalidateVisualizerTargets);
+chrome.permissions?.onAdded?.addListener((permissions) => {
+  if (!permissions?.permissions?.includes("downloads")) return;
+  downloadQueue.listen();
+  void downloadQueue.resume();
+});
+void downloadQueue.resume();
 void scheduleBandcampTabLifecycleCheck();
 void refreshBandKitTabsForNewContext();

@@ -15,6 +15,11 @@ const backgroundSource = fs.readFileSync(new URL("../src/background/index.js", i
 const persistencePlaybackSource = fs.readFileSync(new URL("../src/content/runtime/persistence-playback.js", import.meta.url), "utf8"); const lifecycleSource = fs.readFileSync(new URL("../src/content/runtime/lifecycle.js", import.meta.url), "utf8");
 const cartModelSource = fs.readFileSync(new URL("../src/content/cart-model.js", import.meta.url), "utf8");
 const collectionViewsSource = fs.readFileSync(new URL("../src/content/runtime/collection-views.js", import.meta.url), "utf8");
+const releasePreviewSource = fs.readFileSync(new URL("../src/content/runtime/release-preview.js", import.meta.url), "utf8");
+assert.match(releasePreviewSource, /playReleasePreview[\s\S]*?hideBandcampPlayer === false\) return/,
+  "native-player mode must reject stale Bandkit release-preview actions");
+assert.match(releasePreviewSource, /createReleasePlayToggle[\s\S]*?hideBandcampPlayer === false[\s\S]*?createPageLink\("", url, `hub-art-link[\s\S]*?aria-label[\s\S]*?Open \$\{title \|\| "release"\}[\s\S]*?append\(createArt\(art\)\)[\s\S]*?return link/,
+  "native-player mode must replace Activity and cart-card play buttons with linked artwork");
 assert.doesNotMatch(collectionViewsSource, /window\.confirm\("Clear Now Playing\?/, "Clear Now Playing must not open a browser-native confirmation dialog");
 assert.match(collectionViewsSource, /createToolbarMenuAction\("Clear Now Playing"[\s\S]*?async \(\) => \{\s*await r\.\$clearNowPlayingPlayback\(\);/,
   "Clear Now Playing must immediately use the existing clear-and-notify flow");
@@ -216,7 +221,7 @@ assert.doesNotMatch(extractFunction("createSavedCollectionCard"), /hub-card-open
   "saved collection cards must not reveal a redundant open arrow");
 assert.match(hubCss, /\.hub-saved-playlist-card:is\(:hover, :focus-within\) \.hub-saved-collection-title\s*\{[^}]*color:\s*var\(--hub-accent\)/s,
   "hovered and keyboard-focused saved cards must identify their title with the accent colour");
-assert.match(hubCss, /:is\(\.hub-saved-cart-stack, \.hub-saved-playlist-stack\):is\(:hover, :focus-within\) > \.hub-saved-playlist-card\s*\{[^}]*opacity:\s*0\.42/s,
+assert.match(hubCss, /:is\(\.hub-saved-cart-stack, \.hub-saved-playlist-stack\):is\(:hover, :focus-within\) > \.hub-saved-playlist-card\s*\{[^}]*opacity:\s*0\.88/s,
   "saved-card groups must defocus sibling cards while the user is choosing one");
 assert.match(hubCss, /:is\(\.hub-saved-cart-stack, \.hub-saved-playlist-stack\) > \.hub-saved-playlist-card:is\(:hover, :focus-within\)\s*\{[^}]*opacity:\s*1/s,
   "the active saved card must remain fully focused");

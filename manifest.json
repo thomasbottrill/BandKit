@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Bandkit",
-  "version": "1.1.0",
+  "name": "Bandkit - Better Bandcamp",
+  "version": "1.2.0",
   "minimum_chrome_version": "116",
   "description": "A Bandcamp companion for continuous playback, queues, playlists, cart backups, activity, and DJ controls.",
   "icons": {
@@ -16,6 +16,9 @@
     "offscreen",
     "scripting",
     "storage"
+  ],
+  "optional_permissions": [
+    "downloads"
   ],
   "host_permissions": [
     "https://bandcamp.com/*",
@@ -134,6 +137,9 @@
         "assets/icon-*.svg",
         "assets/logo-type-3.svg",
         "collection-playlists.css",
+        "downloads-permission.css",
+        "downloads-permission.html",
+        "downloads-permission.js",
         "hub.css",
         "modern-release.css"
       ],

@@ -92,7 +92,7 @@ assert.equal(saved.format, "bandkit-backup");
 assert.equal(saved.version, 3);
 assert.equal(saved.playlists.saved[0].name, "Playlist One");
 assert.equal(saved.carts.saved[0].name, "Cart One");
-assert.deepEqual(Object.keys(saved).sort(), ["activity", "carts", "deletions", "exportedAt", "format", "notice", "playlists", "settings", "version"].sort(),
+assert.deepEqual(Object.keys(saved).sort(), ["activity", "carts", "deletions", "exportedAt", "format", "library", "notice", "playlists", "settings", "version"].sort(),
   "all restore data must live in one self-contained JSON document");
 
 const sourceContent = backupFile.content;

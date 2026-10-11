@@ -1,0 +1,236 @@
+/* Collection downloads: a selection bar beside the collection search and a
+   checkbox on each owned release's artwork. Both stay out of sight until
+   someone hovers, focuses or chooses Select. */
+html[data-bandkit-collection-downloads="true"] #owner-controls.collection-controls {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  height: auto;
+  min-height: 25px;
+}
+
+.bandkit-library-search > .bandkit-collection-download-bar {
+  flex: none;
+  flex-wrap: nowrap;
+  min-height: 34px;
+}
+
+.bandkit-collection-download-bar {
+  align-items: center;
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  font-family: var(--hub-font-family, "Helvetica Neue", Helvetica, Arial, sans-serif);
+  gap: 6px;
+  min-height: 34px;
+  /* Bandcamp's "hidden items" link box spans 600px of this row. */
+  position: relative;
+  z-index: 1;
+}
+
+.bandkit-collection-download-control {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  box-sizing: border-box;
+  color: var(--bandkit-page-text, #222);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+  height: 34px;
+  justify-content: center;
+  line-height: 1;
+  margin: 0;
+  min-width: 34px;
+  padding: 0 10px;
+  text-decoration: none !important;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.bandkit-collection-download-control:is(:hover, :focus-visible):not(:disabled),
+.bandkit-collection-download-control[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--bandkit-page-accent, var(--hub-accent, #1da0c3)) 9%, var(--bandkit-page-card, #fff));
+  border-color: transparent;
+  color: var(--bandkit-page-accent, var(--hub-accent, #1da0c3));
+  outline: 0;
+}
+
+.bandkit-collection-download-control:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.bandkit-collection-download-control.is-select {
+  background: transparent;
+  color: var(--bandkit-page-muted, #666);
+}
+
+.bandkit-collection-download-control:is(.is-select, .is-more, .is-done) {
+  padding: 0;
+  width: 34px;
+}
+
+.bandkit-collection-download-control.is-format .hub-button-icon {
+  height: 12px;
+  order: 1;
+  width: 12px;
+}
+
+.bandkit-collection-download-control.is-download {
+  background: var(--bandkit-page-accent, var(--hub-accent, #1da0c3));
+  color: var(--bandkit-page-on-accent, var(--hub-on-accent, #fff));
+}
+
+.bandkit-collection-download-control.is-download:is(:hover, :focus-visible):not(:disabled) {
+  border-color: transparent;
+  color: var(--bandkit-page-on-accent, var(--hub-on-accent, #fff));
+  filter: brightness(1.08);
+}
+
+.bandkit-collection-download-control.is-download:focus-visible {
+  outline: 2px solid var(--bandkit-page-accent, var(--hub-accent, #1da0c3));
+  outline-offset: 2px;
+}
+
+.bandkit-collection-download-control .hub-button-icon {
+  background: currentColor;
+  display: block;
+  flex: none;
+  height: 16px;
+  mask: var(--hub-icon) center / contain no-repeat;
+  -webkit-mask: var(--hub-icon) center / contain no-repeat;
+  width: 16px;
+}
+
+.bandkit-collection-download-count {
+  color: var(--bandkit-page-muted, #666);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.bandkit-collection-download-menu {
+  max-height: min(360px, 60vh);
+  overflow-y: auto;
+}
+
+/* The checkbox shares the artwork's corner with nothing else, so it can sit
+   top-left without crowding the play and add actions along the bottom. */
+html[data-bandkit-collection-page="true"] :is(.collection-item-art-container, .bandkit-library-art) > .bandkit-collection-select {
+  align-items: center;
+  appearance: none;
+  background: rgba(28, 28, 28, .72) !important;
+  border: 2px solid rgba(255, 255, 255, .86) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .18);
+  box-sizing: border-box;
+  color: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  left: 8px;
+  margin: 0;
+  opacity: 0;
+  padding: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 8px;
+  transition: opacity 100ms ease, background 100ms ease;
+  width: 24px;
+  z-index: 4;
+}
+
+.bandkit-collection-select .hub-button-icon {
+  background: currentColor;
+  display: block;
+  height: 14px;
+  mask: var(--hub-icon) center / contain no-repeat;
+  -webkit-mask: var(--hub-icon) center / contain no-repeat;
+  width: 14px;
+}
+
+html[data-bandkit-collection-downloads="true"] :is(.collection-item-art-container, .bandkit-library-art):is(:hover, :focus-within) > .bandkit-collection-select,
+html[data-bandkit-collection-selecting="true"] :is(.collection-item-art-container, .bandkit-library-art) > .bandkit-collection-select {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+html[data-bandkit-collection-page="true"] :is(.collection-item-art-container, .bandkit-library-art) > .bandkit-collection-select:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+html[data-bandkit-collection-page="true"] :is(.collection-item-art-container, .bandkit-library-art) > .bandkit-collection-select[aria-checked="true"] {
+  background: var(--bandkit-page-accent, var(--hub-accent, #1da0c3)) !important;
+  border-color: var(--bandkit-page-accent, var(--hub-accent, #1da0c3)) !important;
+  color: var(--bandkit-page-on-accent, var(--hub-on-accent, #fff));
+}
+
+/* Downloaded before: a quiet tick that only shows with the other artwork
+   controls, so the grid itself stays unmarked. */
+html[data-bandkit-collection-page="true"] :is(.collection-item-container, .bandkit-library-row)[data-bandkit-downloaded] :is(.collection-item-art-container, .bandkit-library-art) > .bandkit-collection-select[aria-checked="false"] {
+  color: rgba(255, 255, 255, .86);
+}
+
+html[data-bandkit-collection-selecting="true"] .collection-item-container[data-bandkit-download-selected] .collection-item-art-container,
+html[data-bandkit-collection-selecting="true"] .bandkit-library-row[data-bandkit-download-selected] .bandkit-library-art {
+  outline: 2px solid var(--bandkit-page-accent, var(--hub-accent, #1da0c3));
+  outline-offset: 3px;
+}
+
+html[data-bandkit-collection-selecting="true"] .collection-item-container:not([data-bandkit-download-selected]) .collection-item-art-container .collection-item-art,
+html[data-bandkit-collection-selecting="true"] .bandkit-library-row[data-download-key]:not([data-bandkit-download-selected]) .bandkit-library-art img {
+  opacity: .82;
+  transition: opacity 120ms ease;
+}
+
+@media (max-width: 599px) {
+  .bandkit-collection-download-bar {
+    flex-basis: 100%;
+  }
+
+  .bandkit-collection-download-control.is-download .bandkit-collection-download-text {
+    display: none;
+  }
+}
+
+/* "3 selected" swaps to "Deselect all" on hover or focus. Both labels share
+   one grid cell, so the button keeps the wider label's width throughout. */
+.bandkit-collection-download-control.is-count .bandkit-collection-download-count {
+  display: grid;
+  padding: 0;
+}
+
+.bandkit-collection-download-control.is-count .bandkit-collection-download-count > span {
+  grid-area: 1 / 1;
+  text-align: center;
+}
+
+.bandkit-collection-download-control.is-count .is-hovered,
+.bandkit-collection-download-control.is-count:is(:hover, :focus-visible):not(:disabled) .is-resting {
+  visibility: hidden;
+}
+
+.bandkit-collection-download-control.is-count:is(:hover, :focus-visible):not(:disabled) .is-hovered {
+  visibility: visible;
+}
+
+.bandkit-collection-download-control.is-count:disabled {
+  opacity: 1;
+}
+
+.bandkit-collection-download-live {
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+}

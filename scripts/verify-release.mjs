@@ -22,6 +22,9 @@ const allowedRuntimeFiles = new Set([
   "component-reference.html",
   "component-reference.js",
   "content.js",
+  "downloads-permission.css",
+  "downloads-permission.html",
+  "downloads-permission.js",
   "feed-redirect.js",
   "hub.css",
   "modern-pages-bootstrap.js",
@@ -54,7 +57,16 @@ const required = new Set([
   ...Object.values(manifest.action?.default_icon || {})
 ].filter(Boolean));
 
+// The What's new tour names the release that introduced its features, so it
+// can never be ahead of the version being shipped.
+const { WHATS_NEW } = await import("../src/content/whats-new.js");
+const versionParts = (value) => String(value).split(".").map((part) => Number(part) || 0);
+const newerThanRelease = versionParts(WHATS_NEW.version).reduce((result, part, index) =>
+  result ?? (part === (versionParts(manifest.version)[index] || 0) ? null : part > (versionParts(manifest.version)[index] || 0)), null) === true;
+assert.ok(!newerThanRelease, `What's new is for ${WHATS_NEW.version} but the release is ${manifest.version}; update src/content/whats-new.js`);
+
 if (files.has("offscreen.html")) required.add("offscreen.js");
+if (files.has("downloads-permission.html")) required.add("downloads-permission.js");
 for (const file of required) assert.ok(files.has(file), `Release is missing manifest/runtime file: ${file}`);
 
 assert.ok(manifest.icons?.["128"], "Manifest must declare a 128px store icon");

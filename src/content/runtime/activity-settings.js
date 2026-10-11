@@ -673,6 +673,12 @@ r.$renderFeatureSettings = function renderFeatureSettings() {
       const activityEnabled = r.$activityFeatureEnabled();
       featureRow("Activity", "Keep a local history of listening, cart and playlist actions.", activityEnabled,
         "hub-activity-enabled-toggle", () => r.$setFeatureEnabled("activityEnabled", !activityEnabled, "Activity"));
+      const downloadsEnabled = r.$downloadsFeatureEnabled();
+      featureRow("Collection downloads", "Select releases in your collection and download them in one go.", downloadsEnabled,
+        "hub-downloads-enabled-toggle", () => {
+          r.$setFeatureEnabled("downloadsEnabled", !downloadsEnabled, "Collection downloads");
+          r.$syncCollectionDownloadSelection?.();
+        });
       const modernReleasePages = Boolean(runtimeState.appearance.modernReleasePages);
       featureRow("Modern Bandcamp pages", "Refresh legacy feeds and artist pages.", modernReleasePages, "hub-modern-release-toggle", () => {
         runtimeState.appearance.modernReleasePages = !modernReleasePages;
@@ -682,11 +688,26 @@ r.$renderFeatureSettings = function renderFeatureSettings() {
         r.$render();
         r.$showToast(runtimeState.appearance.modernReleasePages ? "Modern Bandcamp pages enabled" : "Classic Bandcamp pages restored");
       });
-      featureRow("Bandcamp music player", "Show Bandcamp’s own player alongside Bandkit’s.", !runtimeState.appearance.hideBandcampPlayer, "hub-native-player-toggle", () => {
-        runtimeState.appearance.hideBandcampPlayer = !runtimeState.appearance.hideBandcampPlayer;
-        r.$applyNativePlayerVisibility();
-        runtimeSaveState();
-        r.$render();
+      const bandkitPlayerEnabled = Boolean(runtimeState.appearance.hideBandcampPlayer);
+      featureRow("Bandkit player", "Replace Bandcamp’s player with the Bandkit music bar. Turn off to restore Bandcamp’s player.", bandkitPlayerEnabled, "hub-native-player-toggle", () => {
+        const enabled = !bandkitPlayerEnabled;
+        const revision = (Number(r.$playerModeChangeRevision) || 0) + 1;
+        r.$playerModeChangeRevision = revision;
+        if (!enabled) {
+          runtimeState.appearance.hideBandcampPlayer = false;
+          r.$applyNativePlayerVisibility();
+          runtimeSaveState();
+        }
+        void r.$clearPlayerModeQueue().catch(() => {}).then(async () => {
+          if (revision !== r.$playerModeChangeRevision) return;
+          runtimeState.appearance.hideBandcampPlayer = enabled;
+          if (enabled) r.$releaseExplicitPlaybackClear();
+          r.$applyNativePlayerVisibility();
+          await runtimeSaveState();
+          if (revision !== r.$playerModeChangeRevision) return;
+          r.$render();
+          r.$showToast(enabled ? "Bandkit player turned on" : "Bandcamp player restored");
+        });
       });
       appendSettingsDisclosureSections(coreGroup.content, coreRows);
       features.append(coreGroup.group, ...r.$createDjSettingsGroups());

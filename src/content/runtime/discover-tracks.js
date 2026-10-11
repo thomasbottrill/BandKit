@@ -194,6 +194,7 @@ export function setupDiscoverTracks(r) {
   document.addEventListener("click", (event) => {
     if (event.target.closest(".bandkit-discover-track-actions")) return;
     const row = event.target.closest("#DiscoverApp .bandkit-discover-tracks .track_row_view");
+    if (row && !runtimeState.appearance.hideBandcampPlayer) return;
     if (row && !event.target.closest(".bandkit-track-analysis")) {
       event.preventDefault(); event.stopImmediatePropagation();
       const track = r.$discoverReleaseTracks.find((item) => item.id === row.dataset.bandkitDiscoverTrackId);
@@ -217,7 +218,7 @@ export function setupDiscoverTracks(r) {
     }
   }, true);
   document.addEventListener("keydown", (event) => {
-    if (event.key !== " " && event.key !== "Enter") return;
+    if (!runtimeState.appearance.hideBandcampPlayer || (event.key !== " " && event.key !== "Enter")) return;
     const control = event.target.closest("#DiscoverApp .bandkit-discover-tracks .play-col a, [data-bandkit-discover-select]");
     if (control) { event.preventDefault(); control.click(); }
   });

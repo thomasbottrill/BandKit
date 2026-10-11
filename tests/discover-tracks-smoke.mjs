@@ -40,6 +40,8 @@ try {
 
 // Exercise lazy selection and racing responses independently of Bandcamp's DOM.
 const source = fs.readFileSync(new URL("../src/content/runtime/discover-tracks.js", import.meta.url), "utf8");
+assert.match(source, /const row = event\.target\.closest[\s\S]*?row && !runtimeState\.appearance\.hideBandcampPlayer\) return/,
+  "native-player mode should not intercept generated Discover track rows");
 let focusedUrl = "https://fixture.bandcamp.com/album/a";
 const elements = [];
 class Element {

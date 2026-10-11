@@ -1,10 +1,12 @@
 # Bandkit
 
-Current unpacked build: **1.1.0**
+Current unpacked build: **1.2.0**
 
 Bandkit is a Manifest V3 Chrome extension that places a movable, theme-aware listening panel on Bandcamp. Bandkit can sample each page’s background, text, and link colours, use a saved light, dark, or custom palette, and optionally apply that palette across Bandcamp itself.
 
 ## What works
+
+- **Library** connects your collection and wishlist into a private, searchable catalogue. On your own Collection or Wishlist page, choose **Enable search, tags and crates**. Search and collapsed filters sit above Bandcamp’s grid. The panel’s **Collection** tab, after Playlists, provides a compact Collection / Wishlist browser with the same catalogue, search and filters. Hover or focus artwork to reveal Play; other cards fade back like the playlist view. Search titles, artists, indexed track names, tags and private notes; open **Filters** for scope-independent tag, label/publisher, release date, BPM, key and Bandkit listening filters. Library options can refresh membership or read missing release details sequentially; stopped indexing resumes from saved progress. BPM and key reuse existing player analysis and never start a whole-library audio scan. Use a release’s pencil action for personal tags and notes, and use the results menu to save a live **smart crate**, select results, queue tracks, create a playlist or download owned releases. Crates save the search rules and update with the catalogue. Data stays local and is included in portable backups; signed download links and stream URLs are omitted from those backups. After restoring a backup, refresh Library to recover current download links.
 
 - A consistent bottom Now Playing bar with previous, play/pause, next, elapsed time, duration, and full scrubbing.
 - A single **Queue and playlists** screen combines **Now Playing** with a persistent queue. When no custom queue exists it shows the current Bandcamp page queue; queued tracks persist across navigation and can be reordered by dragging, removed, cleared, or filled from the whole visible page.
@@ -21,6 +23,7 @@ Bandkit is a Manifest V3 Chrome extension that places a movable, theme-aware lis
 - The in-app Cart screen has dedicated **Cart** and **Saved** views. Saved-cart summary cards can restore immediately or open into a full item-by-item view.
 - Mixed-currency carts show both the symbol and currency code on every card, retain each item's original currency, and use Bandcamp's converted live subtotal instead of adding unlike currencies as though they were all USD.
 - **Download** creates a normal HTML cart backup containing track/release names and clickable Bandcamp links. Private backup files keep only the Bandcamp product fields needed for restore; public share files omit restore details. No JSON knowledge is required.
+- **Collection downloads** on your own collection page: select releases (shift-click for a range, or **Select all** for the whole collection without scrolling), choose a format such as FLAC, MP3 320 or WAV, and download them in one go. A **Downloads** panel tab, shown only on your collection page or while a queue is active, tracks each release through preparing, downloading and done, with pause, retry, per-release format changes and **Show in folder**. Chrome asks for the optional downloads permission the first time.
 - Activity has its own **Download** action for a readable HTML listening log with timestamps and clickable track and artist links.
 - Activity contains only events recorded locally after installation. Artwork, track names, and artist names link directly to their Bandcamp pages.
 - The combined queue stays empty until playback begins or tracks are added; once connected, its artwork-backed entries, cart, popup cart history, and Activity use linked titles and artists instead of separate **Open page** buttons.
@@ -38,7 +41,7 @@ The former Downloads and Recent Purchases prototype tabs were removed because th
 3. Enable **Developer mode**.
 4. Choose **Load unpacked** and select `dist/unpacked`, or press **Reload** on an existing Bandkit installation.
 5. Reload every Bandcamp tab that was already open.
-6. Confirm the extension card says **1.1.0**.
+6. Confirm the extension card says **1.2.0**.
 
 Open a streamable album page and press its normal Bandcamp play button. The audio should hand off to Bandkit automatically; the toolbar popup provides a single control to activate or deactivate the Bandkit panel on the current Bandcamp tab.
 

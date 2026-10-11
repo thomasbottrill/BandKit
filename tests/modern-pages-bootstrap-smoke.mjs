@@ -98,7 +98,7 @@ assert.deepEqual(result.properties, cache.variables, "Discover must paint the ca
 assert.equal(result.dataset.bandkitModernBootstrap, undefined, "Early theming must not switch Discover onto the modern page path");
 
 result = bootstrap({ hostname: "artist.bandcamp.com", pathname: "/album/themed", enabled: true, pageTheme: cache });
-assert.deepEqual(result.properties, cache.variables, "Release pages must paint the cached colours behind their reveal gate");
+assert.deepEqual(result.properties, { ...cache.variables, "--bandkit-page-scale": "1" }, "Release pages must paint the cached colours behind their reveal gate");
 
 result = bootstrap({ hostname: "bandcamp.com", pathname: "/discover", pageTheme: { enabled: false, variables: cache.variables } });
 assert.deepEqual(result.properties, {}, "A theme the user turned off must not be replayed");

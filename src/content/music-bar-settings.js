@@ -73,7 +73,7 @@ export function createScrubbablePercentage({ ariaLabel, defaultValue, max, min, 
     commit();
   });
   dragHandle.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || input.disabled) return;
     event.preventDefault();
     dragStartX = event.clientX;
     dragStartValue = currentValue;
@@ -100,6 +100,11 @@ export function createScrubbablePercentage({ ariaLabel, defaultValue, max, min, 
   control.append(input, dragHandle);
   setValue(value, false);
   control.setValue = setValue;
+  control.setDisabled = (disabled) => {
+    input.disabled = Boolean(disabled);
+    control.classList.toggle("is-disabled", Boolean(disabled));
+    control.setAttribute("aria-disabled", String(Boolean(disabled)));
+  };
   return control;
 }
 

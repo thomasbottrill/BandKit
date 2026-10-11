@@ -19,7 +19,7 @@
 .hub-player[data-content-width="full"] .hub-player-content {
   margin: 0;
   max-width: none;
-  width: calc(100% - var(--hub-sections-panel-width, min(420px, calc(100vw - 32px))) - 32px);
+  width: calc(100% - var(--hub-sections-panel-width, min(420px, calc(var(--hub-viewport-width, 100vw) - 32px))) - 32px);
 }
 /* Width is continuously sampled while dragging. Any easing on dependent
    geometry makes the shell, backdrop and controls appear to separate, so the
@@ -60,7 +60,7 @@
 }
 
 .hub-player[data-player-style="zune"] {
-  --hub-fade-backdrop-width: min(1440px, 74vw);
+  --hub-fade-backdrop-width: min(1440px, calc(var(--hub-viewport-width, 100vw) * 0.74));
   --hub-zune-surface: var(--hub-zune-surface-live, var(--bandkit-page-surface, var(--hub-panel)));
   --hub-zune-content-lift: 18px;
   --hub-ink: var(--hub-zune-main-ink-live, var(--hub-panel-ink));
@@ -148,15 +148,15 @@
 /* A manually resized Zune player keeps its broad feathered shoulders, but the
    surface now grows from the same persisted width as the playback content. */
 .hub-player[data-player-style="zune"][data-content-width="custom"]:not([data-player-variant="rounded"]) {
-  --hub-fade-backdrop-width: min(calc(var(--hub-player-custom-width, 900px) + 640px), calc(100vw + 160px));
+  --hub-fade-backdrop-width: min(calc(var(--hub-player-custom-width, 900px) + 640px), calc(var(--hub-viewport-width, 100vw) + 160px));
 }
 
 .hub-player[data-player-style="zune"][data-content-width="wide"]:not([data-player-variant="rounded"]) {
-  --hub-fade-backdrop-width: min(1560px, calc(100vw + 120px));
+  --hub-fade-backdrop-width: min(1560px, calc(var(--hub-viewport-width, 100vw) + 120px));
 }
 
 .hub-player[data-player-style="zune"][data-content-width="full"]:not([data-player-variant="rounded"]) {
-  --hub-fade-backdrop-width: calc(100vw + 160px);
+  --hub-fade-backdrop-width: calc(var(--hub-viewport-width, 100vw) + 160px);
 }
 
 /* Keep the two progressively blurred surfaces and shape only their upper
@@ -186,7 +186,7 @@
 
 .hub-player[data-player-style="zune"] .hub-player-backdrop-glow::before {
   bottom: -18px;
-  filter: blur(clamp(28px, 2.2vw, 42px));
+  filter: blur(clamp(28px, calc(var(--hub-viewport-width, 100vw) * 0.022), 42px));
   height: calc(244px + var(--hub-player-offset, 0px));
   opacity: 0.98;
   width: 104%;
@@ -195,7 +195,7 @@
 
 .hub-player[data-player-style="zune"] .hub-player-backdrop-glow::after {
   bottom: -54px;
-  filter: blur(clamp(9px, 0.75vw, 13px));
+  filter: blur(clamp(9px, calc(var(--hub-viewport-width, 100vw) * 0.0075), 13px));
   height: calc(280px + var(--hub-player-offset, 0px));
   opacity: 1;
   width: 94%;
@@ -209,7 +209,7 @@
   pointer-events: auto;
   position: relative;
   transform: translateY(calc(0px - var(--hub-zune-content-lift) - var(--hub-player-offset, 0px)));
-  width: min(800px, calc(100vw - 48px));
+  width: min(800px, calc(var(--hub-viewport-width, 100vw) - 48px));
   z-index: 2;
 }
 
@@ -218,21 +218,21 @@
 }
 
 .hub-player[data-player-style="zune"][data-content-width="tight"] .hub-player-content {
-  width: min(640px, calc(100vw - 48px));
+  width: min(640px, calc(var(--hub-viewport-width, 100vw) - 48px));
 }
 
 .hub-player[data-player-style="zune"][data-content-width="wide"] .hub-player-content {
-  width: min(1120px, calc(100vw - 48px));
+  width: min(1120px, calc(var(--hub-viewport-width, 100vw) - 48px));
 }
 
 .hub-player[data-player-style="zune"][data-content-width="custom"] .hub-player-content {
-  width: min(var(--hub-player-custom-width, 900px), calc(100vw - 48px));
+  width: min(var(--hub-player-custom-width, 900px), calc(var(--hub-viewport-width, 100vw) - 48px));
 }
 
 .hub-player[data-player-style="zune"][data-content-width="full"] .hub-player-content {
   margin-left: auto;
   margin-right: auto;
-  width: calc(100vw - 48px);
+  width: calc(var(--hub-viewport-width, 100vw) - 48px);
 }
 
 .hub-player[data-player-style="zune"] .hub-player-art-link {
@@ -390,12 +390,12 @@
   position: fixed;
   right: auto;
   transform: translateX(-50%);
-  width: min(64vw, 1520px);
+  width: min(calc(var(--hub-viewport-width, 100vw) * 0.64), 1520px);
   z-index: 1;
 }
 
 .hub-player[data-player-style="zune"][data-content-width="custom"]:not([data-player-variant="rounded"]) .hub-player-visualizer {
-  width: min(calc(var(--hub-player-custom-width, 900px) + var(--hub-player-custom-width, 900px)), calc(100vw + 160px));
+  width: min(calc(var(--hub-player-custom-width, 900px) + var(--hub-player-custom-width, 900px)), calc(var(--hub-viewport-width, 100vw) + 160px));
 }
 
 .hub-player[data-player-style="zune"] .hub-player-visualizer::before {
@@ -451,27 +451,27 @@
 }
 
 .hub-player[data-player-style="zune"][data-player-variant="rounded"] {
-  --hub-rounded-card-width: min(812px, calc(100vw - 24px));
+  --hub-rounded-card-width: min(812px, calc(var(--hub-viewport-width, 100vw) - 24px));
 }
 
 .hub-player[data-player-style="zune"][data-player-variant="rounded"][data-content-width="tight"] {
-  --hub-rounded-card-width: min(652px, calc(100vw - 24px));
+  --hub-rounded-card-width: min(652px, calc(var(--hub-viewport-width, 100vw) - 24px));
 }
 
 .hub-player[data-player-style="zune"][data-player-variant="rounded"][data-content-width="wide"] {
-  --hub-rounded-card-width: min(1132px, calc(100vw - 24px));
+  --hub-rounded-card-width: min(1132px, calc(var(--hub-viewport-width, 100vw) - 24px));
 }
 
 .hub-player[data-player-style="zune"][data-player-variant="rounded"][data-content-width="custom"] {
-  --hub-rounded-card-width: min(calc(var(--hub-player-custom-width, 900px) + 12px), calc(100vw - 24px));
+  --hub-rounded-card-width: min(calc(var(--hub-player-custom-width, 900px) + 12px), calc(var(--hub-viewport-width, 100vw) - 24px));
 }
 
 .hub-player[data-player-style="zune"][data-player-variant="rounded"][data-content-width="full"] {
-  --hub-rounded-card-width: calc(100vw - 36px);
+  --hub-rounded-card-width: calc(var(--hub-viewport-width, 100vw) - 36px);
 }
 
 .hub-player[data-player-style="zune"][data-player-variant="rounded"] .hub-player-visualizer {
-  width: min(calc(var(--hub-rounded-card-width) + var(--hub-rounded-card-width)), calc(100vw + 160px));
+  width: min(calc(var(--hub-rounded-card-width) + var(--hub-rounded-card-width)), calc(var(--hub-viewport-width, 100vw) + 160px));
 }
 
 .hub-player[data-player-style="zune"][data-player-variant="rounded"] .hub-player-backdrop-glow {
@@ -671,7 +671,7 @@
     top 300ms cubic-bezier(0.22, 1, 0.36, 1),
     transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
     width 360ms cubic-bezier(0.22, 1, 0.36, 1);
-  width: var(--hub-sections-panel-width, min(420px, calc(100vw - 32px)));
+  width: var(--hub-sections-panel-width, min(420px, calc(var(--hub-viewport-width, 100vw) - 32px)));
 }
 
 

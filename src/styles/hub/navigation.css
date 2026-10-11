@@ -71,3 +71,13 @@
 ) {
   display: none !important;
 }
+
+/* Downloads only has a route in from your own collection, or while a queue
+   started there still has something to show. */
+:host-context(html:not([data-bandkit-downloads-available="true"])) :is(
+  .hub-header-shortcut[data-tab="downloads"],
+  .hub-panel-shortcut[data-tab="downloads"],
+  .hub-tab[data-tab="downloads"]
+) {
+  display: none !important;
+}

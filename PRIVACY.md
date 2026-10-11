@@ -15,12 +15,15 @@ Bandkit may read and process the following information from Bandcamp pages that 
 - A signed-in fan's public Bandcamp username or feed URL when needed for the optional feed-homepage feature.
 - Playback actions and listening activity used for the visible queue, player, playlists, DJ tools and local activity log.
 - Settings, layouts, themes, playlists, cart backups, analysis results and other content that you deliberately create in Bandkit.
+- On your own collection page, the releases you select for download and their Bandcamp download links, and a record of which purchases you have downloaded in which format.
 
 Bandkit handles this information only on Bandcamp pages and only to provide its user-facing Bandcamp companion features.
 
 ## How information is used and stored
 
 Bandkit stores settings, saved playlists, cart backups and listening activity in Chrome's local extension storage on your device. Current playback state may be kept in Chrome's session storage so playback controls can continue across Bandcamp navigation. Audio analysis for BPM, musical key and waveforms happens locally in the extension.
+
+Collection downloads are optional. The first time you download from your collection, Chrome asks whether Bandkit may manage your downloads. Bandkit then reads each selected purchase's download page on bandcamp.com and hands the file Bandcamp provides to Chrome's own downloader, which saves it to your usual downloads folder. The download queue and the record of what you have downloaded stay in Chrome's local extension storage. Bandkit does not read, change or upload any other downloads.
 
 Bandkit does not collect or store bank account details, payment-card numbers, passwords or Bandcamp cookies. Bandcamp handles purchases and payment information on its own pages.
 
@@ -61,3 +64,7 @@ Material changes to Bandkit's data practices will be disclosed before the change
 For privacy questions, use the monitored support contact shown on Bandkit's Chrome Web Store listing.
 
 Bandkit is an independent extension and is not affiliated with, endorsed by or sponsored by Bandcamp.
+
+## Library
+
+If you connect Library, Bandkit reads your signed-in collection and wishlist from Bandcamp and stores a catalogue locally in Chrome. Reading release details is a separate action that fetches public release pages for tags, publisher, dates and track lists. Personal tags, notes, smart-crate rules and saved analysis remain local; they are never posted as Bandcamp reviews. Catalogue download links are stored locally for the existing downloader, but signed links and temporary audio URLs are omitted from portable Library backups. Library data is included in Settings backup/restore and removed by Delete all data. Separate fan IDs have separate local libraries.

@@ -2,6 +2,7 @@ import { createElement, createSectionHeading } from "./core.js";
 import { createSettingsBackRow, createSettingsDetailHeader, createSettingsOverviewCard, resetSettingsDisclosures } from "./settings-drawer.js";
 import { runtimeSaveState, runtimeState } from "./runtime/context.js";
 import { createVisualThemeSettings } from "./runtime/visual-theme-settings.js";
+import { createScaleSettingsSection } from "./runtime/scale-settings.js";
 
 export function registerSettingsOverview(r) {
   r.$settingsOverviewSections = function settingsOverviewSections() {
@@ -83,7 +84,7 @@ export function registerSettingsOverview(r) {
         return;
       }
       const { appearance, appearanceMode, themeGroup } = r.$createAppearanceSettings();
-      appearance.prepend(createVisualThemeSettings(r));
+      appearance.prepend(createVisualThemeSettings(r), createScaleSettingsSection(r));
       r.$appendAppearanceThemePicker(themeGroup, appearanceMode);
       r.$appendSavedThemeSettings(themeGroup, appearanceMode);
       r.$appendCustomThemeSettings(themeGroup, appearanceMode);

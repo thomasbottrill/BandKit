@@ -646,25 +646,25 @@
 
 /* Focus effect: pointing at or keyboard-focusing one card in a list lets the
    rest fall back, so the card in hand stands out. Shared by Now Playing,
-   playlists, the cart, saved carts and Activity. */
-:is(.hub-stack, .hub-activity-list) > .hub-compact-media-card {
+   playlists, the cart, saved carts, Activity and Downloads. */
+:is(.hub-stack, .hub-activity-list, .hub-downloads-list) > .hub-compact-media-card {
   transition: background-color 120ms ease, border-color 120ms ease, opacity 160ms ease, transform 120ms ease, filter 160ms ease;
 }
 
 @media (hover: hover) {
-  :is(.hub-stack, .hub-activity-list):has(> .hub-compact-media-card:hover) > .hub-compact-media-card:not(:hover) {
-    filter: saturate(0.55);
-    opacity: 0.45;
+  :is(.hub-stack, .hub-activity-list, .hub-downloads-list):has(> .hub-compact-media-card:hover) > .hub-compact-media-card:not(:hover) {
+    filter: saturate(0.95);
+    opacity: 0.88;
   }
 }
 
-:is(.hub-stack, .hub-activity-list):has(> .hub-compact-media-card :focus-visible) > .hub-compact-media-card:not(:has(:focus-visible)) {
-  filter: saturate(0.55);
-  opacity: 0.45;
+:is(.hub-stack, .hub-activity-list, .hub-downloads-list):has(> .hub-compact-media-card :focus-visible) > .hub-compact-media-card:not(:has(:focus-visible)) {
+  filter: saturate(0.95);
+  opacity: 0.88;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :is(.hub-stack, .hub-activity-list) > .hub-compact-media-card {
+  :is(.hub-stack, .hub-activity-list, .hub-downloads-list) > .hub-compact-media-card {
     transition: none;
   }
 }

@@ -1,7 +1,9 @@
+import { normalizeAppearanceScales } from "../scale.js";
 import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState, updateRuntimeState } from "./context.js";
 import { formatDuration, portableBandcampUrl } from "../core.js";
-import { MAX_PLAYLIST_ITEMS, MAX_SAVED_THEMES, MUSIC_BAR_SCRUBBER_WIDTHS, MUSIC_BAR_STYLES, MUSIC_BAR_WIDTHS, ONBOARDING_COMPLETE, PLAYER_BLEND_MODES, SCRUBBER_HANDLE_SHAPES, VISUALIZER_BLEND_MODES, normalizeVisualizerType, normalizeHandleSize } from "../state.js";
+import { MAX_PLAYLIST_ITEMS, MAX_SAVED_THEMES, MUSIC_BAR_SCRUBBER_WIDTHS, MUSIC_BAR_STYLES, MUSIC_BAR_WIDTHS, ONBOARDING_COMPLETE, PANEL_TAB_IDS, PLAYER_BLEND_MODES, SCRUBBER_HANDLE_SHAPES, VISUALIZER_BLEND_MODES, normalizeVisualizerType, normalizeHandleSize } from "../state.js";
 import { MESSAGES, STORAGE_KEYS } from "../../shared/contracts.js";
+import { normalizeDownloadFormat } from "../../shared/download-formats.js";
 import { normalizedActivity, repairDuplicatedCartActivity } from "../activity-model.js";
 import { HANDLE_OUTLINE_CSS } from "../handle-outline-style.js";
 import { normalizeCustomHandle } from "../custom-scrub-handle.js";
@@ -21,10 +23,11 @@ function normalizeGlassAppearance(appearance) {
 }
 
 function normalizeVisualThemeAppearance(appearance) {
+  const scalesChanged = normalizeAppearanceScales(appearance);
   const previous = [appearance.visualizerColourSource, appearance.visualThemeId];
   appearance.visualizerColourSource = appearance.visualizerColourSource === "custom" ? "custom" : "theme";
   if (!appearance.visualThemeId || appearance.visualThemeId === "none") appearance.visualThemeId = "dynamic";
-  return previous.some((value, index) => value !== [appearance.visualizerColourSource, appearance.visualThemeId][index]);
+  return scalesChanged || previous.some((value, index) => value !== [appearance.visualizerColourSource, appearance.visualThemeId][index]);
 }
 
 function normalizedVisualizerDimension(value, min, max) {
@@ -48,10 +51,13 @@ function normalizedCrossTabSettings(incoming, current) {
     feedUrl: typeof incoming.feedUrl === "string" ? incoming.feedUrl : "",
     onboardingCompletedVersion,
     onboardingStep: onboardingCompletedVersion > 0 ? 0 : Math.max(0, Math.min(10, Number(incoming.onboardingStep) || 0)),
+    whatsNewSeenVersion: typeof incoming.whatsNewSeenVersion === "string" ? incoming.whatsNewSeenVersion : current.whatsNewSeenVersion,
     djToolsEnabled: incoming.djToolsEnabled !== false,
     cartEnabled: incoming.cartEnabled !== false,
     playlistsEnabled: incoming.playlistsEnabled !== false,
     activityEnabled: incoming.activityEnabled !== false,
+    downloadsEnabled: incoming.downloadsEnabled !== false,
+    downloadFormat: normalizeDownloadFormat(incoming.downloadFormat),
     autoAnalyzeTracks: incoming.autoAnalyzeTracks !== false,
     showTrackKeys: incoming.showTrackKeys !== false,
     showCamelotNotation: incoming.showCamelotNotation === true,
@@ -82,7 +88,7 @@ function normalizedCrossTabSettings(incoming, current) {
     musicBarBlendMode: PLAYER_BLEND_MODES.includes(incoming.musicBarBlendMode)
       ? incoming.musicBarBlendMode : "normal",
     musicBarPanelButtons: "compact",
-    musicBarRecentPanel: ["playlist", "cart", "activity", "settings"].includes(incoming.musicBarRecentPanel)
+    musicBarRecentPanel: PANEL_TAB_IDS.includes(incoming.musicBarRecentPanel)
       ? incoming.musicBarRecentPanel : "playlist",
     musicBarSize: incoming.musicBarSize === "compact" ? "compact" : "standard",
     musicBarVisualizer: incoming.musicBarVisualizer === "off" ? "off"
@@ -485,6 +491,8 @@ r.$restoreRuntimeState = function restoreRuntimeState({ saved, savedState, saved
       runtimeState.cartEnabled = runtimeState.cartEnabled !== false;
       runtimeState.playlistsEnabled = runtimeState.playlistsEnabled !== false;
       runtimeState.activityEnabled = runtimeState.activityEnabled !== false;
+      runtimeState.downloadsEnabled = runtimeState.downloadsEnabled !== false;
+      runtimeState.downloadFormat = normalizeDownloadFormat(runtimeState.downloadFormat);
       runtimeState.playlistMode = runtimeState.playlistMode === "manual" ? "manual" : "browse";
       runtimeState.playlistShuffleEnabled = runtimeState.playlistShuffleEnabled === true;
       runtimeState.playlistShuffleOrder = Array.isArray(runtimeState.playlistShuffleOrder)
@@ -515,7 +523,7 @@ r.$restoreRuntimeState = function restoreRuntimeState({ saved, savedState, saved
       runtimeState.musicBarBlendMode = PLAYER_BLEND_MODES.includes(runtimeState.musicBarBlendMode)
         ? runtimeState.musicBarBlendMode : "normal";
       runtimeState.musicBarPanelButtons = "compact";
-      runtimeState.musicBarRecentPanel = ["playlist", "cart", "activity", "settings"].includes(runtimeState.musicBarRecentPanel)
+      runtimeState.musicBarRecentPanel = PANEL_TAB_IDS.includes(runtimeState.musicBarRecentPanel)
         ? runtimeState.musicBarRecentPanel : "playlist";
       runtimeState.musicBarSize = runtimeState.musicBarSize === "compact" ? "compact" : "standard";
       runtimeState.musicBarVisualizerType = normalizeVisualizerType(runtimeState.musicBarVisualizerType, runtimeState.musicBarVisualizer);
@@ -563,7 +571,7 @@ r.$restoreRuntimeState = function restoreRuntimeState({ saved, savedState, saved
         runtimeState.activeTab = "playlist";
         runtimeState.playlistView = "current";
       }
-      if (!["current", "saved"].includes(runtimeState.playlistView)) runtimeState.playlistView = "current";
+      if (!["current", "saved", "collection"].includes(runtimeState.playlistView)) runtimeState.playlistView = "current";
       if (!r.$tabs.some((tab) => tab.id === runtimeState.activeTab)) runtimeState.activeTab = "playlist";
       if (!["index", "player", "features", "tools", "appearance", "browsing", "onboarding", "privacy", "about"].includes(runtimeState.settingsView)) {
         runtimeState.settingsView = "index";
@@ -591,7 +599,7 @@ r.$init = async function init() {
       const earlyModernPageBootstrap = document.documentElement.dataset.bandkitModernBootstrap === "true"
         ? globalThis.BandKitModernPagesBootstrap
         : null;
-      const savedPromise = r.$storageGet([STORAGE_KEYS.STATE, STORAGE_KEYS.LAYOUT, STORAGE_KEYS.ONBOARDING_COMPLETE]);
+      const savedPromise = r.$storageGet([STORAGE_KEYS.STATE, STORAGE_KEYS.LAYOUT, STORAGE_KEYS.ONBOARDING_COMPLETE, STORAGE_KEYS.TOUR_RESUME]);
       const nowPlayingPromise = r.$runtimeMessage({ type: MESSAGES.GET_NOW_PLAYING });
       const styleUrl = new URL(chrome.runtime.getURL("hub.css"));
       styleUrl.searchParams.set("v", chrome.runtime.getManifest().version);
@@ -623,8 +631,9 @@ r.$init = async function init() {
       const headerMount = r.$initializeHeaderMount();
 
       if (r.$restoreRuntimeState({ saved, savedState, savedNowPlaying })) return;
-      r.$activateFirstRunOnboarding();
+      const welcoming = r.$activateFirstRunOnboarding();
       await r.$syncSeamlessState();
+      if (!welcoming && !r.$resumeTour(saved[STORAGE_KEYS.TOUR_RESUME])) r.$activateWhatsNew();
       r.$applyAppearance();
       r.$syncTrackKeyVisibilityMode();
       r.$applyLayoutMode();

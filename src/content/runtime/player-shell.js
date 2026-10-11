@@ -1,3 +1,4 @@
+import { interfaceScale, scaleRect } from "../scale.js";
 import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState } from "./context.js";
 import { resolvePlayerPresentation } from "../player-presentation.js";
 import { syncCustomPlayerButtons } from "../custom-player-buttons.js";
@@ -176,7 +177,9 @@ function pendingPlayerState(r) {
 }
 
 function syncDjDrawerAnchor(r, playerRect = r.$player.getBoundingClientRect()) {
-  const buttonRect = r.$djPlayerButton.getBoundingClientRect();
+  const uiScale = interfaceScale(runtimeState.appearance);
+  playerRect = scaleRect(playerRect, uiScale);
+  const buttonRect = scaleRect(r.$djPlayerButton.getBoundingClientRect(), uiScale);
   if (!playerRect.width || !buttonRect.width) return;
   const center = buttonRect.left + buttonRect.width / 2;
   const zune = ["zune", "rounded"].includes(runtimeState.musicBarStyle);
@@ -185,13 +188,13 @@ function syncDjDrawerAnchor(r, playerRect = r.$player.getBoundingClientRect()) {
     && !r.$player.classList.contains("is-empty");
   let visibleTop = playerRect.top;
   if (visualizerVisible) {
-    const contentRect = r.$player.querySelector(".hub-player-content")?.getBoundingClientRect();
-    const visualizerRect = r.$playerVisualizer?.getBoundingClientRect();
+    const contentRect = scaleRect(r.$player.querySelector(".hub-player-content")?.getBoundingClientRect(), uiScale);
+    const visualizerRect = scaleRect(r.$playerVisualizer?.getBoundingClientRect(), uiScale);
     if (contentRect?.height) visibleTop = Math.min(visibleTop, contentRect.top);
     if (visualizerRect?.height) visibleTop = Math.min(visibleTop, visualizerRect.top);
   }
   const clearance = Math.max(0, playerRect.top - visibleTop);
-  const bottom = Math.max(10, window.innerHeight - visibleTop + 10);
+  const bottom = Math.max(10, window.innerHeight / uiScale - visibleTop + 10);
   r.$djDrawer.style.setProperty("--hub-dj-anchor-x", `${Math.round(center)}px`);
   r.$djDrawer.style.setProperty("--hub-dj-bottom", `${Math.round(bottom)}px`);
   r.$djDrawer.style.setProperty("--hub-dj-visualizer-clearance", `${Math.ceil(clearance)}px`);
@@ -527,39 +530,41 @@ r.$syncPlayerSectionGeometry = function syncPlayerSectionGeometry() {
       syncZunePageSurfaces(r, playerRect);
       syncPlayerSurface(r);
       syncDjDrawerAnchor(r, playerRect);
+      const uiScale = interfaceScale(runtimeState.appearance);
+      const localPlayerRect = scaleRect(playerRect, uiScale);
       const zune = ["zune", "rounded"].includes(runtimeState.musicBarStyle);
       const empty = r.$player.classList.contains("is-empty");
       const contextual = zune || empty;
-      const rect = r.$panel.getBoundingClientRect();
+      const rect = scaleRect(r.$panel.getBoundingClientRect(), uiScale);
       if (!contextual && !rect.width) return;
-      const panelWidth = r.$panel.offsetWidth || rect.width || Number.parseFloat(getComputedStyle(r.$panel).width) || Math.min(420, window.innerWidth - 32);
+      const panelWidth = r.$panel.offsetWidth || rect.width || Number.parseFloat(getComputedStyle(r.$panel).width) || Math.min(420, window.innerWidth / uiScale - 32);
       const panelCenter = rect.left + rect.width / 2;
-      const contentRect = r.$player.querySelector(".hub-player-content")?.getBoundingClientRect() || null;
+      const contentRect = scaleRect(r.$player.querySelector(".hub-player-content")?.getBoundingClientRect(), uiScale);
       const docked = runtimeState.musicBarStyle === "docked" && !empty;
-      const zuneSectionsRight = zune && contentRect?.width ? Math.max(12, playerRect.right - contentRect.right) : null;
+      const zuneSectionsRight = zune && contentRect?.width ? Math.max(12, localPlayerRect.right - contentRect.right) : null;
       if (zuneSectionsRight !== null) {
         r.$player.style.setProperty("--hub-zune-sections-right", `${Math.round(zuneSectionsRight)}px`);
       }
-      const sectionRect = r.$playerSections.getBoundingClientRect();
-      const dockChevron = docked ? dockChevronGeometry(playerRect, contentRect) : null;
+      const sectionRect = scaleRect(r.$playerSections.getBoundingClientRect(), uiScale);
+      const dockChevron = docked ? dockChevronGeometry(localPlayerRect, contentRect, uiScale) : null;
       const sectionCenter = dockChevron
         ? dockChevron.center
         : contextual
-          ? sectionRect.left + sectionRect.width / 2 - playerRect.left
-          : panelCenter - playerRect.left;
+          ? sectionRect.left + sectionRect.width / 2 - localPlayerRect.left
+          : panelCenter - localPlayerRect.left;
       const sectionWidth = contextual ? sectionRect.width : 48;
       if (dockChevron) r.$dockChevronMaxGap = dockChevron.maxGap;
       if (!empty) syncDockChevron(r, sectionCenter, docked);
-      const anchorCenter = playerRect.left + sectionCenter;
-      const maxPanelLeft = Math.max(12, window.innerWidth - panelWidth - 12);
+      const anchorCenter = localPlayerRect.left + sectionCenter;
+      const maxPanelLeft = Math.max(12, window.innerWidth / uiScale - panelWidth - 12);
       const panelLeft = contextual ? Math.max(12, Math.min(maxPanelLeft, anchorCenter - panelWidth / 2)) : null;
       const artAnchoredControls = zune || runtimeState.musicBarStyle === "docked";
-      const artRect = artAnchoredControls && !r.$playerArtLink.hidden ? r.$playerArtLink.getBoundingClientRect() : null;
+      const artRect = artAnchoredControls && !r.$playerArtLink.hidden ? scaleRect(r.$playerArtLink.getBoundingClientRect(), uiScale) : null;
       const zuneActionsX = artRect?.width
-        ? artRect.left + artRect.width / 2 - playerRect.left
-        : contentRect?.width ? contentRect.left + Math.min(48, contentRect.height / 2) - playerRect.left : null;
-      const contentLeft = contentRect?.width ? contentRect.left - playerRect.left : null;
-      const contentRight = contentRect?.width ? contentRect.right - playerRect.left : null;
+        ? artRect.left + artRect.width / 2 - localPlayerRect.left
+        : contentRect?.width ? contentRect.left + Math.min(48, contentRect.height / 2) - localPlayerRect.left : null;
+      const contentLeft = contentRect?.width ? contentRect.left - localPlayerRect.left : null;
+      const contentRight = contentRect?.width ? contentRect.right - localPlayerRect.left : null;
       const signature = `${Math.round(sectionCenter)}|${dockChevron ? Math.round(Number(runtimeState.dockChevronGap) || 0) : "none"}|${Math.round(sectionWidth)}|${panelLeft === null ? "docked" : Math.round(panelLeft)}|${zuneActionsX === null ? "none" : Math.round(zuneActionsX)}|${zuneSectionsRight === null ? "none" : Math.round(zuneSectionsRight)}|${contentLeft === null ? "none" : Math.round(contentLeft)}|${contentRight === null ? "none" : Math.round(contentRight)}`;
       if (signature === r.$playerSectionGeometrySignature) return;
       r.$playerSectionGeometrySignature = signature;
@@ -594,8 +599,8 @@ r.$holdPanelPosition = function holdPanelPosition() {
       const rect = r.$panel.getBoundingClientRect();
       if (!rect.width) return;
       r.$panelPositionHeld = true;
-      r.$host.style.setProperty("--hub-panel-hold-left", `${Math.round(rect.left)}px`);
-      r.$host.style.setProperty("--hub-panel-hold-bottom", `${Math.round(Math.max(0, window.innerHeight - rect.bottom))}px`);
+      r.$host.style.setProperty("--hub-panel-hold-left", `${Math.round(rect.left / interfaceScale(runtimeState.appearance))}px`);
+      r.$host.style.setProperty("--hub-panel-hold-bottom", `${Math.round(Math.max(0, window.innerHeight - rect.bottom) / interfaceScale(runtimeState.appearance))}px`);
       r.$host.setAttribute("data-panel-position-hold", "true");
     };
 r.$releasePanelPositionHold = function releasePanelPositionHold() {

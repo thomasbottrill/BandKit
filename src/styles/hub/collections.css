@@ -717,28 +717,19 @@
   opacity: 0.45;
 }
 
-.hub-playlist-track.is-drag-target {
-  outline: 1px solid var(--hub-accent);
-  outline-offset: -1px;
-  position: relative;
+/* While a track is dragged, the others slide aside to show where it lands. */
+.is-reordering > .hub-playlist-track:not(.is-dragging) {
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.hub-playlist-track.is-drag-target::before {
-  background: var(--hub-accent);
-  border-radius: 999px;
-  content: "";
-  height: 3px;
-  left: 4px;
-  position: absolute;
-  right: 4px;
+.is-reordering > .hub-playlist-track.is-dragging {
+  transition: transform 120ms ease;
 }
 
-.hub-playlist-track.is-drop-before::before {
-  top: -6px;
-}
-
-.hub-playlist-track.is-drop-after::before {
-  bottom: -6px;
+@media (prefers-reduced-motion: reduce) {
+  .is-reordering > .hub-playlist-track {
+    transition: none;
+  }
 }
 
 .hub-playlist-media-toggle {

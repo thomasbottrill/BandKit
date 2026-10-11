@@ -74,6 +74,11 @@
   opacity: 0.65;
 }
 
+html[data-bandkit-hide-bandcamp-player="false"] body #HomepageApp #sales-feed .item > .bandkit-sales-feed-actions {
+  display: none !important;
+  pointer-events: none !important;
+}
+
 @media (hover: none) {
   #HomepageApp #sales-feed .item > .bandkit-sales-feed-actions {
     opacity: 1;

@@ -1,6 +1,6 @@
 import { MESSAGES } from "../../shared/contracts.js";
 import { createArt, createButtonIcon, createElement } from "../core.js";
-import { runtimeSeamless } from "./context.js";
+import { runtimeSeamless, runtimeState } from "./context.js";
 
 // Artwork that plays the album or track it shows, the same control as a Now
 // Playing row: artwork at rest, play on hover or focus. Cart items and
@@ -35,7 +35,7 @@ export function registerReleasePreview(r) {
     return Boolean(url && track && [track.releaseUrl, track.pageUrl].some((value) => comparableReleaseUrl(value) === url));
   };
   r.$playReleasePreview = async function playReleasePreview(url, title = "this release") {
-    if (!url) return;
+    if (!url || runtimeState.appearance?.hideBandcampPlayer === false) return;
     if (r.$releasePreviewIsActive(url) && !r.$releasePreviewPendingUrl) {
       await r.$seamlessCommand(MESSAGES.SEAMLESS_PLAY_PAUSE);
       return;
@@ -58,6 +58,12 @@ export function registerReleasePreview(r) {
     }
   };
   r.$createReleasePlayToggle = function createReleasePlayToggle({ url, title, art, className = "" }) {
+    if (runtimeState.appearance?.hideBandcampPlayer === false) {
+      const link = r.$createPageLink("", url, `hub-art-link${className ? ` ${className}` : ""}`);
+      link.setAttribute("aria-label", `Open ${title || "release"}`);
+      link.append(createArt(art));
+      return link;
+    }
     const toggle = createElement("button", `hub-playlist-media-toggle hub-release-media-toggle${className ? ` ${className}` : ""}`);
     toggle.type = "button";
     toggle.dataset.releaseUrl = url;

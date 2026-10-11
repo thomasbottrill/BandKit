@@ -1,0 +1,112 @@
+@import "../shared/library-controls.css";
+
+/* In-page tools share the collection's typography, colours and artwork grid. */
+html[data-bandkit-library="true"] :is(#collection-search, #wishlist-search) { display: none !important; }
+.bandkit-library-filtered > .inner { display: none !important; }
+.bandkit-library {
+  --hub-line: var(--bandkit-page-border, #ddd);
+  --hub-ink: var(--bandkit-page-text, #222);
+  --hub-muted: var(--bandkit-page-muted, #777);
+  --hub-accent: var(--bandkit-page-accent, #0687a8);
+  --hub-on-accent: var(--bandkit-page-on-accent, #fff);
+  --hub-panel: var(--bandkit-page-card, #fff);
+  --hub-card: var(--bandkit-page-card, #fff);
+  --hub-control-radius: 6px;
+  color: var(--hub-ink); font-family: inherit; font-size: 13px; padding: 12px 0 20px;
+  scroll-margin-top: 100px;
+}
+.bandkit-library[hidden], .bandkit-library [hidden] { display: none !important; }
+.bandkit-library .hub-meta, .bandkit-library-empty { color: var(--hub-muted); font-size: 12px; line-height: 1.5; }
+/* Above the artwork's own controls (download checkboxes sit at z-index 4), so
+   tags, filters and menus open over the grid rather than under it. */
+.bandkit-library-search { display: flex; align-items: center; gap: 6px; position: relative; min-height: 34px; z-index: 20; }
+/* While choosing releases to download, the selection bar carries its own
+   menu, so the collection menu steps aside rather than doubling up. */
+html[data-bandkit-collection-selecting="true"] .bandkit-library-search > .bandkit-library-menu { display: none; }
+.bandkit-library-search-field { flex: 1 1 320px; max-width: 440px; }
+/* On the page the tags float under the field, like Bandcamp's own menus. */
+.bandkit-library .bandkit-tag-search-suggestions { position: absolute; left: 0; top: calc(100% + 6px); width: min(520px, calc(100vw - 32px));
+  box-sizing: border-box; padding: 14px; border: 1px solid var(--hub-line); border-radius: 8px; background: var(--hub-panel); box-shadow: 0 8px 24px #0002; z-index: 30; }
+.bandkit-library-input { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid var(--hub-line); border-radius: 4px;
+  padding: 8px; font: inherit; color: var(--hub-ink); background: var(--hub-panel); }
+.bandkit-library-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; font-size: 12px; color: var(--hub-muted); }
+.bandkit-library-text-action { border: 0; background: transparent; color: var(--hub-accent); padding: 8px 0; font: inherit; cursor: pointer; text-align: left; }
+.bandkit-library :is(button, input, select, textarea, summary, a):focus-visible,
+.bandkit-library-card-note:focus-visible { outline: 2px solid var(--hub-accent, #0687a8); outline-offset: 3px; }
+.bandkit-library :is(.bandkit-tag-search-input, .bandkit-tag-chip, .bandkit-filter-input, .bandkit-filter-saved-apply, .bandkit-filter-saved-remove):focus-visible { outline: 0; }
+.bandkit-library-filters { flex: none; position: relative; }
+.bandkit-library-filter-panel { position: absolute; right: 0; top: calc(100% + 6px); width: min(340px, calc(100vw - 32px)); padding: 14px;
+  box-sizing: border-box; border: 1px solid var(--hub-line); border-radius: 8px; background: var(--hub-panel); box-shadow: 0 8px 24px #0002; z-index: 30; }
+.bandkit-library-badge { position: absolute; top: 3px; right: 2px; min-width: 14px; height: 14px; padding: 0 3px; box-sizing: border-box; border-radius: 7px;
+  background: var(--hub-accent); color: var(--hub-on-accent); font-size: 9px; font-weight: 700; line-height: 14px; text-align: center; }
+.bandkit-library-results-toolbar { display: flex; align-items: center; justify-content: space-between; min-height: 30px; }
+.bandkit-library-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 28px 30px; margin-top: 12px; }
+.bandkit-library-row { position: relative; min-width: 0; padding-bottom: 28px; }
+.bandkit-library-art { display: block; aspect-ratio: 1; position: relative; }
+.bandkit-library-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bandkit-library-copy { display: flex; flex-direction: column; gap: 4px; padding-top: 10px; font-size: 13px; line-height: 1.4; }
+.bandkit-library-title { color: inherit; font-weight: 600; }
+.bandkit-library-row-actions { display: flex; position: absolute; bottom: 0; right: 0; gap: 6px; opacity: 0; pointer-events: none; }
+.bandkit-library-row:hover .bandkit-library-row-actions, .bandkit-library-row:focus-within .bandkit-library-row-actions { opacity: 1; pointer-events: auto; }
+.bandkit-library-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; min-width: 34px; padding: 0; cursor: pointer; list-style: none;
+  box-sizing: border-box; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--hub-muted); position: relative;
+  transition: background 120ms ease, color 120ms ease; }
+.bandkit-library-icon:is(:hover, :focus-visible), .bandkit-library-icon.is-active, .bandkit-library-menu[open] > .bandkit-library-icon,
+.bandkit-library-filters[open] > .bandkit-library-icon { background: color-mix(in srgb, var(--hub-accent) 9%, var(--hub-panel)); color: var(--hub-accent); }
+.bandkit-library-icon::-webkit-details-marker { display: none; }
+/* The download selection controls share this row, so they share its quiet
+   style: no backing until hovered or focused, then the same tint and accent
+   as the filter and menu buttons. Download included. The bar sets its own
+   --hub-* colours inline, so the page colours are named directly. */
+.bandkit-library-search .bandkit-collection-download-bar .bandkit-collection-download-control {
+  background: transparent; color: var(--bandkit-page-muted, #777); }
+.bandkit-library-search .bandkit-collection-download-control:is(:hover, :focus-visible, [aria-expanded="true"]):not(:disabled) {
+  background: color-mix(in srgb, var(--bandkit-page-accent, #0687a8) 9%, var(--bandkit-page-card, #fff));
+  color: var(--bandkit-page-accent, #0687a8); filter: none; }
+.bandkit-library .hub-button-icon, .bandkit-library-card-note .hub-button-icon { display: block; width: 16px; height: 16px; background: currentColor;
+  mask-image: var(--hub-icon); mask-size: contain; mask-repeat: no-repeat; mask-position: center; }
+.bandkit-library .bandkit-tag-search .hub-button-icon { width: 14px; height: 14px; }
+.bandkit-library .bandkit-tag-chip.is-selected .hub-button-icon, .bandkit-library .bandkit-tag-search-clear .hub-button-icon,
+.bandkit-library .bandkit-filter-saved-remove .hub-button-icon { width: 10px; height: 10px; }
+.bandkit-library-menu { position: relative; }
+.bandkit-library-menu-options { position: absolute; right: 0; top: calc(100% + 6px); min-width: 240px; z-index: 20; padding: 6px; border: 1px solid var(--hub-line);
+  border-radius: 6px; background: var(--hub-panel); box-shadow: 0 6px 18px #0002; }
+.bandkit-library-menu-options > button { display: block; width: 100%; border: 0; border-radius: 4px; padding: 9px 10px; text-align: left; cursor: pointer;
+  color: var(--hub-ink); background: transparent; font: inherit; }
+.bandkit-library-menu-options > button:is(:hover, :focus-visible) { background: var(--bandkit-page-hover, color-mix(in srgb, var(--hub-ink) 6%, transparent)); outline: 0; }
+.bandkit-library button:disabled { opacity: .5; cursor: default; }
+.bandkit-library-detail { display: flex; flex-direction: column; gap: 12px; max-width: 640px; margin: 12px 0; }
+.bandkit-library-detail-title { font-size: 20px; line-height: 1.3; font-weight: 600; }
+.bandkit-library-detail textarea { resize: vertical; min-height: 80px; }
+.bandkit-library-track { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; border-top: 1px solid var(--hub-line); padding: 8px 0; }
+.bandkit-library-status:empty { display: none; }
+html[data-bandkit-library="true"] .collection-title-details { position: relative; }
+.bandkit-library-card-note { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 0; border-radius: 4px;
+  background: var(--bandkit-page-card, #fff); color: var(--bandkit-page-text, #555); cursor: pointer; position: absolute; right: 0; bottom: -28px; opacity: 0; }
+.collection-item-container:is(:hover, :focus-within) .bandkit-library-card-note { opacity: 1; }
+@media (hover: none), (pointer: coarse) {
+  .bandkit-library-row-actions, .bandkit-library-card-note { opacity: 1; pointer-events: auto; }
+}
+@media (max-width: 700px) {
+  .bandkit-library-search { flex-wrap: wrap; }
+  .bandkit-library-search-field { flex-basis: 100%; max-width: none; }
+  .bandkit-library-filter-panel { left: 0; right: auto; }
+  .bandkit-library-results { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+}
+
+/* Bandcamp pins its profile tabs, but Bandkit's wider layout keeps the bar
+   sticky inside a wrapper exactly its own height, where it cannot move.
+   Letting the wrapper step aside makes the bar pin across every tab. */
+html[data-bandkit-collection-page="true"] #grids > .grid-tabs-anchor { display: contents; }
+html[data-bandkit-collection-page="true"] #grid-tabs-sticky { padding-bottom: 10px; }
+/* The search row sits in the open tab's control row inside that bar, with
+   Bandcamp's hidden-items and visibility links to its right. */
+html[data-bandkit-library="true"] :is(#owner-controls, #wishlist-controls):has(> .bandkit-library-search) {
+  align-items: center; display: flex; flex-wrap: nowrap; gap: 16px; height: auto; margin: 12px 0 0 !important; min-height: 34px; padding: 0; }
+html[data-bandkit-library="true"] :is(#owner-controls, #wishlist-controls) > .bandkit-library-search { flex: 1 1 auto; min-width: 0; padding: 0; }
+html[data-bandkit-library="true"] :is(#owner-controls, #wishlist-controls) > :is(.hidden-links, .wishlist-visibility-container, .collection-privacy, .purchase-help) {
+  flex: none; margin-left: auto; position: static !important; width: auto !important; }
+@media (max-width: 700px) {
+  html[data-bandkit-library="true"] :is(#owner-controls, #wishlist-controls):has(> .bandkit-library-search) { flex-wrap: wrap; gap: 8px; }
+  html[data-bandkit-library="true"] :is(#owner-controls, #wishlist-controls) > .bandkit-library-search { flex-basis: 100%; }
+}

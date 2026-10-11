@@ -1,3 +1,4 @@
+import { portableLibrary } from "./library.js";
 export const BACKUP_FILENAME = "BandKit Backup.json";
 const FORMAT_VERSION = 3;
 
@@ -98,6 +99,7 @@ function normalizedBackup(backup, previous = null) {
         exportedAt
       )
     },
+    library: portableLibrary(backup?.library),
     activity: Array.isArray(backup?.activity) ? backup.activity : [],
     settings: backup?.settings && typeof backup.settings === "object" ? backup.settings : {}
   };
@@ -159,6 +161,7 @@ export async function restoreBackupFile(handle, state) {
       savedPlaylists: playlists.items,
       savedCarts: carts.items
     },
+    library: backup.library ? portableLibrary(backup.library) : null,
     restoredPlaylists: playlists.restored,
     restoredCarts: carts.restored,
     restoredNowPlaying: !hasLocalPlaylist && Boolean(backup.playlists.nowPlaying?.length),

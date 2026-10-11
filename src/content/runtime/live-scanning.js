@@ -1,3 +1,4 @@
+import { interfaceScale, scaleRect } from "../scale.js";
 import { runtimeLive, runtimeSaveState, runtimeSeamless, runtimeState, updateRuntimeLive } from "./context.js";
 import { portableBandcampUrl, resolvedTrackPageUrl } from "../core.js";
 import { radioShowTracklistKey } from "../radio-player-model.js";
@@ -81,11 +82,10 @@ r.$scheduleLivePlayerMaintenance = function scheduleLivePlayerMaintenance(delay 
 
 function registerLiveScanning2(r) {
 r.$scanLivePlayer = function scanLivePlayer() {
-      r.$syncPageAwareTheme?.();
+      r.$syncNativePlayerMode?.(); r.$syncPageAwareTheme?.();
       r.$scanLiveCart();
-      r.$ensurePagePlayerWaveforms();
-      r.$injectPageDjToolsLink();
-      if (r.$pageActionsDirty) r.$injectPlaylistButtons({ incremental: true });
+      r.$ensurePagePlayerWaveforms(); r.$injectPageDjToolsLink();
+      if (r.$pageActionsDirty) r.$injectPlaylistButtons({ incremental: true }); if (!runtimeState.appearance.hideBandcampPlayer) return;
       const data = r.$getBandcampPageData();
       const audio = r.$getAudio();
       for (const candidate of document.querySelectorAll("audio")) {
@@ -93,6 +93,7 @@ r.$scanLivePlayer = function scanLivePlayer() {
         if (r.$observedAudio.has(candidate)) continue;
         r.$observedAudio.add(candidate);
         candidate.addEventListener("play", async () => {
+          if (!runtimeState.appearance.hideBandcampPlayer) return;
           if (r.$nowPlayingExplicitlyCleared) {
             candidate.pause();
             return;
@@ -389,13 +390,14 @@ r.$headerResetButton.addEventListener("click", () => {
     });
 r.$layoutToggleButton.addEventListener("click", r.$toggleLayoutMode);
 r.$panelHeader.addEventListener("pointerdown", (event) => {
+      const uiScale = interfaceScale(runtimeState.appearance);
       if (r.$panel.classList.contains("is-contextual") || runtimeState.layoutMode === "docked" || event.button !== 0 || event.target.closest("button, a, input, select")) return;
-      const rect = r.$panel.getBoundingClientRect();
-      if (![event.clientX, event.clientY, rect.left, rect.top, rect.width, rect.height].every(Number.isFinite)) return;
+      const rect = scaleRect(r.$panel.getBoundingClientRect(), uiScale);
+      if (![(event.clientX / uiScale), (event.clientY / uiScale), rect.left, rect.top, rect.width, rect.height].every(Number.isFinite)) return;
       r.$dragging = {
         pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
+        startX: (event.clientX / uiScale),
+        startY: (event.clientY / uiScale),
         left: rect.left,
         top: rect.top,
         width: rect.width,
@@ -411,12 +413,13 @@ r.$panelHeader.addEventListener("pointerdown", (event) => {
       event.preventDefault();
     });
 r.$panelHeader.addEventListener("pointermove", (event) => {
+      const uiScale = interfaceScale(runtimeState.appearance);
       if (!r.$dragging || event.pointerId !== r.$dragging.pointerId) return;
-      if (![event.clientX, event.clientY].every(Number.isFinite)) return;
-      const maxLeft = Math.max(8, window.innerWidth - r.$dragging.width - 8);
-      const maxTop = Math.max(8, window.innerHeight - r.$dragging.height - 8);
-      const left = Math.max(8, Math.min(maxLeft, r.$dragging.left + event.clientX - r.$dragging.startX));
-      const top = Math.max(8, Math.min(maxTop, r.$dragging.top + event.clientY - r.$dragging.startY));
+      if (![(event.clientX / uiScale), (event.clientY / uiScale)].every(Number.isFinite)) return;
+      const maxLeft = Math.max(8, (window.innerWidth / uiScale) - r.$dragging.width - 8);
+      const maxTop = Math.max(8, (window.innerHeight / uiScale) - r.$dragging.height - 8);
+      const left = Math.max(8, Math.min(maxLeft, r.$dragging.left + (event.clientX / uiScale) - r.$dragging.startX));
+      const top = Math.max(8, Math.min(maxTop, r.$dragging.top + (event.clientY / uiScale) - r.$dragging.startY));
       r.$panel.style.left = `${left}px`;
       r.$panel.style.top = `${top}px`;
       r.$schedulePlayerSectionGeometry();
@@ -477,15 +480,16 @@ function bindFloatingPlayerResize(r) {
 
   for (const handle of handles) {
     handle.addEventListener("pointerdown", (event) => {
+      const uiScale = interfaceScale(runtimeState.appearance);
       if (event.button !== 0) return;
-      const rect = r.$player.querySelector(".hub-player-content")?.getBoundingClientRect();
+      const rect = scaleRect(r.$player.querySelector(".hub-player-content")?.getBoundingClientRect(), uiScale);
       if (!rect) return;
-      if (![event.clientX, rect.width].every(Number.isFinite)) return;
+      if (![(event.clientX / uiScale), rect.width].every(Number.isFinite)) return;
       resizing = {
         handle,
         edge: handle.dataset.edge,
         pointerId: event.pointerId,
-        startX: event.clientX,
+        startX: (event.clientX / uiScale),
         width: rect.width,
         // Docked content is centred, so the widening timeline eats the same
         // space on both sides. Reserve the chevron's resting slot on each side
@@ -500,12 +504,13 @@ function bindFloatingPlayerResize(r) {
     });
 
     handle.addEventListener("pointermove", (event) => {
-      if (!resizing || resizing.handle !== handle || event.pointerId !== resizing.pointerId || !Number.isFinite(event.clientX)) return;
-      const deltaX = event.clientX - resizing.startX;
+      const uiScale = interfaceScale(runtimeState.appearance);
+      if (!resizing || resizing.handle !== handle || event.pointerId !== resizing.pointerId || !Number.isFinite((event.clientX / uiScale))) return;
+      const deltaX = (event.clientX / uiScale) - resizing.startX;
       if (!resizing.moved && Math.abs(deltaX) < 1) return;
       resizing.moved = true;
       const minShellWidth = 480 + resizing.reservedWidth;
-      const maxShellWidth = Math.max(minShellWidth, Math.min(2000 + resizing.reservedWidth, window.innerWidth - 24));
+      const maxShellWidth = Math.max(minShellWidth, Math.min(2000 + resizing.reservedWidth, (window.innerWidth / uiScale) - 24));
       const direction = resizing.edge === "left" ? -1 : 1;
       const requestedWidth = resizing.width + resizing.reservedWidth + deltaX * direction * 2;
       const shellWidth = Math.max(minShellWidth, Math.min(maxShellWidth, requestedWidth));
@@ -526,15 +531,16 @@ bindFloatingPlayerResize(r);
 for (const handle of r.$panel.querySelectorAll(".hub-resize-handle")) {
       let resizing = null;
       handle.addEventListener("pointerdown", (event) => {
+      const uiScale = interfaceScale(runtimeState.appearance);
         const pinnedContextualResize = r.$panel.classList.contains("is-contextual") && handle.dataset.edge === "top";
         if (r.$panel.classList.contains("is-contextual") && !pinnedContextualResize) return;
         const dockedEdge = runtimeState.dockSide === "left" ? "right" : "left";
         if (event.button !== 0 || (runtimeState.layoutMode === "docked" && handle.dataset.edge !== dockedEdge)) return;
-        const rect = r.$panel.getBoundingClientRect();
+        const rect = scaleRect(r.$panel.getBoundingClientRect(), uiScale);
         resizing = {
           pointerId: event.pointerId,
-          startX: event.clientX,
-          startY: event.clientY,
+          startX: (event.clientX / uiScale),
+          startY: (event.clientY / uiScale),
           left: rect.left,
           right: rect.right,
           top: rect.top,
@@ -556,11 +562,12 @@ for (const handle of r.$panel.querySelectorAll(".hub-resize-handle")) {
         event.preventDefault();
       });
       handle.addEventListener("pointermove", (event) => {
+      const uiScale = interfaceScale(runtimeState.appearance);
         if (!resizing || event.pointerId !== resizing.pointerId) return;
         const minWidth = 320;
         const minHeight = 520;
         if (resizing.pinnedContextual) {
-          const requestedHeight = resizing.height - (event.clientY - resizing.startY);
+          const requestedHeight = resizing.height - ((event.clientY / uiScale) - resizing.startY);
           const availableHeight = Math.max(220, resizing.bottom - 16);
           const height = Math.max(220, Math.min(availableHeight, requestedHeight));
           runtimeState.sectionPanelHeight = Math.round(height);
@@ -569,27 +576,27 @@ for (const handle of r.$panel.querySelectorAll(".hub-resize-handle")) {
           return;
         }
         if (runtimeState.layoutMode === "docked") {
-          const deltaX = event.clientX - resizing.startX;
+          const deltaX = (event.clientX / uiScale) - resizing.startX;
           const requestedWidth = runtimeState.dockSide === "left" ? resizing.width + deltaX : resizing.width - deltaX;
-          const dockedWidth = Math.max(minWidth, Math.min(window.innerWidth, requestedWidth));
+          const dockedWidth = Math.max(minWidth, Math.min((window.innerWidth / uiScale), requestedWidth));
           r.$panel.style.width = `${dockedWidth}px`;
           runtimeState.dockedWidth = Math.round(dockedWidth);
           r.$schedulePlayerSectionGeometry();
           return;
         }
         if (handle.dataset.edge === "left") {
-          const left = Math.max(8, Math.min(resizing.right - minWidth, resizing.left + event.clientX - resizing.startX));
+          const left = Math.max(8, Math.min(resizing.right - minWidth, resizing.left + (event.clientX / uiScale) - resizing.startX));
           r.$panel.style.left = `${left}px`;
           r.$panel.style.width = `${resizing.right - left}px`;
         } else if (handle.dataset.edge === "right") {
-          const width = Math.max(minWidth, Math.min(window.innerWidth - resizing.left - 8, resizing.width + event.clientX - resizing.startX));
+          const width = Math.max(minWidth, Math.min((window.innerWidth / uiScale) - resizing.left - 8, resizing.width + (event.clientX / uiScale) - resizing.startX));
           r.$panel.style.width = `${width}px`;
         } else if (handle.dataset.edge === "top") {
-          const top = Math.max(8, Math.min(resizing.bottom - minHeight, resizing.top + event.clientY - resizing.startY));
+          const top = Math.max(8, Math.min(resizing.bottom - minHeight, resizing.top + (event.clientY / uiScale) - resizing.startY));
           r.$panel.style.top = `${top}px`;
           r.$panel.style.height = `${resizing.bottom - top}px`;
         } else if (handle.dataset.edge === "bottom") {
-          const height = Math.max(minHeight, Math.min(window.innerHeight - resizing.top - 8, resizing.height + event.clientY - resizing.startY));
+          const height = Math.max(minHeight, Math.min((window.innerHeight / uiScale) - resizing.top - 8, resizing.height + (event.clientY / uiScale) - resizing.startY));
           r.$panel.style.height = `${height}px`;
         }
         r.$schedulePlayerSectionGeometry();
@@ -635,6 +642,7 @@ document.addEventListener("click", (event) => {
       const onFeedPage = document.body.classList.contains("feed") || /\/feed\/?$/.test(location.pathname);
       const feedControl = onFeedPage ? event.target.closest(".track_play_auxiliary") : null;
       if (!feedControl) return;
+      if (!runtimeState.appearance.hideBandcampPlayer) return;
       if (feedControl.closest('#collection-items .collection-grid[data-ismain="true"][data-iswish="false"]')) return;
       const clickedTrackId = String(feedControl.dataset.trackid || feedControl.closest("[data-trackid]")?.dataset.trackid || "");
       if (!clickedTrackId) return;
@@ -695,7 +703,8 @@ document.addEventListener("click", (event) => {
       r.$setOpen(false);
     }, true);
 document.addEventListener("click", (event) => {
-      if (r.$suppressModernControl || r.$suppressRecommendationControl || r.$suppressCollectionControl || !(event.target instanceof Element)) return;
+      if (!(event.target instanceof Element) || !runtimeState.appearance.hideBandcampPlayer) return;
+      if (r.$suppressModernControl || r.$suppressRecommendationControl || r.$suppressCollectionControl) return;
       if (event.target.closest(".track_play_auxiliary,.play-pause-button,.inline_player .playbutton,.inline_player [aria-label*='Play'],.track_row_view .play_status,.track_row_view .play_cell a,.track_row_view .play-col > a,#recommendations_container .recommended-album .play-button")) {
         r.$suppressedFeedTrackId = "";
         r.$releaseExplicitPlaybackClear();
@@ -838,7 +847,7 @@ document.addEventListener("click", (event) => {
       r.$scheduleModernHandoff(requestedKey, requestedIndex);
     }, true);
 document.addEventListener("change", (event) => {
-      if (!runtimeSeamless.enabled || !(event.target instanceof HTMLInputElement) || !event.target.matches("section.floating-player input[type='range']")) return;
+      if (!runtimeState.appearance.hideBandcampPlayer || !runtimeSeamless.enabled || !(event.target instanceof HTMLInputElement) || !event.target.matches("section.floating-player input[type='range']")) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       void r.$seamlessCommand(MESSAGES.SEAMLESS_SEEK, { currentTime: Number(event.target.value) || 0 });
@@ -851,7 +860,7 @@ document.addEventListener("input", (event) => {
       control?.style.setProperty("--bandkit-page-scrub-progress", `${(progress * 100).toFixed(2)}%`);
     }, true);
 document.addEventListener("click", (event) => {
-      if (!(event.target instanceof Element)) return;
+      if (!(event.target instanceof Element) || !runtimeState.appearance.hideBandcampPlayer) return;
       if (event.target.closest(".bandcamp-hub-page-tools, .bandcamp-hub-page-playlist-menu")) return;
       const previous = event.target.closest(".inline_player .prevbutton, .inline_player [aria-label='Previous track'], .mplayer .prev");
       const next = event.target.closest(".inline_player .nextbutton, .inline_player [aria-label='Next track'], .mplayer .next");

@@ -18,6 +18,7 @@ class Element {
   querySelector(selector) {
     for (const child of this.children) {
       if (selector === "button:not(:disabled)" && child.tagName === "button" && !child.disabled) return child;
+      if (selector === "button:not(:disabled):not([hidden])" && child.tagName === "button" && !child.disabled && !child.hidden) return child;
       const descendant = child.querySelector(selector);
       if (descendant) return descendant;
     }

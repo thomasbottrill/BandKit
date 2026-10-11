@@ -44,7 +44,7 @@ export function createPanelOverflow(label, actionButtons, { menuLabel = label, c
     const opening = menu.hidden;
     menu.hidden = !opening;
     trigger.setAttribute("aria-expanded", String(opening));
-    if (opening) window.setTimeout(() => menu.querySelector("button:not(:disabled)")?.focus(), 0);
+    if (opening) window.setTimeout(() => menu.querySelector("button:not(:disabled):not([hidden])")?.focus(), 0);
   });
   trigger.classList.add("hub-toolbar-more-button");
   trigger.setAttribute("aria-haspopup", "menu");
