@@ -29,6 +29,15 @@ export function resetSettingsDisclosures() {
   openSettingsDisclosures.clear();
 }
 
+// Lets a shortcut land on a drawer that is already open.
+export function openSettingsDisclosure(disclosureKey) {
+  openSettingsDisclosures.add(disclosureKey);
+}
+
+export function isSettingsDisclosureOpen(disclosureKey) {
+  return openSettingsDisclosures.has(disclosureKey);
+}
+
 export function createSettingsDisclosure(title, description = "", disclosureKey = title.toLowerCase()) {
   settingsDisclosureId += 1;
   const contentId = `hub-settings-disclosure-${settingsDisclosureId}`;

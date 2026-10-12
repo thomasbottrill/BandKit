@@ -56,6 +56,9 @@ const context = vm.createContext({
   nowPlayingTransitionTrackKey: "",
   nowPlayingTransitionExpiresAt: 0,
   suppressedFeedTrackId: "",
+  classicPageHandoffTrack: null,
+  pendingQueueStep: null,
+  playAdjacentPageTrack() { return false; },
   toastMessages: [],
   runtimeCalls: [],
   normalizedTrackTitle(value) {
@@ -653,6 +656,26 @@ assert.equal(await navigatePlayerQueue(-1), true);
 const skippedBackwardEnable = context.runtimeCalls.findLast((message) => message.type === "BANDCAMP_HUB_SEAMLESS_ENABLE");
 assert.equal(skippedBackwardEnable?.queue?.[skippedBackwardEnable.index]?.title, "Skip A",
   "footer Previous must also skip an unavailable refreshed track");
+const rapidQueue = ["One", "Two", "Three", "Four"].map((title) => ({ id: title, title, artist: "Fixture", url: `stream-${title}` }));
+context.state = { activeTab: "nowPlaying", playlistMode: "browse", playlist: rapidQueue.map((item) => ({ ...item })), dj: {} };
+context.seamless = { enabled: true, index: 0, track: { ...rapidQueue[0] }, queue: rapidQueue };
+const rapidIndexes = [];
+const seamlessCommand = context.seamlessCommand;
+context.seamlessCommand = async (type, details) => { if (type === MESSAGES.SEAMLESS_PLAY_INDEX) rapidIndexes.push(details.index); return {}; };
+await Promise.all([navigatePlayerQueue(1), navigatePlayerQueue(1), navigatePlayerQueue(1), navigatePlayerQueue(-1)]);
+assert.deepEqual(rapidIndexes, [1, 2, 3, 2], "presses faster than the player reports back must build on the track already requested");
+context.pendingQueueStep = null;
+context.seamless = { enabled: true, index: 0, track: { ...rapidQueue[0] }, queue: rapidQueue.slice(1) };
+const adjacentRequests = [];
+context.playAdjacentPageTrack = (step, track) => { adjacentRequests.push([step, track?.title]); return true; };
+assert.equal(await navigatePlayerQueue(-1), true);
+assert.deepEqual(adjacentRequests, [[-1, "Two"]], "Previous at the start of Now Playing must reach the release's earlier track");
+context.classicPageHandoffTrack = { ...rapidQueue[2] };
+await navigatePlayerQueue(1);
+assert.deepEqual(adjacentRequests.at(-1), [1, "Three"], "a press during a page handoff must step from the track being handed off");
+context.classicPageHandoffTrack = null;
+context.playAdjacentPageTrack = () => false;
+context.seamlessCommand = seamlessCommand;
 context.state = {
   activeTab: "nowPlaying",
   playlistMode: "manual",

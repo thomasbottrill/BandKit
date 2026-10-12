@@ -531,6 +531,28 @@ export function createOnboardingScaleSettings(r, { pages = true } = {}) {
   });
 }
 
+// The tour's On/Off switch, as used for DJ tools in the Make it yours step.
+function createOnboardingToggle(label, enabled, onClick) {
+  const button = createElement("button", "hub-onboarding-kit-choice");
+  button.type = "button";
+  button.classList.toggle("is-active", enabled);
+  button.setAttribute("role", "switch");
+  button.setAttribute("aria-checked", String(enabled));
+  button.setAttribute("aria-label", `${label}: ${enabled ? "On" : "Off"}`);
+  const copy = createElement("span", "hub-onboarding-kit-choice-copy");
+  copy.append(createElement("span", "", label), createElement("strong", "", enabled ? "On" : "Off"));
+  button.append(copy);
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+export function createKeyboardShortcutsControl(r) {
+  const enabled = runtimeState.keyboardShortcutsEnabled !== false;
+  // setFeatureEnabled saves, renders and confirms with a toast, as Features does.
+  return createOnboardingToggle("Keyboard shortcuts", enabled,
+    () => r.$setFeatureEnabled("keyboardShortcutsEnabled", !enabled, "Keyboard shortcuts"));
+}
+
 export function createKitControls(r) {
   const config = createElement("div", "hub-onboarding-kit-config");
   const mode = r.$onboardingKitMode === "custom" ? "custom" : "theme";
@@ -541,23 +563,7 @@ export function createKitControls(r) {
     runtimeSaveState();
     r.$render();
   };
-  const choice = (label, value, onClick) => {
-    const button = createElement("button", "hub-onboarding-kit-choice");
-    button.type = "button";
-    button.setAttribute("aria-label", `${label}: ${value}`);
-    const copy = createElement("span", "hub-onboarding-kit-choice-copy");
-    copy.append(createElement("span", "", label), createElement("strong", "", value));
-    button.append(copy);
-    button.addEventListener("click", () => { onClick(); rerender(); });
-    return button;
-  };
-  const toggle = (label, enabled, onClick) => {
-    const button = choice(label, enabled ? "On" : "Off", onClick);
-    button.classList.toggle("is-active", enabled);
-    button.setAttribute("role", "switch");
-    button.setAttribute("aria-checked", String(enabled));
-    return button;
-  };
+  const toggle = (label, enabled, onClick) => createOnboardingToggle(label, enabled, () => { onClick(); rerender(); });
   if (mode === "theme") {
     content.classList.add("is-theme");
     content.append(createOnboardingThemePicker(r, rerender));

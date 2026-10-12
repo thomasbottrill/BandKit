@@ -23,6 +23,20 @@ function registerClassicPageSeekState(r) {
   };
 }
 
+// Now Playing starts at the track that was clicked, so the tracks before it
+// on this release are only reachable through the page's own tracklist.
+function registerAdjacentPageTrack(r) {
+  r.$playAdjacentPageTrack = function playAdjacentPageTrack(step, current) {
+    if (!current || document.querySelector("#DiscoverApp, .bandkit-collection-preview")) return false;
+    const pageQueue = r.$buildSeamlessQueue();
+    const index = pageQueue.indexOf(r.$matchingPagePlaybackTrack(pageQueue, current));
+    const target = index >= 0 ? pageQueue[index + step] : null;
+    if (!target) return false;
+    void r.$handoffPageAudio(null, target, pageQueue);
+    return true;
+  };
+}
+
 function resetClassicPageHandoff(r, expectedRequest = 0) {
   r.$classicPageHandoffTrackKey = "";
   r.$classicPageHandoffTrack = null;
@@ -57,7 +71,7 @@ export function classicPageReleaseMetadata(data, pageUrl = "", pageTitle = "") {
 }
 
 export function registerDjHandoff(r) {
-  registerClassicPageSeekState(r);
+  registerClassicPageSeekState(r); registerAdjacentPageTrack(r);
   r.$resetClassicPageHandoff = (expectedRequest = 0) => resetClassicPageHandoff(r, expectedRequest);
   r.$buildSeamlessQueue = function buildSeamlessQueue() {
     if (document.querySelector("#DiscoverApp, .bandkit-collection-preview")) return r.$discoverReleaseTracks || []; const daily = r.$getDailyPlayerState(); if (daily?.queue.length) return daily.queue;

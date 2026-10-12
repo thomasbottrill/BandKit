@@ -227,7 +227,7 @@ assert.match(merge, /"onboardingCompletedVersion"[\s\S]*?"djToolsEnabled"/);
 assert.match(merge, /merged\.onboardingCompletedVersion\s*=\s*Math\.max[\s\S]*?latestState\?\.onboardingCompletedVersion/);
 assert.match(lifecycle, /applyOnboardingCompletionChange[\s\S]*?r\.\$onboardingActive && !r\.\$onboardingReplay/,
   "a transient unpacked-extension storage event must not dismiss an active first-run tour");
-assert.match(css, /\.hub-onboarding-skip,[\s\S]*?\.hub-onboarding-backup-action\s*\{[^}]*background:\s*transparent;[^}]*border:\s*0;[^}]*color:\s*var\(--hub-muted\);/s);
+assert.match(css, /\.hub-onboarding-skip,[\s\S]*?\.hub-onboarding-backup-action,\s*\.hub-onboarding-earlier-release\s*\{[^}]*background:\s*transparent;[^}]*border:\s*0;[^}]*color:\s*var\(--hub-muted\);/s);
 assert.doesNotMatch(onboarding, /replaceChildren\(header, title, body, footer\)/,
   "coachmarks must not render a persistent brand or step-count header");
 assert.match(onboarding, /replaceChildren\(\.\.\.headingContent, title, body, footer\)/,
@@ -250,36 +250,51 @@ assert.doesNotMatch(onboarding, /musicBarSize|Player size/,
   "onboarding must leave player sizing to full Settings");
 
 // What's new: a per-release tour on the same engine.
-const { WHATS_NEW } = await import("../src/content/whats-new.js");
-assert.match(WHATS_NEW.version, /^\d+\.\d+\.\d+$/, "What's new must name the release that added its features");
-assert.ok(WHATS_NEW.summary && WHATS_NEW.summary.length <= 90, "What's new needs a one-line summary for Settings");
+const { WHATS_NEW, WHATS_NEW_RELEASES } = await import("../src/content/whats-new.js");
+const allWhatsNewSteps = WHATS_NEW_RELEASES.flatMap((release) => release.steps);
+assert.equal(WHATS_NEW, WHATS_NEW_RELEASES[0], "the newest release is the one shown after an update");
+const versionKey = (version) => version.split(".").map((part) => part.padStart(4, "0")).join(".");
+WHATS_NEW_RELEASES.forEach((release, index) => {
+  assert.match(release.version, /^\d+\.\d+\.\d+$/, "What's new must name the release that added its features");
+  assert.ok(release.summary && release.summary.length <= 90, `What's new ${release.version} needs a one-line summary for Settings`);
+  assert.ok(release.steps.length, `What's new ${release.version} needs at least one step`);
+  if (index) assert.ok(versionKey(WHATS_NEW_RELEASES[index - 1].version) > versionKey(release.version), "releases must be listed newest first, once each");
+});
 const panelDemos = new Set(["now-playing", "playlists", "add", "cart", "activity", "collection", "bandcamp-playlists", "downloads"]);
-for (const step of WHATS_NEW.steps) {
+for (const step of allWhatsNewSteps) {
   for (const field of ["eyebrow", "title", "copy"]) assert.ok(step[field], `What's new step "${step.title}" is missing ${field}`);
   assert.ok(["player", "panel", "dj-drawer"].includes(step.target), `What's new step "${step.title}" needs a known target`);
   if (step.demo) assert.ok(panelDemos.has(step.demo) && step.panel, `What's new step "${step.title}" has an unknown demo or no panel`);
-  if (step.control) assert.ok(["download-format", "scale"].includes(step.control), `What's new step "${step.title}" has an unknown control`);
+  if (step.control) assert.ok(["download-format", "scale", "keyboard-shortcuts"].includes(step.control), `What's new step "${step.title}" has an unknown control`);
   assert.ok(!step.choice && !step.emptyPlayer, "welcome-only step options must stay out of What's new");
 }
 for (const demo of ["collection", "bandcamp-playlists", "downloads"]) {
   assert.match(onboarding, new RegExp(`demo === "${demo}"[\\s\\S]*?withDemoRuntime`), `the ${demo} demo must restore the runtime it borrows`);
 }
-assert.match(onboarding, /TOURS = Object\.freeze\(\{ welcome: STEPS, "whats-new": WHATS_NEW\.steps \}\)/,
+assert.match(onboarding, /TOURS = Object\.freeze\(Object\.fromEntries\(\[\s*\["welcome", STEPS\],\s*\.\.\.WHATS_NEW_RELEASES\.map/,
   "What's new must reuse the welcome tour's coachmark rather than a second implementation");
 assert.match(onboarding, /activateWhatsNew[\s\S]*?onboardingCompletedVersion\) <= 0[\s\S]*?whatsNewSeenVersion === WHATS_NEW\.version[\s\S]*?runtimeSeamless\.isPlaying/,
   "What's new opens only for welcomed users, once per release, and never over playing music");
-assert.match(onboarding, /r\.\$onboardingTour === "whats-new"\) runtimeState\.whatsNewSeenVersion = WHATS_NEW\.version/,
+assert.match(onboarding, /r\.\$onboardingTour === whatsNewTourId\(WHATS_NEW\.version\)\) runtimeState\.whatsNewSeenVersion = WHATS_NEW\.version/,
   "What's new is marked as seen when it opens, so a page change never brings it back");
 assert.match(onboarding, /welcome && !r\.\$onboardingReplay\) runtimeState\.whatsNewSeenVersion = WHATS_NEW\.version/,
   "someone finishing the first-run tour must not be shown What's new straight after");
 assert.match(onboarding, /r\.\$onboardingReplay = replay \|\| r\.\$onboardingTour !== "welcome"/,
   "What's new must never resume or complete the welcome tour");
-assert.match(onboarding, /whatsNewSettingsRow[\s\S]*?r\.\$startOnboarding\(\{ tour: "whats-new", replay: true \}\)/,
+assert.match(onboarding, /function whatsNewSettingsRow[\s\S]*?r\.\$startOnboarding\(\{ tour: whatsNewTourId\(release\.version\), replay: true \}\)/,
   "Settings › Help & onboarding must replay What's new under Tour");
+assert.match(onboarding, /function whatsNewSettingsRows[\s\S]*?createSettingsDisclosure\("Earlier updates"[\s\S]*?earlier\.map/,
+  "every earlier release stays available in Help, collapsed under the newest");
+assert.match(onboarding, /classList\.add\("hub-visualizer-colour-disclosure", "hub-whats-new-earlier"\)/,
+  "Earlier updates must open in place like Keyboard shortcuts, not as a separate page");
+assert.match(onboarding, /lastStep \? earlierRelease\(r\.\$onboardingTour\) : null[\s\S]*?earlierReleaseAction/,
+  "a release's last card must offer the release before it");
+assert.match(onboarding, /function applyStepNavigation[\s\S]*?step\.disclosure\) openSettingsDisclosure/,
+  "a step can open the Settings drawer it describes");
 assert.match(lifecycle, /const welcoming = r\.\$activateFirstRunOnboarding\(\);[\s\S]*?if \(!welcoming && !r\.\$resumeTour[\s\S]*?r\.\$activateWhatsNew\(\)/,
   "What's new must wait until the first-run tour is not running");
 assert.match(state, /whatsNewSeenVersion:\s*""/);
-const scaleStep = WHATS_NEW.steps.find((step) => step.control === "scale");
+const scaleStep = allWhatsNewSteps.find((step) => step.control === "scale");
 if (scaleStep) assert.ok(scaleStep.page?.kind === "scaled" && /^https:\/\/[a-z0-9-]+\.bandcamp\.com\/album\//.test(scaleStep.page.url),
   "the scale step must open a release page, where page scale visibly applies");
 assert.match(onboarding, /needsOtherPage\(r, nextDefinition\)[\s\S]*?continueTourOnPage/,

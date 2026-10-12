@@ -31,6 +31,7 @@ function portableSettings(value = runtimeState) {
     playlistsEnabled: value.playlistsEnabled !== false,
     activityEnabled: value.activityEnabled !== false,
     downloadsEnabled: value.downloadsEnabled !== false,
+    keyboardShortcutsEnabled: value.keyboardShortcutsEnabled !== false,
     downloadFormat: normalizeDownloadFormat(value.downloadFormat),
     autoAnalyzeTracks: value.autoAnalyzeTracks !== false,
     showTrackKeys: value.showTrackKeys !== false,

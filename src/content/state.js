@@ -134,6 +134,7 @@ export const defaultState = {
   playlistsEnabled: true,
   activityEnabled: true,
   downloadsEnabled: true,
+  keyboardShortcutsEnabled: true,
   downloadFormat: "flac",
   showTrackKeys: true,
   showCamelotNotation: false,

@@ -126,9 +126,16 @@ r.$playPlaylistAt = async function playPlaylistAt(requestedIndex = 0, { forceRef
 r.$navigatePlayerQueue = async function navigatePlayerQueue(direction) {
       const step = direction < 0 ? -1 : 1;
       if (!runtimeSeamless.enabled) return false;
+      // A page track still being handed off is where the listener already is.
+      if (r.$classicPageHandoffTrack && r.$playAdjacentPageTrack(step, r.$classicPageHandoffTrack)) return true;
 
-      const seamlessIndex = Math.max(0, Number(runtimeSeamless.index) || 0);
       const seamlessQueue = Array.isArray(runtimeSeamless.queue) ? runtimeSeamless.queue : [];
+      // Presses faster than the offscreen player reports back build on the
+      // track already requested rather than the one still showing.
+      const queueKey = `${seamlessQueue.length}|${seamlessQueue[0] ? r.$playlistTrackKey(seamlessQueue[0]) : ""}`;
+      const pending = r.$pendingQueueStep;
+      const seamlessIndex = pending?.queueKey === queueKey && Date.now() - pending.at < 1500
+        ? pending.index : Math.max(0, Number(runtimeSeamless.index) || 0);
       const playlistIndex = runtimeSeamless.track
         ? runtimeState.playlist.findIndex((item) => Boolean(r.$matchingQueueTrack([item], runtimeSeamless.track)))
         : -1;
@@ -149,10 +156,12 @@ r.$navigatePlayerQueue = async function navigatePlayerQueue(direction) {
 
       const targetIndex = seamlessIndex + step;
       if (targetIndex >= 0 && targetIndex < seamlessQueue.length) {
+        r.$pendingQueueStep = { queueKey, index: targetIndex, at: Date.now() };
         return Boolean(await r.$seamlessCommand(MESSAGES.SEAMLESS_PLAY_INDEX, { index: targetIndex, autoplay: true }));
       }
 
       if (step < 0) {
+        if (r.$playAdjacentPageTrack(step, seamlessQueue[seamlessIndex] || runtimeSeamless.track)) return true;
         await r.$seamlessCommand(MESSAGES.SEAMLESS_SEEK, { currentTime: 0 });
         return true;
       }

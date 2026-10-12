@@ -1,6 +1,6 @@
 # Bandkit
 
-Current unpacked build: **1.2.0**
+Current unpacked build: **1.3.0**
 
 Bandkit is a Manifest V3 Chrome extension that places a movable, theme-aware listening panel on Bandcamp. Bandkit can sample each page’s background, text, and link colours, use a saved light, dark, or custom palette, and optionally apply that palette across Bandcamp itself.
 
@@ -24,6 +24,9 @@ Bandkit is a Manifest V3 Chrome extension that places a movable, theme-aware lis
 - Mixed-currency carts show both the symbol and currency code on every card, retain each item's original currency, and use Bandcamp's converted live subtotal instead of adding unlike currencies as though they were all USD.
 - **Download** creates a normal HTML cart backup containing track/release names and clickable Bandcamp links. Private backup files keep only the Bandcamp product fields needed for restore; public share files omit restore details. No JSON knowledge is required.
 - **Collection downloads** on your own collection page: select releases (shift-click for a range, or **Select all** for the whole collection without scrolling), choose a format such as FLAC, MP3 320 or WAV, and download them in one go. A **Downloads** panel tab, shown only on your collection page or while a queue is active, tracks each release through preparing, downloading and done, with pause, retry, per-release format changes and **Show in folder**. Chrome asks for the optional downloads permission the first time.
+- **Keyboard shortcuts** control the music bar on any Bandcamp page: Space plays or pauses, ↑ ↓ change track, ← → skip 10 seconds (Shift for 30), 0–9 jump through the track, and **?** opens the list in Settings › Help. Keys typed into fields, menus and sliders are left alone, and **Features** can switch shortcuts off.
+- **New releases** on the signed-in Feed narrows the stories to new releases so they are easy to catch up on, with **Feed** switching back.
+- **What’s new** tours walk through each feature release in the music bar and panels, opening automatically once after an update. Settings › Help lists the latest release with earlier ones under **Earlier updates**, and each tour ends with a link to the release before it.
 - Activity has its own **Download** action for a readable HTML listening log with timestamps and clickable track and artist links.
 - Activity contains only events recorded locally after installation. Artwork, track names, and artist names link directly to their Bandcamp pages.
 - The combined queue stays empty until playback begins or tracks are added; once connected, its artwork-backed entries, cart, popup cart history, and Activity use linked titles and artists instead of separate **Open page** buttons.
@@ -41,7 +44,7 @@ The former Downloads and Recent Purchases prototype tabs were removed because th
 3. Enable **Developer mode**.
 4. Choose **Load unpacked** and select `dist/unpacked`, or press **Reload** on an existing Bandkit installation.
 5. Reload every Bandcamp tab that was already open.
-6. Confirm the extension card says **1.2.0**.
+6. Confirm the extension card says **1.3.0**.
 
 Open a streamable album page and press its normal Bandcamp play button. The audio should hand off to Bandkit automatically; the toolbar popup provides a single control to activate or deactivate the Bandkit panel on the current Bandcamp tab.
 

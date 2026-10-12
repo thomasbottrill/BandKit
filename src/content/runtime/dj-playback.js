@@ -924,7 +924,7 @@ r.$applySeamlessState = function applySeamlessState(nextState) {
           delete incomingState.loopEnd;
         }
       }
-      r.$seamless = updateRuntimeSeamless({ ...runtimeSeamless, ...incomingState });
+      r.$seamless = updateRuntimeSeamless({ ...runtimeSeamless, ...incomingState }); if (r.$pendingQueueStep?.index === Number(runtimeSeamless.index)) r.$pendingQueueStep = null;
       const pendingFeedSeekTrackId = String(r.$pendingFeedSeekTrackId || "");
       const activeSeamlessTrackId = String(runtimeSeamless.track?.id || "");
       if (pendingFeedSeekTrackId) {

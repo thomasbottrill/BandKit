@@ -110,9 +110,9 @@ assert.match(source, /function handoffFeedPlayer[\s\S]*?trustProvidedStreams = i
   "a feed story carrying Bandcamp's signed stream must start without refetching its release page");
 assert.match(source, /function feedHandoffInFlight[\s\S]*?feedHandoffStartedAt > 8000[\s\S]*?async function handoffFeedPlayer[\s\S]*?requested === feedHandoffInFlight\(\)[\s\S]*?feedHandoffRequest/,
   "a stalled feed handoff must be superseded rather than blocking every later story click");
-assert.match(source, /function scrubTarget\(\)[\s\S]*?pendingFeedTrackId \? getFeedPlayerState\(pendingFeedTrackId\)[\s\S]*?async function seekToScrubTarget[\s\S]*?if \(pendingFeedTrackId\)[\s\S]*?pendingFeedSeekRevision \+= 1[\s\S]*?if \(seamless\.enabled\)/,
+assert.match(source, /function scrubTarget\([^)]*\)[\s\S]*?pendingFeedTrackId \? getFeedPlayerState\(pendingFeedTrackId\)[\s\S]*?async function seekToScrubTarget[\s\S]*?if \(pendingFeedTrackId\)[\s\S]*?pendingFeedSeekRevision \+= 1[\s\S]*?if \(seamless\.enabled\)/,
   "an immediate feed scrub must target the incoming feed track before any previously active seamless track");
-assert.match(source, /function scrubTarget\(\)[\s\S]*?const fraction = Math\.max[\s\S]*?pendingFeedSeekFraction = target\.fraction[\s\S]*?pendingFeedSeekTime = target\.duration \? target\.currentTime : null[\s\S]*?if \(!target\.duration\) return/,
+assert.match(source, /function scrubTarget\([^)]*\)[\s\S]*?const fraction = [^;]*Math\.max[\s\S]*?pendingFeedSeekFraction = target\.fraction[\s\S]*?pendingFeedSeekTime = target\.duration \? target\.currentTime : null[\s\S]*?if \(!target\.duration\) return/,
   "a Feed seek fraction must survive while the incoming track duration is still unknown");
 assert.match(source, /function commitPageScrub\(control, fraction\)[\s\S]*?pendingFeedTrackId[\s\S]*?pendingFeedSeekRevision \+= 1[\s\S]*?SEAMLESS_SEEK/,
   "feed page scrubbers must retain a seek while a track handoff is still pending");

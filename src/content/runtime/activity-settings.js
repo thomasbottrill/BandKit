@@ -709,6 +709,9 @@ r.$renderFeatureSettings = function renderFeatureSettings() {
           r.$showToast(enabled ? "Bandkit player turned on" : "Bandcamp player restored");
         });
       });
+      const keyboardShortcutsEnabled = runtimeState.keyboardShortcutsEnabled !== false;
+      featureRow("Keyboard shortcuts", "Control playback from the keyboard. Press ? to see the keys.", keyboardShortcutsEnabled,
+        "hub-keyboard-shortcuts-toggle", () => r.$setFeatureEnabled("keyboardShortcutsEnabled", !keyboardShortcutsEnabled, "Keyboard shortcuts"));
       appendSettingsDisclosureSections(coreGroup.content, coreRows);
       features.append(coreGroup.group, ...r.$createDjSettingsGroups());
       r.$content.append(prepareSettingsDetail(features));

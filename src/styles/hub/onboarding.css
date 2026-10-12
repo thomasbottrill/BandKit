@@ -73,7 +73,8 @@
 .hub-onboarding-back,
 .hub-onboarding-skip,
 .hub-onboarding-primary,
-.hub-onboarding-backup-action {
+.hub-onboarding-backup-action,
+.hub-onboarding-earlier-release {
   border-radius: 7px;
   cursor: pointer;
   font: inherit;
@@ -86,9 +87,11 @@
 .hub-onboarding-back { background: transparent; border: 0; color: var(--hub-ink); }
 .hub-onboarding-back:disabled { cursor: default; opacity: .38; }
 .hub-onboarding-skip,
-.hub-onboarding-backup-action { background: transparent; border: 0; color: var(--hub-muted); }
+.hub-onboarding-backup-action,
+.hub-onboarding-earlier-release { background: transparent; border: 0; color: var(--hub-muted); }
 .hub-onboarding-skip:is(:hover, :focus-visible),
 .hub-onboarding-backup-action:is(:hover, :focus-visible),
+.hub-onboarding-earlier-release:is(:hover, :focus-visible),
 .hub-onboarding-back:not(:disabled):is(:hover, :focus-visible) { background: color-mix(in srgb, var(--hub-ink) 7%, transparent); color: var(--hub-ink); outline: 0; }
 .hub-onboarding-primary { background: var(--hub-onboarding-bandcamp); border: 1px solid var(--hub-onboarding-bandcamp); color: var(--hub-on-accent); }
 .hub-onboarding-primary:focus-visible { outline: 2px solid var(--hub-ink); outline-offset: 2px; }

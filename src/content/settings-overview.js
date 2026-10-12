@@ -98,7 +98,8 @@ export function registerSettingsOverview(r) {
 }
 
 function convertSettingsDrawers(r, parentTitle, goBack) {
-  const groups = [...r.$content.querySelectorAll("[data-settings-disclosure]")]
+  // Row-sized drawers open in place rather than as a page of their own.
+  const groups = [...r.$content.querySelectorAll("[data-settings-disclosure]:not(.hub-visualizer-colour-disclosure)")]
     .filter(group => !group.parentElement.closest("[data-settings-disclosure]"));
   if (!groups.length) return;
   const fromTheme = runtimeState.settingsSubView === "theme-colours";

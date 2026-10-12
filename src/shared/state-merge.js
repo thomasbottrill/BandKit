@@ -17,6 +17,7 @@ export const CONCURRENT_SETTING_KEYS = Object.freeze([
   "playlistsEnabled",
   "activityEnabled",
   "downloadsEnabled",
+  "keyboardShortcutsEnabled",
   "downloadFormat",
   "autoAnalyzeTracks",
   "showTrackKeys",

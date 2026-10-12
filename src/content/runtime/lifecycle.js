@@ -57,6 +57,7 @@ function normalizedCrossTabSettings(incoming, current) {
     playlistsEnabled: incoming.playlistsEnabled !== false,
     activityEnabled: incoming.activityEnabled !== false,
     downloadsEnabled: incoming.downloadsEnabled !== false,
+    keyboardShortcutsEnabled: incoming.keyboardShortcutsEnabled !== false,
     downloadFormat: normalizeDownloadFormat(incoming.downloadFormat),
     autoAnalyzeTracks: incoming.autoAnalyzeTracks !== false,
     showTrackKeys: incoming.showTrackKeys !== false,
@@ -137,7 +138,9 @@ function applyIncomingLayout(r, incomingLayout) {
 }
 
 function registerLifecycle1(r) {
-r.$scrubTarget = function scrubTarget() {
+// An exact time (in seconds) skips the slider's 1,000-step resolution, which
+// is several seconds on a long mix.
+r.$scrubTarget = function scrubTarget(time = null) {
       const pendingFeed = r.$pendingFeedTrackId ? r.$getFeedPlayerState(r.$pendingFeedTrackId) : null;
       const pendingFeedCard = r.$pendingFeedTrackId
         ? document.querySelector(`.collection-item-container[data-trackid="${CSS.escape(r.$pendingFeedTrackId)}"][data-item-json]`)
@@ -147,16 +150,18 @@ r.$scrubTarget = function scrubTarget() {
         ? Number(pendingFeed.duration) || Number(pendingFeedData.featured_track_duration) || 0
         : r.$pendingFeedTrackId ? Number(pendingFeedData.featured_track_duration) || 0
         : runtimeSeamless.enabled ? Number(runtimeSeamless.duration) || 0 : Number(r.$getAudio()?.duration) || Number(runtimeLive.duration) || 0;
-      const fraction = Math.max(0, Math.min(1, Number(r.$scrubSlider.value) / 1000));
+      const exact = Number.isFinite(time) && duration > 0;
+      const currentTime = exact ? Math.max(0, Math.min(duration, time)) : null;
+      const fraction = exact ? currentTime / duration : Math.max(0, Math.min(1, Number(r.$scrubSlider.value) / 1000));
       return {
         duration,
         fraction,
-        currentTime: fraction * duration
+        currentTime: exact ? currentTime : fraction * duration
       };
     };
-r.$seekToScrubTarget = async function seekToScrubTarget() {
+r.$seekToScrubTarget = async function seekToScrubTarget(time = null) {
       window.clearTimeout(r.$pendingSeekTimer);
-      const target = r.$scrubTarget();
+      const target = r.$scrubTarget(time);
       if (r.$pendingFeedTrackId) {
         r.$pendingFeedSeekFraction = target.fraction;
         r.$pendingFeedSeekTime = target.duration ? target.currentTime : null;
@@ -197,10 +202,10 @@ r.$seekToScrubTarget = async function seekToScrubTarget() {
         discover.timeline.dispatchEvent(new Event("change", { bubbles: true }));
       }
     };
-r.$finishScrub = async function finishScrub() {
+r.$finishScrub = async function finishScrub(time = null) {
       const revision = r.$scrubRevision;
       window.clearTimeout(r.$scrubReleaseTimer);
-      await r.$seekToScrubTarget();
+      await r.$seekToScrubTarget(time);
       if (revision !== r.$scrubRevision) return;
       r.$scrubbing = false;
       r.$renderPlayer();
@@ -492,6 +497,7 @@ r.$restoreRuntimeState = function restoreRuntimeState({ saved, savedState, saved
       runtimeState.playlistsEnabled = runtimeState.playlistsEnabled !== false;
       runtimeState.activityEnabled = runtimeState.activityEnabled !== false;
       runtimeState.downloadsEnabled = runtimeState.downloadsEnabled !== false;
+      runtimeState.keyboardShortcutsEnabled = runtimeState.keyboardShortcutsEnabled !== false;
       runtimeState.downloadFormat = normalizeDownloadFormat(runtimeState.downloadFormat);
       runtimeState.playlistMode = runtimeState.playlistMode === "manual" ? "manual" : "browse";
       runtimeState.playlistShuffleEnabled = runtimeState.playlistShuffleEnabled === true;

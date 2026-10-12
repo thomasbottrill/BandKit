@@ -1,4 +1,4 @@
-import { createDownloadFormatControl, createKitControls, createOnboardingScaleSettings, ONBOARDING_MENU_KEYS, removeOnboardingMenus, syncOnboardingContrast } from "./onboarding-controls.js";
+import { createDownloadFormatControl, createKeyboardShortcutsControl, createKitControls, createOnboardingScaleSettings, ONBOARDING_MENU_KEYS, removeOnboardingMenus, syncOnboardingContrast } from "./onboarding-controls.js";
 import { createSettingsRowCopy } from "../components/settings.js";
 import { runtimeSaveState, runtimeSeamless, runtimeState } from "./context.js";
 import { asset, createButtonIcon, createElement } from "../core.js";
@@ -7,7 +7,9 @@ import { MESSAGES, STORAGE_KEYS } from "../../shared/contracts.js";
 import { applyTimelinePath } from "../timeline-styles.js";
 import { syncCustomPlayerButtons } from "../custom-player-buttons.js";
 import { createHelpReferenceShortcut } from "../help-reference-shortcut.js";
-import { WHATS_NEW } from "../whats-new.js";
+import { createPlaybackShortcutsHelp } from "./playback-shortcuts.js";
+import { shortVersion, WHATS_NEW, WHATS_NEW_RELEASES, whatsNewTourId } from "../whats-new.js";
+import { createSettingsDisclosure, openSettingsDisclosure } from "../settings-drawer.js";
 import { normalizeLibraryQuery } from "../../shared/library.js";
 import { pageScaleGroup } from "../scale.js";
 
@@ -25,9 +27,17 @@ const STEPS = [
   { eyebrow: "You’re all set", title: "Bandkit is ready when you are", copy: "Press play and explore. Your queue, playlists, carts, activity and listening controls are always close by.", icon: "icon-bandkit.svg", target: "player", placement: "top", emptyPlayer: true }
 ];
 
-// The welcome tour runs once on first install. What's new is defined per
-// release in whats-new.js and reuses the same coachmark, demos and controls.
-const TOURS = Object.freeze({ welcome: STEPS, "whats-new": WHATS_NEW.steps });
+// The welcome tour runs once on first install. Each release's What's new is
+// defined in whats-new.js and reuses the same coachmark, demos and controls.
+const TOURS = Object.freeze(Object.fromEntries([
+  ["welcome", STEPS],
+  ...WHATS_NEW_RELEASES.map((release) => [whatsNewTourId(release.version), release.steps])
+]));
+// The release before this one, offered at the end of its tour.
+const earlierRelease = (tour) => {
+  const index = WHATS_NEW_RELEASES.findIndex((release) => whatsNewTourId(release.version) === tour);
+  return index < 0 ? null : WHATS_NEW_RELEASES[index + 1] || null;
+};
 const tourSteps = (r) => TOURS[r.$onboardingTour] || STEPS;
 const tourStep = (r) => {
   const steps = tourSteps(r);
@@ -230,6 +240,7 @@ function clearTourDecorations(r, { preservePlayer = false } = {}) {
 }
 
 function applyStepNavigation(step) {
+  if (step.disclosure) openSettingsDisclosure(step.disclosure);
   runtimeState.open = Boolean(step.panel);
   if (step.panel) {
     runtimeState.activeTab = step.panel;
@@ -349,6 +360,15 @@ function createAddMusicExample(r) {
   return example;
 }
 
+// Ends one release's tour by offering the one before it, so someone who
+// missed an update can catch up without going to Settings.
+function earlierReleaseAction(r, release) {
+  const action = createElement("button", "hub-onboarding-earlier-release", `What’s new in ${shortVersion(release.version)}`);
+  action.type = "button";
+  action.addEventListener("click", () => r.$startOnboarding({ tour: whatsNewTourId(release.version), replay: true }));
+  return action;
+}
+
 function backupAction(r) {
   const action = createElement("button", "hub-onboarding-backup-action", "Backup");
   action.type = "button";
@@ -381,21 +401,38 @@ function onboardingSettingsCard(r) {
     restart.addEventListener("click", () => r.$startOnboarding({ replay: true, step: 0 }));
     actions.append(restart);
   }
-  if (WHATS_NEW.steps.length) card.append(whatsNewSettingsRow(r));
+  card.append(...whatsNewSettingsRows(r));
+  card.append(createPlaybackShortcutsHelp());
   return card;
 }
 
-function whatsNewSettingsRow(r) {
-  const copy = createSettingsRowCopy("What’s new", WHATS_NEW.summary);
+function whatsNewSettingsRow(r, release) {
+  const version = shortVersion(release.version);
+  const copy = createSettingsRowCopy(`What’s new in ${version}`, release.summary);
   const show = createElement("button", "hub-settings-action hub-onboarding-whats-new", "See What’s New");
   show.type = "button";
-  show.title = `Walk through the features added in Bandkit ${WHATS_NEW.version}.`;
-  show.addEventListener("click", () => r.$startOnboarding({ tour: "whats-new", replay: true }));
+  show.title = `Walk through the features added in Bandkit ${version}.`;
+  show.setAttribute("aria-label", `See what’s new in Bandkit ${version}`);
+  show.dataset.whatsNewVersion = release.version;
+  show.addEventListener("click", () => r.$startOnboarding({ tour: whatsNewTourId(release.version), replay: true }));
   const row = createElement("div", "hub-settings-row hub-settings-text-actions");
   const actions = createElement("div", "hub-settings-feedback-actions");
   actions.append(show);
   row.append(copy, actions);
   return row;
+}
+
+// The newest release stays in view; earlier ones collapse into one drawer so
+// the list stays short however many releases accumulate.
+function whatsNewSettingsRows(r) {
+  const [latest, ...earlier] = WHATS_NEW_RELEASES.filter((release) => release.steps.length);
+  if (!latest) return [];
+  if (!earlier.length) return [whatsNewSettingsRow(r, latest)];
+  const drawer = createSettingsDisclosure("Earlier updates", "", "whats-new-earlier");
+  // Opens in place like Keyboard shortcuts rather than as its own page.
+  drawer.group.classList.add("hub-visualizer-colour-disclosure", "hub-whats-new-earlier");
+  drawer.content.append(...earlier.map((release) => whatsNewSettingsRow(r, release)));
+  return [whatsNewSettingsRow(r, latest), drawer.group];
 }
 
 function targetForStep(r, step) {
@@ -539,7 +576,7 @@ function registerOnboardingRuntime(r) {
     const steps = tourSteps(r);
     r.$onboardingSessionStep = Math.max(0, Math.min(steps.length - 1, Number(step) || 0));
     if (!r.$onboardingReplay) runtimeState.onboardingStep = r.$onboardingSessionStep;
-    if (r.$onboardingTour === "whats-new") runtimeState.whatsNewSeenVersion = WHATS_NEW.version;
+    if (r.$onboardingTour === whatsNewTourId(WHATS_NEW.version)) runtimeState.whatsNewSeenVersion = WHATS_NEW.version;
     applyStepNavigation(steps[r.$onboardingSessionStep]);
     runtimeSaveState();
     if (render) r.$render();
@@ -554,7 +591,7 @@ function registerOnboardingRuntime(r) {
       || runtimeState.whatsNewSeenVersion === WHATS_NEW.version
       || (runtimeSeamless.enabled && runtimeSeamless.isPlaying)) return false;
     // Startup renders once the hub is ready, as it does for the welcome tour.
-    r.$startOnboarding({ tour: "whats-new", render: false });
+    r.$startOnboarding({ tour: whatsNewTourId(WHATS_NEW.version), render: false });
     return true;
   };
   // Continues a tour that opened this page for one of its steps. The note is
@@ -654,6 +691,7 @@ function registerOnboardingRuntime(r) {
     if (step.inlineDemo === "track-add") body.append(createAddMusicExample(r));
     if (step.choice === "kit") body.append(createKitControls(r));
     if (step.control === "download-format") body.append(createDownloadFormatControl(r));
+    if (step.control === "keyboard-shortcuts") body.append(createKeyboardShortcutsControl(r));
     if (step.control === "scale") body.append(createOnboardingScaleSettings(r), createOnboardingScaleSettings(r, { pages: false }));
     const footer = createElement("footer", "hub-onboarding-footer");
     const back = createElement("button", "hub-onboarding-back", "Back");
@@ -688,6 +726,8 @@ function registerOnboardingRuntime(r) {
     secondary.append(back, skip);
     const primaryNavigation = createElement("div", "hub-onboarding-primary-navigation");
     if (step.choice === "backup") primaryNavigation.append(backupAction(r));
+    const earlier = lastStep ? earlierRelease(r.$onboardingTour) : null;
+    if (earlier) primaryNavigation.append(earlierReleaseAction(r, earlier));
     primaryNavigation.append(next);
     footer.append(secondary, primaryNavigation);
     r.$onboardingDialog.classList.toggle("is-kit-step", step.choice === "kit");

@@ -693,6 +693,7 @@ r.$renderPlayer = function renderPlayer() {
       r.$scrubControl.classList.toggle("is-pending-seek", pendingFeedSeek || pendingClassicSeek);
       r.$scrubControl.setAttribute("aria-busy", String(playbackLoading));
       r.$scrubDuration = duration;
+      r.$scrubCurrentTime = currentTime;
       const queuedTracks = runtimeState.playlist.length
         ? runtimeState.playlist.length
         : runtimeSeamless.enabled && Array.isArray(runtimeSeamless.queue) && runtimeSeamless.queue.length
