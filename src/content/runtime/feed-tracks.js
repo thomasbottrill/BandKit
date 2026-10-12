@@ -588,7 +588,7 @@ export function setupFeedTracks(r) {
     if (track) void r.$playFeedAlbumTrack(track, host);
   }, true);
   document.addEventListener("keydown", (event) => {
-    if (event.key !== " " && event.key !== "Enter") return;
+    if (event.defaultPrevented || (event.key !== " " && event.key !== "Enter")) return;
     const control = event.target.closest(`.${FEED_ALBUM_CLASS} .bandkit-discover-tracks .play-col a`);
     if (control) { event.preventDefault(); control.click(); }
   });

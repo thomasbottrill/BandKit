@@ -21,6 +21,8 @@ assert.match(discoverSource, /closest\("#DiscoverApp \.bandkit-discover-tracks \
   "Discover's row click handler must stay scoped so feed rows handle their own playback");
 assert.match(discoverSource, /closest\("#DiscoverApp \.bandkit-discover-tracks \.play-col a, \[data-bandkit-discover-select\]"\)/,
   "Discover's keyboard handler must stay scoped to its own rows");
+assert.match(discoverSource, /document\.addEventListener\("keydown", \(event\) => \{\s*if \(event\.defaultPrevented\) return;/,
+  "Discover's row handler must not replay a Space shortcut already handled by the shared transport");
 assert.match(releaseCss, /:is\(#DiscoverApp, \.bandkit-feed-album, \.bandkit-collection-preview\) \.bandkit-discover-tracks/,
   "Shared track row visuals must cover feed album stories and collection previews");
 assert.match(interactionsCss, /:is\(#DiscoverApp, \.bandkit-feed-album, \.bandkit-collection-preview\) \.bandkit-discover-tracks/,
@@ -82,6 +84,8 @@ assert.match(source, /closest\(`\.\$\{FEED_ALBUM_CLASS\} \.bandkit-discover-trac
   "Feed row clicks must be handled only for feed album lists");
 assert.match(source, /closest\(`\.\$\{FEED_ALBUM_CLASS\} \.bandkit-discover-tracks \.play-col a`\)/,
   "Feed rows must support keyboard playback");
+assert.match(source, /document\.addEventListener\("keydown", \(event\) => \{\s*if \(event\.defaultPrevented \|\|/,
+  "Feed rows must not replay a Space shortcut already handled by the shared transport");
 assert.match(source, /closest\("\.bandkit-discover-track-actions, \.bandkit-feed-track-analyze"\)/,
   "The per-track analyze control must not start playback when clicked");
 assert.match(source, /MAX_CONCURRENT = 3/,

@@ -226,6 +226,7 @@ export function setupDiscoverTracks(r) {
     }
   }, true);
   document.addEventListener("keydown", (event) => {
+    if (event.defaultPrevented) return;
     if (!runtimeState.appearance.hideBandcampPlayer || (event.key !== " " && event.key !== "Enter")) return;
     const control = event.target.closest("#DiscoverApp .bandkit-discover-tracks .play-col a, [data-bandkit-discover-select]");
     if (control) { event.preventDefault(); control.click(); }

@@ -14,6 +14,8 @@ const handoff = fs.readFileSync(new URL("../src/content/runtime/dj-handoff.js", 
 assert.match(source, /#collection-items[\s\S]*#wishlist-items/, "collection and wishlist grids must share the preview behavior");
 assert.match(source, /async function playCollectionCard[\s\S]*?matchingPagePlaybackTrack[\s\S]*?SEAMLESS_PLAY_PAUSE[\s\S]*?playDiscoverReleaseTrack\(tracks\[0\], tracks\)/,
   "collection and wishlist artwork play must load the complete release, then toggle the current navigated track");
+assert.match(source, /const opened = await open\(card\);[\s\S]*?if \(!opened\) return;[\s\S]*?playDiscoverReleaseTrack\(tracks\[0\], tracks\)/,
+  "the first collection or wishlist artwork play click must continue into playback after the preview loads");
 assert.match(source, /event\.target\.closest\("\.item_link_play"\)[\s\S]*?preventDefault[\s\S]*?stopImmediatePropagation[\s\S]*?playCollectionCard\(r, card, selectedCard, preview, open\)/,
   "collection and wishlist artwork controls must not restart Bandcamp's native featured preview");
 assert.match(source, /event\.target\.closest\("\.bandkit-collection-overlay-action"\)\) return;/, "the artwork add and download controls must remain direct actions");
@@ -22,6 +24,10 @@ assert.match(source, /event\.stopImmediatePropagation\(\)[\s\S]*?toggle\(card\)/
 assert.match(source, /RESOLVE_DISCOVER_RELEASE/, "collection previews must reuse the Discover release resolver");
 assert.match(source, /\$createDiscoverTrackList\(release\)/, "collection previews must reuse the Discover track list");
 assert.match(source, /tracklist\.tabIndex = 0;/, "the independently scrolling collection track list must be keyboard reachable");
+assert.match(source, /keydown[\s\S]*?bandkit-collection-preview \.bandkit-discover-tracks \.play-col a[\s\S]*?preventDefault\(\)[\s\S]*?stopImmediatePropagation\(\)[\s\S]*?trackControl\.click\(\)/,
+  "Space on collection and wishlist track controls must play or pause instead of scrolling the preview");
+assert.match(source, /document\.addEventListener\("keydown", \(event\) => \{\s*if \(event\.defaultPrevented\) return;/,
+  "collection and wishlist rows must not replay a Space shortcut already handled by the shared transport");
 assert.match(source, /routePreviewWheel[\s\S]*?getBoundingClientRect\(\)\.top <= stickyTop \+ 1[\s\S]*?window\.scrollBy/, "wheel input over an unpinned preview must scroll the page until the panel is fully visible");
 assert.match(source, /bandkit-collection-preview-target/, "artwork must expose a dedicated track-preview target");
 assert.match(source, /tralbum-purchase-options-browser/, "the preview must reuse the Discover panel structure");

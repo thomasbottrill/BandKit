@@ -91,8 +91,13 @@ async function playCollectionCard(r, card, selectedCard, preview, open) {
     await r.$seamlessCommand(MESSAGES.SEAMLESS_PLAY_PAUSE);
     return;
   }
-  if (selectedCard !== card || !preview?.panel.isConnected) await open(card);
-  if (selectedCard !== card) return;
+  // Opening resolves the complete release before playback. The selectedCard
+  // argument describes the state before that await, so do not use it again or
+  // the first play click will always stop here and require a second click.
+  if (selectedCard !== card || !preview?.panel.isConnected) {
+    const opened = await open(card);
+    if (!opened) return;
+  }
   const tracks = r.$discoverReleaseTracks || [];
   if (tracks.length) await r.$playDiscoverReleaseTrack(tracks[0], tracks);
 }
@@ -218,7 +223,7 @@ export function setupCollectionPreview(r) {
   const open = async (card, focusPanel = false) => {
     const section = collectionSection(card);
     const url = releaseUrlFromCard(r, card);
-    if (!section || !url) return;
+    if (!section || !url) return false;
     const version = request += 1;
     selectedCard?.removeAttribute("data-bandkit-preview-selected");
     selectedCard = card;
@@ -244,13 +249,14 @@ export function setupCollectionPreview(r) {
         cache.set(url, release);
         if (cache.size > 24) cache.delete(cache.keys().next().value);
       }
-      if (version !== request || !preview?.panel.isConnected) return;
+      if (version !== request || !preview?.panel.isConnected) return false;
       r.$discoverReleaseTracks = release.tracks.filter((item) => r.$isReusableStreamUrl(item.url));
       r.$discoverRelease = release;
       renderRelease(release, card);
       preview.panel.setAttribute("aria-busy", "false");
+      return true;
     } catch {
-      if (version !== request || !preview?.panel.isConnected) return;
+      if (version !== request || !preview?.panel.isConnected) return false;
       const status = createElement("p", "bandkit-discover-tracklist-status", "Could not load tracks. ");
       const retry = createElement("button", "", "Retry");
       retry.type = "button";
@@ -258,6 +264,7 @@ export function setupCollectionPreview(r) {
       status.append(retry);
       preview.content.replaceChildren(status);
       preview.panel.setAttribute("aria-busy", "false");
+      return false;
     }
   };
   const toggle = (card, focusPanel = false) => selectedCard === card && preview?.panel.isConnected
@@ -297,8 +304,17 @@ export function setupCollectionPreview(r) {
   }, true);
 
   document.addEventListener("keydown", (event) => {
+    if (event.defaultPrevented) return;
     if (event.key !== "Enter" && event.key !== " ") return;
-    if (!(event.target instanceof Element)) return; const control = event.target.closest(".bandkit-collection-preview-target");
+    if (!(event.target instanceof Element)) return;
+    const trackControl = event.target.closest(".bandkit-collection-preview .bandkit-discover-tracks .play-col a");
+    if (trackControl) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      trackControl.click();
+      return;
+    }
+    const control = event.target.closest(".bandkit-collection-preview-target");
     if (!control || selectingDownloads()) return;
     event.preventDefault();
     event.stopImmediatePropagation();

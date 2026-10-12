@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createPlaybackShortcuts, setupPlaybackShortcuts, PLAYBACK_SHORTCUTS, SHORTCUTS_DISCLOSURE } from "../src/content/runtime/playback-shortcuts.js";
+import { createPlaybackShortcuts, focusAdjacentTrackControl, setupPlaybackShortcuts, PLAYBACK_SHORTCUTS, SHORTCUTS_DISCLOSURE } from "../src/content/runtime/playback-shortcuts.js";
 import { isSettingsDisclosureOpen } from "../src/content/settings-drawer.js";
 import { updateRuntimeSaveState, updateRuntimeState } from "../src/content/runtime/context.js";
 
@@ -38,8 +38,32 @@ for (const [key, extra] of [["ArrowDown", { shiftKey: true }], [" ", { shiftKey:
 const focusedButton = { composedPath: () => [{ matches: (selector) => selector.split(", ").includes("button") }] };
 assert.equal(press(" ", focusedButton), false, "Space presses a focused button rather than toggling playback");
 assert.equal(press("ArrowDown", focusedButton), true, "Arrows still work from a focused button");
+assert.deepEqual(take(), [["track", 1]]);
+const focusedTrackPlay = { composedPath: () => [{ matches: (selector) => selector.includes(".play-col > a") }] };
+assert.equal(press(" ", focusedTrackPlay), true,
+  "Space on a focused track row must use the shared transport instead of starting a duplicate row request");
+assert.deepEqual(take(), ["playPause"]);
 assert.equal(press("a"), false, "Unrelated keys are left alone");
 take();
+
+let focusedWith = null;
+let revealedWith = null;
+const nextControl = { focus(options) { focusedWith = options; } };
+const tracklist = { getBoundingClientRect: () => ({ top: 100, bottom: 500 }) };
+const nextRow = {
+  matches: (selector) => selector === ".track_row_view", querySelector: () => nextControl, nextElementSibling: null,
+  closest: () => tracklist, getBoundingClientRect: () => ({ top: 480, bottom: 540 }),
+  scrollIntoView(options) { revealedWith = options; }
+};
+const currentRow = { nextElementSibling: nextRow };
+const currentControl = { closest: (selector) => selector === ".track_row_view" ? currentRow : currentControl };
+assert.equal(focusAdjacentTrackControl(1, { activeElement: currentControl, defaultView: { innerHeight: 700 } }), true);
+assert.deepEqual(focusedWith, { preventScroll: true }, "Arrow navigation must move focus to the new row without scrolling");
+assert.deepEqual(revealedWith, { block: "nearest", inline: "nearest" }, "A track below the visible list must scroll into view");
+nextRow.getBoundingClientRect = () => ({ top: 300, bottom: 360 });
+revealedWith = null;
+assert.equal(focusAdjacentTrackControl(1, { activeElement: currentControl, defaultView: { innerHeight: 700 } }), true);
+assert.equal(revealedWith, null, "A track already visible must not move the page or preview");
 
 loaded = false;
 assert.equal(press("ArrowDown"), false, "With nothing loaded, the keys scroll the page as usual");

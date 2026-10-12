@@ -29,6 +29,37 @@ const KEY_OWNERS = [
 ].join(", ");
 // Space also presses whatever button has focus.
 const SPACE_OWNERS = `${KEY_OWNERS}, button, summary, [role='button'], [role='checkbox'], [role='switch']`;
+const TRACK_PLAY_CONTROL = ".play-col > a, .play-cell > a, .play_cell > a, [data-bandkit-track-play]";
+
+function revealTrackRow(row, root) {
+  const rect = row.getBoundingClientRect?.();
+  if (!rect) return;
+  const viewport = root.defaultView || globalThis.window;
+  const tracklistRect = row.closest?.(".bandkit-discover-tracklist")?.getBoundingClientRect?.();
+  const visibleTop = Math.max(0, tracklistRect?.top ?? 0);
+  const visibleBottom = Math.min(Number(viewport?.innerHeight) || Infinity, tracklistRect?.bottom ?? Infinity);
+  if (rect.top >= visibleTop && rect.bottom <= visibleBottom) return;
+  row.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+}
+
+// When an arrow shortcut starts from a track-row play button, keep keyboard
+// focus with the track that the shortcut selects. Otherwise the old row keeps
+// the focus ring and a following Space press activates that stale button.
+export function focusAdjacentTrackControl(step, root = document) {
+  const active = root.activeElement;
+  const control = active?.closest?.(TRACK_PLAY_CONTROL);
+  let row = control?.closest?.(".track_row_view");
+  if (!row) return false;
+  while ((row = step < 0 ? row.previousElementSibling : row.nextElementSibling)) {
+    if (!row.matches?.(".track_row_view")) continue;
+    const target = row.querySelector?.(TRACK_PLAY_CONTROL);
+    if (!target) continue;
+    target.focus({ preventScroll: true });
+    revealTrackRow(row, root);
+    return true;
+  }
+  return false;
+}
 
 function shortcutFor(event) {
   const { key, shiftKey } = event;
@@ -46,7 +77,10 @@ export function createPlaybackShortcuts({ isEnabled, hasTrack, playPause, change
   return (event) => {
     const shortcut = shortcutFor(event);
     if (!shortcut || event.defaultPrevented || event.isComposing || event.metaKey || event.ctrlKey || event.altKey) return;
-    if (event.composedPath().some((node) => node.isContentEditable || node.matches?.(shortcut.owners))) return;
+    const path = event.composedPath();
+    const focusedTrackPlay = shortcut.action === "playPause"
+      && path.some((node) => node.matches?.(TRACK_PLAY_CONTROL));
+    if (path.some((node) => node.isContentEditable || (!focusedTrackPlay && node.matches?.(shortcut.owners)))) return;
     if (!isEnabled() || (!shortcut.anytime && !hasTrack())) return;
     event.preventDefault();
     // Holding left or right scans through the track. Any other held key would
@@ -106,6 +140,7 @@ export function setupPlaybackShortcuts(r) {
     playPause: () => r.$playButton.click(),
     changeTrack: (step) => {
       pendingSeek = null;
+      focusAdjacentTrackControl(step);
       r.$player.querySelector(step < 0 ? ".hub-previous-button" : ".hub-next-button").click();
     },
     // Playback state trails a seek by a message round trip, so presses made

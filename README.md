@@ -1,6 +1,6 @@
 # Bandkit
 
-Current unpacked build: **1.3.0**
+Current unpacked build: **1.3.1**
 
 Bandkit is a Manifest V3 Chrome extension that places a movable, theme-aware listening panel on Bandcamp. Bandkit can sample each page’s background, text, and link colours, use a saved light, dark, or custom palette, and optionally apply that palette across Bandcamp itself.
 
@@ -44,7 +44,7 @@ The former Downloads and Recent Purchases prototype tabs were removed because th
 3. Enable **Developer mode**.
 4. Choose **Load unpacked** and select `dist/unpacked`, or press **Reload** on an existing Bandkit installation.
 5. Reload every Bandcamp tab that was already open.
-6. Confirm the extension card says **1.3.0**.
+6. Confirm the extension card says **1.3.1**.
 
 Open a streamable album page and press its normal Bandcamp play button. The audio should hand off to Bandkit automatically; the toolbar popup provides a single control to activate or deactivate the Bandkit panel on the current Bandcamp tab.
 
