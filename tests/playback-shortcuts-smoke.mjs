@@ -55,13 +55,16 @@ assert.ok(PLAYBACK_SHORTCUTS.some(([, keys]) => keys === "?"), "Help lists the k
 const element = () => ({ textContent: "", value: "0", clicks: 0, click() { this.clicks++; } });
 const previous = element(), next = element(), play = element();
 const finished = [];
-let listener = null, renders = 0, openState = null;
-globalThis.document = { addEventListener: (type, fn) => { listener = fn; }, removeEventListener() {} };
+let listener = null, listenerCapture = false, cleanup = null, removedWithCapture = false, renders = 0, openState = null;
+globalThis.document = {
+  addEventListener: (type, fn, capture) => { listener = fn; listenerCapture = capture; },
+  removeEventListener: (type, fn, capture) => { removedWithCapture = fn === listener && capture === true; }
+};
 const state = { keyboardShortcutsEnabled: true, open: false };
 updateRuntimeState(state);
 updateRuntimeSaveState(() => {});
 const r = {
-  $app: { registerCleanup() {} },
+  $app: { registerCleanup(fn) { cleanup = fn; } },
   $player: { classList: { contains: () => false }, querySelector: (selector) => selector === ".hub-next-button" ? next : previous },
   $playButton: play,
   $scrubDuration: 300, $scrubCurrentTime: 100, $scrubRevision: 0,
@@ -71,6 +74,7 @@ const r = {
   $saveLayoutState() {}, $render() { renders += 1; }, $setOpen(open) { openState = open; }
 };
 setupPlaybackShortcuts(r);
+assert.equal(listenerCapture, true, "Playback shortcuts must run in capture phase before page handlers can scroll on Space");
 const key = (name, extra = {}) => listener({ key: name, composedPath: () => [], preventDefault() {}, ...extra });
 const settle = async () => { for (const seek of finished.splice(0)) seek.resolve(); await new Promise((resolve) => setTimeout(resolve)); };
 key("ArrowRight"); key("ArrowRight"); key("ArrowLeft", { shiftKey: true });
@@ -99,5 +103,7 @@ assert.equal(openState, false, "? again closes it");
 state.keyboardShortcutsEnabled = false;
 key("ArrowDown");
 assert.equal(next.clicks, 1, "The Features switch turns the shortcuts off");
+cleanup();
+assert.equal(removedWithCapture, true, "Shortcut cleanup must remove the capture-phase listener");
 
 console.log("Playback shortcuts: track, seek, 30 s, digit, Space and ? keys, held keys, focus, editing, modifiers, clamping and the setting passed.");

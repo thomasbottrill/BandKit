@@ -222,6 +222,19 @@ function pauseNativeDiscover(r, track = null) {
       return true;
     }
 
+async function resolveDiscoverHandoffQueue(r, track) {
+  let releaseQueue = r.$discoverReleaseTracks || [];
+  let releaseTrack = r.$matchingPagePlaybackTrack?.(releaseQueue, track) || null;
+  if (releaseTrack || !r.$resolveFeedReleaseTracks) return { releaseQueue, releaseTrack };
+  const resolvedQueue = await r.$resolveFeedReleaseTracks(track);
+  const resolvedTrack = r.$matchingPagePlaybackTrack?.(resolvedQueue, track) || null;
+  if (resolvedTrack) {
+    releaseQueue = resolvedQueue;
+    releaseTrack = resolvedTrack;
+  }
+  return { releaseQueue, releaseTrack };
+}
+
 function registerPlayerHandoffs2(r) {
 r.$restoreFeedAudioMute = function restoreFeedAudioMute(trackId = "") {
       if (!r.$mutedFeedAudio || (trackId && r.$mutedFeedTrackId && String(trackId) !== r.$mutedFeedTrackId)) return;
@@ -370,7 +383,10 @@ r.$handoffDiscoverPlayer = async function handoffDiscoverPlayer() {
       r.$discoverPendingTrack = discover.track;
       r.$renderPlayer?.();
       try {
-        const prepared = await r.$prepareExternalNowPlaying(discover.track, r.$discoverReleaseTracks || [], { trustProvidedStreams: true });
+        // The artwork play button can start before Discover's generated
+        // tracklist has resolved, so make the full release part of the handoff.
+        const { releaseQueue, releaseTrack } = await resolveDiscoverHandoffQueue(r, discover.track);
+        const prepared = await r.$prepareExternalNowPlaying(releaseTrack || discover.track, releaseQueue, { trustProvidedStreams: true });
         if (prepared.index < 0) return false;
         if (r.$discoverTrackPlaybackActive || prepared.request !== r.$playlistPlayRequest) return false;
         const latestDiscover = r.$getDiscoverPlayerState();
@@ -464,7 +480,11 @@ r.$handoffFeedPlayer = async function handoffFeedPlayer(requestedTrackId = "") {
         // A story that carries Bandcamp's own signed stream starts straight
         // away, the way a release page does. Anything the page world could not
         // describe still falls back to resolving the release metadata.
-        const prepared = await r.$prepareExternalNowPlaying(feed.track, [], { trustProvidedStreams });
+        const visibleQueue = r.$feedAlbumQueueForTrack?.(feed.track) || [];
+        const resolvedQueue = visibleQueue.length
+          ? visibleQueue
+          : await r.$resolveFeedReleaseTracks?.(feed.track) || [];
+        const prepared = await r.$prepareExternalNowPlaying(feed.track, resolvedQueue, { trustProvidedStreams });
         if (handoffRequest !== r.$feedHandoffRequest) return false;
         if (prepared.index < 0) return false;
         if (prepared.request !== r.$playlistPlayRequest) return false;

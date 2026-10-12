@@ -651,7 +651,12 @@ document.addEventListener("click", (event) => {
       r.$feedNativeFallbackUntil = 0;
       r.$suppressedFeedTrackId = "";
       r.$releaseExplicitPlaybackClear();
-      const controlsCurrentSeamlessTrack = Boolean(runtimeSeamless.enabled && clickedTrackId === String(runtimeSeamless.track?.id || ""));
+      const storyTracklist = feedControl.closest(".story")?.querySelector(".bandkit-discover-tracklist");
+      const storyQueue = (storyTracklist && r.$feedAlbumQueues?.get(storyTracklist)) || [];
+      const controlsCurrentSeamlessTrack = Boolean(runtimeSeamless.enabled && (
+        clickedTrackId === String(runtimeSeamless.track?.id || "")
+        || r.$matchingPagePlaybackTrack?.(storyQueue, runtimeSeamless.track)
+      ));
       if (controlsCurrentSeamlessTrack) {
         event.preventDefault();
         event.stopImmediatePropagation();

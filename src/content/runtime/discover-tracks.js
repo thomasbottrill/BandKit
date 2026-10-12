@@ -204,12 +204,20 @@ export function setupDiscoverTracks(r) {
     const art = event.target.closest(".results-grid-item .image-container");
     const nativePlay = event.target.closest(".play-pause-button, .play-button");
     if (!art || (!nativePlay && event.target.closest("button, a"))) return;
+    const clickedUrl = releaseUrl(art.closest(".results-grid-item").querySelector(".content a.stretch-link[href], a.stretch-link[href], a[href]")?.href);
+    const currentReleaseTrack = r.$matchingPagePlaybackTrack?.(r.$discoverReleaseTracks, runtimeSeamless.track);
+    if (nativePlay && runtimeSeamless.enabled && currentReleaseTrack && clickedUrl === renderedUrl) {
+      event.preventDefault(); event.stopImmediatePropagation();
+      void r.$seamlessCommand(MESSAGES.SEAMLESS_PLAY_PAUSE);
+      r.$syncPagePlayerUi?.();
+      return;
+    }
     if (r.$discoverTrackPlaybackActive || r.$discoverHandoffBusy) r.$playlistPlayRequest += 1;
     if (r.$discoverHandoffBusy) r.$discoverHandoffPending = true;
     r.$discoverTrackPlaybackActive = false;
     r.$discoverPlaybackRequest += 1;
     r.$discoverPendingTrack = null;
-    selectedUrl = releaseUrl(art.closest(".results-grid-item").querySelector(".content a.stretch-link[href], a.stretch-link[href], a[href]")?.href);
+    selectedUrl = clickedUrl;
     schedule();
     // Discover updates its preview button after the click has propagated. Keep
     // the generated list in step with that native state during the handoff.

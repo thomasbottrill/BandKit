@@ -332,6 +332,14 @@ export function registerFeedTracks(r) {
     }
     return null;
   };
+  r.$feedAlbumQueueForTrack = (track) => {
+    if (!track) return [];
+    for (const host of document.querySelectorAll(`.${FEED_ALBUM_CLASS} ${TRACKLIST_SELECTOR}`)) {
+      const queue = r.$feedAlbumQueues.get(host) || [];
+      if (queue.some((item) => r.$matchingQueueTrack([item], track))) return queue;
+    }
+    return [];
+  };
   // The feed never starts automatic analysis; an album is only expanded when
   // the listener asks for it, one track at a time with bounded concurrency.
   r.$analyzeFeedAlbumTracks = async (host, { force = false } = {}) => {

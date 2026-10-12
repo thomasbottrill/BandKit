@@ -59,17 +59,22 @@ const timers = [];
 let mutation;
 const requests = [];
 const analyzed = [];
+const setupSeamless = { enabled: false, track: null };
+const setupCommands = [];
 const r = {
   $pageTrackAnalysisRequest: 0,
   $runtimeMessage: (message) => new Promise((resolve) => requests.push({ message, resolve })),
   $isReusableStreamUrl: (url) => Boolean(url),
   $ensurePageStyles() {},
   $applyPageActionTheme() {},
+  $matchingPagePlaybackTrack: (queue, track) => queue.find((item) => item.id === track?.id) || null,
+  $seamlessCommand: async (type) => { setupCommands.push(type); },
   $maybeAnalyzePageTracks() { analyzed.push(r.$discoverReleaseTracks.map((track) => track.id)); },
   $syncPagePlayerUi() {}
 };
 const context = vm.createContext({
-  URL, Date, Map, MESSAGES: { RESOLVE_DISCOVER_RELEASE: "resolve" },
+  URL, Date, Map, MESSAGES: { RESOLVE_DISCOVER_RELEASE: "resolve", SEAMLESS_PLAY_PAUSE: "play-pause" },
+  runtimeSeamless: setupSeamless,
   safeBandcampReleaseUrl: (url) => url || "",
   createElement: () => { const node = new Element(); elements.push(node); return node; },
   createTrackList: (release) => release,
@@ -124,6 +129,23 @@ assert.equal(requests.at(-1).message.pageUrl, "https://fixture.bandcamp.com/albu
 assert.equal(requests.length, 3, "Native artwork play also loads the track list despite stale native links");
 requests.at(-1).resolve(release("play-button")); await flush();
 assert.deepEqual(analyzed.at(-1), ["play-button"]);
+setupSeamless.enabled = true;
+setupSeamless.track = r.$discoverReleaseTracks[0];
+let artworkDefaultPrevented = false;
+let artworkPropagationStopped = false;
+listeners.click({
+  preventDefault: () => { artworkDefaultPrevented = true; },
+  stopImmediatePropagation: () => { artworkPropagationStopped = true; },
+  target: { closest: (selector) => {
+    if (selector === ".results-grid-item .image-container") return playArt;
+    if (selector === ".play-pause-button, .play-button" || selector === "button, a") return {};
+    return null;
+  } }
+});
+await flush();
+assert.equal(artworkDefaultPrevented, true, "The active release artwork must not restart Bandcamp's default preview");
+assert.equal(artworkPropagationStopped, true);
+assert.deepEqual(setupCommands, ["play-pause"], "The active release artwork must toggle the current Bandkit track");
 
 const playback = { enabled: false };
 const applied = [];
@@ -160,6 +182,8 @@ console.log("Discover native-play selection and competing playback request check
 // metadata and loading state must be rendered before that asynchronous work.
 const handoffSource = fs.readFileSync(new URL("../src/content/runtime/player-handoffs.js", import.meta.url), "utf8");
 const handoffBody = handoffSource.slice(handoffSource.indexOf("r.$handoffDiscoverPlayer ="), handoffSource.indexOf("\n}\n\nfunction registerPlayerHandoffs3"));
+const discoverQueueHelper = handoffSource.slice(handoffSource.indexOf("async function resolveDiscoverHandoffQueue"), handoffSource.indexOf("\nfunction registerPlayerHandoffs2"));
+const handoffProgram = `${discoverQueueHelper}\n${handoffBody}`;
 let finishPreparation;
 const nativeTrack = { id: "native", title: "Already audible", url: "https://t4.bcbits.com/native" };
 const handoffRenders = [];
@@ -170,13 +194,44 @@ const handoffRuntime = {
   $renderPlayer() { handoffRenders.push(this.$discoverPendingTrack); },
   $prepareExternalNowPlaying: () => new Promise((resolve) => { finishPreparation = resolve; })
 };
-vm.runInNewContext(handoffBody, { r: handoffRuntime, runtimeState: { dj: {} }, MESSAGES: {}, window: { setTimeout() {} } });
+vm.runInNewContext(handoffProgram, { r: handoffRuntime, runtimeState: { dj: {} }, MESSAGES: {}, window: { setTimeout() {} } });
 const handoff = handoffRuntime.$handoffDiscoverPlayer();
 assert.equal(handoffRenders[0], nativeTrack, "Native title and loading indicator render before queue preparation settles");
+await new Promise((resolve) => setImmediate(resolve));
 finishPreparation({ index: -1 });
 await handoff;
 assert.equal(handoffRuntime.$discoverPendingTrack, null, "Unsuccessful handoff releases its loading state");
 console.log("Discover native handoff displays track metadata before async preparation.");
+
+// Artwork playback can begin before the generated tracklist resolves. The
+// handoff must resolve that release and prepare the matching track inside the
+// complete queue, rather than creating a one-track queue.
+const coverTrack = { id: "native-cover", title: "Middle", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/album/cover", url: "https://t4.bcbits.com/native-cover" };
+const coverQueue = [
+  { id: "cover-1", title: "First", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/first", url: "https://t4.bcbits.com/first" },
+  { id: "cover-2", title: "Middle", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/middle", url: "https://t4.bcbits.com/middle" },
+  { id: "cover-3", title: "Last", artist: "Fixture", pageUrl: "https://fixture.bandcamp.com/track/last", url: "https://t4.bcbits.com/last" }
+];
+let coverPrepared = null;
+const coverRuntime = {
+  $playlistPlayRequest: 1,
+  $discoverReleaseTracks: [],
+  $getDiscoverPlayerState: () => ({ track: coverTrack, isPlaying: true }),
+  $isReusableStreamUrl: () => true,
+  $playlistTrackKey: (track) => track.id,
+  $matchingPagePlaybackTrack: (queue, requested) => queue.find((track) => track.title === requested.title) || null,
+  $resolveFeedReleaseTracks: async () => coverQueue,
+  $prepareExternalNowPlaying: async (track, queue) => {
+    coverPrepared = { track, queue };
+    return { index: -1, request: 1, queue: [] };
+  },
+  $renderPlayer() {}
+};
+vm.runInNewContext(handoffProgram, { r: coverRuntime, runtimeState: { dj: {} }, MESSAGES: {}, window: { setTimeout() {} } });
+await coverRuntime.$handoffDiscoverPlayer();
+assert.equal(coverPrepared.track.id, "cover-2", "Artwork playback must map the native preview to its resolved release track");
+assert.deepEqual(coverPrepared.queue, coverQueue, "Artwork playback must prepare the complete resolved release queue");
+console.log("Discover artwork playback resolves the complete release queue.");
 
 // Pausing audible native audio must cancel queue preparation before touching the
 // page control, whether the pause comes from the music bar or the matching row.
@@ -215,7 +270,7 @@ const racingRuntime = {
   $pageMediaCommand: () => { nativePauses++; },
   $applySeamlessState: () => { staleApplies++; }
 };
-vm.runInNewContext(handoffBody, { r: racingRuntime, runtimeState: { dj: {} }, MESSAGES: {}, window: { setTimeout() {} } });
+vm.runInNewContext(handoffProgram, { r: racingRuntime, runtimeState: { dj: {} }, MESSAGES: {}, window: { setTimeout() {} } });
 const racingHandoff = racingRuntime.$handoffDiscoverPlayer();
 await new Promise(resolve => setImmediate(resolve));
 activeNative = { ...nativeTrack, id: 'newer-album' };

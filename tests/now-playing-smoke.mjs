@@ -315,13 +315,13 @@ const fastResult = await Promise.race([
 releaseSlowPersistence();
 assert.ok(fastResult?.usedFreshStreams, "album playback must be ready while cross-tab persistence is still pending");
 context.persistNowPlayingSession = () => Promise.reject(new Error("Storage unavailable"));
-assert.equal((await prepareExternalNowPlaying(browseSourceQueue[1], browseSourceQueue, { trustProvidedStreams: true })).index, 0,
+assert.equal((await prepareExternalNowPlaying(browseSourceQueue[1], browseSourceQueue, { trustProvidedStreams: true })).index, 1,
   "a failed queue save must not prevent a fresh album stream from playing");
 context.persistNowPlayingSession = originalPersistSession;
 prepared = await prepareExternalNowPlaying(browseSourceQueue[1], browseSourceQueue, { trustProvidedStreams: true });
-assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["Page B", "Page C"],
-  "page-derived playback must replace prior history with the selected track and the tracks that follow it");
-assert.equal(prepared.index, 0);
+assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["Page A", "Page B", "Page C"],
+  "page-derived playback must preserve the complete tracklist around the selected track");
+assert.equal(prepared.index, 1);
 context.state.playlist = browseSourceQueue.map((item, index) => ({ ...item, playlistItemId: `advance-${index}` }));
 context.nowPlayingTransitionTrackKey = "";
 context.nowPlayingTransitionExpiresAt = 0;
@@ -334,9 +334,13 @@ context.seamless = {
 };
 let completedQueueSyncs = 0;
 context.syncActivePlaylistQueue = async () => { completedQueueSyncs += 1; };
+assert.equal(consumeCompletedNowPlayingItems(), false);
+assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["Page A", "Page B", "Page C"],
+  "page-derived browse queues must retain played tracks for Previous and the Up shortcut");
+context.state.playlistMode = "manual";
 assert.equal(consumeCompletedNowPlayingItems(), true);
 assert.deepEqual(Array.from(context.state.playlist, (item) => item.title), ["Page B", "Page C"],
-  "automatic advancement must remove completed tracks and preserve Up Next order");
+  "manually assembled Now Playing queues must still remove completed tracks and preserve Up Next order");
 assert.equal(completedQueueSyncs, 1,
   "automatic advancement must remove completed tracks from the offscreen queue as well as the visible queue");
 context.seamless = {
@@ -368,6 +372,7 @@ assert.equal(consumeCompletedNowPlayingItems(), false,
   "a stale ended snapshot must not clear a newly selected page queue");
 context.nowPlayingTransitionTrackKey = "";
 context.nowPlayingTransitionExpiresAt = 0;
+context.state.playlistMode = "browse";
 const oversizedSourceQueue = Array.from({ length: 501 }, (_, index) => ({
   id: `oversized-${index}`,
   title: `Oversized ${index}`,
@@ -377,10 +382,11 @@ const oversizedSourceQueue = Array.from({ length: 501 }, (_, index) => ({
 }));
 context.state.playlist = [];
 context.state.playlistMode = "browse";
-prepared = await prepareExternalNowPlaying(oversizedSourceQueue[500], oversizedSourceQueue);
-assert.equal(context.state.playlist.length, 1);
+prepared = await prepareExternalNowPlaying(oversizedSourceQueue[500], oversizedSourceQueue, { trustProvidedStreams: true });
+assert.equal(context.state.playlist.length, 500);
+assert.equal(context.state.playlist[0].title, "Oversized 1");
 assert.equal(prepared.queue[prepared.index]?.title, "Oversized 500",
-  "browse playback must retain only the selected track even when a page exposes a large source queue");
+  "browse playback must retain a bounded tracklist window that includes the selected track");
 assert.doesNotMatch(extractFunction("handoffPageAudio"), /MESSAGES\.SEAMLESS_PLAY_INDEX/,
   "classic Bandcamp page playback must rebuild queue provenance instead of bypassing it");
 assert.doesNotMatch(extractFunction("handoffPageAudio"), /silenceNativePagePlayback\(\)/,
@@ -396,8 +402,10 @@ assert.doesNotMatch(extractFunction("handoffModernPlayer"), /MESSAGES\.SEAMLESS_
 assert.doesNotMatch(extractFunction("handoffModernPlayer"), /silenceNativePagePlayback\(\)/,
   "modern page audio must remain audible until offscreen playback is ready");
 const discoverHandoffSource = extractFunction("handoffDiscoverPlayer");
-assert.match(discoverHandoffSource, /prepareExternalNowPlaying\(discover\.track, discoverReleaseTracks \|\| \[\], \{ trustProvidedStreams: true \}\)/,
-  "Discover playback must use its captured stream immediately instead of delaying the handoff for hydration");
+assert.match(source, /function resolveDiscoverHandoffQueue[\s\S]*?matchingPagePlaybackTrack[\s\S]*?resolveFeedReleaseTracks/,
+  "Discover artwork playback must resolve the native preview against the selected release");
+assert.match(discoverHandoffSource, /resolveDiscoverHandoffQueue\(r, discover\.track\)[\s\S]*?prepareExternalNowPlaying\(releaseTrack \|\| discover\.track, releaseQueue, \{ trustProvidedStreams: true \}\)/,
+  "Discover artwork playback must resolve and retain the selected release queue before handoff");
 assert.match(discoverHandoffSource, /const latestDiscover = getDiscoverPlayerState\(\);[\s\S]*?const handoffCurrentTime =[\s\S]*?currentTime: handoffCurrentTime/,
   "Discover playback must re-read the live playhead at the handoff boundary so seamless playback cannot rewind");
 assert.match(extractFunction("getModernPlayerState"), /floating-player:has\(\.track-meta\[streamurl\]\)/,

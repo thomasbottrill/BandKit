@@ -1,6 +1,6 @@
 import { createButtonIcon, createElement, safeBandcampReleaseUrl } from "../core.js";
 import { MESSAGES } from "../../shared/contracts.js";
-import { runtimeState } from "./context.js";
+import { runtimeSeamless, runtimeState } from "./context.js";
 
 const COLLECTION_CARD_SELECTOR = [
   '#collection-items .collection-grid[data-ismain="true"][data-iswish="false"] .collection-item-container',
@@ -83,13 +83,49 @@ function createPreviewDownload(card, release, track) {
   return download;
 }
 
+async function playCollectionCard(r, card, selectedCard, preview, open) {
+  const currentTrack = selectedCard === card
+    ? r.$matchingPagePlaybackTrack?.(r.$discoverReleaseTracks, runtimeSeamless.track)
+    : null;
+  if (runtimeSeamless.enabled && currentTrack) {
+    await r.$seamlessCommand(MESSAGES.SEAMLESS_PLAY_PAUSE);
+    return;
+  }
+  if (selectedCard !== card || !preview?.panel.isConnected) await open(card);
+  if (selectedCard !== card) return;
+  const tracks = r.$discoverReleaseTracks || [];
+  if (tracks.length) await r.$playDiscoverReleaseTrack(tracks[0], tracks);
+}
+
+function enhanceCollectionCards(r) {
+  for (const card of document.querySelectorAll(COLLECTION_CARD_SELECTOR)) {
+    if (card.dataset.bandkitPreviewBound === "true") continue;
+    const art = card.querySelector(".collection-item-art-container");
+    if (!art || !releaseUrlFromCard(r, card)) continue;
+    card.dataset.bandkitPreviewBound = "true";
+    const rememberWidth = () => card.style.setProperty("--bandkit-collection-card-width", `${card.getBoundingClientRect().width}px`);
+    card.addEventListener("pointerdown", rememberWidth, { passive: true });
+    card.addEventListener("dragstart", rememberWidth, { passive: true });
+    let previewControl = art.querySelector(".bandkit-collection-preview-target");
+    if (!previewControl) {
+      previewControl = createElement("button", "bandkit-collection-preview-target over-image");
+      previewControl.type = "button";
+      art.append(previewControl);
+    }
+    previewControl.setAttribute("aria-label", `Preview ${card.dataset.title || "release"} tracks`);
+    const nativePlay = art.querySelector(".item_link_play");
+    if (!nativePlay) continue;
+    nativePlay.setAttribute("role", "button"); nativePlay.setAttribute("aria-label", `Play ${card.dataset.title || "release"}`);
+    nativePlay.title = "Play";
+  }
+}
+
 export function setupCollectionPreview(r) {
   if (location.hostname !== "bandcamp.com") return;
   const grids = document.querySelector("#grids"); if (!grids) return;
 
   const cache = new Map(); let selectedCard = null, preview = null;
   let request = 0; const syncLayout = createPreviewLayoutSync(() => preview?.panel);
-
   const close = () => {
     request += 1; selectedCard?.removeAttribute("data-bandkit-preview-selected");
     selectedCard = null; preview?.panel.remove(); preview = null;
@@ -100,7 +136,6 @@ export function setupCollectionPreview(r) {
     r.$pageTrackAnalysisStatus = "idle";
     r.$pageTrackAnalysisSignature = "";
   };
-
   const renderRelease = (release, card) => {
     if (!preview) return;
     const track = release.tracks[0] || r.$collectionTrackFromCard(card);
@@ -180,7 +215,6 @@ export function setupCollectionPreview(r) {
     r.$ensurePageStyles(); r.$schedulePlaylistButtons?.();
     r.$maybeAnalyzePageTracks(); r.$syncPagePlayerUi();
   };
-
   const open = async (card, focusPanel = false) => {
     const section = collectionSection(card);
     const url = releaseUrlFromCard(r, card);
@@ -226,35 +260,11 @@ export function setupCollectionPreview(r) {
       preview.panel.setAttribute("aria-busy", "false");
     }
   };
-
   const toggle = (card, focusPanel = false) => selectedCard === card && preview?.panel.isConnected
     ? close()
     : void open(card, focusPanel);
 
-  const enhanceCards = () => {
-    for (const card of document.querySelectorAll(COLLECTION_CARD_SELECTOR)) {
-      if (card.dataset.bandkitPreviewBound === "true") continue;
-      const art = card.querySelector(".collection-item-art-container");
-      if (!art || !releaseUrlFromCard(r, card)) continue;
-      card.dataset.bandkitPreviewBound = "true";
-      const rememberWidth = () => card.style.setProperty("--bandkit-collection-card-width", `${card.getBoundingClientRect().width}px`);
-      card.addEventListener("pointerdown", rememberWidth, { passive: true });
-      card.addEventListener("dragstart", rememberWidth, { passive: true });
-      let previewControl = art.querySelector(".bandkit-collection-preview-target");
-      if (!previewControl) {
-        // Artwork targets share the page theme's transparent overlay exemption.
-        previewControl = createElement("button", "bandkit-collection-preview-target over-image");
-        previewControl.type = "button";
-        art.append(previewControl);
-      }
-      previewControl.setAttribute("aria-label", `Preview ${card.dataset.title || "release"} tracks`);
-      const nativePlay = art.querySelector(".item_link_play");
-      if (nativePlay) {
-        nativePlay.setAttribute("role", "button"); nativePlay.setAttribute("aria-label", `Play ${card.dataset.title || "release"}`);
-        nativePlay.title = "Play";
-      }
-    }
-  };
+  const enhanceCards = () => enhanceCollectionCards(r);
 
   document.addEventListener("click", (event) => {
     if (!(event.target instanceof Element)) return;
@@ -271,7 +281,11 @@ export function setupCollectionPreview(r) {
     if (!art || (selectingDownloads() && !event.target.closest(".item_link_play"))) return;
     if (event.target.closest(".item_link_play")) {
       const card = art.closest(".collection-item-container");
-      if (card && selectedCard !== card) void open(card); return;
+      if (!card) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void playCollectionCard(r, card, selectedCard, preview, open);
+      return;
     }
     if (event.target.closest(".bandkit-collection-overlay-action")) return;
     if (!event.target.closest(".bandkit-collection-preview-target") && event.target.closest("button, a")) return;

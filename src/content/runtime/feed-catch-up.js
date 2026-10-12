@@ -33,14 +33,15 @@ export function registerFeedCatchUp(r) {
   r.$setFeedCatchUp = (active, { restoreScroll = true } = {}) => {
     const next = Boolean(active);
     if (next === r.$feedCatchUpActive) return;
-    if (next) r.$feedCatchUpScrollY = window.scrollY;
+    const selectionScrollY = window.scrollY;
+    if (next) r.$feedCatchUpScrollY = selectionScrollY;
     r.$feedCatchUpActive = next;
     document.documentElement.toggleAttribute(RELEASE_FILTER_ATTRIBUTE, next);
     r.$syncFeedCatchUp();
 
     window.requestAnimationFrame(() => {
-      if (next) document.querySelector("#dash-container")?.scrollIntoView({ block: "start" });
-      else if (restoreScroll) window.scrollTo({ top: r.$feedCatchUpScrollY, behavior: "auto" });
+      const top = !next && restoreScroll ? r.$feedCatchUpScrollY : selectionScrollY;
+      window.scrollTo({ top, behavior: "auto" });
     });
   };
 }

@@ -12,7 +12,10 @@ const playerUi = fs.readFileSync(new URL("../src/content/runtime/page-player-ui.
 const handoff = fs.readFileSync(new URL("../src/content/runtime/dj-handoff.js", import.meta.url), "utf8");
 
 assert.match(source, /#collection-items[\s\S]*#wishlist-items/, "collection and wishlist grids must share the preview behavior");
-assert.match(source, /event\.target\.closest\("\.item_link_play"\)[\s\S]*?selectedCard !== card[\s\S]*?void open\(card\)/, "artwork play must also load its release into the preview without taking over playback");
+assert.match(source, /async function playCollectionCard[\s\S]*?matchingPagePlaybackTrack[\s\S]*?SEAMLESS_PLAY_PAUSE[\s\S]*?playDiscoverReleaseTrack\(tracks\[0\], tracks\)/,
+  "collection and wishlist artwork play must load the complete release, then toggle the current navigated track");
+assert.match(source, /event\.target\.closest\("\.item_link_play"\)[\s\S]*?preventDefault[\s\S]*?stopImmediatePropagation[\s\S]*?playCollectionCard\(r, card, selectedCard, preview, open\)/,
+  "collection and wishlist artwork controls must not restart Bandcamp's native featured preview");
 assert.match(source, /event\.target\.closest\("\.bandkit-collection-overlay-action"\)\) return;/, "the artwork add and download controls must remain direct actions");
 assert.match(source, /selectedCard === card && preview\?\.panel\.isConnected[\s\S]*?close\(\)/, "clicking the selected artwork must close its preview");
 assert.match(source, /event\.stopImmediatePropagation\(\)[\s\S]*?toggle\(card\)/, "artwork clicks must toggle the preview instead of starting native playback");

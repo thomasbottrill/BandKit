@@ -1242,18 +1242,18 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   }
 }
 
-/* Match the prominent Collection tab bar: a visible surface, generous targets,
-   and a strong active underline. Both views keep the native feed card layout. */
+/* Keep feed navigation quiet: labels and the active underline sit directly on
+   the page without introducing another surface or divider. */
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .bandkit-feed-filter {
   align-items: flex-end;
-  background: var(--bandkit-page-surface, #fff);
-  border-bottom: 1px solid var(--bandkit-release-line);
+  background: transparent;
+  border: 0;
   box-sizing: border-box;
   display: flex;
   grid-column: 1 / -1;
   grid-row: 1;
   min-height: 52px;
-  padding: 0 12px;
+  padding: 0 12px 0 88px;
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .bandkit-feed-filter-tabs {
@@ -1266,7 +1266,6 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   appearance: none;
   background: transparent !important;
   border: 0 !important;
-  border-bottom: 3px solid transparent !important;
   border-radius: 4px 4px 0 0;
   color: var(--bandkit-release-muted) !important;
   cursor: pointer;
@@ -1276,16 +1275,38 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
   line-height: 20px;
   min-height: 51px;
   padding: 15px 18px 13px;
+  position: relative;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .bandkit-feed-filter-tab:first-child {
+  padding-left: 0;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .bandkit-feed-filter-tab::after {
+  background: var(--bandkit-feed-accent);
+  bottom: 8px;
+  content: "";
+  height: 3px;
+  left: 18px;
+  opacity: 0;
+  position: absolute;
+  right: 18px;
+}
+
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .bandkit-feed-filter-tab:first-child::after {
+  left: 0;
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .bandkit-feed-filter-tab:not(.is-active):is(:hover, :focus-visible) {
-  background: var(--bandkit-page-accent-soft, color-mix(in srgb, var(--bandkit-feed-accent) 9%, transparent)) !important;
-  border-bottom-color: var(--bandkit-feed-accent) !important;
+  background: transparent !important;
   color: var(--bandkit-release-ink) !important;
 }
 
+html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .bandkit-feed-filter-tab.is-active::after {
+  opacity: 1;
+}
+
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .bandkit-feed-filter-tab.is-active {
-  border-bottom-color: var(--bandkit-feed-accent) !important;
   color: var(--bandkit-release-ink) !important;
 }
 
@@ -1296,6 +1317,19 @@ html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed :is(#stories-vm, #sidebar) {
   grid-row: 2;
+}
+
+@media (max-width: 720px) {
+  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .bandkit-feed-filter {
+    padding-left: 72px;
+  }
+}
+
+@media (max-width: 480px) {
+  html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"] body.feed .bandkit-feed-filter {
+    padding-left: 0;
+  }
+
 }
 
 html[data-bandkit-modern-page="true"][data-bandkit-modern-page-type="feed"][data-bandkit-feed-catch-up] body.feed #stories-vm .story:not(.nr) {

@@ -106,8 +106,8 @@ assert.match(source, /function feedStreamUrl\(trackId\)[\s\S]{0,260}?refreshFeed
   "a feed story must play the resolved media URL when one is cached and the signed redirect otherwise");
 assert.match(source, /function prefetchFeedStream[\s\S]*?RESOLVE_FEED_STREAMS[\s\S]*?resolvedUrl \}\)/,
   "hovering or focusing a feed story must resolve its signed redirect before the click");
-assert.match(source, /function handoffFeedPlayer[\s\S]*?trustProvidedStreams = isReusableStreamUrl\(feed\.track\.url\)[\s\S]*?prepareExternalNowPlaying\(feed\.track, \[\], \{ trustProvidedStreams \}\)/,
-  "a feed story carrying Bandcamp's signed stream must start without refetching its release page");
+assert.match(source, /function handoffFeedPlayer[\s\S]*?trustProvidedStreams = isReusableStreamUrl\(feed\.track\.url\)[\s\S]*?feedAlbumQueueForTrack[\s\S]*?resolveFeedReleaseTracks[\s\S]*?prepareExternalNowPlaying\(feed\.track, resolvedQueue, \{ trustProvidedStreams \}\)/,
+  "a feed story must preserve its release queue while reusing Bandcamp's signed stream");
 assert.match(source, /function feedHandoffInFlight[\s\S]*?feedHandoffStartedAt > 8000[\s\S]*?async function handoffFeedPlayer[\s\S]*?requested === feedHandoffInFlight\(\)[\s\S]*?feedHandoffRequest/,
   "a stalled feed handoff must be superseded rather than blocking every later story click");
 assert.match(source, /function scrubTarget\([^)]*\)[\s\S]*?pendingFeedTrackId \? getFeedPlayerState\(pendingFeedTrackId\)[\s\S]*?async function seekToScrubTarget[\s\S]*?if \(pendingFeedTrackId\)[\s\S]*?pendingFeedSeekRevision \+= 1[\s\S]*?if \(seamless\.enabled\)/,
@@ -144,13 +144,15 @@ assert.match(source, /const pendingFeedSeekQueued = pendingFeedSeekTrackId === S
   "stale state from the previous Feed track must not clear a queued fraction-only seek");
 assert.match(source, /const feedControl = onFeedPage \? event\.target\.closest\("\.track_play_auxiliary"\)[\s\S]*?event\.preventDefault\(\);[\s\S]*?event\.stopImmediatePropagation\(\);[\s\S]*?pendingFeedTrackId = clickedTrackId;[\s\S]*?scheduleFeedHandoff\(clickedTrackId\)/,
   "Feed play clicks must start Bandkit directly instead of launching a duplicate native stream");
+assert.match(source, /storyTracklist[\s\S]*?feedAlbumQueues[\s\S]*?matchingPagePlaybackTrack[\s\S]*?SEAMLESS_PLAY_PAUSE/,
+  "A Feed story play button must toggle the current album track after queue navigation instead of restarting its featured track");
 assert.match(source, /pendingFeedTrackId = clickedTrackId;[\s\S]*?getFeedPlayerState\(clickedTrackId\)[\s\S]*?updateRuntimeLive\([\s\S]*?hasPlaybackStarted: true[\s\S]*?syncFeedPagePlaybackUi\(\);[\s\S]*?renderPlayer\(\);[\s\S]*?scheduleFeedHandoff\(clickedTrackId\)/,
   "Feed clicks must populate the bottom player and card feedback before stream resolution begins");
 assert.match(source, /const pendingFeedState = pendingFeedLoading \? getFeedPlayerState\(pendingFeedTrackId\)[\s\S]*?const candidateTrack = pendingDiscoverTrack \|\| pendingFeedState\?\.track \|\| pendingClassicTrack \|\| live[\s\S]*?const displayTrack = presentation\.track \|\| candidateTrack[\s\S]*?Loading \$\{displayTrack\.title[\s\S]*?renderPlayerTrack\(r, displayTrack, hasCurrentTrack\)/,
   "incoming Feed metadata must stay pinned in the bottom player over stale playback messages");
 assert.match(source, /function renderPlayerTrack[\s\S]*?playerTitle\.textContent = hasCurrentTrack \? displayTrack\.title/,
   "the pinned Feed track must supply the rendered player title");
-assert.match(source, /Anything the page world could not[\s\S]*?prepareExternalNowPlaying\(feed\.track, \[\], \{ trustProvidedStreams \}\)/,
+assert.match(source, /Anything the page world could not[\s\S]*?prepareExternalNowPlaying\(feed\.track, resolvedQueue, \{ trustProvidedStreams \}\)/,
   "a feed story the page world cannot describe must still resolve its media URL from the release page");
 assert.match(source, /const preparedDuration = Number\(prepared\.queue\[prepared\.index\]\?\.duration\)[\s\S]*?pendingFeedSeekFraction \* preparedDuration[\s\S]*?const handoffCurrentTime/,
   "Feed handoff must translate an early seek fraction after resolved metadata supplies the duration");

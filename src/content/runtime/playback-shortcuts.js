@@ -120,6 +120,6 @@ export function setupPlaybackShortcuts(r) {
     },
     showHelp
   });
-  document.addEventListener("keydown", handleKeydown);
-  r.$app.registerCleanup(() => document.removeEventListener("keydown", handleKeydown));
+  document.addEventListener("keydown", handleKeydown, true);
+  r.$app.registerCleanup(() => document.removeEventListener("keydown", handleKeydown, true));
 }

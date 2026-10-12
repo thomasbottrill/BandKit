@@ -737,7 +737,16 @@ r.$prepareExternalNowPlaying = async function prepareExternalNowPlaying(track, s
         .map(r.$normalizePlaylistItem)
         .filter(Boolean);
       const sourceIndex = sourceItems.findIndex((item) => r.$playlistTracksMatch(item, incoming));
-      const replacement = sourceIndex >= 0 ? sourceItems.slice(sourceIndex) : [incoming];
+      // Page-derived queues keep the tracks on both sides of the selection so
+      // Previous and Next mean the same thing everywhere Bandcamp exposes a
+      // tracklist. For exceptionally large releases, retain the largest valid
+      // window that includes the selected track.
+      const sourceStart = sourceIndex < 0
+        ? -1
+        : Math.max(0, Math.min(sourceIndex, sourceItems.length - MAX_PLAYLIST_ITEMS));
+      const replacement = sourceStart >= 0
+        ? sourceItems.slice(sourceStart, sourceStart + MAX_PLAYLIST_ITEMS)
+        : [incoming];
       r.$nowPlayingTransitionTrackKey = r.$playlistTrackKey(incoming); r.$nowPlayingTransitionExpiresAt = Date.now() + 30_000;
       runtimeState.playlistMode = "browse"; runtimeState.playlist = r.$normalizePlaylist(replacement); r.$resetPlaylistShuffle(); r.$beginNowPlayingSessionRevision();
       runtimeSaveState();

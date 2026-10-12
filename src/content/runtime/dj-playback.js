@@ -881,7 +881,7 @@ r.$consumeCompletedNowPlayingItems = function consumeCompletedNowPlayingItems() 
         runtimeSaveState();
         return true;
       }
-      if (!runtimeSeamless.enabled || !runtimeSeamless.track || runtimeState.playlist.length < 2) return false;
+      if (!runtimeSeamless.enabled || !runtimeSeamless.track || runtimeState.playlist.length < 2 || runtimeState.playlistMode === "browse") return false;
       if (activeIndex <= 0 || !queueAligned) return false;
       runtimeState.playlist = r.$normalizePlaylist(runtimeState.playlist.slice(activeIndex));
       runtimeSaveState();
